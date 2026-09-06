@@ -1,0 +1,312 @@
+:root {
+  --bg: #0b1220;
+  --panel: #121a2b;
+  --panel-2: #182338;
+  --text: #e8eefc;
+  --muted: #9aa8c7;
+  --accent: #2dd4bf;
+  --accent-2: #5b9dff;
+  --danger: #fb7185;
+  --cloud: #38bdf8;
+  --local: #a3e635;
+  --border: rgba(255, 255, 255, 0.08);
+  font-family: "Segoe UI", system-ui, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: radial-gradient(circle at top, #16324d 0%, var(--bg) 42%);
+  color: var(--text);
+  min-height: 100vh;
+}
+
+h1,
+h2,
+h3 {
+  margin: 0 0 0.4rem;
+}
+
+p {
+  margin: 0 0 0.75rem;
+  color: var(--muted);
+}
+
+#app {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 1rem 1.25rem 2rem;
+}
+
+.topbar {
+  display: grid;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.brand h1 {
+  letter-spacing: 0.18em;
+  font-size: 1.4rem;
+}
+
+.stats,
+.resources {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem 1rem;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.resources li,
+.stats div {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.45rem 0.7rem;
+}
+
+.layout {
+  display: grid;
+  gap: 1rem;
+}
+
+.panel {
+  background: color-mix(in srgb, var(--panel) 88%, black);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 1rem;
+}
+
+.district-panel svg {
+  width: 100%;
+  max-height: 340px;
+  display: block;
+}
+
+.hex-label,
+.hex-number {
+  fill: #0b1220;
+  text-anchor: middle;
+  font-weight: 700;
+}
+
+.hex-label {
+  font-size: 11px;
+}
+
+.hex-number {
+  font-size: 22px;
+}
+
+.hex-active polygon {
+  stroke: #fff;
+  stroke-width: 3;
+}
+
+.dice-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin: 0.4rem 0 0.8rem;
+}
+
+.die {
+  width: 48px;
+  height: 48px;
+  border-radius: 10px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  display: grid;
+  place-items: center;
+  font-size: 1.4rem;
+  font-weight: 700;
+}
+
+.actions {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.btn {
+  appearance: none;
+  border: 1px solid var(--border);
+  background: var(--panel-2);
+  color: var(--text);
+  border-radius: 10px;
+  padding: 0.55rem 0.9rem;
+  cursor: pointer;
+  font: inherit;
+}
+
+.btn.primary {
+  background: var(--accent);
+  color: #06221e;
+  border-color: transparent;
+  font-weight: 700;
+}
+
+.btn.ghost {
+  background: transparent;
+}
+
+.btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.btn small {
+  display: block;
+  font-size: 0.78rem;
+  color: var(--muted);
+  font-weight: 400;
+}
+
+.hints {
+  min-height: 1.2em;
+  color: var(--accent);
+}
+
+.device-list {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.device-card {
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 0.75rem;
+}
+
+.device-card.is-cloud {
+  border-color: color-mix(in srgb, var(--cloud) 55%, transparent);
+}
+
+.device-card.is-local {
+  border-color: color-mix(in srgb, var(--local) 55%, transparent);
+}
+
+.device-effect,
+.device-cost,
+.device-status,
+.modal-detail {
+  margin: 0.25rem 0;
+  font-size: 0.9rem;
+}
+
+.device-open {
+  margin-top: 0.5rem;
+}
+
+.log-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  max-height: 280px;
+  overflow: auto;
+}
+
+.log-list li {
+  padding: 0.4rem 0;
+  border-bottom: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
+.log-round {
+  color: var(--accent-2);
+  font-weight: 700;
+  margin-right: 0.35rem;
+}
+
+.modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(4, 8, 16, 0.72);
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  z-index: 20;
+}
+
+.modal[hidden] {
+  display: none !important;
+}
+
+.modal-card {
+  width: min(520px, 100%);
+  background: #152036;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 1.2rem;
+}
+
+.choice-stack,
+.modal-card .btn {
+  width: 100%;
+  margin-bottom: 0.5rem;
+  text-align: left;
+}
+
+.score-list {
+  list-style: none;
+  padding: 0;
+}
+
+.score-list li,
+.score-total {
+  display: flex;
+  justify-content: space-between;
+  font-size: 1.05rem;
+  color: var(--text);
+}
+
+.score-total {
+  font-size: 1.3rem;
+  margin-top: 0.5rem;
+}
+
+@media (min-width: 960px) {
+  .topbar {
+    grid-template-columns: 1fr auto;
+  }
+
+  .resources {
+    grid-column: 1 / -1;
+  }
+
+  .layout {
+    grid-template-columns: 1.05fr 1.2fr;
+    grid-template-areas:
+      "district home"
+      "log home";
+  }
+
+  .district-panel {
+    grid-area: district;
+  }
+
+  .home-panel {
+    grid-area: home;
+  }
+
+  .log-panel {
+    grid-area: log;
+  }
+
+  .log-list {
+    max-height: 220px;
+  }
+}
+
+@media (min-width: 1100px) {
+  .device-list {
+    grid-template-columns: 1fr 1fr;
+  }
+}
