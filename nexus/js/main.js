@@ -26,16 +26,14 @@ window.Nexus = window.Nexus || {};
   function applyAppearance() {
     document.documentElement.setAttribute("data-theme", prefs.theme);
     document.documentElement.style.setProperty("--ui-scale", String(prefs.uiScale));
-    var toggle = document.getElementById("theme-toggle");
-    if (toggle) {
-      var isLight = prefs.theme === "light";
+    var isLight = prefs.theme === "light";
+    Array.prototype.forEach.call(document.querySelectorAll(".js-theme-toggle"), function (toggle) {
       toggle.setAttribute("data-on", isLight ? "true" : "false");
       toggle.setAttribute("aria-checked", isLight ? "true" : "false");
-    }
-    var slider = document.getElementById("ui-scale");
-    if (slider) {
+    });
+    Array.prototype.forEach.call(document.querySelectorAll(".js-ui-scale"), function (slider) {
       slider.value = String(prefs.uiScale);
-    }
+    });
     localStorage.setItem("nexus-theme", prefs.theme);
     localStorage.setItem("nexus-ui-scale", String(prefs.uiScale));
   }
@@ -133,7 +131,6 @@ window.Nexus = window.Nexus || {};
     var tray = document.querySelector(".card-tray");
     var dock = document.querySelector(".dock");
     var controls = document.querySelector(".map-controls");
-    var settings = document.getElementById("btn-settings");
     var top = 16;
     var bottom = 16;
     var left = 56;
@@ -162,10 +159,6 @@ window.Nexus = window.Nexus || {};
     left = Math.max(left, overlapInset(controls, "left") + 10);
     if (dock && !dock.hidden) {
       right = Math.max(right, overlapInset(dock, "right") + 12);
-    }
-    if (settings) {
-      top = Math.max(top, overlapInset(settings, "top") + 8);
-      right = Math.max(right, overlapInset(settings, "right") + 8);
     }
     return {
       x: left,
@@ -473,7 +466,13 @@ window.Nexus = window.Nexus || {};
   });
 
   document.getElementById("turn-row").addEventListener("click", function (event) {
+    var row = event.currentTarget;
     var chip = event.target.closest("[data-player-id]");
+    var canHover = window.matchMedia("(hover: hover)").matches;
+    if (!canHover && !row.classList.contains("is-open")) {
+      row.classList.add("is-open");
+      return;
+    }
     if (!chip || Nexus.isHotSeatShield(state) || state.turnPhase === "gameover") {
       return;
     }
@@ -764,38 +763,60 @@ window.Nexus = window.Nexus || {};
     refreshMapAfterChrome();
   }
 
-  document.getElementById("btn-settings").addEventListener("click", function (event) {
-    event.stopPropagation();
-    var panel = document.getElementById("settings-panel");
-    panel.hidden = !panel.hidden;
+  function closeSettingsPanels(exceptWrap) {
+    Array.prototype.forEach.call(document.querySelectorAll(".settings-wrap"), function (wrap) {
+      var panel = wrap.querySelector(".settings-panel");
+      if (panel && wrap !== exceptWrap) {
+        panel.hidden = true;
+      }
+    });
+  }
+
+  Array.prototype.forEach.call(document.querySelectorAll(".js-settings-btn"), function (btn) {
+    btn.addEventListener("click", function (event) {
+      event.stopPropagation();
+      var wrap = btn.closest(".settings-wrap");
+      var panel = wrap && wrap.querySelector(".settings-panel");
+      if (!panel) {
+        return;
+      }
+      closeSettingsPanels(wrap);
+      panel.hidden = !panel.hidden;
+    });
   });
 
-  document.getElementById("theme-toggle").addEventListener("click", function () {
-    this.classList.add("is-init");
-    prefs.theme = prefs.theme === "light" ? "dark" : "light";
-    applyAppearance();
+  Array.prototype.forEach.call(document.querySelectorAll(".js-theme-toggle"), function (toggle) {
+    toggle.addEventListener("click", function () {
+      this.classList.add("is-init");
+      prefs.theme = prefs.theme === "light" ? "dark" : "light";
+      applyAppearance();
+    });
   });
 
-  document.getElementById("ui-scale").addEventListener("input", function () {
-    setUiScale(this.value);
+  Array.prototype.forEach.call(document.querySelectorAll(".js-ui-scale"), function (slider) {
+    slider.addEventListener("input", function () {
+      setUiScale(this.value);
+    });
   });
 
-  document.querySelector(".scale-presets").addEventListener("click", function (event) {
-    var btn = event.target.closest("[data-ui-scale]");
-    if (!btn) {
-      return;
-    }
-    setUiScale(btn.getAttribute("data-ui-scale"));
+  Array.prototype.forEach.call(document.querySelectorAll(".scale-presets"), function (presets) {
+    presets.addEventListener("click", function (event) {
+      var btn = event.target.closest("[data-ui-scale]");
+      if (!btn) {
+        return;
+      }
+      setUiScale(btn.getAttribute("data-ui-scale"));
+    });
   });
 
   document.addEventListener("click", function (event) {
-    var wrap = document.querySelector(".settings-wrap");
-    var panel = document.getElementById("settings-panel");
-    if (!wrap || !panel || panel.hidden) {
-      return;
+    var insideSettings = event.target.closest(".settings-wrap");
+    if (!insideSettings) {
+      closeSettingsPanels(null);
     }
-    if (!wrap.contains(event.target)) {
-      panel.hidden = true;
+    var turnRow = document.getElementById("turn-row");
+    if (turnRow && !turnRow.contains(event.target)) {
+      turnRow.classList.remove("is-open");
     }
   });
 

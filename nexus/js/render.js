@@ -387,11 +387,20 @@ window.Nexus = window.Nexus || {};
           (isActive ? " is-active" : "") +
           '" style="--player-color:' +
           playerColor(player) +
+          ";--turn-i:" +
+          index +
           '" data-player-id="' +
           player.id +
-          '">' +
-          '<span class="dot"></span>' +
+          '" title="' +
           player.name +
+          '">' +
+          '<span class="turn-avatar">' +
+          (index + 1) +
+          "</span>" +
+          '<span class="turn-meta">' +
+          '<span class="turn-name">' +
+          player.name +
+          "</span>" +
           '<span class="turn-alignment">' +
           alignment +
           standardLabel +
@@ -400,7 +409,7 @@ window.Nexus = window.Nexus || {};
           zoneCount +
           " Zone" +
           (zoneCount === 1 ? "" : "n") +
-          "</span></button>"
+          "</span></span></button>"
         );
       })
       .join("");

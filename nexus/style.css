@@ -117,7 +117,7 @@ button {
   top: 0;
   left: 0;
   right: 0;
-  z-index: 5;
+  z-index: 7;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -1333,6 +1333,7 @@ button {
 /* ---------- Setup-Screen ---------- */
 
 .setup-card {
+  position: relative;
   width: min(460px, 100%);
 }
 
@@ -1367,16 +1368,24 @@ button {
 /* ---------- Zug-/Spieler-Anzeige ---------- */
 
 .turn-row {
-  display: flex;
-  gap: 0.4rem;
-  flex-wrap: wrap;
+  position: relative;
+  width: 2.1rem;
+  height: 2.1rem;
+  flex: 0 0 auto;
+  z-index: 8;
 }
 
 .turn-chip {
+  position: absolute;
+  left: 0;
+  top: calc(var(--turn-i, 0) * 0.72rem);
   display: flex;
   align-items: center;
-  gap: 0.35rem;
-  padding: 0.35rem 0.6rem;
+  width: max-content;
+  max-width: 2.1rem;
+  height: 2.1rem;
+  padding: 0;
+  overflow: hidden;
   border-radius: 999px;
   background: var(--glass);
   border: 1px solid var(--glass-edge);
@@ -1384,27 +1393,72 @@ button {
   font-size: 0.82rem;
   color: var(--ink-dim);
   cursor: pointer;
-  transition: transform var(--duration-fast) var(--ease-smooth-out), border-color var(--duration-fast) var(--ease-smooth-out), color var(--duration-fast) var(--ease-smooth-out);
+  z-index: calc(4 - var(--turn-i, 0));
+  backdrop-filter: blur(12px);
+  transition:
+    top var(--duration-fast) var(--ease-smooth-out),
+    max-width var(--duration-fast) var(--ease-smooth-out),
+    border-color var(--duration-fast) var(--ease-smooth-out),
+    color var(--duration-fast) var(--ease-smooth-out),
+    box-shadow var(--duration-fast) var(--ease-smooth-out);
 }
 
-.turn-chip:hover {
-  color: var(--ink);
-  border-color: var(--player-color, var(--cyan));
-}
-
-.turn-chip .dot {
-  width: 9px;
-  height: 9px;
+.turn-avatar {
+  flex: 0 0 2.1rem;
+  width: 2.1rem;
+  height: 2.1rem;
+  display: grid;
+  place-items: center;
   border-radius: 50%;
   background: var(--player-color, var(--cyan));
-  box-shadow: none;
+  color: var(--btn-primary-ink);
+  font-size: 0.78rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.turn-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  max-width: 0;
+  opacity: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  padding-right: 0;
+  transition:
+    max-width var(--duration-fast) var(--ease-smooth-out),
+    opacity var(--duration-quick) var(--ease-smooth-out),
+    padding-right var(--duration-fast) var(--ease-smooth-out);
+}
+
+.turn-row:is(:hover, :focus-within, .is-open) .turn-chip {
+  top: calc(var(--turn-i, 0) * 2.35rem);
+  max-width: 18rem;
+  color: var(--ink);
+}
+
+.turn-row:is(:hover, :focus-within, .is-open) .turn-meta {
+  max-width: 16rem;
+  opacity: 1;
+  padding-right: 0.65rem;
+}
+
+.turn-chip:hover,
+.turn-chip:focus-visible {
+  color: var(--ink);
+  border-color: var(--player-color, var(--cyan));
 }
 
 .turn-chip.is-active {
   color: var(--ink);
   border-color: var(--player-color, var(--cyan));
-  background: rgba(255, 255, 255, 0.08);
-  transform: translateY(-1px);
+  z-index: 5;
+  box-shadow: 0 0 0 1px var(--player-color, var(--cyan));
+}
+
+.turn-name {
+  font-weight: 600;
 }
 
 .turn-chip .zone-count {
@@ -1655,10 +1709,21 @@ button {
 }
 
 .settings-wrap {
-  position: fixed;
-  top: 0.55rem;
-  right: 0.7rem;
-  z-index: 45;
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.settings-wrap--card {
+  position: absolute;
+  top: 0.85rem;
+  right: 0.85rem;
+  z-index: 2;
+}
+
+.settings-wrap--hud .map-btn {
+  width: 34px;
+  height: 34px;
+  min-height: 34px;
 }
 
 .settings-panel {
@@ -1801,5 +1866,10 @@ button {
   .is-spinning .gacha-needle,
   .float-gain {
     animation: none !important;
+  }
+
+  .turn-chip,
+  .turn-meta {
+    transition: none !important;
   }
 }
