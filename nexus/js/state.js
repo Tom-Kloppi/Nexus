@@ -3,6 +3,7 @@ window.Nexus = window.Nexus || {};
 (function (Nexus) {
   var C = Nexus.CONSTANTS;
   var KEYS = Nexus.RESOURCE_KEYS;
+  var ZONE_TYPES = Nexus.ZONE_TYPES;
 
   function emptyResources() {
     var res = {};
@@ -20,8 +21,8 @@ window.Nexus = window.Nexus || {};
     return next;
   }
 
-  function addLog(state, text) {
-    var log = [{ round: state.round, text: text }].concat(state.log);
+  function addLog(state, playerName, text) {
+    var log = [{ round: state.round, playerName: playerName, text: text }].concat(state.log);
     if (log.length > C.LOG_LIMIT) {
       log = log.slice(0, C.LOG_LIMIT);
     }
@@ -98,10 +99,35 @@ window.Nexus = window.Nexus || {};
     return Object.assign({}, device.costs[mode]);
   }
 
+  /* ---------- Spieler-Helfer ---------- */
+
+  function currentPlayer(state) {
+    return state.players[state.currentPlayerIndex];
+  }
+
+  function replacePlayer(state, playerId, patch) {
+    var players = state.players.map(function (player) {
+      if (player.id !== playerId) {
+        return player;
+      }
+      return Object.assign({}, player, patch);
+    });
+    return Object.assign({}, state, { players: players });
+  }
+
+  function playerZones(state, playerId) {
+    return state.zones.filter(function (zone) {
+      return zone.ownerId === playerId;
+    });
+  }
+
+  /* ---------- Geräte ---------- */
+
   function getBuildOffer(state, deviceId, mode, options) {
     options = options || {};
+    var player = currentPlayer(state);
     var device = Nexus.DEVICES_BY_ID[deviceId];
-    var currentMode = state.devices[deviceId];
+    var currentMode = player.devices[deviceId];
     var offer = {
       allowed: false,
       reason: "",
@@ -115,7 +141,7 @@ window.Nexus = window.Nexus || {};
       offer.reason = "Ungültige Auswahl.";
       return offer;
     }
-    if (state.phase !== "build" && !options.ignorePhase) {
+    if (state.turnPhase !== "build" && !options.ignorePhase) {
       offer.reason = "Jetzt kann nicht gebaut werden.";
       return offer;
     }
@@ -132,11 +158,11 @@ window.Nexus = window.Nexus || {};
     }
 
     var cost = rawBuildCost(device, mode, currentMode);
-    if (state.hubDiscountPending) {
+    if (player.hubDiscountPending) {
       cost = applyHubDiscount(cost);
       offer.usedHubDiscount = true;
     }
-    if (state.localHardwareDiscountPending && mode === "local" && (cost.hardware || 0) > 0) {
+    if (player.localHardwareDiscountPending && mode === "local" && (cost.hardware || 0) > 0) {
       cost = Object.assign({}, cost);
       cost.hardware -= 1;
       if (cost.hardware <= 0) {
@@ -146,7 +172,7 @@ window.Nexus = window.Nexus || {};
     }
 
     offer.cost = cost;
-    if (!canAfford(state.resources, cost)) {
+    if (!canAfford(player.resources, cost)) {
       offer.reason = "Nicht genug Ressourcen.";
       return offer;
     }
@@ -167,63 +193,92 @@ window.Nexus = window.Nexus || {};
     return 1;
   }
 
-  function pickEvent(state) {
+  function pickEvent(player) {
     var eligible = Nexus.EVENTS.filter(function (event) {
       if (!event.requiresCloudCamera) {
         return true;
       }
-      return state.devices.camera === "cloud";
+      return player.devices.camera === "cloud";
     });
     return eligible[Math.floor(Math.random() * eligible.length)];
   }
 
-  function bandWeightTotal() {
-    return C.PRODUCTION_BANDS.reduce(function (sum, band) {
-      return sum + band.weight;
+  /* ---------- Fabrik-Produktion (Abschnitt 3.2 / 3.3) ---------- */
+
+  function diceWeightTotal() {
+    return Nexus.PRODUCTION_DICE.reduce(function (sum, die) {
+      return sum + die.weight;
     }, 0);
   }
 
-  function expectedYieldPerPlot() {
-    var total = bandWeightTotal();
-    var weighted = C.PRODUCTION_BANDS.reduce(function (sum, band) {
-      return sum + band.amount * band.weight;
+  function rollProductionDie() {
+    var total = diceWeightTotal();
+    var pick = Math.random() * total;
+    var i;
+    for (i = 0; i < Nexus.PRODUCTION_DICE.length; i++) {
+      pick -= Nexus.PRODUCTION_DICE[i].weight;
+      if (pick <= 0) {
+        return Nexus.PRODUCTION_DICE[i];
+      }
+    }
+    return Nexus.PRODUCTION_DICE[Nexus.PRODUCTION_DICE.length - 1];
+  }
+
+  function yieldAmount(base, modifier) {
+    return Math.max(1, base + modifier);
+  }
+
+  function expectedYieldForBase(base) {
+    var total = diceWeightTotal();
+    var weighted = Nexus.PRODUCTION_DICE.reduce(function (sum, die) {
+      return sum + yieldAmount(base, die.modifier) * die.weight;
     }, 0);
     return weighted / total;
   }
 
-  function rollProductionBand() {
-    var pick = Math.random() * bandWeightTotal();
-    var i;
-    for (i = 0; i < C.PRODUCTION_BANDS.length; i++) {
-      pick -= C.PRODUCTION_BANDS[i].weight;
-      if (pick <= 0) {
-        return C.PRODUCTION_BANDS[i];
-      }
+  function produceForZoneType(zoneTypeId, modifier) {
+    var typeDef = ZONE_TYPES[zoneTypeId];
+    var result = {
+      primary: { resource: typeDef.primary, amount: yieldAmount(typeDef.primaryBase, modifier) }
+    };
+    if (typeDef.secondary) {
+      result.secondary = {
+        resource: typeDef.secondary,
+        amount: yieldAmount(typeDef.secondaryBase, modifier)
+      };
     }
-    return C.PRODUCTION_BANDS[C.PRODUCTION_BANDS.length - 1];
+    return result;
   }
 
   function expectedByResource(state) {
     var expected = emptyResources();
-    var per = expectedYieldPerPlot();
-    state.plots.forEach(function (plot) {
-      expected[plot.resource] += per;
+    var player = currentPlayer(state);
+    if (!player) {
+      return expected;
+    }
+    playerZones(state, player.id).forEach(function (zone) {
+      var typeDef = ZONE_TYPES[zone.type];
+      expected[typeDef.primary] += expectedYieldForBase(typeDef.primaryBase);
+      if (typeDef.secondary) {
+        expected[typeDef.secondary] += expectedYieldForBase(typeDef.secondaryBase);
+      }
     });
     return expected;
   }
 
-  function plotAt(state, q, r) {
+  function zoneAt(state, q, r) {
     var found = null;
-    state.plots.forEach(function (plot) {
-      if (plot.q === q && plot.r === r) {
-        found = plot;
+    state.zones.forEach(function (zone) {
+      if (zone.q === q && zone.r === r) {
+        found = zone;
       }
     });
     return found;
   }
 
   function isExpandableSlot(state, q, r) {
-    if (plotAt(state, q, r)) {
+    var player = currentPlayer(state);
+    if (!player || zoneAt(state, q, r)) {
       return false;
     }
     var inside = Nexus.allSlots(C.HEX_RADIUS).some(function (slot) {
@@ -235,13 +290,15 @@ window.Nexus = window.Nexus || {};
     if (!C.EXPAND_REQUIRES_ADJACENT) {
       return true;
     }
-    return state.plots.some(function (plot) {
-      return Nexus.isAdjacent(plot, { q: q, r: r });
+    return playerZones(state, player.id).some(function (zone) {
+      return Nexus.isAdjacent(zone, { q: q, r: r });
     });
   }
 
   function getExpandCost(state) {
-    var extra = Math.max(0, state.plots.length - C.START_PLOT_COUNT);
+    var player = currentPlayer(state);
+    var owned = player ? playerZones(state, player.id).length : 0;
+    var extra = Math.max(0, owned - C.START_ZONE_COUNT);
     var cost = { hardware: 2 + extra };
     if (extra >= 1) {
       cost.energy = 1;
@@ -252,21 +309,22 @@ window.Nexus = window.Nexus || {};
     return cost;
   }
 
-  function getExpandOffer(state, q, r, resource) {
+  function getExpandOffer(state, q, r, zoneType) {
     var offer = { allowed: false, reason: "", cost: getExpandCost(state) };
-    if (state.phase !== "build") {
+    var player = currentPlayer(state);
+    if (state.turnPhase !== "build") {
       offer.reason = "Erweitern nur in der Bauphase.";
       return offer;
     }
-    if (KEYS.indexOf(resource) === -1) {
-      offer.reason = "Ungültige Ressource.";
+    if (Nexus.ZONE_TYPE_KEYS.indexOf(zoneType) === -1) {
+      offer.reason = "Ungültiger Zonentyp.";
       return offer;
     }
     if (!isExpandableSlot(state, q, r)) {
       offer.reason = "Dieses Feld kann nicht bebaut werden.";
       return offer;
     }
-    if (!canAfford(state.resources, offer.cost)) {
+    if (!canAfford(player.resources, offer.cost)) {
       offer.reason = "Nicht genug Ressourcen.";
       return offer;
     }
@@ -274,33 +332,38 @@ window.Nexus = window.Nexus || {};
     return offer;
   }
 
-  function buyPlot(state, q, r, resource) {
-    var offer = getExpandOffer(state, q, r, resource);
+  function buyZone(state, q, r, zoneType) {
+    var offer = getExpandOffer(state, q, r, zoneType);
     if (!offer.allowed) {
       return state;
     }
-    var plots = state.plots.concat([
+    var player = currentPlayer(state);
+    var zones = state.zones.concat([
       {
-        id: "plot-" + q + "-" + r + "-" + state.plots.length,
+        id: "zone-" + q + "-" + r,
         q: q,
         r: r,
-        resource: resource,
-        lastBand: null,
-        lastAmount: 0,
-        harvested: true
+        type: zoneType,
+        ownerId: player.id,
+        harvested: true, /* erst ab nächster Runde produktiv */
+        lastYield: null
       }
     ]);
-    return Object.assign({}, state, {
-      plots: plots,
-      resources: subtractCost(state.resources, offer.cost),
-      log: addLog(
-        state,
-        "Feld erweitert: " + Nexus.RESOURCE_LABELS[resource] + " für " + formatCost(offer.cost) + "."
-      )
+    var nextPlayer = Object.assign({}, player, {
+      resources: subtractCost(player.resources, offer.cost)
     });
+    var next = replacePlayer(Object.assign({}, state, { zones: zones }), player.id, nextPlayer);
+    next.log = addLog(
+      next,
+      player.name,
+      "Zone erweitert: " + ZONE_TYPES[zoneType].label + " für " + formatCost(offer.cost) + "."
+    );
+    return next;
   }
 
-  function createInitialState() {
+  /* ---------- Spielaufbau ---------- */
+
+  function createEmptyPlayer(id, name, colorIndex) {
     var resources = emptyResources();
     KEYS.forEach(function (key) {
       resources[key] = C.START_RESOURCES;
@@ -309,25 +372,12 @@ window.Nexus = window.Nexus || {};
     Nexus.DEVICES.forEach(function (device) {
       devices[device.id] = null;
     });
-    var plots = Nexus.START_PLOTS.map(function (plot, index) {
-      return {
-        id: "plot-start-" + index,
-        q: plot.q,
-        r: plot.r,
-        resource: plot.resource,
-        lastBand: null,
-        lastAmount: 0,
-        harvested: false
-      };
-    });
     return {
-      round: 1,
-      phase: "produce",
+      id: id,
+      name: name,
+      colorIndex: colorIndex,
       resources: resources,
       devices: devices,
-      plots: plots,
-      spinningPlotId: null,
-      spinningOutcome: null,
       risk: 0,
       efficiencyPoints: 0,
       innovationBonus: 0,
@@ -337,143 +387,212 @@ window.Nexus = window.Nexus || {};
       roundModifiers: { cloudDisabled: false, cloudHalfEffect: false },
       pendingEvent: null,
       lastProduction: emptyResources(),
-      lastGain: null,
-      log: [{ round: 1, text: "Tippe ein Feld an, um zu ernten." }]
+      lastGain: null
+    };
+  }
+
+  function createSetupState() {
+    return {
+      screen: "setup",
+      playerCount: 3,
+      gameLengthId: "standard"
+    };
+  }
+
+  function startGame(playerCount, gameLengthId) {
+    var gameLength =
+      Nexus.GAME_LENGTHS.filter(function (g) {
+        return g.id === gameLengthId;
+      })[0] || Nexus.GAME_LENGTHS[1];
+
+    var players = [];
+    var zones = [];
+    var i;
+    for (i = 0; i < playerCount; i++) {
+      var id = "p" + (i + 1);
+      players.push(createEmptyPlayer(id, "Spieler " + (i + 1), i));
+      Nexus.START_ZONE_LAYOUT[i].forEach(function (spec, idx) {
+        zones.push({
+          id: "zone-" + spec.q + "-" + spec.r,
+          q: spec.q,
+          r: spec.r,
+          type: spec.type,
+          ownerId: id,
+          harvested: false,
+          lastYield: null
+        });
+      });
+    }
+
+    return {
+      screen: "game",
+      round: 1,
+      maxRounds: gameLength.rounds,
+      gameLengthLabel: gameLength.label,
+      currentPlayerIndex: 0,
+      turnPhase: "produce",
+      spinningZoneId: null,
+      spinningOutcome: null,
+      players: players,
+      zones: zones,
+      finalScores: null,
+      log: [
+        {
+          round: 1,
+          playerName: null,
+          text: "Neues Spiel: " + playerCount + " Spieler, " + gameLength.rounds + " Runden. Spieler 1 beginnt."
+        }
+      ]
     };
   }
 
   function remainingHarvestCount(state) {
-    return state.plots.filter(function (plot) {
-      return !plot.harvested;
+    var player = currentPlayer(state);
+    if (!player) {
+      return 0;
+    }
+    return playerZones(state, player.id).filter(function (zone) {
+      return !zone.harvested;
     }).length;
   }
 
   function advanceAfterHarvest(state) {
     if (remainingHarvestCount(state) > 0) {
       return Object.assign({}, state, {
-        phase: "produce",
-        spinningPlotId: null,
+        turnPhase: "produce",
+        spinningZoneId: null,
         spinningOutcome: null
       });
     }
 
+    var player = currentPlayer(state);
     var gained = KEYS.filter(function (key) {
-      return state.lastProduction[key] > 0;
+      return player.lastProduction[key] > 0;
     })
       .map(function (key) {
-        return "+" + state.lastProduction[key] + " " + Nexus.RESOURCE_SHORT[key];
+        return "+" + player.lastProduction[key] + " " + Nexus.RESOURCE_SHORT[key];
       })
       .join(", ");
     var next = Object.assign({}, state, {
-      phase: "build",
-      spinningPlotId: null,
-      spinningOutcome: null,
-      log: addLog(state, gained ? "Ernte abgeschlossen: " + gained + "." : "Ernte ohne Ertrag.")
+      turnPhase: "build",
+      spinningZoneId: null,
+      spinningOutcome: null
     });
+    next.log = addLog(
+      next,
+      player.name,
+      gained ? "Produktion abgeschlossen: " + gained + "." : "Produktion ohne Ertrag."
+    );
 
-    if (state.round % C.EVENT_EVERY_N_ROUNDS === 0) {
-      next.phase = "event";
-      next.pendingEvent = pickEvent(next);
-      next.log = addLog(next, "Ereignis: " + next.pendingEvent.title + ".");
+    if (state.round % C.EVENT_EVERY_N_TURNS === 0) {
+      var event = pickEvent(player);
+      next = replacePlayer(next, player.id, Object.assign({}, player, { pendingEvent: event }));
+      next.turnPhase = "event";
+      next.log = addLog(next, player.name, "Ereignis: " + event.title + ".");
     }
     return next;
   }
 
-  function beginHarvestPlot(state, plotId) {
-    if (state.phase !== "produce" || state.spinningPlotId) {
+  function beginHarvestZone(state, zoneId) {
+    var player = currentPlayer(state);
+    if (state.turnPhase !== "produce" || state.spinningZoneId || !player) {
       return state;
     }
     var target = null;
-    state.plots.forEach(function (plot) {
-      if (plot.id === plotId && !plot.harvested) {
-        target = plot;
+    state.zones.forEach(function (zone) {
+      if (zone.id === zoneId && zone.ownerId === player.id && !zone.harvested) {
+        target = zone;
       }
     });
     if (!target) {
       return state;
     }
-    var band = rollProductionBand();
-    return Object.assign({}, state, {
-      phase: "spinning",
-      spinningPlotId: plotId,
+    var die = rollProductionDie();
+    var outcome = produceForZoneType(target.type, die.modifier);
+    var next = Object.assign({}, state, {
+      turnPhase: "spinning",
+      spinningZoneId: zoneId,
       spinningOutcome: {
-        plotId: plotId,
-        band: band.id,
-        amount: band.amount,
-        resource: target.resource
+        zoneId: zoneId,
+        dieId: die.id,
+        modifier: die.modifier,
+        yield: outcome
       },
-      plots: state.plots.map(function (plot) {
-        if (plot.id !== plotId) {
-          return plot;
+      zones: state.zones.map(function (zone) {
+        if (zone.id !== zoneId) {
+          return zone;
         }
-        return Object.assign({}, plot, {
-          lastBand: band.id,
-          lastAmount: band.amount
-        });
+        return Object.assign({}, zone, { lastYield: outcome, lastDieId: die.id });
       })
     });
+    return next;
   }
 
-  function completeHarvestPlot(state) {
-    if (state.phase !== "spinning" || !state.spinningOutcome) {
+  function completeHarvestZone(state) {
+    if (state.turnPhase !== "spinning" || !state.spinningOutcome) {
       return state;
     }
     var outcome = state.spinningOutcome;
-    var resources = cloneResources(state.resources);
-    var lastProduction = cloneResources(state.lastProduction);
-    resources[outcome.resource] += outcome.amount;
-    lastProduction[outcome.resource] += outcome.amount;
+    var player = currentPlayer(state);
+    var resources = cloneResources(player.resources);
+    var lastProduction = cloneResources(player.lastProduction);
+    resources[outcome.yield.primary.resource] += outcome.yield.primary.amount;
+    lastProduction[outcome.yield.primary.resource] += outcome.yield.primary.amount;
+    if (outcome.yield.secondary) {
+      resources[outcome.yield.secondary.resource] += outcome.yield.secondary.amount;
+      lastProduction[outcome.yield.secondary.resource] += outcome.yield.secondary.amount;
+    }
 
-    var plots = state.plots.map(function (plot) {
-      if (plot.id !== outcome.plotId) {
-        return plot;
+    var zones = state.zones.map(function (zone) {
+      if (zone.id !== outcome.zoneId) {
+        return zone;
       }
-      return Object.assign({}, plot, {
-        harvested: true,
-        lastBand: outcome.band,
-        lastAmount: outcome.amount
-      });
+      return Object.assign({}, zone, { harvested: true });
     });
 
-    var next = Object.assign({}, state, {
+    var gainText =
+      Nexus.RESOURCE_SHORT[outcome.yield.primary.resource] + " +" + outcome.yield.primary.amount;
+    if (outcome.yield.secondary) {
+      gainText +=
+        ", " + Nexus.RESOURCE_SHORT[outcome.yield.secondary.resource] + " +" + outcome.yield.secondary.amount;
+    }
+
+    var nextPlayer = Object.assign({}, player, {
       resources: resources,
       lastProduction: lastProduction,
       lastGain: {
-        resource: outcome.resource,
-        amount: outcome.amount,
-        band: outcome.band,
-        plotId: outcome.plotId
-      },
-      plots: plots,
-      log: addLog(
-        state,
-        Nexus.RESOURCE_SHORT[outcome.resource] +
-          (outcome.amount > 0 ? " +" + outcome.amount : " Ausfall") +
-          "."
-      )
+        resource: outcome.yield.primary.resource,
+        amount: outcome.yield.primary.amount,
+        zoneId: outcome.zoneId
+      }
     });
+
+    var next = replacePlayer(Object.assign({}, state, { zones: zones }), player.id, nextPlayer);
+    next.log = addLog(next, player.name, gainText + " (" + zones.filter(function(z){return z.id===outcome.zoneId;})[0].type + ").");
     return advanceAfterHarvest(next);
   }
 
   function beginHarvestAll(state) {
-    if (state.phase !== "produce") {
+    var player = currentPlayer(state);
+    if (state.turnPhase !== "produce" || !player) {
       return state;
     }
-    var pending = state.plots.filter(function (plot) {
-      return !plot.harvested;
+    var pending = playerZones(state, player.id).filter(function (zone) {
+      return !zone.harvested;
     });
     if (!pending.length) {
       return state;
     }
-    return beginHarvestPlot(state, pending[0].id);
+    return beginHarvestZone(state, pending[0].id);
   }
 
   function applyEventChoice(state, choiceId, extra) {
     extra = extra || {};
-    if (state.phase !== "event" || !state.pendingEvent) {
+    var player = currentPlayer(state);
+    if (state.turnPhase !== "event" || !player || !player.pendingEvent) {
       return state;
     }
-    var event = state.pendingEvent;
+    var event = player.pendingEvent;
     var choice = null;
     event.choices.forEach(function (item) {
       if (item.id === choiceId) {
@@ -489,36 +608,38 @@ window.Nexus = window.Nexus || {};
 
     var effects = choice.effects || {};
     var spend = effects.spend || {};
-    if (!canAfford(state.resources, spend)) {
+    if (!canAfford(player.resources, spend)) {
       return state;
     }
 
-    var resources = subtractCost(state.resources, spend);
+    var resources = subtractCost(player.resources, spend);
     if (choice.needsResourcePick) {
       resources[extra.resource] += choice.pickAmount;
     }
 
-    var risk = state.risk + (effects.risk || 0);
+    var risk = player.risk + (effects.risk || 0);
     if (risk < 0) {
       risk = 0;
     }
 
-    var next = Object.assign({}, state, {
+    var nextPlayer = Object.assign({}, player, {
       resources: resources,
       risk: risk,
-      efficiencyPoints: state.efficiencyPoints + (effects.efficiency || 0),
-      innovationBonus: state.innovationBonus + (effects.innovation || 0),
-      privacyAdjustment: state.privacyAdjustment + (effects.privacy || 0),
+      efficiencyPoints: player.efficiencyPoints + (effects.efficiency || 0),
+      innovationBonus: player.innovationBonus + (effects.innovation || 0),
+      privacyAdjustment: player.privacyAdjustment + (effects.privacy || 0),
       localHardwareDiscountPending: effects.localHardwareDiscount
         ? true
-        : state.localHardwareDiscountPending,
+        : player.localHardwareDiscountPending,
       roundModifiers: {
-        cloudDisabled: !!(state.roundModifiers.cloudDisabled || effects.cloudDisabled),
-        cloudHalfEffect: !!(state.roundModifiers.cloudHalfEffect || effects.cloudHalfEffect)
+        cloudDisabled: !!(player.roundModifiers.cloudDisabled || effects.cloudDisabled),
+        cloudHalfEffect: !!(player.roundModifiers.cloudHalfEffect || effects.cloudHalfEffect)
       },
-      pendingEvent: null,
-      phase: "build"
+      pendingEvent: null
     });
+
+    var next = replacePlayer(state, player.id, nextPlayer);
+    next.turnPhase = "build";
 
     var logText = event.title + " → " + choice.label + ".";
     if (choice.needsResourcePick) {
@@ -532,16 +653,17 @@ window.Nexus = window.Nexus || {};
         Nexus.RESOURCE_SHORT[extra.resource] +
         ").";
     }
-    next.log = addLog(next, logText);
+    next.log = addLog(next, player.name, logText);
     return next;
   }
 
   function canChooseEventOption(state, choiceId) {
-    if (!state.pendingEvent) {
+    var player = currentPlayer(state);
+    if (!player || !player.pendingEvent) {
       return false;
     }
     var choice = null;
-    state.pendingEvent.choices.forEach(function (item) {
+    player.pendingEvent.choices.forEach(function (item) {
       if (item.id === choiceId) {
         choice = item;
       }
@@ -549,7 +671,7 @@ window.Nexus = window.Nexus || {};
     if (!choice) {
       return false;
     }
-    return canAfford(state.resources, (choice.effects && choice.effects.spend) || {});
+    return canAfford(player.resources, (choice.effects && choice.effects.spend) || {});
   }
 
   function buildDevice(state, deviceId, mode) {
@@ -557,13 +679,14 @@ window.Nexus = window.Nexus || {};
     if (!offer.allowed) {
       return state;
     }
+    var player = currentPlayer(state);
     var device = Nexus.DEVICES_BY_ID[deviceId];
-    var isNewBuild = !state.devices[deviceId];
-    var devices = Object.assign({}, state.devices);
+    var isNewBuild = !player.devices[deviceId];
+    var devices = Object.assign({}, player.devices);
     devices[deviceId] = mode;
 
-    var risk = state.risk;
-    var innovationBonus = state.innovationBonus;
+    var risk = player.risk;
+    var innovationBonus = player.innovationBonus;
     if (isNewBuild && deviceId === "charger") {
       innovationBonus += C.CHARGER_INNOVATION_BONUS;
     }
@@ -571,7 +694,7 @@ window.Nexus = window.Nexus || {};
       risk = Math.max(0, risk - C.LOCK_RISK_REDUCTION);
     }
 
-    var hubDiscountPending = state.hubDiscountPending;
+    var hubDiscountPending = player.hubDiscountPending;
     if (offer.usedHubDiscount) {
       hubDiscountPending = false;
     }
@@ -579,31 +702,38 @@ window.Nexus = window.Nexus || {};
       hubDiscountPending = true;
     }
 
-    var localHardwareDiscountPending = state.localHardwareDiscountPending;
+    var localHardwareDiscountPending = player.localHardwareDiscountPending;
     if (offer.usedLocalHardwareDiscount) {
       localHardwareDiscountPending = false;
     }
 
-    return Object.assign({}, state, {
-      resources: subtractCost(state.resources, offer.cost),
+    var nextPlayer = Object.assign({}, player, {
+      resources: subtractCost(player.resources, offer.cost),
       devices: devices,
       risk: risk,
       innovationBonus: innovationBonus,
       hubDiscountPending: hubDiscountPending,
-      localHardwareDiscountPending: localHardwareDiscountPending,
-      log: addLog(state, device.shortName + (offer.isUpgrade ? " lokal" : " " + mode) + ".")
+      localHardwareDiscountPending: localHardwareDiscountPending
     });
+
+    var next = replacePlayer(state, player.id, nextPlayer);
+    next.log = addLog(
+      next,
+      player.name,
+      device.shortName + (offer.isUpgrade ? " lokal" : " " + mode) + "."
+    );
+    return next;
   }
 
-  function applyOngoingEffects(state) {
-    var modifiers = state.roundModifiers;
+  function applyOngoingEffects(player) {
+    var modifiers = player.roundModifiers;
     var baseSave = 0;
     var dataGain = 0;
     var addedRisk = 0;
-    var hemsMode = state.devices.hems;
+    var hemsMode = player.devices.hems;
 
     Nexus.DEVICES.forEach(function (device) {
-      var mode = state.devices[device.id];
+      var mode = player.devices[device.id];
       if (!mode) {
         return;
       }
@@ -623,7 +753,7 @@ window.Nexus = window.Nexus || {};
     var energyGranted = Math.floor(energySave);
     var dataGranted = Math.floor(dataGain);
 
-    var resources = cloneResources(state.resources);
+    var resources = cloneResources(player.resources);
     resources.energy += energyGranted;
     resources.data += dataGranted;
 
@@ -641,20 +771,22 @@ window.Nexus = window.Nexus || {};
       parts.push("keine Geräteeffekte");
     }
 
-    return Object.assign({}, state, {
+    var nextPlayer = Object.assign({}, player, {
       resources: resources,
-      risk: state.risk + addedRisk,
-      efficiencyPoints: state.efficiencyPoints + energySave,
-      log: addLog(state, "Nacht: " + parts.join(", ") + ".")
+      risk: player.risk + addedRisk,
+      efficiencyPoints: player.efficiencyPoints + energySave,
+      roundModifiers: { cloudDisabled: false, cloudHalfEffect: false }
     });
+
+    return { player: nextPlayer, logText: "Zugende: " + parts.join(", ") + "." };
   }
 
-  function computeScore(state) {
-    var efficiency = state.efficiencyPoints;
-    var privacy = Math.max(0, C.PRIVACY_BASE - state.risk + state.privacyAdjustment);
-    var innovation = state.innovationBonus;
+  function computeScore(player) {
+    var efficiency = player.efficiencyPoints;
+    var privacy = Math.max(0, C.PRIVACY_BASE - player.risk + player.privacyAdjustment);
+    var innovation = player.innovationBonus;
     Nexus.DEVICES.forEach(function (device) {
-      if (state.devices[device.id]) {
+      if (player.devices[device.id]) {
         innovation += device.id === "hems" ? C.HEMS_INNOVATION : C.DEVICE_INNOVATION;
       }
     });
@@ -663,47 +795,52 @@ window.Nexus = window.Nexus || {};
       privacy: privacy,
       innovation: innovation,
       total: efficiency + privacy + innovation,
-      risk: state.risk
+      risk: player.risk
     };
   }
 
-  function endRound(state) {
-    if (state.phase !== "build") {
+  function endTurn(state) {
+    if (state.turnPhase !== "build") {
       return state;
     }
-    var next = applyOngoingEffects(state);
-    next.roundModifiers = { cloudDisabled: false, cloudHalfEffect: false };
-    next.round += 1;
-    next.lastProduction = emptyResources();
-    next.lastGain = null;
-    next.plots = next.plots.map(function (plot) {
-      return Object.assign({}, plot, {
-        harvested: false,
-        lastBand: null,
-        lastAmount: 0
-      });
-    });
+    var player = currentPlayer(state);
+    var result = applyOngoingEffects(player);
+    var next = replacePlayer(state, player.id, result.player);
+    next.log = addLog(next, player.name, result.logText);
 
-    if (next.round > C.MAX_ROUNDS) {
-      next.phase = "ended";
-      next.score = computeScore(next);
-      next.log = addLog(next, "15 Runden vorbei.");
+    var nextIndex = state.currentPlayerIndex + 1;
+    if (nextIndex >= state.players.length) {
+      var newRound = state.round + 1;
+      if (newRound > state.maxRounds) {
+        next.turnPhase = "gameover";
+        next.finalScores = next.players.map(function (p) {
+          return { playerId: p.id, playerName: p.name, score: computeScore(p) };
+        });
+        next.log = addLog(next, null, next.maxRounds + " Runden vorbei. Spiel beendet.");
+      } else {
+        next.round = newRound;
+        next.currentPlayerIndex = 0;
+        next.turnPhase = "produce";
+        next.zones = next.zones.map(function (zone) {
+          return Object.assign({}, zone, { harvested: false, lastYield: null });
+        });
+        next.log = addLog(next, null, "Runde " + newRound + " beginnt. " + next.players[0].name + " ist am Zug.");
+      }
     } else {
-      next.phase = "produce";
-      next.pendingEvent = null;
-      next.spinningPlotId = null;
-      next.spinningOutcome = null;
-      next.log = addLog(next, "Morgen. Tag " + next.round + " – tippe Felder an.");
+      next.currentPlayerIndex = nextIndex;
+      next.turnPhase = "produce";
+      next.log = addLog(next, null, next.players[nextIndex].name + " ist am Zug.");
     }
     return next;
   }
 
-  function canEndRound(state) {
-    return state.phase === "build";
+  function canEndTurn(state) {
+    return state.turnPhase === "build";
   }
 
   function canBuyDevice(state, deviceId) {
-    if (state.devices[deviceId] === "local") {
+    var player = currentPlayer(state);
+    if (!player || player.devices[deviceId] === "local") {
       return false;
     }
     return (
@@ -712,24 +849,27 @@ window.Nexus = window.Nexus || {};
     );
   }
 
-  Nexus.createInitialState = createInitialState;
-  Nexus.beginHarvestPlot = beginHarvestPlot;
-  Nexus.completeHarvestPlot = completeHarvestPlot;
+  Nexus.createSetupState = createSetupState;
+  Nexus.startGame = startGame;
+  Nexus.currentPlayer = currentPlayer;
+  Nexus.playerZones = playerZones;
+  Nexus.beginHarvestZone = beginHarvestZone;
+  Nexus.completeHarvestZone = completeHarvestZone;
   Nexus.beginHarvestAll = beginHarvestAll;
   Nexus.remainingHarvestCount = remainingHarvestCount;
   Nexus.applyEventChoice = applyEventChoice;
   Nexus.canChooseEventOption = canChooseEventOption;
   Nexus.buildDevice = buildDevice;
   Nexus.getBuildOffer = getBuildOffer;
-  Nexus.buyPlot = buyPlot;
+  Nexus.buyZone = buyZone;
   Nexus.getExpandOffer = getExpandOffer;
   Nexus.getExpandCost = getExpandCost;
   Nexus.isExpandableSlot = isExpandableSlot;
-  Nexus.plotAt = plotAt;
-  Nexus.expectedYieldPerPlot = expectedYieldPerPlot;
+  Nexus.zoneAt = zoneAt;
+  Nexus.expectedYieldForBase = expectedYieldForBase;
   Nexus.expectedByResource = expectedByResource;
-  Nexus.endRound = endRound;
-  Nexus.canEndRound = canEndRound;
+  Nexus.endTurn = endTurn;
+  Nexus.canEndTurn = canEndTurn;
   Nexus.canBuyDevice = canBuyDevice;
   Nexus.computeScore = computeScore;
   Nexus.canAfford = canAfford;

@@ -3,12 +3,17 @@ window.Nexus = window.Nexus || {};
 (function (Nexus) {
   var C = Nexus.CONSTANTS;
   var lastResourceSnapshot = null;
+  var lastPlayerId = null;
 
   function formatNumber(value) {
     if (typeof value === "number" && value % 1 !== 0) {
       return String(Math.round(value * 10) / 10);
     }
     return String(value);
+  }
+
+  function playerColor(player) {
+    return Nexus.PLAYER_COLORS[player.colorIndex % Nexus.PLAYER_COLORS.length];
   }
 
   function setDigitGroup(el, value, animate) {
@@ -75,16 +80,22 @@ window.Nexus = window.Nexus || {};
     return points.join(" ");
   }
 
-  function bandSettleRatio(bandId) {
-    var total = 0;
+  function dieWeightTotal() {
+    return Nexus.PRODUCTION_DICE.reduce(function (sum, die) {
+      return sum + die.weight;
+    }, 0);
+  }
+
+  function dieSettleRatio(dieId) {
+    var total = dieWeightTotal();
     var before = 0;
     var width = 0;
-    C.PRODUCTION_BANDS.forEach(function (band) {
-      if (band.id === bandId) {
+    Nexus.PRODUCTION_DICE.forEach(function (die) {
+      if (die.id === dieId) {
         before = total;
-        width = band.weight;
+        width = die.weight;
       }
-      total += band.weight;
+      total += die.weight;
     });
     return (before + width / 2) / total;
   }
@@ -181,25 +192,52 @@ window.Nexus = window.Nexus || {};
     }, 950);
   }
 
+  function renderTurnRow(state) {
+    var row = document.getElementById("turn-row");
+    if (!row) {
+      return;
+    }
+    row.innerHTML = state.players
+      .map(function (player, index) {
+        var zoneCount = Nexus.playerZones(state, player.id).length;
+        var isActive = index === state.currentPlayerIndex && state.turnPhase !== "gameover";
+        return (
+          '<span class="turn-chip' +
+          (isActive ? " is-active" : "") +
+          '" style="--player-color:' +
+          playerColor(player) +
+          '">' +
+          '<span class="dot"></span>' +
+          player.name +
+          '<span class="zone-count">· ' +
+          zoneCount +
+          " Zone" +
+          (zoneCount === 1 ? "" : "n") +
+          "</span></span>"
+        );
+      })
+      .join("");
+  }
+
   function renderWallet(state) {
+    var player = Nexus.currentPlayer(state);
     var expected = Nexus.expectedByResource(state);
+    var playerChanged = lastPlayerId !== player.id;
     Nexus.RESOURCE_KEYS.forEach(function (key) {
       var el = document.getElementById("res-" + key);
-      var changed = !lastResourceSnapshot || lastResourceSnapshot[key] !== state.resources[key];
-      setDigitGroup(el, state.resources[key], changed && !!lastResourceSnapshot);
+      var changed = !playerChanged && lastResourceSnapshot && lastResourceSnapshot[key] !== player.resources[key];
+      setDigitGroup(el, player.resources[key], changed);
       var expect = document.getElementById("expect-" + key);
       if (expect) {
         expect.textContent = "~" + formatNumber(expected[key]);
       }
     });
-    setDigitGroup(
-      document.getElementById("stat-round"),
-      state.round > C.MAX_ROUNDS ? C.MAX_ROUNDS : state.round,
-      false
-    );
-    setDigitGroup(document.getElementById("stat-risk"), state.risk, false);
-    document.getElementById("risk-meter").style.setProperty("--risk", Math.min(20, state.risk));
-    lastResourceSnapshot = Object.assign({}, state.resources);
+    setDigitGroup(document.getElementById("stat-round"), state.round > state.maxRounds ? state.maxRounds : state.round, false);
+    document.querySelector(".day-max").textContent = "/ " + state.maxRounds;
+    setDigitGroup(document.getElementById("stat-risk"), player.risk, false);
+    document.getElementById("risk-meter").style.setProperty("--risk", Math.min(20, player.risk));
+    lastResourceSnapshot = Object.assign({}, player.resources);
+    lastPlayerId = player.id;
   }
 
   function renderDistrict(state, ui) {
@@ -232,33 +270,37 @@ window.Nexus = window.Nexus || {};
     svg.setAttribute("viewBox", "0 0 " + Math.ceil(width) + " " + Math.ceil(height));
     svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
 
+    var player = Nexus.currentPlayer(state);
     var html = "";
     var selected = ui && ui.expandSlot;
-    var totalWeight = C.PRODUCTION_BANDS.reduce(function (sum, band) {
-      return sum + band.weight;
-    }, 0);
+    var totalWeight = dieWeightTotal();
 
     slots.forEach(function (slot) {
       var pos = Nexus.axialToPixel(slot.q, slot.r, size);
       var cx = originX + pos.x;
       var cy = originY + pos.y;
-      var plot = Nexus.plotAt(state, slot.q, slot.r);
-      var expandable = Nexus.isExpandableSlot(state, slot.q, slot.r) && state.phase === "build";
+      var zone = Nexus.zoneAt(state, slot.q, slot.r);
+      var expandable = Nexus.isExpandableSlot(state, slot.q, slot.r) && state.turnPhase === "build";
       var isSelected = selected && selected.q === slot.q && selected.r === slot.r;
 
-      if (plot) {
-        var color = Nexus.RESOURCE_COLORS[plot.resource];
-        var spinning = state.spinningPlotId === plot.id;
-        var ready = state.phase === "produce" && !plot.harvested;
-        var done = !!plot.harvested;
+      if (zone) {
+        var typeDef = Nexus.ZONE_TYPES[zone.type];
+        var color = Nexus.ZONE_TYPE_COLORS[zone.type];
+        var owner = state.players.filter(function (p) {
+          return p.id === zone.ownerId;
+        })[0];
+        var isMine = zone.ownerId === player.id;
+        var spinning = state.spinningZoneId === zone.id;
+        var ready = state.turnPhase === "produce" && isMine && !zone.harvested;
+        var done = !!zone.harvested;
         var barW = size * 1.2;
         var barH = 10;
         var barX = cx - barW / 2;
         var barY = cy + size * 0.42;
         var xCursor = barX;
         var bands = "";
-        C.PRODUCTION_BANDS.forEach(function (band) {
-          var w = (band.weight / totalWeight) * barW;
+        Nexus.PRODUCTION_DICE.forEach(function (die) {
+          var w = (die.weight / totalWeight) * barW;
           bands +=
             '<rect x="' +
             xCursor +
@@ -269,21 +311,33 @@ window.Nexus = window.Nexus || {};
             '" height="' +
             barH +
             '" fill="' +
-            band.color +
+            die.color +
             '" rx="2"></rect>';
           xCursor += w;
         });
-        var settle = plot.lastBand ? bandSettleRatio(plot.lastBand) : 0.42;
+        var settle = zone.lastDieId ? dieSettleRatio(zone.lastDieId) : 0.5;
         var needleX = barX + settle * barW;
-        var showAmount = plot.harvested || spinning;
+        var showAmount = (zone.harvested && zone.lastYield) || spinning;
+        var amountText = "";
+        if (showAmount && zone.lastYield) {
+          amountText = "+" + zone.lastYield.primary.amount;
+          if (zone.lastYield.secondary) {
+            amountText += " / +" + zone.lastYield.secondary.amount;
+          }
+        }
         html +=
           '<g class="hex hex-owned' +
           (ready ? " is-ready" : "") +
           (done ? " is-done" : "") +
           (spinning ? " is-spinning" : "") +
-          '" data-plot="' +
-          plot.id +
-          '" data-owned="1">' +
+          (isMine ? "" : " is-foreign") +
+          '" data-zone="' +
+          zone.id +
+          '" data-mine="' +
+          (isMine ? "1" : "0") +
+          '" style="--owner-color:' +
+          playerColor(owner) +
+          '">' +
           '<polygon points="' +
           hexPoints(cx, cy, size - 2) +
           '" fill="' +
@@ -294,8 +348,15 @@ window.Nexus = window.Nexus || {};
           "," +
           (cy - 30) +
           ')">' +
-          Nexus.iconGroup(plot.resource) +
+          Nexus.iconGroup(typeDef.primary) +
           "</g>" +
+          '<text class="hex-type" x="' +
+          cx +
+          '" y="' +
+          (cy + size * 0.2) +
+          '">' +
+          typeDef.shortLabel +
+          "</text>" +
           bands +
           '<rect x="' +
           barX +
@@ -318,13 +379,7 @@ window.Nexus = window.Nexus || {};
           'px">' +
           '<polygon points="-5,-6 5,-6 0,10" fill="#071018"></polygon></g></g>' +
           (showAmount
-            ? '<text class="hex-amount" x="' +
-              cx +
-              '" y="' +
-              (cy + 10) +
-              '">' +
-              (plot.lastAmount > 0 ? "+" + plot.lastAmount : "–") +
-              "</text>"
+            ? '<text class="hex-amount" x="' + cx + '" y="' + (cy + 10) + '">' + amountText + "</text>"
             : "") +
           "</g>";
       } else {
@@ -350,29 +405,31 @@ window.Nexus = window.Nexus || {};
 
     var left = Nexus.remainingHarvestCount(state);
     var harvestBtn = document.getElementById("btn-harvest-all");
-    harvestBtn.disabled = state.phase !== "produce" || left === 0;
+    harvestBtn.disabled = state.turnPhase !== "produce" || left === 0;
     harvestBtn.textContent = left > 0 ? "Alles ernten (" + left + ")" : "Alles ernten";
-    document.getElementById("btn-end-round").disabled = !Nexus.canEndRound(state);
+    document.getElementById("btn-end-round").disabled = !Nexus.canEndTurn(state);
 
     var hint = document.getElementById("table-hint");
-    if (state.phase === "produce") {
-      hint.textContent = left + " Feld" + (left === 1 ? "" : "er") + " bereit – tippen zum Ernten";
-    } else if (state.phase === "spinning") {
+    if (state.turnPhase === "produce") {
+      hint.textContent =
+        player.name + ": " + left + " Zone" + (left === 1 ? "" : "n") + " bereit – tippen zum Ernten";
+    } else if (state.turnPhase === "spinning") {
       hint.textContent = "Produktion läuft …";
-    } else if (state.phase === "event") {
-      hint.textContent = "Ein Ereignis wartet";
-    } else if (state.phase === "build") {
-      hint.textContent = "Baue Geräte, erweitere Felder oder beende den Tag";
+    } else if (state.turnPhase === "event") {
+      hint.textContent = player.name + ": ein Ereignis wartet";
+    } else if (state.turnPhase === "build") {
+      hint.textContent = player.name + ": Geräte bauen, Zonen erweitern oder Zug beenden";
     } else {
       hint.textContent = "";
     }
   }
 
   function renderHome(state, ui) {
+    var player = Nexus.currentPlayer(state);
     var list = document.getElementById("device-list");
     var inspected = ui && ui.inspectedDevice;
     list.innerHTML = Nexus.DEVICES.map(function (device) {
-      var mode = state.devices[device.id];
+      var mode = player.devices[device.id];
       var buyable = Nexus.canBuyDevice(state, device.id);
       var classes = ["room", "t-tt-wrap"];
       if (mode === "cloud") {
@@ -419,7 +476,7 @@ window.Nexus = window.Nexus || {};
     }).join("");
 
     var inspect = document.getElementById("inspect-card");
-    if (!inspected || state.phase === "event") {
+    if (!inspected || state.turnPhase === "event") {
       inspect.hidden = true;
     } else {
       var device = Nexus.DEVICES_BY_ID[inspected];
@@ -445,10 +502,10 @@ window.Nexus = window.Nexus || {};
     }
 
     var flags = [];
-    if (state.hubDiscountPending) {
+    if (player.hubDiscountPending) {
       flags.push("Hub-Rabatt");
     }
-    if (state.localHardwareDiscountPending) {
+    if (player.localHardwareDiscountPending) {
       flags.push("Förderung");
     }
     document.getElementById("build-flags").textContent = flags.join(" · ");
@@ -457,7 +514,7 @@ window.Nexus = window.Nexus || {};
   function renderExpandModal(state, ui) {
     var shell = document.getElementById("expand-modal");
     var slot = ui && ui.expandSlot;
-    var shouldOpen = !!(slot && state.phase === "build");
+    var shouldOpen = !!(slot && state.turnPhase === "build");
     if (!shouldOpen) {
       if (!shell.hidden) {
         closeModal(shell);
@@ -465,17 +522,19 @@ window.Nexus = window.Nexus || {};
       return;
     }
     document.getElementById("expand-cost").innerHTML = chipsHtml(Nexus.getExpandCost(state));
-    document.getElementById("expand-choices").innerHTML = Nexus.RESOURCE_KEYS.map(function (key) {
+    document.getElementById("expand-choices").innerHTML = Nexus.ZONE_TYPE_KEYS.map(function (key) {
       var offer = Nexus.getExpandOffer(state, slot.q, slot.r, key);
+      var typeDef = Nexus.ZONE_TYPES[key];
       return (
-        '<button type="button" class="tile-pick chip-' +
+        '<button type="button" class="tile-pick zone-pick" data-zone-type="' +
         key +
-        '" data-resource="' +
-        key +
+        '" style="--zone-color:' +
+        Nexus.ZONE_TYPE_COLORS[key] +
         '"' +
         (offer.allowed ? "" : " disabled") +
         ">" +
-        Nexus.RESOURCE_ICONS[key] +
+        Nexus.iconGroup(typeDef.primary, "#071018") +
+        '<small>' + typeDef.shortLabel + '</small>' +
         "</button>"
       );
     }).join("");
@@ -486,15 +545,16 @@ window.Nexus = window.Nexus || {};
 
   function renderEventModal(state, ui) {
     var shell = document.getElementById("event-modal");
-    var event = state.pendingEvent;
-    var shouldOpen = state.phase === "event" && event;
+    var player = Nexus.currentPlayer(state);
+    var event = player.pendingEvent;
+    var shouldOpen = state.turnPhase === "event" && event;
     if (!shouldOpen) {
       if (!shell.hidden) {
         closeModal(shell);
       }
       return;
     }
-    document.getElementById("event-title").textContent = event.title;
+    document.getElementById("event-title").textContent = player.name + " – " + event.title;
     document.getElementById("event-text").textContent = event.text;
     var choices = document.getElementById("event-choices");
     var pick = document.getElementById("event-resource-pick");
@@ -538,35 +598,65 @@ window.Nexus = window.Nexus || {};
 
   function renderLog(state) {
     document.getElementById("log-list").innerHTML = state.log
-      .slice(0, 5)
+      .slice(0, 6)
       .map(function (entry) {
-        return "<li>" + entry.text + "</li>";
+        var prefix = entry.playerName ? entry.playerName + ": " : "";
+        return "<li>" + prefix + entry.text + "</li>";
       })
       .join("");
   }
 
   function renderEndScreen(state) {
     var shell = document.getElementById("end-screen");
-    var ended = state.phase === "ended";
+    var ended = state.turnPhase === "gameover";
     if (!ended) {
       if (!shell.hidden) {
         closeModal(shell);
       }
       return;
     }
-    if (!state.score) {
+    if (!state.finalScores) {
       return;
     }
-    document.getElementById("score-efficiency").textContent = formatNumber(state.score.efficiency);
-    document.getElementById("score-privacy").textContent = formatNumber(state.score.privacy);
-    document.getElementById("score-innovation").textContent = formatNumber(state.score.innovation);
-    document.getElementById("score-total").textContent = formatNumber(state.score.total);
+    var best = state.finalScores.reduce(function (max, entry) {
+      return entry.score.total > max ? entry.score.total : max;
+    }, -Infinity);
+    document.getElementById("score-players").innerHTML = state.finalScores
+      .map(function (entry) {
+        var player = state.players.filter(function (p) {
+          return p.id === entry.playerId;
+        })[0];
+        var isWinner = entry.score.total === best;
+        return (
+          '<div class="score-player' +
+          (isWinner ? " is-winner" : "") +
+          '" style="--player-color:' +
+          playerColor(player) +
+          '">' +
+          '<div class="score-player-head"><span><span class="dot"></span>' +
+          entry.playerName +
+          "</span><span>" +
+          (isWinner ? "🏆 " : "") +
+          formatNumber(entry.score.total) +
+          " Pkt.</span></div>" +
+          '<div class="score-player-rows">' +
+          "<span>Effizienz <b>" + formatNumber(entry.score.efficiency) + "</b></span>" +
+          "<span>Datenschutz <b>" + formatNumber(entry.score.privacy) + "</b></span>" +
+          "<span>Innovation <b>" + formatNumber(entry.score.innovation) + "</b></span>" +
+          "</div></div>"
+        );
+      })
+      .join("");
     if (shell.hidden || !shell.classList.contains("is-open")) {
       openModal(shell);
     }
   }
 
   Nexus.render = function (state, ui) {
+    if (!state || state.screen !== "game") {
+      return;
+    }
+    renderTurnRow(state);
     renderWallet(state);
     renderDistrict(state, ui);
     renderHome(state, ui);
@@ -581,4 +671,5 @@ window.Nexus = window.Nexus || {};
   Nexus.pushToast = pushToast;
   Nexus.spawnFloat = spawnFloat;
   Nexus.chipsHtml = chipsHtml;
+  Nexus.playerColor = playerColor;
 })(window.Nexus);

@@ -14,15 +14,40 @@
     <link rel="stylesheet" href="style.css" />
   </head>
   <body>
+    <div class="modal-shell t-modal-backdrop" id="setup-screen">
+      <div class="modal-card t-modal piece setup-card" role="dialog" aria-modal="true">
+        <p class="modal-kicker">NEXUS 2.1</p>
+        <h2>Neue Partie</h2>
+        <p>Hot-Seat-Mehrspieler: Spieler wechseln sich am selben Gerät ab.</p>
+
+        <p class="setup-label">Spielerzahl</p>
+        <div class="pick-row" id="setup-player-count">
+          <button type="button" class="btn setup-choice" data-count="2">2 Spieler</button>
+          <button type="button" class="btn setup-choice" data-count="3">3 Spieler</button>
+        </div>
+
+        <p class="setup-label">Spiellänge</p>
+        <div class="pick-row" id="setup-length">
+          <button type="button" class="btn setup-choice" data-length="short">Kurz · 15</button>
+          <button type="button" class="btn setup-choice" data-length="standard">Standard · 20</button>
+          <button type="button" class="btn setup-choice" data-length="long">Lang · 25</button>
+        </div>
+
+        <button type="button" class="btn primary setup-start" id="btn-start-game">Partie starten</button>
+      </div>
+    </div>
+
     <div class="stage" id="stage">
       <header class="hud">
         <div class="brand">
           <h1>NEXUS</h1>
           <p class="day-line">
-            Tag <span id="stat-round" class="t-digit-group">1</span>
-            <span class="day-max">/ 15</span>
+            Runde <span id="stat-round" class="t-digit-group">1</span>
+            <span class="day-max">/ 20</span>
           </p>
         </div>
+
+        <div class="turn-row" id="turn-row" aria-label="Spielerreihenfolge"></div>
 
         <ul class="wallet" aria-label="Ressourcen">
           <li class="wallet-item chip-energy" data-res="energy" title="Energie">
@@ -99,7 +124,7 @@
         <p id="table-hint" class="hint">Tippe ein leuchtendes Feld an</p>
         <div class="action-buttons">
           <button type="button" class="btn ghost" id="btn-harvest-all">Alles ernten</button>
-          <button type="button" class="btn primary" id="btn-end-round" disabled>Tag beenden</button>
+          <button type="button" class="btn primary" id="btn-end-round" disabled>Zug beenden</button>
         </div>
         <ol id="log-list" class="tape" aria-label="Verlauf"></ol>
       </footer>
@@ -127,14 +152,9 @@
 
     <div id="end-screen" class="modal-shell t-modal-backdrop" hidden>
       <div class="modal-card t-modal piece end-card" role="dialog" aria-modal="true">
-        <h2>Abend in der Stadt</h2>
-        <ul class="score-list">
-          <li>Effizienz <strong id="score-efficiency">0</strong></li>
-          <li>Datenschutz <strong id="score-privacy">0</strong></li>
-          <li>Innovation <strong id="score-innovation">0</strong></li>
-        </ul>
-        <p class="score-total">Gesamt <strong id="score-total">0</strong></p>
-        <button type="button" class="btn primary" id="btn-restart">Nochmal</button>
+        <h2>Spiel beendet</h2>
+        <div id="score-players" class="score-players"></div>
+        <button type="button" class="btn primary" id="btn-restart">Neue Partie</button>
       </div>
     </div>
 

@@ -26,36 +26,99 @@ Nexus.RESOURCE_COLORS = {
   connectivity: "#2dd4bf"
 };
 
+/* NEXUS 2.1 – Abschnitt 3.2: Zone-Ressourcen-Zuordnung */
+Nexus.ZONE_TYPE_KEYS = ["residential", "commercial", "infrastructure", "energy"];
+
+Nexus.ZONE_TYPES = {
+  residential: {
+    id: "residential",
+    label: "Wohngebiet",
+    shortLabel: "Wohnen",
+    primary: "data",
+    primaryBase: 2
+  },
+  commercial: {
+    id: "commercial",
+    label: "Gewerbe",
+    shortLabel: "Gewerbe",
+    primary: "hardware",
+    primaryBase: 2,
+    secondary: "compute",
+    secondaryBase: 1
+  },
+  infrastructure: {
+    id: "infrastructure",
+    label: "Infrastruktur",
+    shortLabel: "Infra",
+    primary: "connectivity",
+    primaryBase: 2
+  },
+  energy: {
+    id: "energy",
+    label: "Energieversorgung",
+    shortLabel: "Energie",
+    primary: "energy",
+    primaryBase: 3
+  }
+};
+
+Nexus.ZONE_TYPE_COLORS = {
+  residential: Nexus.RESOURCE_COLORS.data,
+  commercial: Nexus.RESOURCE_COLORS.hardware,
+  infrastructure: Nexus.RESOURCE_COLORS.connectivity,
+  energy: Nexus.RESOURCE_COLORS.energy
+};
+
+/* NEXUS 2.1 – Abschnitt 3.3: W6-Produktionsmodifikator je Fabrik/Runde */
+Nexus.PRODUCTION_DICE = [
+  { id: "fail", modifier: -1, weight: 1, label: "Wartung/Ausfall", color: "#8a3a3a" },
+  { id: "normal", modifier: 0, weight: 2, label: "Normalbetrieb", color: "#2f8f72" },
+  { id: "good", modifier: 1, weight: 2, label: "Guter Lauf", color: "#3fa9dd" },
+  { id: "boom", modifier: 2, weight: 1, label: "Boom", color: "#d7b44a" }
+];
+
+Nexus.PLAYER_COLORS = ["#3fd0c9", "#f0c14b", "#ff8fb0"];
+Nexus.PLAYER_COLOR_NAMES = ["Türkis", "Amber", "Pink"];
+
+Nexus.GAME_LENGTHS = [
+  { id: "short", label: "Kurz", rounds: 15 },
+  { id: "standard", label: "Standard", rounds: 20 },
+  { id: "long", label: "Lang", rounds: 25 }
+];
+
+/* Start-Zonen pro Spieler-Slot, verteilt auf den radius-2-Hex-Ring (Abschnitt 3.2) */
+Nexus.START_ZONE_LAYOUT = [
+  [
+    { q: 2, r: -2, type: "energy" },
+    { q: 2, r: 0, type: "residential" }
+  ],
+  [
+    { q: -2, r: 2, type: "energy" },
+    { q: -2, r: 0, type: "commercial" }
+  ],
+  [
+    { q: 0, r: 2, type: "energy" },
+    { q: 0, r: -2, type: "infrastructure" }
+  ]
+];
+
 Nexus.CONSTANTS = {
-  MAX_ROUNDS: 15,
+  MAX_ROUNDS: 20,
   START_RESOURCES: 3,
-  START_PLOT_COUNT: 5,
+  START_ZONE_COUNT: 2,
   PRIVACY_BASE: 20,
-  EVENT_EVERY_N_ROUNDS: 2,
+  EVENT_EVERY_N_TURNS: 2,
   DEVICE_INNOVATION: 2,
   HEMS_INNOVATION: 4,
   CHARGER_INNOVATION_BONUS: 2,
   LOCK_RISK_REDUCTION: 1,
-  LOG_LIMIT: 28,
+  LOG_LIMIT: 40,
   HEX_RADIUS: 2,
   HEX_SIZE: 72,
   EXPAND_REQUIRES_ADJACENT: true,
   TILE_SPIN_MS: 900,
   HARVEST_STAGGER_MS: 120,
   HUB_DISCOUNT_TIE_ORDER: ["connectivity", "energy", "data", "hardware", "compute"],
-  PRODUCTION_BANDS: [
-    { id: "fail", amount: 0, weight: 8, label: "Ausfall", color: "#8a3a3a" },
-    { id: "low", amount: 1, weight: 48, label: "Niedrig", color: "#c47a2c" },
-    { id: "normal", amount: 2, weight: 34, label: "Normal", color: "#2f8f72" },
-    { id: "high", amount: 3, weight: 10, label: "Viel", color: "#d7b44a" }
-  ]
+  MIN_PLAYERS: 2,
+  MAX_PLAYERS: 3
 };
-
-/* Start mit allen 5 Ressourcentypen, damit Planung sofort möglich ist */
-Nexus.START_PLOTS = [
-  { q: 0, r: 0, resource: "energy" },
-  { q: 1, r: 0, resource: "data" },
-  { q: 0, r: 1, resource: "hardware" },
-  { q: -1, r: 1, resource: "compute" },
-  { q: 1, r: -1, resource: "connectivity" }
-];

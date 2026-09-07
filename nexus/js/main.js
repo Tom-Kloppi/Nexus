@@ -1,7 +1,7 @@
 window.Nexus = window.Nexus || {};
 
 (function () {
-  var state = Nexus.createInitialState();
+  var state = Nexus.createSetupState();
   var ui = {
     expandSlot: null,
     inspectedDevice: null,
@@ -11,40 +11,45 @@ window.Nexus = window.Nexus || {};
   var autoQueue = false;
 
   function commit(next) {
-    var prevGain = state.lastGain;
     state = next;
-    if (state.phase !== "build") {
+    if (state.turnPhase !== "build") {
       ui.expandSlot = null;
     }
-    if (state.phase !== "event") {
+    if (state.turnPhase !== "event") {
       ui.investorAwaitingResource = false;
     }
     Nexus.render(state, ui);
+  }
 
-    if (state.lastGain && state.lastGain !== prevGain) {
-      var gain = state.lastGain;
-      if (gain.amount > 0) {
-        Nexus.pushToast(
-          "+" + gain.amount + " " + Nexus.RESOURCE_LABELS[gain.resource],
-          Nexus.RESOURCE_COLORS[gain.resource]
-        );
-      } else {
-        Nexus.pushToast("Ausfall", "#ff6b7a");
+  function findNextZoneId() {
+    var player = Nexus.currentPlayer(state);
+    var found = null;
+    Nexus.playerZones(state, player.id).forEach(function (zone) {
+      if (!zone.harvested && !found) {
+        found = zone.id;
       }
-    }
+    });
+    return found;
   }
 
   function scheduleCompleteHarvest(clickX, clickY) {
     window.clearTimeout(harvestTimer);
     harvestTimer = window.setTimeout(function () {
       var outcome = state.spinningOutcome;
-      commit(Nexus.completeHarvestPlot(state));
+      commit(Nexus.completeHarvestZone(state));
       if (outcome && clickX != null) {
-        Nexus.spawnFloat(outcome.resource, outcome.amount, clickX, clickY);
+        Nexus.spawnFloat(outcome.yield.primary.resource, outcome.yield.primary.amount, clickX, clickY);
       }
-      if (autoQueue && state.phase === "produce" && Nexus.remainingHarvestCount(state) > 0) {
+      if (outcome) {
+        var text = "+" + outcome.yield.primary.amount + " " + Nexus.RESOURCE_LABELS[outcome.yield.primary.resource];
+        if (outcome.yield.secondary) {
+          text += " · +" + outcome.yield.secondary.amount + " " + Nexus.RESOURCE_LABELS[outcome.yield.secondary.resource];
+        }
+        Nexus.pushToast(text, Nexus.RESOURCE_COLORS[outcome.yield.primary.resource]);
+      }
+      if (autoQueue && state.turnPhase === "produce" && Nexus.remainingHarvestCount(state) > 0) {
         window.setTimeout(function () {
-          startHarvest(findNextPlotId());
+          startHarvest(findNextZoneId());
         }, Nexus.CONSTANTS.HARVEST_STAGGER_MS);
       } else {
         autoQueue = false;
@@ -52,22 +57,12 @@ window.Nexus = window.Nexus || {};
     }, Nexus.CONSTANTS.TILE_SPIN_MS);
   }
 
-  function findNextPlotId() {
-    var found = null;
-    state.plots.forEach(function (plot) {
-      if (!plot.harvested && !found) {
-        found = plot.id;
-      }
-    });
-    return found;
-  }
-
-  function startHarvest(plotId, clickX, clickY) {
-    if (!plotId || state.phase !== "produce") {
+  function startHarvest(zoneId, clickX, clickY) {
+    if (!zoneId || state.turnPhase !== "produce") {
       return;
     }
-    commit(Nexus.beginHarvestPlot(state, plotId));
-    if (state.phase === "spinning") {
+    commit(Nexus.beginHarvestZone(state, zoneId));
+    if (state.turnPhase === "spinning") {
       scheduleCompleteHarvest(clickX, clickY);
     }
   }
@@ -81,29 +76,72 @@ window.Nexus = window.Nexus || {};
     });
   }
 
+  /* ---------- Setup-Screen ---------- */
+
+  var setupChoice = { count: 3, lengthId: "standard" };
+
+  function renderSetupScreen() {
+    Array.prototype.forEach.call(document.querySelectorAll("#setup-player-count .setup-choice"), function (btn) {
+      btn.classList.toggle("is-selected", Number(btn.getAttribute("data-count")) === setupChoice.count);
+    });
+    Array.prototype.forEach.call(document.querySelectorAll("#setup-length .setup-choice"), function (btn) {
+      btn.classList.toggle("is-selected", btn.getAttribute("data-length") === setupChoice.lengthId);
+    });
+  }
+
+  document.getElementById("setup-player-count").addEventListener("click", function (event) {
+    var btn = event.target.closest("[data-count]");
+    if (!btn) {
+      return;
+    }
+    setupChoice.count = Number(btn.getAttribute("data-count"));
+    renderSetupScreen();
+  });
+
+  document.getElementById("setup-length").addEventListener("click", function (event) {
+    var btn = event.target.closest("[data-length]");
+    if (!btn) {
+      return;
+    }
+    setupChoice.lengthId = btn.getAttribute("data-length");
+    renderSetupScreen();
+  });
+
+  function startNewGame() {
+    ui = { expandSlot: null, inspectedDevice: null, investorAwaitingResource: false };
+    autoQueue = false;
+    window.clearTimeout(harvestTimer);
+    Nexus.closeModal(document.getElementById("setup-screen"));
+    commit(Nexus.startGame(setupChoice.count, setupChoice.lengthId));
+  }
+
+  document.getElementById("btn-start-game").addEventListener("click", startNewGame);
+
+  /* ---------- Spielaktionen ---------- */
+
   document.getElementById("btn-harvest-all").addEventListener("click", function () {
-    if (state.phase !== "produce") {
+    if (state.turnPhase !== "produce") {
       return;
     }
     autoQueue = true;
-    startHarvest(findNextPlotId());
+    startHarvest(findNextZoneId());
   });
 
   document.getElementById("btn-end-round").addEventListener("click", function () {
     autoQueue = false;
-    commit(Nexus.endRound(state));
+    commit(Nexus.endTurn(state));
   });
 
   document.getElementById("district-svg").addEventListener("click", function (event) {
     var owned = event.target.closest(".hex-owned.is-ready");
-    if (owned && state.phase === "produce") {
+    if (owned && state.turnPhase === "produce") {
       autoQueue = false;
-      startHarvest(owned.getAttribute("data-plot"), event.clientX, event.clientY);
+      startHarvest(owned.getAttribute("data-zone"), event.clientX, event.clientY);
       return;
     }
 
     var empty = event.target.closest(".hex-empty.is-open");
-    if (!empty || state.phase !== "build") {
+    if (!empty || state.turnPhase !== "build") {
       return;
     }
     ui.expandSlot = {
@@ -115,14 +153,14 @@ window.Nexus = window.Nexus || {};
   });
 
   document.getElementById("expand-choices").addEventListener("click", function (event) {
-    var button = event.target.closest("[data-resource]");
+    var button = event.target.closest("[data-zone-type]");
     if (!button || button.disabled || !ui.expandSlot) {
       return;
     }
     var slot = ui.expandSlot;
     ui.expandSlot = null;
-    commit(Nexus.buyPlot(state, slot.q, slot.r, button.getAttribute("data-resource")));
-    Nexus.pushToast("Feld erweitert", "#3fd0c9");
+    commit(Nexus.buyZone(state, slot.q, slot.r, button.getAttribute("data-zone-type")));
+    Nexus.pushToast("Zone erweitert", "#3fd0c9");
   });
 
   document.getElementById("btn-expand-cancel").addEventListener("click", function () {
@@ -142,7 +180,7 @@ window.Nexus = window.Nexus || {};
   });
 
   function tryBuild(mode) {
-    if (!ui.inspectedDevice || state.phase !== "build") {
+    if (!ui.inspectedDevice || state.turnPhase !== "build") {
       return;
     }
     var id = ui.inspectedDevice;
@@ -168,7 +206,8 @@ window.Nexus = window.Nexus || {};
       return;
     }
     var choiceId = button.getAttribute("data-choice");
-    var eventCard = state.pendingEvent;
+    var player = Nexus.currentPlayer(state);
+    var eventCard = player.pendingEvent;
     var choice =
       eventCard &&
       eventCard.choices.filter(function (item) {
@@ -193,18 +232,18 @@ window.Nexus = window.Nexus || {};
   document.getElementById("btn-restart").addEventListener("click", function () {
     window.clearTimeout(harvestTimer);
     autoQueue = false;
-    ui = {
-      expandSlot: null,
-      inspectedDevice: null,
-      investorAwaitingResource: false
-    };
-    commit(Nexus.createInitialState());
+    Nexus.closeModal(document.getElementById("end-screen"));
+    state = Nexus.createSetupState();
+    Nexus.openModal(document.getElementById("setup-screen"));
   });
 
   window.addEventListener("resize", function () {
-    Nexus.render(state, ui);
+    if (state.screen === "game") {
+      Nexus.render(state, ui);
+    }
   });
 
   fillIcons();
-  Nexus.render(state, ui);
+  renderSetupScreen();
+  Nexus.openModal(document.getElementById("setup-screen"));
 })();

@@ -284,10 +284,14 @@ button {
 }
 
 .hex-owned polygon {
-  stroke: rgba(7, 16, 24, 0.55);
-  stroke-width: 2.5;
+  stroke: var(--owner-color, rgba(7, 16, 24, 0.55));
+  stroke-width: 3.5;
   filter: drop-shadow(0 10px 0 rgba(0, 0, 0, 0.18));
   transition: filter var(--duration-fast) var(--ease-smooth-out), opacity var(--duration-fast) var(--ease-smooth-out);
+}
+
+.hex-owned.is-foreign polygon {
+  opacity: 0.55;
 }
 
 .hex-owned.is-ready polygon {
@@ -326,7 +330,16 @@ button {
 
 .hex-amount {
   fill: #071018;
-  font-size: 16px;
+  font-size: 14px;
+}
+
+.hex-type {
+  text-anchor: middle;
+  font-weight: 700;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  fill: rgba(7, 16, 24, 0.6);
+  pointer-events: none;
 }
 
 .gacha-needle {
@@ -711,6 +724,25 @@ button {
   cursor: not-allowed;
 }
 
+.zone-pick {
+  height: auto;
+  min-height: 78px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.2rem;
+  background: var(--zone-color, rgba(255, 255, 255, 0.06));
+  color: #071018;
+}
+
+.zone-pick small {
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
 .choice-stack .btn {
   width: 100%;
   text-align: left;
@@ -738,6 +770,127 @@ button {
 .score-total {
   font-size: 1.35rem;
   font-weight: 800;
+}
+
+.score-players {
+  display: grid;
+  gap: 0.7rem;
+  margin: 0.8rem 0;
+}
+
+.score-player {
+  border-radius: 16px;
+  border: 1px solid var(--glass-edge);
+  background: rgba(255, 255, 255, 0.04);
+  padding: 0.7rem 0.9rem;
+}
+
+.score-player.is-winner {
+  border-color: var(--player-color, var(--cyan));
+  box-shadow: 0 0 0 1px var(--player-color, var(--cyan));
+}
+
+.score-player-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-weight: 700;
+  margin-bottom: 0.35rem;
+}
+
+.score-player-head .dot {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  margin-right: 0.4rem;
+  background: var(--player-color, var(--cyan));
+}
+
+.score-player-rows {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  font-size: 0.85rem;
+  color: var(--ink-dim);
+}
+
+.score-player-rows b {
+  color: var(--ink);
+}
+
+/* ---------- Setup-Screen ---------- */
+
+.setup-card {
+  width: min(460px, 100%);
+}
+
+.setup-label {
+  margin: 0.9rem 0 0.4rem;
+  font-size: 0.72rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+}
+
+#setup-player-count,
+#setup-length {
+  justify-content: flex-start;
+}
+
+.setup-choice {
+  border-radius: 12px;
+}
+
+.setup-choice.is-selected {
+  background: linear-gradient(120deg, #3fd0c9, #7bcf4a);
+  color: #071018;
+  font-weight: 800;
+}
+
+.setup-start {
+  width: 100%;
+  margin-top: 1.2rem;
+}
+
+/* ---------- Zug-/Spieler-Anzeige ---------- */
+
+.turn-row {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.turn-chip {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.6rem;
+  border-radius: 999px;
+  background: var(--glass);
+  border: 1px solid var(--glass-edge);
+  font-size: 0.82rem;
+  color: var(--ink-dim);
+  transition: transform var(--duration-fast) var(--ease-smooth-out), border-color var(--duration-fast) var(--ease-smooth-out);
+}
+
+.turn-chip .dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--player-color, var(--cyan));
+  box-shadow: 0 0 6px var(--player-color, var(--cyan));
+}
+
+.turn-chip.is-active {
+  color: var(--ink);
+  border-color: var(--player-color, var(--cyan));
+  background: rgba(255, 255, 255, 0.08);
+  transform: translateY(-1px);
+}
+
+.turn-chip .zone-count {
+  opacity: 0.7;
 }
 
 @media (min-width: 1100px) {
