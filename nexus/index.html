@@ -1,24 +1,53 @@
 <!DOCTYPE html>
-<html lang="de">
+<html lang="de" data-theme="dark">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>NEXUS</title>
+    <script>
+      (function () {
+        var theme = localStorage.getItem("nexus-theme") || "dark";
+        var scale = localStorage.getItem("nexus-ui-scale") || "1";
+        document.documentElement.setAttribute("data-theme", theme);
+        document.documentElement.style.setProperty("--ui-scale", scale);
+      })();
+    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800&family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="transitions.css" />
-    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="transitions.css?v=14" />
+    <link rel="stylesheet" href="style.css?v=14" />
   </head>
   <body>
+    <div class="settings-wrap">
+      <button type="button" class="btn map-btn" id="btn-settings" title="Darstellung">⚙</button>
+      <div id="settings-panel" class="settings-panel" hidden>
+        <div class="settings-row">
+          <span>Hellmodus</span>
+          <button type="button" class="t-toggle" id="theme-toggle" role="switch" data-on="false" aria-checked="false" aria-label="Hellmodus">
+            <span class="t-toggle-thumb"></span>
+          </button>
+        </div>
+        <div class="settings-scale">
+          <label for="ui-scale">UI-Größe</label>
+          <input type="range" id="ui-scale" min="0.8" max="1.25" step="0.05" value="1" />
+          <div class="scale-presets">
+            <button type="button" class="btn" data-ui-scale="0.85">Klein</button>
+            <button type="button" class="btn" data-ui-scale="1">Normal</button>
+            <button type="button" class="btn" data-ui-scale="1.2">Groß</button>
+          </div>
+        </div>
+      </div>
+    </div>
     <div class="modal-shell t-modal-backdrop" id="setup-screen">
       <div class="modal-card t-modal piece setup-card" role="dialog" aria-modal="true">
         <p class="modal-kicker">NEXUS 2.1</p>
         <h2>Neue Partie</h2>
         <p>Hot-Seat-Mehrspieler: Spieler wechseln sich am selben Gerät ab.</p>
+        <p class="setup-note">Bei 2 Spielern werden Handels- und Blockade-Ziele angepasst. Geräte und Standards der anderen sind öffentlich — Ressourcen und Ziele bleiben privat.</p>
 
         <p class="setup-label">Spielerzahl</p>
         <div class="pick-row" id="setup-player-count">
@@ -38,7 +67,23 @@
     </div>
 
     <div class="stage" id="stage">
-      <header class="hud">
+      <div class="board-window">
+        <section class="city-plane" aria-label="Distrikt">
+          <div class="map-glow"></div>
+          <div class="map-viewport" id="map-viewport">
+            <div class="map-board" id="map-board">
+              <svg id="district-svg" role="img" aria-label="Hex-Distrikt"></svg>
+            </div>
+          </div>
+          <div id="float-layer" class="float-layer" aria-hidden="true"></div>
+          <div class="map-controls" aria-label="Kartensteuerung">
+            <button type="button" class="btn map-btn" id="btn-map-zoom-in" title="Heranzoomen">+</button>
+            <button type="button" class="btn map-btn" id="btn-map-zoom-out" title="Herauszoomen">−</button>
+            <button type="button" class="btn map-btn" id="btn-map-reset" title="Ansicht zurücksetzen">◎</button>
+          </div>
+        </section>
+
+        <header class="hud">
         <div class="brand">
           <h1>NEXUS</h1>
           <p class="day-line">
@@ -88,25 +133,10 @@
           <strong id="stat-goal-total">0</strong>
           <span class="goal-max">/ 100%</span>
         </div>
-      </header>
 
-      <main class="playfield">
-        <section class="city-plane" aria-label="Distrikt">
-          <div class="map-glow"></div>
-          <div class="map-viewport" id="map-viewport">
-            <div class="map-board" id="map-board">
-              <svg id="district-svg" role="img" aria-label="Hex-Distrikt"></svg>
-            </div>
-          </div>
-          <div id="float-layer" class="float-layer" aria-hidden="true"></div>
-          <div class="map-controls" aria-label="Kartensteuerung">
-            <button type="button" class="btn map-btn" id="btn-map-zoom-in" title="Heranzoomen">+</button>
-            <button type="button" class="btn map-btn" id="btn-map-zoom-out" title="Herauszoomen">−</button>
-            <button type="button" class="btn map-btn" id="btn-map-reset" title="Ansicht zurücksetzen">◎</button>
-          </div>
-        </section>
+        </header>
 
-        <aside class="dock" aria-label="Smart Home">
+        <aside class="dock" aria-label="Ziele und Feld">
           <div id="goal-panel" class="goal-panel" hidden>
             <div class="goal-panel-head">
               <div>
@@ -121,8 +151,13 @@
           </div>
 
           <div class="dock-head">
-            <h2 id="dock-title">Home</h2>
-            <p id="build-flags" class="build-flags"></p>
+            <h2 id="dock-title">Feld</h2>
+          </div>
+          <div id="zone-inspect" class="zone-inspect" hidden>
+            <p id="zone-inspect-type" class="zone-inspect-type"></p>
+            <p id="zone-inspect-owner" class="zone-inspect-meta"></p>
+            <p id="zone-inspect-yield" class="zone-inspect-yield"></p>
+            <p id="zone-inspect-die" class="zone-inspect-meta"></p>
           </div>
           <div class="standards-bar" id="standards-bar" hidden>
             <p class="setup-label">Standard (öffentlich)</p>
@@ -132,52 +167,38 @@
             </div>
             <p id="standards-hint" class="standards-hint"></p>
           </div>
-          <div id="device-list" class="hotbar"></div>
-          <div id="sae-panel" class="sae-panel" hidden>
-            <p class="setup-label">Mobilität · SAE <strong id="sae-level">0</strong>/5</p>
-            <button type="button" class="btn" id="btn-sae-upgrade">SAE ausbauen</button>
-          </div>
-          <div id="inspect-card" class="inspect sheet" hidden>
-            <div class="inspect-top">
-              <span id="inspect-icon" class="inspect-icon"></span>
-              <div>
-                <h3 id="inspect-title"></h3>
-                <p id="inspect-effect" class="inspect-effect"></p>
-              </div>
-            </div>
-            <div class="inspect-modes">
-              <button type="button" class="mode-hit" id="mode-cloud" data-mode="cloud">
-                <span class="mode-icon" data-mode="cloud"></span>
-                <span class="mode-cost" id="inspect-cloud-cost"></span>
-                <span class="mode-risk risk-row" id="inspect-cloud-risk"></span>
-              </button>
-              <button type="button" class="mode-hit" id="mode-local" data-mode="local">
-                <span class="mode-icon" data-mode="local"></span>
-                <span class="mode-cost" id="inspect-local-cost"></span>
-              </button>
-            </div>
-          </div>
         </aside>
-      </main>
 
-      <footer class="action-bar">
-        <div id="hand-panel" class="hand-panel">
-          <div class="hand-head">
-            <p class="setup-label">Innovationskarten <span id="hand-count">0</span></p>
-            <button type="button" class="btn" id="btn-draw-innovation" disabled>Karte ziehen</button>
+        <footer class="card-tray">
+        <div class="card-table">
+          <div class="card-piles">
+            <button type="button" class="card-pile draw-pile" id="btn-draw-deck" disabled>
+              <span class="pile-stack" aria-hidden="true">
+                <span class="pile-layer"></span>
+                <span class="pile-layer"></span>
+                <span class="pile-layer pile-back"></span>
+              </span>
+              <span class="pile-caption">Nachziehen</span>
+              <span class="pile-count" id="draw-count">0</span>
+            </button>
+            <div class="card-pile played-pile" id="played-pile">
+              <span class="pile-stack" id="played-stack" aria-hidden="true"></span>
+              <span class="pile-caption">Ausgespielt</span>
+              <span class="pile-count" id="played-count">0</span>
+            </div>
           </div>
-          <ul id="hand-list" class="hand-list"></ul>
+          <ul id="hand-fan" class="card-fan t-avatar-group" aria-label="Ausspielbare Karten"></ul>
+          <div class="action-buttons">
+            <button type="button" class="btn" id="btn-trade" disabled>Handeln</button>
+            <button type="button" class="btn primary" id="btn-end-round" disabled>Zug beenden</button>
+          </div>
         </div>
-        <p id="table-hint" class="hint">Produktion startet automatisch</p>
-        <div class="action-buttons">
-          <button type="button" class="btn" id="btn-trade" disabled>Handeln</button>
-          <button type="button" class="btn primary" id="btn-end-round" disabled>Zug beenden</button>
-        </div>
-        <ol id="log-list" class="tape" aria-label="Verlauf"></ol>
+        <p id="table-hint" class="hint">Home anklicken für Geräte · Karten liegen im Fach</p>
       </footer>
+      </div>
     </div>
 
-    <div id="toast-stack" class="toast-stack" aria-live="polite"></div>
+    <div id="toast-stack" class="toast-stack t-stack" aria-live="polite"></div>
 
     <div id="trade-modal" class="modal-shell t-modal-backdrop" hidden>
       <div class="modal-card t-modal piece" role="dialog" aria-modal="true">
@@ -193,6 +214,41 @@
           <button type="button" class="btn primary" id="btn-trade-confirm" disabled>Tausch bestätigen</button>
           <button type="button" class="btn ghost" id="btn-trade-cancel">Abbrechen</button>
         </div>
+      </div>
+    </div>
+
+    <div id="home-modal" class="modal-shell t-modal-backdrop" hidden>
+      <div class="modal-card t-modal piece home-modal-card" role="dialog" aria-modal="true">
+        <p class="modal-kicker">Smart Home</p>
+        <h2 id="home-modal-title">Geräte</h2>
+        <p id="build-flags" class="build-flags"></p>
+        <div id="device-list" class="hotbar"></div>
+        <div id="inspect-card" class="inspect sheet" hidden>
+          <div class="inspect-top">
+            <span id="inspect-icon" class="inspect-icon"></span>
+            <div>
+              <h3 id="inspect-title"></h3>
+              <p id="inspect-effect" class="inspect-effect"></p>
+            </div>
+          </div>
+          <div class="inspect-modes">
+            <button type="button" class="mode-hit" id="mode-cloud" data-mode="cloud">
+              <span class="mode-icon" data-mode="cloud"></span>
+              <span class="mode-cost" id="inspect-cloud-cost"></span>
+              <span class="mode-risk risk-row" id="inspect-cloud-risk"></span>
+              <span class="mode-upkeep" id="inspect-cloud-upkeep"></span>
+            </button>
+            <button type="button" class="mode-hit" id="mode-local" data-mode="local">
+              <span class="mode-icon" data-mode="local"></span>
+              <span class="mode-cost" id="inspect-local-cost"></span>
+            </button>
+          </div>
+        </div>
+        <div id="sae-panel" class="sae-panel" hidden>
+          <p class="setup-label">Mobilität · SAE <strong id="sae-level">0</strong>/5</p>
+          <button type="button" class="btn" id="btn-sae-upgrade">SAE ausbauen</button>
+        </div>
+        <button type="button" class="btn ghost" id="btn-home-close">Schließen</button>
       </div>
     </div>
 
@@ -233,6 +289,17 @@
       </div>
     </div>
 
+    <div id="public-player-modal" class="modal-shell t-modal-backdrop" hidden>
+      <div class="modal-card t-modal piece public-player-card" role="dialog" aria-modal="true">
+        <p class="modal-kicker">Öffentlich sichtbar</p>
+        <h2 id="public-player-name"></h2>
+        <p id="public-player-meta" class="role-reveal-hint"></p>
+        <p class="public-device-note">Nur Cloud-Geräte sind sichtbar. Lokale Verarbeitung bleibt privat.</p>
+        <div id="public-player-devices" class="public-device-grid"></div>
+        <button type="button" class="btn ghost" id="btn-public-player-close">Schließen</button>
+      </div>
+    </div>
+
     <div id="end-screen" class="modal-shell t-modal-backdrop" hidden>
       <div class="modal-card t-modal piece end-card" role="dialog" aria-modal="true">
         <h2 id="end-screen-title">Spiel beendet</h2>
@@ -242,16 +309,16 @@
       </div>
     </div>
 
-    <script src="js/data/constants.js"></script>
-    <script src="js/data/tiles.js"></script>
-    <script src="js/data/devices.js"></script>
-    <script src="js/data/events.js"></script>
-    <script src="js/data/cards.js"></script>
-    <script src="js/data/roles.js"></script>
-    <script src="js/icons.js"></script>
-    <script src="js/roles.js"></script>
-    <script src="js/state.js"></script>
-    <script src="js/render.js"></script>
-    <script src="js/main.js"></script>
+    <script src="js/data/constants.js?v=14"></script>
+    <script src="js/data/tiles.js?v=14"></script>
+    <script src="js/data/devices.js?v=14"></script>
+    <script src="js/data/events.js?v=14"></script>
+    <script src="js/data/cards.js?v=14"></script>
+    <script src="js/data/roles.js?v=14"></script>
+    <script src="js/icons.js?v=14"></script>
+    <script src="js/roles.js?v=14"></script>
+    <script src="js/state.js?v=14"></script>
+    <script src="js/render.js?v=14"></script>
+    <script src="js/main.js?v=14"></script>
   </body>
 </html>

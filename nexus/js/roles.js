@@ -105,6 +105,33 @@ window.Nexus = window.Nexus || {};
     }
   }
 
+  var TWO_PLAYER_METRIC_SCALE = {
+    tradeVolume: 0.55,
+    blockedTradesCaused: 0.5,
+    standardsBonusVolume: 0.6
+  };
+
+  function metricScaleForPlayerCount(metricKey, playerCount) {
+    if (playerCount >= 3) {
+      return 1;
+    }
+    return TWO_PLAYER_METRIC_SCALE[metricKey] || 1;
+  }
+
+  function scaledSubGoal(subGoal, playerCount) {
+    var factor = metricScaleForPlayerCount(subGoal.metricKey, playerCount);
+    if (factor === 1) {
+      return subGoal;
+    }
+    return Object.assign({}, subGoal, {
+      steps: subGoal.steps.map(function (step) {
+        return Object.assign({}, step, {
+          metricValue: Math.max(1, Math.round(step.metricValue * factor))
+        });
+      })
+    });
+  }
+
   function evaluateSubGoal(subGoal, metricValue) {
     var stage = 0;
     var percent = 0;
@@ -135,9 +162,11 @@ window.Nexus = window.Nexus || {};
     if (!role) {
       return { role: null, subGoals: [], totalPercent: 0 };
     }
+    var playerCount = state.players.length;
     var subGoals = role.subGoals.map(function (subGoal) {
+      var scaled = scaledSubGoal(subGoal, playerCount);
       var metricValue = readMetric(state, player, subGoal.metricKey);
-      return evaluateSubGoal(subGoal, metricValue);
+      return evaluateSubGoal(scaled, metricValue);
     });
     var totalPercent = subGoals.reduce(function (sum, goal) {
       return sum + goal.currentPercent;
@@ -159,15 +188,16 @@ window.Nexus = window.Nexus || {};
     return String(metricValue);
   }
 
-  function nextStepHint(subGoal, metricValue) {
+  function nextStepHint(subGoal, metricValue, playerCount) {
+    var scaled = scaledSubGoal(subGoal, playerCount || 3);
     var i;
-    for (i = 0; i < subGoal.steps.length; i++) {
-      var step = subGoal.steps[i];
-      var met = subGoal.higherIsBetter
+    for (i = 0; i < scaled.steps.length; i++) {
+      var step = scaled.steps[i];
+      var met = scaled.higherIsBetter
         ? metricValue >= step.metricValue
         : metricValue <= step.metricValue;
       if (!met) {
-        var need = subGoal.higherIsBetter
+        var need = scaled.higherIsBetter
           ? step.metricValue
           : "≤ " + step.metricValue;
         return "Stufe " + step.stage + ": " + need;
@@ -180,5 +210,6 @@ window.Nexus = window.Nexus || {};
   Nexus.computeRoleProgress = computeRoleProgress;
   Nexus.formatMetricValue = formatMetricValue;
   Nexus.nextStepHint = nextStepHint;
+  Nexus.scaledSubGoal = scaledSubGoal;
   Nexus.localDeviceRatio = localDeviceRatio;
 })(window.Nexus);

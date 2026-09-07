@@ -19,11 +19,11 @@ Nexus.RESOURCE_SHORT = {
 };
 
 Nexus.RESOURCE_COLORS = {
-  energy: "#f0c14b",
-  data: "#5b9dff",
-  compute: "#c084fc",
-  hardware: "#fb923c",
-  connectivity: "#2dd4bf"
+  energy: "#c4a56a",
+  data: "#7d8fa3",
+  compute: "#9a8aa0",
+  hardware: "#c08960",
+  connectivity: "#6e8b82"
 };
 
 /* NEXUS 2.1 – Abschnitt 3.2: Zone-Ressourcen-Zuordnung */
@@ -71,14 +71,14 @@ Nexus.ZONE_TYPE_COLORS = {
 
 /* NEXUS 2.1 – Abschnitt 3.3: W6-Produktionsmodifikator je Fabrik/Runde */
 Nexus.PRODUCTION_DICE = [
-  { id: "fail", modifier: -1, weight: 1, label: "Wartung/Ausfall", color: "#8a3a3a" },
-  { id: "normal", modifier: 0, weight: 2, label: "Normalbetrieb", color: "#2f8f72" },
-  { id: "good", modifier: 1, weight: 2, label: "Guter Lauf", color: "#3fa9dd" },
-  { id: "boom", modifier: 2, weight: 1, label: "Boom", color: "#d7b44a" }
+  { id: "fail", modifier: -1, weight: 1, label: "Wartung/Ausfall", color: "#8a5a52" },
+  { id: "normal", modifier: 0, weight: 2, label: "Normalbetrieb", color: "#5d7468" },
+  { id: "good", modifier: 1, weight: 2, label: "Guter Lauf", color: "#6d7f8d" },
+  { id: "boom", modifier: 2, weight: 1, label: "Boom", color: "#b89a6a" }
 ];
 
-Nexus.PLAYER_COLORS = ["#3fd0c9", "#f0c14b", "#ff8fb0"];
-Nexus.PLAYER_COLOR_NAMES = ["Türkis", "Amber", "Pink"];
+Nexus.PLAYER_COLORS = ["#6e8b82", "#b89a6a", "#b07c86"];
+Nexus.PLAYER_COLOR_NAMES = ["Salbei", "Sand", "Rose"];
 
 Nexus.GAME_LENGTHS = [
   { id: "short", label: "Kurz", rounds: 15 },
@@ -109,6 +109,7 @@ Nexus.CONSTANTS = {
   PRIVACY_BASE: 20,
   EVENT_EVERY_N_TURNS: 2,
   INNOVATION_DRAW_COST: { compute: 2, data: 1 },
+  HAND_LIMIT: 4,
   DEVICE_INNOVATION: 2,
   HEMS_INNOVATION: 4,
   CHARGER_INNOVATION_BONUS: 2,
@@ -125,7 +126,7 @@ Nexus.CONSTANTS = {
   HOME_BASE_YIELD: 1,
   MAP_MIN_SCALE: 0.28,
   MAP_MAX_SCALE: 2.8,
-  MAP_FIT_PADDING: 0.92,
+  MAP_FIT_PADDING: 0.96,
   MAP_ZOOM_OUT_BOARDS: 3,
   HUB_DISCOUNT_TIE_ORDER: ["connectivity", "energy", "data", "hardware", "compute"],
   MIN_PLAYERS: 2,

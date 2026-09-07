@@ -51,6 +51,45 @@ window.Nexus = window.Nexus || {};
     return allSlots(Nexus.CONSTANTS.HEX_RADIUS);
   }
 
+  function boardLayout() {
+    var size = Nexus.CONSTANTS.HEX_SIZE;
+    var shadowDy = Nexus.CONSTANTS.HEX_SHADOW_DY || 8;
+    var slots = boardSlots();
+    var minX = Infinity;
+    var minY = Infinity;
+    var maxX = -Infinity;
+    var maxY = -Infinity;
+    var positions = slots.map(function (slot) {
+      var pos = axialToPixel(slot.q, slot.r, size);
+      minX = Math.min(minX, pos.x);
+      minY = Math.min(minY, pos.y);
+      maxX = Math.max(maxX, pos.x);
+      maxY = Math.max(maxY, pos.y);
+      return pos;
+    });
+    var pad = size + shadowDy + 6;
+    var originX = pad - minX;
+    var originY = pad - minY;
+    return {
+      size: size,
+      shadowDy: shadowDy,
+      pad: pad,
+      originX: originX,
+      originY: originY,
+      width: Math.ceil(maxX - minX + pad * 2),
+      height: Math.ceil(maxY - minY + pad * 2 + shadowDy),
+      hexes: slots.map(function (slot, index) {
+        return {
+          q: slot.q,
+          r: slot.r,
+          key: slot.key,
+          x: originX + positions[index].x,
+          y: originY + positions[index].y
+        };
+      })
+    };
+  }
+
   function isAdjacent(a, b) {
     return HEX_DIRS.some(function (dir) {
       return a.q + dir.q === b.q && a.r + dir.r === b.r;
@@ -62,6 +101,7 @@ window.Nexus = window.Nexus || {};
   Nexus.allSlots = allSlots;
   Nexus.gridSlots = gridSlots;
   Nexus.boardSlots = boardSlots;
+  Nexus.boardLayout = boardLayout;
   Nexus.isAdjacent = isAdjacent;
   Nexus.HEX_DIRS = HEX_DIRS;
 })(window.Nexus);

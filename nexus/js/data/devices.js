@@ -7,36 +7,39 @@ Nexus.DEVICES = [
     shortName: "Thermostat",
     effectText: "Spart 1 Energie pro Runde.",
     costs: {
-      cloud: { energy: 2, connectivity: 1 },
-      local: { energy: 2, compute: 2, hardware: 1 }
+      cloud: { hardware: 1 },
+      local: { hardware: 2, compute: 1 }
     },
     cloudRiskPerRound: 1,
+    cloudUpkeep: 1,
     energySave: 1,
     dataGain: 0
   },
   {
     id: "camera",
-    name: "Smart-Kamera",
+    name: "Kamera-Netzwerk",
     shortName: "Kamera",
     effectText: "Erzeugt 1 Daten pro Runde.",
     costs: {
-      cloud: { hardware: 1, connectivity: 1 },
-      local: { hardware: 1, compute: 2 }
+      cloud: { hardware: 2, data: 1 },
+      local: { hardware: 3, compute: 2 }
     },
-    cloudRiskPerRound: 2,
+    cloudRiskPerRound: 4,
+    cloudUpkeep: 2,
     energySave: 0,
     dataGain: 1
   },
   {
     id: "shutters",
-    name: "Rollladensteuerung",
-    shortName: "Rollladen",
+    name: "Smart Shading",
+    shortName: "Shading",
     effectText: "Spart 1 Energie pro Runde.",
     costs: {
-      cloud: { energy: 1, connectivity: 1 },
-      local: { energy: 1, compute: 1, hardware: 1 }
+      cloud: { hardware: 1, data: 1 },
+      local: { hardware: 2, compute: 1 }
     },
-    cloudRiskPerRound: 1,
+    cloudRiskPerRound: 2,
+    cloudUpkeep: 1,
     energySave: 1,
     dataGain: 0
   },
@@ -50,19 +53,21 @@ Nexus.DEVICES = [
       local: { energy: 3, hardware: 2, compute: 1 }
     },
     cloudRiskPerRound: 1,
+    cloudUpkeep: 1,
     energySave: 0,
     dataGain: 0
   },
   {
     id: "hub",
-    name: "Sprachassistent / Hub",
+    name: "Home Hub",
     shortName: "Hub",
-    effectText: "Nächster Gerätebau kostet 1 Ressource weniger.",
+    effectText: "Nächster Gerätebau kostet 1 Ressource weniger. Nur lokal.",
+    localOnly: true,
     costs: {
-      cloud: { data: 1, connectivity: 1 },
-      local: { data: 1, compute: 2, hardware: 1 }
+      local: { hardware: 3, compute: 3 }
     },
-    cloudRiskPerRound: 2,
+    cloudRiskPerRound: 0,
+    cloudUpkeep: 0,
     energySave: 0,
     dataGain: 0
   },
@@ -76,6 +81,7 @@ Nexus.DEVICES = [
       local: { hardware: 1, compute: 1, energy: 1 }
     },
     cloudRiskPerRound: 1,
+    cloudUpkeep: 1,
     energySave: 0,
     dataGain: 0
   },
@@ -87,10 +93,11 @@ Nexus.DEVICES = [
     requiresZoneType: "commercial",
     isSpecial: true,
     costs: {
-      cloud: { energy: 2, data: 2, connectivity: 1 },
-      local: { energy: 2, compute: 3, hardware: 2 }
+      cloud: { hardware: 2, data: 1 },
+      local: { hardware: 3, compute: 2 }
     },
-    cloudRiskPerRound: 2,
+    cloudRiskPerRound: 3,
+    cloudUpkeep: 1,
     energySave: 0,
     dataGain: 0
   },
@@ -103,7 +110,7 @@ Nexus.DEVICES = [
     isSpecial: true,
     localOnly: true,
     costs: {
-      local: { hardware: 3, energy: 2, compute: 1 }
+      local: { hardware: 3, energy: 2 }
     },
     cloudRiskPerRound: 0,
     energySave: 0,
@@ -117,10 +124,11 @@ Nexus.DEVICES = [
     requiresZoneType: "infrastructure",
     isSpecial: true,
     costs: {
-      cloud: { hardware: 2, data: 1, connectivity: 1 },
-      local: { hardware: 3, compute: 2, connectivity: 1 }
+      cloud: { hardware: 2, data: 1 },
+      local: { hardware: 3, compute: 2 }
     },
-    cloudRiskPerRound: 3,
+    cloudRiskPerRound: 4,
+    cloudUpkeep: 2,
     energySave: 0,
     dataGain: 0
   },
@@ -132,10 +140,11 @@ Nexus.DEVICES = [
     requiresZoneType: "infrastructure",
     isSpecial: true,
     costs: {
-      cloud: { hardware: 2, connectivity: 1 },
-      local: { hardware: 3, compute: 1, energy: 1 }
+      cloud: { hardware: 2 },
+      local: { hardware: 3, compute: 1 }
     },
     cloudRiskPerRound: 2,
+    cloudUpkeep: 1,
     energySave: 0,
     dataGain: 0
   },
@@ -147,10 +156,11 @@ Nexus.DEVICES = [
     requiresZoneType: "commercial",
     isSpecial: true,
     costs: {
-      cloud: { hardware: 1, data: 1, connectivity: 1 },
-      local: { hardware: 2, compute: 1, energy: 1 }
+      cloud: { hardware: 1, data: 1 },
+      local: { hardware: 2, compute: 1 }
     },
     cloudRiskPerRound: 2,
+    cloudUpkeep: 1,
     energySave: 0,
     dataGain: 0,
     efficiencyPerRound: 1

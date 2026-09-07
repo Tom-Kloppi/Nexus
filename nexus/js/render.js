@@ -61,6 +61,110 @@ window.Nexus = window.Nexus || {};
       .join("");
   }
 
+  function bindCardFanOnce() {
+    var root = document.getElementById("hand-fan");
+    if (!root || root.dataset.hoverBound) {
+      return;
+    }
+    root.dataset.hoverBound = "1";
+
+    function num(name, fallback) {
+      var value = parseFloat(getComputedStyle(root).getPropertyValue(name));
+      return Number.isFinite(value) ? value : fallback;
+    }
+
+    function ease(name, fallback) {
+      return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback;
+    }
+
+    function avatars() {
+      return Array.prototype.slice.call(root.querySelectorAll(".t-avatar"));
+    }
+
+    function setShifts(activeIdx, phase) {
+      var lift = num("--avatar-lift", -42);
+      var falloff = num("--avatar-falloff", 0.32);
+      var scale = num("--avatar-scale", 1.08);
+      var timing =
+        phase === "out"
+          ? ease("--avatar-ease-out", "cubic-bezier(0.34, 3.85, 0.64, 1)")
+          : ease("--avatar-ease-in", "cubic-bezier(0.22, 1, 0.36, 1)");
+      avatars().forEach(function (el, i) {
+        el.style.transitionTimingFunction = timing;
+        if (activeIdx == null) {
+          el.style.setProperty("--shift", "0px");
+          el.style.setProperty("--scale-active", "1");
+          el.style.removeProperty("--fan-rot-live");
+          el.style.zIndex = "";
+          return;
+        }
+        var distance = Math.abs(i - activeIdx);
+        el.style.setProperty("--shift", (lift * Math.pow(falloff, distance)).toFixed(3) + "px");
+        el.style.setProperty("--scale-active", i === activeIdx ? String(scale) : "1");
+        if (i === activeIdx) {
+          el.style.setProperty("--fan-rot-live", "0deg");
+          el.style.zIndex = "20";
+        } else {
+          el.style.removeProperty("--fan-rot-live");
+          el.style.zIndex = String(10 - distance);
+        }
+      });
+    }
+
+    root.addEventListener("mouseover", function (event) {
+      var item = event.target.closest(".t-avatar");
+      if (!item || !root.contains(item)) {
+        return;
+      }
+      if (event.relatedTarget && item.contains(event.relatedTarget)) {
+        return;
+      }
+      var idx = avatars().indexOf(item);
+      if (idx < 0) {
+        return;
+      }
+      setShifts(idx, "in");
+    });
+
+    root.addEventListener("mouseout", function (event) {
+      var item = event.target.closest(".t-avatar");
+      if (!item) {
+        return;
+      }
+      var next = event.relatedTarget;
+      if (next && item.contains(next)) {
+        return;
+      }
+      if (next && root.contains(next) && next.closest(".t-avatar")) {
+        return;
+      }
+      setShifts(null, "out");
+    });
+  }
+
+  function formatZoneYield(zone) {
+    if (!zone || !zone.lastYield) {
+      return "Noch nicht produziert";
+    }
+    if (zone.type === "home" && zone.lastYield.homeBundle) {
+      return "+1 aller Ressourcen";
+    }
+    var yieldData = zone.lastYield;
+    if (!yieldData.primary) {
+      return "Noch nicht produziert";
+    }
+    var text =
+      "+" + yieldData.primary.amount + " " + Nexus.RESOURCE_SHORT[yieldData.primary.resource];
+    if (yieldData.secondary) {
+      text +=
+        " · +" +
+        yieldData.secondary.amount +
+        " " +
+        Nexus.RESOURCE_SHORT[yieldData.secondary.resource];
+    }
+    return text;
+  }
+
   function riskPips(count) {
     var html = "";
     var i;
@@ -147,29 +251,95 @@ window.Nexus = window.Nexus || {};
     }, ms);
   }
 
-  function pushToast(text, tone) {
+  var toastBanners = [];
+  var toastSpreadBound = false;
+
+  function toastMs(name, fallback) {
+    var value = parseFloat(getComputedStyle(document.documentElement).getPropertyValue(name));
+    return Number.isFinite(value) ? value : fallback;
+  }
+
+  function bindToastSpreadOnce() {
     var stack = document.getElementById("toast-stack");
-    if (!stack) {
+    if (!stack || toastSpreadBound) {
       return;
     }
-    var node = document.createElement("div");
-    node.className = "toast-item t-toast";
-    if (tone) {
-      node.style.color = tone;
-    }
-    node.textContent = text;
-    stack.appendChild(node);
-    requestAnimationFrame(function () {
-      node.classList.add("is-open");
-    });
-    setTimeout(function () {
-      node.classList.remove("is-open");
-      setTimeout(function () {
-        if (node.parentNode) {
-          node.parentNode.removeChild(node);
+    toastSpreadBound = true;
+    var spreadHeight = function () {
+      return (stack.offsetHeight + toastMs("--stack-spread-gap", 8)) * 2;
+    };
+    var within = function (event, above) {
+      var rect = stack.getBoundingClientRect();
+      return (
+        event.clientX >= rect.left &&
+        event.clientX <= rect.right &&
+        event.clientY <= rect.bottom &&
+        event.clientY >= rect.top - above
+      );
+    };
+    document.addEventListener("pointermove", function (event) {
+      if (stack.classList.contains("is-spread")) {
+        if (!within(event, spreadHeight())) {
+          stack.classList.remove("is-spread");
         }
-      }, 280);
-    }, 1600);
+      } else if (within(event, 0)) {
+        stack.classList.add("is-spread");
+      }
+    });
+  }
+
+  function dismissToastBanner(el) {
+    if (!el || el.classList.contains("is-leaving")) {
+      return;
+    }
+    el.classList.add("is-leaving");
+    setTimeout(function () {
+      if (el.parentNode) {
+        el.parentNode.removeChild(el);
+      }
+      toastBanners = toastBanners.filter(function (item) {
+        return item !== el;
+      });
+      toastBanners.forEach(function (banner, index) {
+        if (!banner.classList.contains("is-leaving")) {
+          banner.setAttribute("data-depth", String(index));
+        }
+      });
+    }, toastMs("--stack-close", 250) + 60);
+  }
+
+  function pushToast(text) {
+    var stack = document.getElementById("toast-stack");
+    if (!stack || !text) {
+      return;
+    }
+    bindToastSpreadOnce();
+    var el = document.createElement("div");
+    el.className = "t-stack-banner is-enter";
+    el.setAttribute("data-depth", "0");
+    el.textContent = text;
+    toastBanners.unshift(el);
+    stack.appendChild(el);
+    toastBanners.forEach(function (banner, index) {
+      if (index === 0) {
+        return;
+      }
+      if (index > 2) {
+        dismissToastBanner(banner);
+      } else {
+        banner.setAttribute("data-depth", String(index));
+      }
+    });
+    toastBanners = toastBanners.slice(0, 3).concat(
+      toastBanners.slice(3).filter(function (banner) {
+        return banner.classList.contains("is-leaving");
+      })
+    );
+    void el.offsetWidth;
+    el.classList.remove("is-enter");
+    setTimeout(function () {
+      dismissToastBanner(el);
+    }, 3200);
   }
 
   function spawnFloat(resource, amount, clientX, clientY) {
@@ -213,10 +383,12 @@ window.Nexus = window.Nexus || {};
           state.turnPhase !== "gameover" &&
           !Nexus.isHotSeatShield(state);
         return (
-          '<span class="turn-chip' +
+          '<button type="button" class="turn-chip' +
           (isActive ? " is-active" : "") +
           '" style="--player-color:' +
           playerColor(player) +
+          '" data-player-id="' +
+          player.id +
           '">' +
           '<span class="dot"></span>' +
           player.name +
@@ -228,7 +400,7 @@ window.Nexus = window.Nexus || {};
           zoneCount +
           " Zone" +
           (zoneCount === 1 ? "" : "n") +
-          "</span></span>"
+          "</span></button>"
         );
       })
       .join("");
@@ -263,7 +435,7 @@ window.Nexus = window.Nexus || {};
       .map(function (goal, index) {
         var subDef = roleDef.subGoals[index];
         var metricText = Nexus.formatMetricValue(subDef, goal.metricValue);
-        var hint = Nexus.nextStepHint(subDef, goal.metricValue);
+        var hint = Nexus.nextStepHint(subDef, goal.metricValue, state.players.length);
         var bar = Math.round((goal.currentPercent / goal.maxContribution) * 100);
         return (
           '<li class="goal-item">' +
@@ -332,7 +504,7 @@ window.Nexus = window.Nexus || {};
             "<span>max. " +
             goal.maxContribution +
             "% · " +
-            Nexus.nextStepHint(subDef, goal.metricValue) +
+            Nexus.nextStepHint(subDef, goal.metricValue, state.players.length) +
             "</span>" +
             "</div>"
           );
@@ -374,6 +546,65 @@ window.Nexus = window.Nexus || {};
     }
   }
 
+  function renderPublicPlayerModal(state, ui) {
+    var shell = document.getElementById("public-player-modal");
+    if (!shell) {
+      return;
+    }
+    var shouldOpen =
+      !!(ui && ui.inspectedPlayerId) &&
+      !Nexus.isHotSeatShield(state) &&
+      state.turnPhase !== "gameover";
+    if (!shouldOpen) {
+      if (!shell.hidden) {
+        closeModal(shell);
+      }
+      return;
+    }
+    var view = Nexus.getPublicPlayerView(state, ui.inspectedPlayerId);
+    if (!view) {
+      closeModal(shell);
+      return;
+    }
+    var standardText =
+      view.standardsChoice === "proprietary" ? "Proprietäres System" : "Offener Standard";
+    document.getElementById("public-player-name").textContent = view.name;
+    document.getElementById("public-player-meta").textContent =
+      view.alignment +
+      " · " +
+      standardText +
+      " · " +
+      view.zoneCount +
+      " Zone" +
+      (view.zoneCount === 1 ? "" : "n") +
+      " · SAE " +
+      view.saeLevel +
+      "/5";
+    var grid = document.getElementById("public-player-devices");
+    if (!view.devices.length) {
+      grid.innerHTML = '<p class="hand-empty">Keine Cloud-Geräte sichtbar.</p>';
+    } else {
+      grid.innerHTML = view.devices
+        .map(function (device) {
+          return (
+            '<div class="public-device">' +
+            '<span class="public-device-icon">' +
+            Nexus.DEVICE_ICONS[device.id] +
+            "</span>" +
+            "<strong>" +
+            device.shortName +
+            "</strong>" +
+            "<small>Cloud</small>" +
+            "</div>"
+          );
+        })
+        .join("");
+    }
+    if (shell.hidden || !shell.classList.contains("is-open")) {
+      openModal(shell);
+    }
+  }
+
   function renderWallet(state) {
     var player = Nexus.currentPlayer(state);
     if (Nexus.isHotSeatShield(state)) {
@@ -410,29 +641,59 @@ window.Nexus = window.Nexus || {};
     lastPlayerId = player.id;
   }
 
+  function homeDevicePips(owner, cx, cy, publicOnly) {
+    if (!owner) {
+      return "";
+    }
+    var built = [];
+    Nexus.DEVICES.forEach(function (device) {
+      var mode = owner.devices[device.id];
+      if (!mode) {
+        return;
+      }
+      if (publicOnly && mode !== "cloud") {
+        return;
+      }
+      built.push({ name: device.shortName, mode: mode });
+    });
+    if (!built.length) {
+      return "";
+    }
+    var cols = Math.min(4, built.length);
+    var gap = 10;
+    var startX = cx - ((cols - 1) * gap) / 2;
+    var startY = cy + 16;
+    return built
+      .map(function (item, index) {
+        var col = index % cols;
+        var row = Math.floor(index / cols);
+        var x = startX + col * gap;
+        var y = startY + row * 10;
+        return (
+          '<circle class="home-device-pip is-' +
+          item.mode +
+          '" cx="' +
+          x +
+          '" cy="' +
+          y +
+          '" r="3.6"><title>' +
+          item.name +
+          (item.mode === "cloud" ? " · Cloud" : " · Lokal") +
+          "</title></circle>"
+        );
+      })
+      .join("");
+  }
+
   function renderDistrict(state, ui) {
     var svg = document.getElementById("district-svg");
     var board = document.getElementById("map-board");
-    var slots = Nexus.boardSlots();
-    var size = C.HEX_SIZE;
-    var shadowDy = C.HEX_SHADOW_DY || 8;
-    var minX = Infinity;
-    var minY = Infinity;
-    var maxX = -Infinity;
-    var maxY = -Infinity;
-    slots.forEach(function (slot) {
-      var pos = Nexus.axialToPixel(slot.q, slot.r, size);
-      minX = Math.min(minX, pos.x);
-      minY = Math.min(minY, pos.y);
-      maxX = Math.max(maxX, pos.x);
-      maxY = Math.max(maxY, pos.y);
-    });
-    /* Pointy-top hexes extend `size` from center; keep shadow offset inside the SVG. */
-    var pad = size + shadowDy + 6;
-    var width = Math.ceil(maxX - minX + pad * 2);
-    var height = Math.ceil(maxY - minY + pad * 2 + shadowDy);
-    var originX = pad - minX;
-    var originY = pad - minY;
+    var layout = Nexus.boardLayout();
+    var size = layout.size;
+    var shadowDy = layout.shadowDy;
+    var width = layout.width;
+    var height = layout.height;
+    var slots = layout.hexes;
     if (board) {
       board.style.width = width + "px";
       board.style.height = height + "px";
@@ -455,7 +716,6 @@ window.Nexus = window.Nexus || {};
     var player = Nexus.currentPlayer(state);
     var html = "";
     var selected = ui && ui.expandSlot;
-    var homeSelected = ui && ui.homeSelected;
     var totalWeight = dieWeightTotal();
     var spinningSet = {};
     var staggerByZone = {};
@@ -465,9 +725,8 @@ window.Nexus = window.Nexus || {};
     });
 
     slots.forEach(function (slot) {
-      var pos = Nexus.axialToPixel(slot.q, slot.r, size);
-      var cx = originX + pos.x;
-      var cy = originY + pos.y;
+      var cx = slot.x;
+      var cy = slot.y;
       var zone = Nexus.zoneAt(state, slot.q, slot.r);
       var expandable = Nexus.isExpandableSlot(state, slot.q, slot.r) && state.turnPhase === "build";
       var buyable = expandable && Nexus.canAffordExpandSlot(state, slot.q, slot.r);
@@ -484,7 +743,7 @@ window.Nexus = window.Nexus || {};
         var spinning = !!spinningSet[zone.id];
         var staggerMs = (staggerByZone[zone.id] || 0) * C.HARVEST_STAGGER_MS;
         var done = !!zone.harvested;
-        var isHomeActive = isHome && isMine && homeSelected;
+        var isHomeActive = isHome && isMine && ui && ui.homeOpen;
         html +=
           '<polygon class="hex-shadow" points="' +
           hexPoints(cx, cy + shadowDy, size - 2) +
@@ -499,6 +758,8 @@ window.Nexus = window.Nexus || {};
             (spinning ? " is-spinning" : "") +
             '" data-home="' +
             zone.id +
+            '" data-owner="' +
+            zone.ownerId +
             '" data-mine="' +
             (isMine ? "1" : "0") +
             '" style="--owner-color:' +
@@ -519,6 +780,7 @@ window.Nexus = window.Nexus || {};
             ')">' +
             Nexus.homeIconGroup("#1b140c") +
             "</g>" +
+            homeDevicePips(owner, cx, cy, !isMine) +
             "</g>";
           return;
         }
@@ -552,6 +814,7 @@ window.Nexus = window.Nexus || {};
           (done ? " is-done" : "") +
           (spinning ? " is-spinning" : "") +
           (isMine ? "" : " is-foreign") +
+          (ui && ui.inspectedZoneId === zone.id ? " is-selected" : "") +
           '" data-zone="' +
           zone.id +
           '" data-mine="' +
@@ -651,7 +914,7 @@ window.Nexus = window.Nexus || {};
       if ((player.freeZoneClaims || 0) > 0) {
         hint.textContent = player.name + ": Startcoupon — wähle ein Feld am Home (kostenlos)";
       } else {
-        hint.textContent = player.name + ": Geräte bauen, Zonen erweitern oder Zug beenden";
+        hint.textContent = player.name + ": bauen, Karten ausspielen oder Zug beenden";
       }
     } else {
       hint.textContent = "";
@@ -662,26 +925,78 @@ window.Nexus = window.Nexus || {};
     var player = Nexus.currentPlayer(state);
     var list = document.getElementById("device-list");
     var inspected = ui && ui.inspectedDevice;
-    var homeSelected = ui && ui.homeSelected;
+    var inspectedZone = null;
+    if (ui && ui.inspectedZoneId) {
+      state.zones.forEach(function (zone) {
+        if (zone.id === ui.inspectedZoneId) {
+          inspectedZone = zone;
+        }
+      });
+    }
     var dockTitle = document.getElementById("dock-title");
     if (dockTitle) {
-      dockTitle.textContent = homeSelected ? "Smart Home · aktiv" : "Home";
+      if (inspectedZone) {
+        var typeDef = Nexus.ZONE_TYPES[inspectedZone.type] || { label: inspectedZone.type };
+        dockTitle.textContent = typeDef.label;
+      } else {
+        dockTitle.textContent = "Distrikt";
+      }
     }
 
-    var basicDevices = Nexus.DEVICES.filter(function (d) {
-      return !d.isSpecial;
-    });
-    var specialDevices = Nexus.DEVICES.filter(function (d) {
-      return d.isSpecial;
-    });
-    var visibleDevices = homeSelected
-      ? basicDevices.concat(specialDevices)
-      : basicDevices;
+    var homeModal = document.getElementById("home-modal");
+      var shouldOpenHome =
+      !!(ui && ui.homeOpen) &&
+      !(ui && ui.expandSlot) &&
+      !Nexus.isHotSeatShield(state) &&
+      state.turnPhase !== "gameover";
+    if (homeModal) {
+      if (!shouldOpenHome) {
+        if (!homeModal.hidden) {
+          closeModal(homeModal);
+        }
+      } else if (homeModal.hidden) {
+        openModal(homeModal);
+      }
+    }
+
+    var zoneInspect = document.getElementById("zone-inspect");
+    if (zoneInspect) {
+      if (!inspectedZone) {
+        zoneInspect.hidden = true;
+      } else {
+        zoneInspect.hidden = false;
+        var owner = state.players.filter(function (p) {
+          return p.id === inspectedZone.ownerId;
+        })[0];
+        var isMineZone = owner && player && owner.id === player.id;
+        document.getElementById("zone-inspect-type").textContent =
+          (Nexus.ZONE_TYPES[inspectedZone.type] || {}).label || inspectedZone.type;
+        document.getElementById("zone-inspect-owner").textContent = owner
+          ? isMineZone
+            ? "Dein Feld"
+            : owner.name + " · öffentlich sichtbar"
+          : "";
+        document.getElementById("zone-inspect-yield").textContent = formatZoneYield(inspectedZone);
+        var die = inspectedZone.lastDieId
+          ? Nexus.PRODUCTION_DICE.filter(function (item) {
+              return item.id === inspectedZone.lastDieId;
+            })[0]
+          : null;
+        document.getElementById("zone-inspect-die").textContent = die
+          ? die.label + (die.modifier ? " (" + (die.modifier > 0 ? "+" : "") + die.modifier + ")" : "")
+          : inspectedZone.type === "home"
+            ? "Home produziert ohne Würfel"
+            : "Noch kein Wurf in dieser Runde";
+      }
+    }
+
+    var visibleDevices = Nexus.DEVICES;
+    var canBuildDevices = state.turnPhase === "build" && !Nexus.isHotSeatShield(state);
 
     list.innerHTML = visibleDevices
       .map(function (device) {
       var mode = player.devices[device.id];
-      var buyable = Nexus.canBuyDevice(state, device.id);
+      var buyable = canBuildDevices && Nexus.canBuyDevice(state, device.id);
       var classes = ["room", "t-tt-wrap"];
       if (mode === "cloud") {
         classes.push("is-cloud");
@@ -742,9 +1057,11 @@ window.Nexus = window.Nexus || {};
       }
       var hint = document.getElementById("standards-hint");
       if (hint) {
-        hint.textContent = player.standardsChoice
-          ? "Streak: " + (player.standardStreak || 0) + " Runden"
-          : "Wähle offen (Handel) oder proprietär (Kontrolle).";
+        hint.textContent =
+          (player.standardsChoice === "proprietary" ? "Proprietär" : "Offen") +
+          " · Streak: " +
+          (player.standardStreak || 0) +
+          " Runden";
       }
     }
 
@@ -763,7 +1080,9 @@ window.Nexus = window.Nexus || {};
     }
 
     var inspect = document.getElementById("inspect-card");
-    if (!inspected || state.turnPhase === "event") {
+    if (inspect && inspectedZone) {
+      inspect.hidden = true;
+    } else if (!inspected || state.turnPhase === "event") {
       inspect.hidden = true;
     } else {
       var device = Nexus.DEVICES_BY_ID[inspected];
@@ -771,24 +1090,46 @@ window.Nexus = window.Nexus || {};
       document.getElementById("inspect-icon").innerHTML = Nexus.DEVICE_ICONS[device.id];
       document.getElementById("inspect-title").textContent = device.name;
       document.getElementById("inspect-effect").textContent = device.effectText;
-      document.getElementById("inspect-cloud-cost").innerHTML = chipsHtml(
-        Nexus.getBuildOffer(state, device.id, "cloud").cost
-      );
       document.getElementById("inspect-local-cost").innerHTML = chipsHtml(
         Nexus.getBuildOffer(state, device.id, "local").cost
       );
-      document.getElementById("inspect-cloud-risk").innerHTML = riskPips(device.cloudRiskPerRound);
       var cloudBtn = document.getElementById("mode-cloud");
       var localBtn = document.getElementById("mode-local");
-      var cloudOk = Nexus.getBuildOffer(state, device.id, "cloud").allowed;
+      var upkeepEl = document.getElementById("inspect-cloud-upkeep");
+      cloudBtn.hidden = !!device.localOnly;
+      if (device.localOnly) {
+        document.getElementById("inspect-cloud-cost").textContent = "nicht verfügbar";
+        document.getElementById("inspect-cloud-risk").innerHTML = "";
+        if (upkeepEl) {
+          upkeepEl.textContent = "";
+        }
+        cloudBtn.disabled = true;
+        cloudBtn.classList.add("is-disabled");
+      } else {
+        document.getElementById("inspect-cloud-cost").innerHTML = chipsHtml(
+          Nexus.getBuildOffer(state, device.id, "cloud").cost
+        );
+        document.getElementById("inspect-cloud-risk").innerHTML = riskPips(device.cloudRiskPerRound);
+        if (upkeepEl) {
+          var upkeepAmt = device.cloudUpkeep || 0;
+          upkeepEl.textContent = upkeepAmt
+            ? "laufend " + upkeepAmt + " Konnekt./Zug"
+            : "";
+        }
+        var cloudOk = Nexus.getBuildOffer(state, device.id, "cloud").allowed;
+        cloudBtn.disabled = !cloudOk;
+        cloudBtn.classList.toggle("is-disabled", !cloudOk);
+      }
       var localOk = Nexus.getBuildOffer(state, device.id, "local").allowed;
-      cloudBtn.disabled = !cloudOk;
       localBtn.disabled = !localOk;
-      cloudBtn.classList.toggle("is-disabled", !cloudOk);
       localBtn.classList.toggle("is-disabled", !localOk);
     }
 
     var flags = [];
+    var upkeep = Nexus.cloudUpkeepCost(player);
+    if (upkeep > 0) {
+      flags.push("Cloud −" + upkeep + " Konnekt./Zug");
+    }
     if (player.hubDiscountPending) {
       flags.push("Hub-Rabatt");
     }
@@ -797,39 +1138,115 @@ window.Nexus = window.Nexus || {};
     }
     document.getElementById("build-flags").textContent = flags.join(" · ");
 
-    var handList = document.getElementById("hand-list");
-    var handCount = document.getElementById("hand-count");
-    var cards = player.handCards || [];
-    if (handCount) {
-      handCount.textContent = String(cards.length);
+    var shield = Nexus.isHotSeatShield(state);
+    var cards = shield ? [] : player.handCards || [];
+    var played = shield ? [] : player.playedCards || [];
+    var canPlay = state.turnPhase === "build" && !shield;
+    var fan = document.getElementById("hand-fan");
+    if (fan) {
+      if (!cards.length) {
+        fan.innerHTML = shield
+          ? ""
+          : '<li class="hand-empty">Keine Handkarten</li>';
+      } else {
+        var n = cards.length;
+        var spread = n > 6 ? 5 : 7;
+        fan.innerHTML = cards
+          .map(function (card, index) {
+            var effects = Nexus.formatEffects(card.effects);
+            var rot = (index - (n - 1) / 2) * spread;
+            var title = canPlay
+              ? "Ausspielen: " + (effects || card.name)
+              : "Nur in der Bauphase ausspielbar";
+            return (
+              '<li class="t-avatar" style="--fan-i:' +
+              index +
+              "; --fan-n:" +
+              n +
+              "; --fan-rot:" +
+              rot +
+              'deg">' +
+              '<button type="button" class="play-card cat-' +
+              card.category +
+              '" data-card-index="' +
+              index +
+              '" title="' +
+              title +
+              '"' +
+              (canPlay ? "" : " disabled") +
+              ">" +
+              '<span class="play-card-cat">' +
+              (Nexus.INNOVATION_CATEGORY_LABELS[card.category] || card.category) +
+              "</span>" +
+              '<strong class="play-card-name">' +
+              card.name +
+              "</strong>" +
+              '<span class="play-card-text">' +
+              (card.text || "") +
+              "</span>" +
+              (effects ? '<span class="play-card-fx">' + effects + "</span>" : "") +
+              "</button></li>"
+            );
+          })
+          .join("");
+      }
     }
-    if (handList) {
-      handList.innerHTML = cards.length
-        ? cards
-            .map(function (card) {
-              return (
-                '<li class="hand-card cat-' +
-                card.category +
-                '" title="' +
-                (card.text || "") +
-                '"><strong>' +
-                card.name +
-                "</strong><span>" +
-                (Nexus.INNOVATION_CATEGORY_LABELS[card.category] || card.category) +
-                "</span></li>"
-              );
-            })
-            .join("")
-        : '<li class="hand-empty">Keine Karten — „Karte ziehen“ oder Boom/Ereignis</li>';
+
+    var playedStack = document.getElementById("played-stack");
+    var playedCount = document.getElementById("played-count");
+    if (playedCount) {
+      playedCount.textContent = String(played.length);
     }
-    var drawBtn = document.getElementById("btn-draw-innovation");
+    if (playedStack) {
+      if (!played.length) {
+        playedStack.innerHTML = '<span class="pile-layer pile-empty"></span>';
+      } else {
+        var shown = played.slice(-3);
+        playedStack.innerHTML = shown
+          .map(function (card, index) {
+            var isTop = index === shown.length - 1;
+            return (
+              '<span class="pile-layer' +
+              (isTop ? " pile-face cat-" + card.category : "") +
+              '">' +
+              (isTop ? '<span class="pile-face-name">' + card.name + "</span>" : "") +
+              "</span>"
+            );
+          })
+          .join("");
+      }
+    }
+
+    var drawBtn = document.getElementById("btn-draw-deck");
+    var drawCount = document.getElementById("draw-count");
+    var deckLeft = (state.innovationDeck || []).length;
+    if (drawCount) {
+      drawCount.textContent = String(deckLeft);
+    }
     if (drawBtn) {
       var drawOffer = Nexus.getInnovationDrawOffer(state);
       drawBtn.disabled = !drawOffer.allowed;
       drawBtn.title = drawOffer.allowed
-        ? "Kosten: " + Nexus.formatCost(drawOffer.cost)
+        ? "Karte ziehen (Hand unter " + Nexus.CONSTANTS.HAND_LIMIT + ")"
         : drawOffer.reason;
+      drawBtn.setAttribute("aria-label", drawBtn.title);
     }
+
+    var dock = document.querySelector(".dock");
+    var dockHead = document.querySelector(".dock-head");
+    var goalPanel = document.getElementById("goal-panel");
+    var zoneInspect = document.getElementById("zone-inspect");
+    var standardsBar = document.getElementById("standards-bar");
+    if (dockHead) {
+      dockHead.hidden = !zoneInspect || zoneInspect.hidden;
+    }
+    if (dock) {
+      dock.hidden =
+        (!goalPanel || goalPanel.hidden) &&
+        (!zoneInspect || zoneInspect.hidden) &&
+        (!standardsBar || standardsBar.hidden);
+    }
+    bindCardFanOnce();
   }
 
   function renderExpandModal(state, ui) {
@@ -926,16 +1343,6 @@ window.Nexus = window.Nexus || {};
     }
   }
 
-  function renderLog(state) {
-    document.getElementById("log-list").innerHTML = state.log
-      .slice(0, 6)
-      .map(function (entry) {
-        var prefix = entry.playerName ? entry.playerName + ": " : "";
-        return "<li>" + prefix + entry.text + "</li>";
-      })
-      .join("");
-  }
-
   function renderEndScreen(state) {
     var shell = document.getElementById("end-screen");
     var ended = state.turnPhase === "gameover";
@@ -1018,8 +1425,26 @@ window.Nexus = window.Nexus || {};
     }
     var player = Nexus.currentPlayer(state);
     var pick = ui.tradePick || { partnerId: null, giveKey: null, giveAmount: 1, wantKey: null, wantAmount: 1 };
-    document.getElementById("trade-hint").textContent =
-      player.name + " tauscht Ressourcen (Standards beachten).";
+    var hint = player.name + " tauscht Ressourcen (Standards beachten).";
+    if (pick.partnerId) {
+      var selected = state.players.filter(function (p) {
+        return p.id === pick.partnerId;
+      })[0];
+      if (selected) {
+        var compat = Nexus.getTradeOffer(
+          state,
+          selected.id,
+          pick.giveKey || "energy",
+          pick.giveAmount || 1,
+          pick.wantKey || "data",
+          pick.wantAmount || 1
+        );
+        if (!compat.allowed) {
+          hint = compat.reason;
+        }
+      }
+    }
+    document.getElementById("trade-hint").textContent = hint;
     document.getElementById("trade-partners").innerHTML = state.players
       .filter(function (p) {
         return p.id !== player.id;
@@ -1085,7 +1510,7 @@ window.Nexus = window.Nexus || {};
     renderEventModal(state, ui);
     renderRoleRevealModal(state);
     renderHandoffModal(state);
-    renderLog(state);
+    renderPublicPlayerModal(state, ui);
     renderEndScreen(state);
   };
 
