@@ -193,14 +193,46 @@ window.Nexus = window.Nexus || {};
     return 1;
   }
 
-  function pickEvent(player) {
-    var eligible = Nexus.EVENTS.filter(function (event) {
-      if (!event.requiresCloudCamera) {
-        return true;
+  function hasLocalPrivacyShield(player) {
+    if (player.devices.camera === "local") {
+      return true;
+    }
+    if (player.devices.hub === "local") {
+      return true;
+    }
+    return Nexus.localDeviceRatio(player) >= 75;
+  }
+
+  function tryPrivacyShieldEvent(state, player) {
+    if (!hasLocalPrivacyShield(player)) {
+      return null;
+    }
+    return {
+      id: "privacy-shield",
+      title: "Datenleck abgewehrt",
+      text: "Ein Datenleck wurde durch lokale Absicherung neutralisiert.",
+      auto: true,
+      requiresCloudCamera: false,
+      isPrivacyShield: true,
+      choices: [
+        {
+          id: "ok",
+          label: "Verstanden",
+          summary: "Ereignis ohne Effekt abgewehrt",
+          effects: { privacyShield: true }
+        }
+      ]
+    };
+  }
+
+  function pickEventForPlayer(player) {
+    if (Math.random() < 0.35 && hasLocalPrivacyShield(player)) {
+      var shield = tryPrivacyShieldEvent(null, player);
+      if (shield) {
+        return shield;
       }
-      return player.devices.camera === "cloud";
-    });
-    return eligible[Math.floor(Math.random() * eligible.length)];
+    }
+    return pickEvent(player);
   }
 
   /* ---------- Fabrik-Produktion (Abschnitt 3.2 / 3.3) ---------- */
@@ -363,7 +395,7 @@ window.Nexus = window.Nexus || {};
 
   /* ---------- Spielaufbau ---------- */
 
-  function createEmptyPlayer(id, name, colorIndex) {
+  function createEmptyPlayer(id, name, colorIndex, roleId) {
     var resources = emptyResources();
     KEYS.forEach(function (key) {
       resources[key] = C.START_RESOURCES;
@@ -376,12 +408,17 @@ window.Nexus = window.Nexus || {};
       id: id,
       name: name,
       colorIndex: colorIndex,
+      roleId: roleId,
       resources: resources,
       devices: devices,
       risk: 0,
       efficiencyPoints: 0,
       innovationBonus: 0,
       privacyAdjustment: 0,
+      greenInnovationCards: 0,
+      privacyShieldEvents: 0,
+      cumulativeProduction: 0,
+      tradeVolume: 0,
       hubDiscountPending: false,
       localHardwareDiscountPending: false,
       roundModifiers: { cloudDisabled: false, cloudHalfEffect: false },
@@ -405,13 +442,14 @@ window.Nexus = window.Nexus || {};
         return g.id === gameLengthId;
       })[0] || Nexus.GAME_LENGTHS[1];
 
+    var roleIds = Nexus.assignRoles(playerCount);
     var players = [];
     var zones = [];
     var i;
     for (i = 0; i < playerCount; i++) {
       var id = "p" + (i + 1);
-      players.push(createEmptyPlayer(id, "Spieler " + (i + 1), i));
-      Nexus.START_ZONE_LAYOUT[i].forEach(function (spec, idx) {
+      players.push(createEmptyPlayer(id, "Spieler " + (i + 1), i, roleIds[i]));
+      Nexus.START_ZONE_LAYOUT[i].forEach(function (spec) {
         zones.push({
           id: "zone-" + spec.q + "-" + spec.r,
           q: spec.q,
@@ -430,20 +468,44 @@ window.Nexus = window.Nexus || {};
       maxRounds: gameLength.rounds,
       gameLengthLabel: gameLength.label,
       currentPlayerIndex: 0,
-      turnPhase: "produce",
+      turnPhase: "role_reveal",
+      roleRevealIndex: 0,
       spinningZoneId: null,
       spinningOutcome: null,
       players: players,
       zones: zones,
       finalScores: null,
+      winnerId: null,
       log: [
         {
           round: 1,
           playerName: null,
-          text: "Neues Spiel: " + playerCount + " Spieler, " + gameLength.rounds + " Runden. Spieler 1 beginnt."
+          text: "Neues Spiel: " + playerCount + " Spieler, " + gameLength.rounds + " Runden."
         }
       ]
     };
+  }
+
+  function acknowledgeRoleReveal(state) {
+    if (state.turnPhase !== "role_reveal") {
+      return state;
+    }
+    var nextIndex = state.roleRevealIndex + 1;
+    if (nextIndex >= state.players.length) {
+      return Object.assign({}, state, {
+        turnPhase: "produce",
+        roleRevealIndex: state.players.length,
+        log: addLog(state, null, state.players[0].name + " beginnt.")
+      });
+    }
+    return Object.assign({}, state, { roleRevealIndex: nextIndex });
+  }
+
+  function roleRevealPlayer(state) {
+    if (state.turnPhase !== "role_reveal") {
+      return null;
+    }
+    return state.players[state.roleRevealIndex] || null;
   }
 
   function remainingHarvestCount(state) {
@@ -485,7 +547,7 @@ window.Nexus = window.Nexus || {};
     );
 
     if (state.round % C.EVENT_EVERY_N_TURNS === 0) {
-      var event = pickEvent(player);
+      var event = pickEventForPlayer(player);
       next = replacePlayer(next, player.id, Object.assign({}, player, { pendingEvent: event }));
       next.turnPhase = "event";
       next.log = addLog(next, player.name, "Ereignis: " + event.title + ".");
@@ -557,9 +619,13 @@ window.Nexus = window.Nexus || {};
         ", " + Nexus.RESOURCE_SHORT[outcome.yield.secondary.resource] + " +" + outcome.yield.secondary.amount;
     }
 
+    var producedUnits =
+      outcome.yield.primary.amount + (outcome.yield.secondary ? outcome.yield.secondary.amount : 0);
+
     var nextPlayer = Object.assign({}, player, {
       resources: resources,
       lastProduction: lastProduction,
+      cumulativeProduction: (player.cumulativeProduction || 0) + producedUnits,
       lastGain: {
         resource: outcome.yield.primary.resource,
         amount: outcome.yield.primary.amount,
@@ -628,6 +694,8 @@ window.Nexus = window.Nexus || {};
       efficiencyPoints: player.efficiencyPoints + (effects.efficiency || 0),
       innovationBonus: player.innovationBonus + (effects.innovation || 0),
       privacyAdjustment: player.privacyAdjustment + (effects.privacy || 0),
+      greenInnovationCards: player.greenInnovationCards + (effects.greenInnovation || 0),
+      privacyShieldEvents: player.privacyShieldEvents + (effects.privacyShield ? 1 : 0),
       localHardwareDiscountPending: effects.localHardwareDiscount
         ? true
         : player.localHardwareDiscountPending,
@@ -814,9 +882,16 @@ window.Nexus = window.Nexus || {};
       if (newRound > state.maxRounds) {
         next.turnPhase = "gameover";
         next.finalScores = next.players.map(function (p) {
-          return { playerId: p.id, playerName: p.name, score: computeScore(p) };
+          var progress = Nexus.computeRoleProgress(next, p);
+          return {
+            playerId: p.id,
+            playerName: p.name,
+            roleId: p.roleId,
+            totalPercent: progress.totalPercent,
+            subGoals: progress.subGoals
+          };
         });
-        next.log = addLog(next, null, next.maxRounds + " Runden vorbei. Spiel beendet.");
+        next.log = addLog(next, null, next.maxRounds + " Runden vorbei. Ziele aufgedeckt.");
       } else {
         next.round = newRound;
         next.currentPlayerIndex = 0;
@@ -851,6 +926,8 @@ window.Nexus = window.Nexus || {};
 
   Nexus.createSetupState = createSetupState;
   Nexus.startGame = startGame;
+  Nexus.acknowledgeRoleReveal = acknowledgeRoleReveal;
+  Nexus.roleRevealPlayer = roleRevealPlayer;
   Nexus.currentPlayer = currentPlayer;
   Nexus.playerZones = playerZones;
   Nexus.beginHarvestZone = beginHarvestZone;

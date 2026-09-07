@@ -119,6 +119,10 @@ window.Nexus = window.Nexus || {};
 
   /* ---------- Spielaktionen ---------- */
 
+  document.getElementById("btn-role-reveal-ok").addEventListener("click", function () {
+    commit(Nexus.acknowledgeRoleReveal(state));
+  });
+
   document.getElementById("btn-harvest-all").addEventListener("click", function () {
     if (state.turnPhase !== "produce") {
       return;

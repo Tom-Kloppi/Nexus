@@ -89,14 +89,35 @@ Nexus.EVENTS = [
       {
         id: "a",
         label: "Annehmen",
-        summary: "Nächster lokaler Bau: −1 Bauteile",
-        effects: { localHardwareDiscount: true }
+        summary: "Nächster lokaler Bau: −1 Bauteile, +1 grüne Innovationskarte",
+        effects: { localHardwareDiscount: true, greenInnovation: 1 }
       },
       {
         id: "b",
         label: "Ablehnen",
         summary: "+1 Innovationspunkt",
         effects: { innovation: 1 }
+      }
+    ]
+  },
+  {
+    id: "green-grant",
+    title: "Grüne Innovationsförderung",
+    text: "Ein Energie-Startup bietet eine offene Innovationskarte für nachhaltige Smart-City-Lösungen.",
+    auto: false,
+    requiresCloudCamera: false,
+    choices: [
+      {
+        id: "a",
+        label: "Karte annehmen",
+        summary: "+1 grüne Innovationskarte",
+        effects: { greenInnovation: 1 }
+      },
+      {
+        id: "b",
+        label: "Ablehnen",
+        summary: "Kein Effekt",
+        effects: {}
       }
     ]
   },

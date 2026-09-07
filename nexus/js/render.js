@@ -200,7 +200,12 @@ window.Nexus = window.Nexus || {};
     row.innerHTML = state.players
       .map(function (player, index) {
         var zoneCount = Nexus.playerZones(state, player.id).length;
-        var isActive = index === state.currentPlayerIndex && state.turnPhase !== "gameover";
+        var role = Nexus.ROLES_BY_ID[player.roleId];
+        var alignment = role ? role.alignment : "—";
+        var isActive =
+          index === state.currentPlayerIndex &&
+          state.turnPhase !== "gameover" &&
+          state.turnPhase !== "role_reveal";
         return (
           '<span class="turn-chip' +
           (isActive ? " is-active" : "") +
@@ -209,6 +214,9 @@ window.Nexus = window.Nexus || {};
           '">' +
           '<span class="dot"></span>' +
           player.name +
+          '<span class="turn-alignment">' +
+          alignment +
+          "</span>" +
           '<span class="zone-count">· ' +
           zoneCount +
           " Zone" +
@@ -217,6 +225,115 @@ window.Nexus = window.Nexus || {};
         );
       })
       .join("");
+  }
+
+  function renderGoalPanel(state) {
+    var panel = document.getElementById("goal-panel");
+    var pill = document.getElementById("goal-pill");
+    if (!panel || !pill) {
+      return;
+    }
+    if (state.turnPhase === "role_reveal") {
+      panel.hidden = true;
+      pill.hidden = true;
+      return;
+    }
+    var player = Nexus.currentPlayer(state);
+    var progress = Nexus.computeRoleProgress(state, player);
+    if (!progress.role) {
+      panel.hidden = true;
+      pill.hidden = true;
+      return;
+    }
+    panel.hidden = false;
+    pill.hidden = false;
+    document.getElementById("goal-role-name").textContent = progress.role.name;
+    document.getElementById("goal-total").textContent = progress.totalPercent + "%";
+    document.getElementById("stat-goal-total").textContent = progress.totalPercent;
+
+    var roleDef = progress.role;
+    document.getElementById("goal-list").innerHTML = progress.subGoals
+      .map(function (goal, index) {
+        var subDef = roleDef.subGoals[index];
+        var metricText = Nexus.formatMetricValue(subDef, goal.metricValue);
+        var hint = Nexus.nextStepHint(subDef, goal.metricValue);
+        var bar = Math.round((goal.currentPercent / goal.maxContribution) * 100);
+        return (
+          '<li class="goal-item">' +
+          '<div class="goal-item-head">' +
+          "<span>" +
+          goal.label +
+          "</span>" +
+          "<strong>" +
+          goal.currentPercent +
+          "%</strong>" +
+          "</div>" +
+          '<div class="goal-bar"><span style="width:' +
+          bar +
+          '%"></span></div>' +
+          '<p class="goal-meta">Wert: ' +
+          metricText +
+          " · " +
+          hint +
+          "</p>" +
+          "</li>"
+        );
+      })
+      .join("");
+  }
+
+  function renderRoleRevealModal(state) {
+    var shell = document.getElementById("role-reveal-modal");
+    if (!shell) {
+      return;
+    }
+    var shouldOpen = state.turnPhase === "role_reveal";
+    if (!shouldOpen) {
+      if (!shell.hidden) {
+        closeModal(shell);
+      }
+      return;
+    }
+    var player = Nexus.roleRevealPlayer(state);
+    if (!player) {
+      return;
+    }
+    var role = Nexus.ROLES_BY_ID[player.roleId];
+    var progress = Nexus.computeRoleProgress(state, player);
+    document.getElementById("role-reveal-player").textContent = player.name;
+    document.getElementById("role-reveal-hint").textContent =
+      state.roleRevealIndex < state.players.length - 1
+        ? "Nur du darfst diese Ziele sehen. Gib das Gerät an den nächsten Spieler weiter."
+        : "Das war die letzte Rolle. Danach beginnt Spieler 1.";
+    var okBtn = document.getElementById("btn-role-reveal-ok");
+    okBtn.textContent =
+      state.roleRevealIndex < state.players.length - 1 ? "Verstanden – weiter" : "Spiel beginnen";
+    document.getElementById("role-reveal-body").innerHTML =
+      '<p class="role-alignment-pill">' +
+      role.alignment +
+      " · " +
+      role.name +
+      "</p>" +
+      progress.subGoals
+        .map(function (goal, index) {
+          var subDef = role.subGoals[index];
+          return (
+            '<div class="role-reveal-goal">' +
+            "<strong>" +
+            goal.label +
+            "</strong>" +
+            "<span>max. " +
+            goal.maxContribution +
+            "% · " +
+            Nexus.nextStepHint(subDef, goal.metricValue) +
+            "</span>" +
+            "</div>"
+          );
+        })
+        .join("");
+    if (shell.hidden || !shell.classList.contains("is-open")) {
+      openModal(shell);
+    }
   }
 
   function renderWallet(state) {
@@ -413,6 +530,8 @@ window.Nexus = window.Nexus || {};
     if (state.turnPhase === "produce") {
       hint.textContent =
         player.name + ": " + left + " Zone" + (left === 1 ? "" : "n") + " bereit – tippen zum Ernten";
+    } else if (state.turnPhase === "role_reveal") {
+      hint.textContent = "Rollen werden einzeln vorbereitet …";
     } else if (state.turnPhase === "spinning") {
       hint.textContent = "Produktion läuft …";
     } else if (state.turnPhase === "event") {
@@ -619,14 +738,20 @@ window.Nexus = window.Nexus || {};
       return;
     }
     var best = state.finalScores.reduce(function (max, entry) {
-      return entry.score.total > max ? entry.score.total : max;
+      return entry.totalPercent > max ? entry.totalPercent : max;
     }, -Infinity);
     document.getElementById("score-players").innerHTML = state.finalScores
       .map(function (entry) {
         var player = state.players.filter(function (p) {
           return p.id === entry.playerId;
         })[0];
-        var isWinner = entry.score.total === best;
+        var role = Nexus.ROLES_BY_ID[player.roleId];
+        var isWinner = entry.totalPercent === best;
+        var goalsHtml = entry.subGoals
+          .map(function (goal) {
+            return "<span>" + goal.label + " <b>" + goal.currentPercent + "%</b></span>";
+          })
+          .join("");
         return (
           '<div class="score-player' +
           (isWinner ? " is-winner" : "") +
@@ -635,14 +760,17 @@ window.Nexus = window.Nexus || {};
           '">' +
           '<div class="score-player-head"><span><span class="dot"></span>' +
           entry.playerName +
+          " · " +
+          (role ? role.alignment : "") +
           "</span><span>" +
           (isWinner ? "🏆 " : "") +
-          formatNumber(entry.score.total) +
-          " Pkt.</span></div>" +
+          entry.totalPercent +
+          "%</span></div>" +
+          '<p class="score-role-name">' +
+          (role ? role.name : "") +
+          "</p>" +
           '<div class="score-player-rows">' +
-          "<span>Effizienz <b>" + formatNumber(entry.score.efficiency) + "</b></span>" +
-          "<span>Datenschutz <b>" + formatNumber(entry.score.privacy) + "</b></span>" +
-          "<span>Innovation <b>" + formatNumber(entry.score.innovation) + "</b></span>" +
+          goalsHtml +
           "</div></div>"
         );
       })
@@ -658,10 +786,12 @@ window.Nexus = window.Nexus || {};
     }
     renderTurnRow(state);
     renderWallet(state);
+    renderGoalPanel(state);
     renderDistrict(state, ui);
     renderHome(state, ui);
     renderExpandModal(state, ui);
     renderEventModal(state, ui);
+    renderRoleRevealModal(state);
     renderLog(state);
     renderEndScreen(state);
   };
