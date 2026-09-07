@@ -391,6 +391,12 @@ window.Nexus = window.Nexus || {};
     var html = "";
     var selected = ui && ui.expandSlot;
     var totalWeight = dieWeightTotal();
+    var spinningSet = {};
+    var staggerByZone = {};
+    (state.spinningOutcomes || []).forEach(function (outcome) {
+      spinningSet[outcome.zoneId] = true;
+      staggerByZone[outcome.zoneId] = outcome.staggerIndex;
+    });
 
     slots.forEach(function (slot) {
       var pos = Nexus.axialToPixel(slot.q, slot.r, size);
@@ -407,8 +413,8 @@ window.Nexus = window.Nexus || {};
           return p.id === zone.ownerId;
         })[0];
         var isMine = zone.ownerId === player.id;
-        var spinning = state.spinningZoneId === zone.id;
-        var ready = state.turnPhase === "produce" && isMine && !zone.harvested;
+        var spinning = !!spinningSet[zone.id];
+        var staggerMs = (staggerByZone[zone.id] || 0) * C.HARVEST_STAGGER_MS;
         var done = !!zone.harvested;
         var barW = size * 1.2;
         var barH = 10;
@@ -434,7 +440,7 @@ window.Nexus = window.Nexus || {};
         });
         var settle = zone.lastDieId ? dieSettleRatio(zone.lastDieId) : 0.5;
         var needleX = barX + settle * barW;
-        var showAmount = (zone.harvested && zone.lastYield) || spinning;
+        var showAmount = done && zone.lastYield;
         var amountText = "";
         if (showAmount && zone.lastYield) {
           amountText = "+" + zone.lastYield.primary.amount;
@@ -444,7 +450,6 @@ window.Nexus = window.Nexus || {};
         }
         html +=
           '<g class="hex hex-owned' +
-          (ready ? " is-ready" : "") +
           (done ? " is-done" : "") +
           (spinning ? " is-spinning" : "") +
           (isMine ? "" : " is-foreign") +
@@ -454,7 +459,11 @@ window.Nexus = window.Nexus || {};
           (isMine ? "1" : "0") +
           '" style="--owner-color:' +
           playerColor(owner) +
-          '">' +
+          ";--spin-delay:" +
+          staggerMs +
+          "ms;--reveal-delay:" +
+          (zone.revealDelay || 0) +
+          'ms">' +
           '<polygon points="' +
           hexPoints(cx, cy, size - 2) +
           '" fill="' +
@@ -493,7 +502,9 @@ window.Nexus = window.Nexus || {};
           (needleX - barX) +
           "px;--bar-w:" +
           barW +
-          'px">' +
+          "px;--spin-delay:" +
+          staggerMs +
+          'ms">' +
           '<polygon points="-5,-6 5,-6 0,10" fill="#071018"></polygon></g></g>' +
           (showAmount
             ? '<text class="hex-amount" x="' + cx + '" y="' + (cy + 10) + '">' + amountText + "</text>"
@@ -520,20 +531,13 @@ window.Nexus = window.Nexus || {};
     });
     svg.innerHTML = html;
 
-    var left = Nexus.remainingHarvestCount(state);
-    var harvestBtn = document.getElementById("btn-harvest-all");
-    harvestBtn.disabled = state.turnPhase !== "produce" || left === 0;
-    harvestBtn.textContent = left > 0 ? "Alles ernten (" + left + ")" : "Alles ernten";
     document.getElementById("btn-end-round").disabled = !Nexus.canEndTurn(state);
 
     var hint = document.getElementById("table-hint");
-    if (state.turnPhase === "produce") {
-      hint.textContent =
-        player.name + ": " + left + " Zone" + (left === 1 ? "" : "n") + " bereit – tippen zum Ernten";
+    if (state.turnPhase === "produce" || state.turnPhase === "spinning") {
+      hint.textContent = player.name + ": Produktion läuft auf allen Zonen …";
     } else if (state.turnPhase === "role_reveal") {
       hint.textContent = "Rollen werden einzeln vorbereitet …";
-    } else if (state.turnPhase === "spinning") {
-      hint.textContent = "Produktion läuft …";
     } else if (state.turnPhase === "event") {
       hint.textContent = player.name + ": ein Ereignis wartet";
     } else if (state.turnPhase === "build") {
@@ -740,13 +744,29 @@ window.Nexus = window.Nexus || {};
     var best = state.finalScores.reduce(function (max, entry) {
       return entry.totalPercent > max ? entry.totalPercent : max;
     }, -Infinity);
+    var winner = state.players.filter(function (p) {
+      return p.id === state.winnerId;
+    })[0];
+    var title = document.getElementById("end-screen-title");
+    var reason = document.getElementById("end-screen-reason");
+    if (title) {
+      title.textContent =
+        state.winReason === "instant" ? "Sofortsieg!" : "Spiel beendet";
+    }
+    if (reason) {
+      reason.textContent = winner
+        ? (state.winReason === "instant"
+            ? winner.name + " hat 100 % des Zielprofils erreicht."
+            : winner.name + " war am nächsten dran (" + best + "%).")
+        : "";
+    }
     document.getElementById("score-players").innerHTML = state.finalScores
       .map(function (entry) {
         var player = state.players.filter(function (p) {
           return p.id === entry.playerId;
         })[0];
         var role = Nexus.ROLES_BY_ID[player.roleId];
-        var isWinner = entry.totalPercent === best;
+        var isWinner = entry.playerId === state.winnerId;
         var goalsHtml = entry.subGoals
           .map(function (goal) {
             return "<span>" + goal.label + " <b>" + goal.currentPercent + "%</b></span>";

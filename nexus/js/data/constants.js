@@ -118,6 +118,9 @@ Nexus.CONSTANTS = {
   EXPAND_REQUIRES_ADJACENT: true,
   TILE_SPIN_MS: 900,
   HARVEST_STAGGER_MS: 120,
+  MIN_PRODUCTION_YIELD: 1,
+  MAP_MIN_SCALE: 0.55,
+  MAP_MAX_SCALE: 2.4,
   HUB_DISCOUNT_TIE_ORDER: ["connectivity", "energy", "data", "hardware", "compute"],
   MIN_PLAYERS: 2,
   MAX_PLAYERS: 3

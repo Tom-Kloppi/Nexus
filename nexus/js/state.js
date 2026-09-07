@@ -257,7 +257,7 @@ window.Nexus = window.Nexus || {};
   }
 
   function yieldAmount(base, modifier) {
-    return Math.max(1, base + modifier);
+    return Math.max(C.MIN_PRODUCTION_YIELD, base + modifier);
   }
 
   function expectedYieldForBase(base) {
@@ -471,7 +471,7 @@ window.Nexus = window.Nexus || {};
       turnPhase: "role_reveal",
       roleRevealIndex: 0,
       spinningZoneId: null,
-      spinningOutcome: null,
+      spinningOutcomes: null,
       players: players,
       zones: zones,
       finalScores: null,
@@ -518,15 +518,7 @@ window.Nexus = window.Nexus || {};
     }).length;
   }
 
-  function advanceAfterHarvest(state) {
-    if (remainingHarvestCount(state) > 0) {
-      return Object.assign({}, state, {
-        turnPhase: "produce",
-        spinningZoneId: null,
-        spinningOutcome: null
-      });
-    }
-
+  function advanceAfterAllHarvest(state) {
     var player = currentPlayer(state);
     var gained = KEYS.filter(function (key) {
       return player.lastProduction[key] > 0;
@@ -537,13 +529,13 @@ window.Nexus = window.Nexus || {};
       .join(", ");
     var next = Object.assign({}, state, {
       turnPhase: "build",
-      spinningZoneId: null,
-      spinningOutcome: null
+      spinningOutcomes: null,
+      spinningZoneId: null
     });
     next.log = addLog(
       next,
       player.name,
-      gained ? "Produktion abgeschlossen: " + gained + "." : "Produktion ohne Ertrag."
+      gained ? "Produktion: " + gained + "." : "Produktion ohne Ertrag."
     );
 
     if (state.round % C.EVENT_EVERY_N_TURNS === 0) {
@@ -555,92 +547,9 @@ window.Nexus = window.Nexus || {};
     return next;
   }
 
-  function beginHarvestZone(state, zoneId) {
+  function beginHarvestAllSimultaneous(state) {
     var player = currentPlayer(state);
-    if (state.turnPhase !== "produce" || state.spinningZoneId || !player) {
-      return state;
-    }
-    var target = null;
-    state.zones.forEach(function (zone) {
-      if (zone.id === zoneId && zone.ownerId === player.id && !zone.harvested) {
-        target = zone;
-      }
-    });
-    if (!target) {
-      return state;
-    }
-    var die = rollProductionDie();
-    var outcome = produceForZoneType(target.type, die.modifier);
-    var next = Object.assign({}, state, {
-      turnPhase: "spinning",
-      spinningZoneId: zoneId,
-      spinningOutcome: {
-        zoneId: zoneId,
-        dieId: die.id,
-        modifier: die.modifier,
-        yield: outcome
-      },
-      zones: state.zones.map(function (zone) {
-        if (zone.id !== zoneId) {
-          return zone;
-        }
-        return Object.assign({}, zone, { lastYield: outcome, lastDieId: die.id });
-      })
-    });
-    return next;
-  }
-
-  function completeHarvestZone(state) {
-    if (state.turnPhase !== "spinning" || !state.spinningOutcome) {
-      return state;
-    }
-    var outcome = state.spinningOutcome;
-    var player = currentPlayer(state);
-    var resources = cloneResources(player.resources);
-    var lastProduction = cloneResources(player.lastProduction);
-    resources[outcome.yield.primary.resource] += outcome.yield.primary.amount;
-    lastProduction[outcome.yield.primary.resource] += outcome.yield.primary.amount;
-    if (outcome.yield.secondary) {
-      resources[outcome.yield.secondary.resource] += outcome.yield.secondary.amount;
-      lastProduction[outcome.yield.secondary.resource] += outcome.yield.secondary.amount;
-    }
-
-    var zones = state.zones.map(function (zone) {
-      if (zone.id !== outcome.zoneId) {
-        return zone;
-      }
-      return Object.assign({}, zone, { harvested: true });
-    });
-
-    var gainText =
-      Nexus.RESOURCE_SHORT[outcome.yield.primary.resource] + " +" + outcome.yield.primary.amount;
-    if (outcome.yield.secondary) {
-      gainText +=
-        ", " + Nexus.RESOURCE_SHORT[outcome.yield.secondary.resource] + " +" + outcome.yield.secondary.amount;
-    }
-
-    var producedUnits =
-      outcome.yield.primary.amount + (outcome.yield.secondary ? outcome.yield.secondary.amount : 0);
-
-    var nextPlayer = Object.assign({}, player, {
-      resources: resources,
-      lastProduction: lastProduction,
-      cumulativeProduction: (player.cumulativeProduction || 0) + producedUnits,
-      lastGain: {
-        resource: outcome.yield.primary.resource,
-        amount: outcome.yield.primary.amount,
-        zoneId: outcome.zoneId
-      }
-    });
-
-    var next = replacePlayer(Object.assign({}, state, { zones: zones }), player.id, nextPlayer);
-    next.log = addLog(next, player.name, gainText + " (" + zones.filter(function(z){return z.id===outcome.zoneId;})[0].type + ").");
-    return advanceAfterHarvest(next);
-  }
-
-  function beginHarvestAll(state) {
-    var player = currentPlayer(state);
-    if (state.turnPhase !== "produce" || !player) {
+    if (state.turnPhase !== "produce" || !player || state.spinningOutcomes) {
       return state;
     }
     var pending = playerZones(state, player.id).filter(function (zone) {
@@ -649,7 +558,158 @@ window.Nexus = window.Nexus || {};
     if (!pending.length) {
       return state;
     }
-    return beginHarvestZone(state, pending[0].id);
+
+    var outcomes = [];
+    var zones = state.zones.map(function (zone) {
+      var staggerIndex = -1;
+      var i;
+      for (i = 0; i < pending.length; i++) {
+        if (pending[i].id === zone.id) {
+          staggerIndex = i;
+          break;
+        }
+      }
+      if (staggerIndex === -1) {
+        return zone;
+      }
+      var die = rollProductionDie();
+      var produced = produceForZoneType(zone.type, die.modifier);
+      outcomes.push({
+        zoneId: zone.id,
+        dieId: die.id,
+        modifier: die.modifier,
+        yield: produced,
+        staggerIndex: staggerIndex
+      });
+      return Object.assign({}, zone, { lastYield: produced, lastDieId: die.id });
+    });
+
+    return Object.assign({}, state, {
+      turnPhase: "spinning",
+      spinningOutcomes: outcomes,
+      spinningZoneId: null,
+      zones: zones
+    });
+  }
+
+  function completeHarvestAll(state) {
+    if (state.turnPhase !== "spinning" || !state.spinningOutcomes || !state.spinningOutcomes.length) {
+      return state;
+    }
+    var player = currentPlayer(state);
+    var resources = cloneResources(player.resources);
+    var lastProduction = emptyResources();
+    var cumulative = player.cumulativeProduction || 0;
+    var harvestIds = {};
+    var revealDelayByZone = {};
+    var firstGain = null;
+
+    state.spinningOutcomes.forEach(function (outcome) {
+      harvestIds[outcome.zoneId] = true;
+      revealDelayByZone[outcome.zoneId] = outcome.staggerIndex * C.HARVEST_STAGGER_MS;
+      resources[outcome.yield.primary.resource] += outcome.yield.primary.amount;
+      lastProduction[outcome.yield.primary.resource] += outcome.yield.primary.amount;
+      cumulative += outcome.yield.primary.amount;
+      if (!firstGain) {
+        firstGain = {
+          resource: outcome.yield.primary.resource,
+          amount: outcome.yield.primary.amount,
+          zoneId: outcome.zoneId
+        };
+      }
+      if (outcome.yield.secondary) {
+        resources[outcome.yield.secondary.resource] += outcome.yield.secondary.amount;
+        lastProduction[outcome.yield.secondary.resource] += outcome.yield.secondary.amount;
+        cumulative += outcome.yield.secondary.amount;
+      }
+    });
+
+    var zones = state.zones.map(function (zone) {
+      if (harvestIds[zone.id]) {
+        return Object.assign({}, zone, {
+          harvested: true,
+          revealDelay: revealDelayByZone[zone.id] || 0
+        });
+      }
+      return zone;
+    });
+
+    var nextPlayer = Object.assign({}, player, {
+      resources: resources,
+      lastProduction: lastProduction,
+      cumulativeProduction: cumulative,
+      lastGain: firstGain
+    });
+
+    var next = replacePlayer(
+      Object.assign({}, state, { zones: zones, spinningOutcomes: null, spinningZoneId: null }),
+      player.id,
+      nextPlayer
+    );
+    return advanceAfterAllHarvest(next);
+  }
+
+  function harvestAnimationMs(state) {
+    var count = state.spinningOutcomes ? state.spinningOutcomes.length : 0;
+    if (!count) {
+      return 0;
+    }
+    return C.TILE_SPIN_MS + Math.max(0, count - 1) * C.HARVEST_STAGGER_MS;
+  }
+
+  function finalizeGame(state, winnerId, winReason) {
+    var finalScores = state.players.map(function (p) {
+      var progress = Nexus.computeRoleProgress(state, p);
+      return {
+        playerId: p.id,
+        playerName: p.name,
+        roleId: p.roleId,
+        totalPercent: progress.totalPercent,
+        subGoals: progress.subGoals
+      };
+    });
+    var winner = state.players.filter(function (p) {
+      return p.id === winnerId;
+    })[0];
+    var winnerName = winner ? winner.name : "Unbekannt";
+    var reasonText =
+      winReason === "instant"
+        ? winnerName + " hat 100 % erreicht!"
+        : "Fallback nach " + state.maxRounds + " Runden.";
+    return Object.assign({}, state, {
+      turnPhase: "gameover",
+      winnerId: winnerId,
+      winReason: winReason,
+      finalScores: finalScores,
+      log: addLog(state, null, reasonText)
+    });
+  }
+
+  function checkInstantWinAtRoundEnd(state) {
+    var winner = null;
+    state.players.forEach(function (p) {
+      var progress = Nexus.computeRoleProgress(state, p);
+      if (progress.totalPercent >= 100) {
+        winner = p;
+      }
+    });
+    if (winner) {
+      return finalizeGame(state, winner.id, "instant");
+    }
+    return null;
+  }
+
+  function resolveFallbackWinner(state) {
+    var best = -1;
+    var winnerId = state.players[0].id;
+    state.players.forEach(function (p) {
+      var pct = Nexus.computeRoleProgress(state, p).totalPercent;
+      if (pct > best) {
+        best = pct;
+        winnerId = p.id;
+      }
+    });
+    return finalizeGame(state, winnerId, "fallback");
   }
 
   function applyEventChoice(state, choiceId, extra) {
@@ -878,29 +938,21 @@ window.Nexus = window.Nexus || {};
 
     var nextIndex = state.currentPlayerIndex + 1;
     if (nextIndex >= state.players.length) {
+      var instantWin = checkInstantWinAtRoundEnd(next);
+      if (instantWin) {
+        return instantWin;
+      }
       var newRound = state.round + 1;
       if (newRound > state.maxRounds) {
-        next.turnPhase = "gameover";
-        next.finalScores = next.players.map(function (p) {
-          var progress = Nexus.computeRoleProgress(next, p);
-          return {
-            playerId: p.id,
-            playerName: p.name,
-            roleId: p.roleId,
-            totalPercent: progress.totalPercent,
-            subGoals: progress.subGoals
-          };
-        });
-        next.log = addLog(next, null, next.maxRounds + " Runden vorbei. Ziele aufgedeckt.");
-      } else {
-        next.round = newRound;
-        next.currentPlayerIndex = 0;
-        next.turnPhase = "produce";
-        next.zones = next.zones.map(function (zone) {
-          return Object.assign({}, zone, { harvested: false, lastYield: null });
-        });
-        next.log = addLog(next, null, "Runde " + newRound + " beginnt. " + next.players[0].name + " ist am Zug.");
+        return resolveFallbackWinner(next);
       }
+      next.round = newRound;
+      next.currentPlayerIndex = 0;
+      next.turnPhase = "produce";
+      next.zones = next.zones.map(function (zone) {
+        return Object.assign({}, zone, { harvested: false, lastYield: null });
+      });
+      next.log = addLog(next, null, "Runde " + newRound + " beginnt. " + next.players[0].name + " ist am Zug.");
     } else {
       next.currentPlayerIndex = nextIndex;
       next.turnPhase = "produce";
@@ -930,9 +982,9 @@ window.Nexus = window.Nexus || {};
   Nexus.roleRevealPlayer = roleRevealPlayer;
   Nexus.currentPlayer = currentPlayer;
   Nexus.playerZones = playerZones;
-  Nexus.beginHarvestZone = beginHarvestZone;
-  Nexus.completeHarvestZone = completeHarvestZone;
-  Nexus.beginHarvestAll = beginHarvestAll;
+  Nexus.beginHarvestAllSimultaneous = beginHarvestAllSimultaneous;
+  Nexus.completeHarvestAll = completeHarvestAll;
+  Nexus.harvestAnimationMs = harvestAnimationMs;
   Nexus.remainingHarvestCount = remainingHarvestCount;
   Nexus.applyEventChoice = applyEventChoice;
   Nexus.canChooseEventOption = canChooseEventOption;

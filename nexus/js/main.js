@@ -5,12 +5,13 @@ window.Nexus = window.Nexus || {};
   var ui = {
     expandSlot: null,
     inspectedDevice: null,
-    investorAwaitingResource: false
+    investorAwaitingResource: false,
+    map: { scale: 1, tx: 0, ty: 0, dragging: false, moved: false, lastX: 0, lastY: 0, pointerId: null }
   };
   var harvestTimer = null;
-  var autoQueue = false;
 
-  function commit(next) {
+  function commit(next, options) {
+    options = options || {};
     state = next;
     if (state.turnPhase !== "build") {
       ui.expandSlot = null;
@@ -19,52 +20,150 @@ window.Nexus = window.Nexus || {};
       ui.investorAwaitingResource = false;
     }
     Nexus.render(state, ui);
+    if (!options.skipAutoHarvest) {
+      triggerAutoHarvest();
+    }
   }
 
-  function findNextZoneId() {
-    var player = Nexus.currentPlayer(state);
-    var found = null;
-    Nexus.playerZones(state, player.id).forEach(function (zone) {
-      if (!zone.harvested && !found) {
-        found = zone.id;
-      }
-    });
-    return found;
-  }
-
-  function scheduleCompleteHarvest(clickX, clickY) {
+  function clearHarvestTimer() {
     window.clearTimeout(harvestTimer);
-    harvestTimer = window.setTimeout(function () {
-      var outcome = state.spinningOutcome;
-      commit(Nexus.completeHarvestZone(state));
-      if (outcome && clickX != null) {
-        Nexus.spawnFloat(outcome.yield.primary.resource, outcome.yield.primary.amount, clickX, clickY);
-      }
-      if (outcome) {
-        var text = "+" + outcome.yield.primary.amount + " " + Nexus.RESOURCE_LABELS[outcome.yield.primary.resource];
-        if (outcome.yield.secondary) {
-          text += " · +" + outcome.yield.secondary.amount + " " + Nexus.RESOURCE_LABELS[outcome.yield.secondary.resource];
-        }
-        Nexus.pushToast(text, Nexus.RESOURCE_COLORS[outcome.yield.primary.resource]);
-      }
-      if (autoQueue && state.turnPhase === "produce" && Nexus.remainingHarvestCount(state) > 0) {
-        window.setTimeout(function () {
-          startHarvest(findNextZoneId());
-        }, Nexus.CONSTANTS.HARVEST_STAGGER_MS);
-      } else {
-        autoQueue = false;
-      }
-    }, Nexus.CONSTANTS.TILE_SPIN_MS);
+    harvestTimer = null;
   }
 
-  function startHarvest(zoneId, clickX, clickY) {
-    if (!zoneId || state.turnPhase !== "produce") {
+  function triggerAutoHarvest() {
+    if (state.screen !== "game") {
       return;
     }
-    commit(Nexus.beginHarvestZone(state, zoneId));
-    if (state.turnPhase === "spinning") {
-      scheduleCompleteHarvest(clickX, clickY);
+    if (state.turnPhase !== "produce") {
+      return;
     }
+    if (Nexus.remainingHarvestCount(state) === 0) {
+      return;
+    }
+    if (state.spinningOutcomes) {
+      return;
+    }
+    clearHarvestTimer();
+    state = Nexus.beginHarvestAllSimultaneous(state);
+    Nexus.render(state, ui);
+    harvestTimer = window.setTimeout(function () {
+      var next = Nexus.completeHarvestAll(state);
+      commit(next, { skipAutoHarvest: true });
+      var player = Nexus.currentPlayer(next);
+      var gained = Nexus.RESOURCE_KEYS.filter(function (key) {
+        return player.lastProduction[key] > 0;
+      })
+        .map(function (key) {
+          return "+" + player.lastProduction[key] + " " + Nexus.RESOURCE_LABELS[key];
+        })
+        .join(" · ");
+      if (gained) {
+        Nexus.pushToast("Produktion: " + gained, "#3fd0c9");
+      }
+    }, Nexus.harvestAnimationMs(state));
+  }
+
+  function applyMapTransform() {
+    var viewport = document.getElementById("map-viewport");
+    if (!viewport) {
+      return;
+    }
+    viewport.style.transform =
+      "translate(" + ui.map.tx + "px," + ui.map.ty + "px) scale(" + ui.map.scale + ")";
+  }
+
+  function clampMapScale(scale) {
+    return Math.min(Nexus.CONSTANTS.MAP_MAX_SCALE, Math.max(Nexus.CONSTANTS.MAP_MIN_SCALE, scale));
+  }
+
+  function setupMapControls() {
+    var plane = document.querySelector(".city-plane");
+    if (!plane) {
+      return;
+    }
+
+    plane.addEventListener(
+      "wheel",
+      function (event) {
+        if (state.screen !== "game") {
+          return;
+        }
+        event.preventDefault();
+        var factor = event.deltaY > 0 ? 0.92 : 1.08;
+        ui.map.scale = clampMapScale(ui.map.scale * factor);
+        applyMapTransform();
+      },
+      { passive: false }
+    );
+
+    plane.addEventListener("pointerdown", function (event) {
+      if (state.screen !== "game") {
+        return;
+      }
+      if (event.target.closest(".map-controls")) {
+        return;
+      }
+      if (event.button !== 0 && event.pointerType !== "touch") {
+        return;
+      }
+      ui.map.dragging = true;
+      ui.map.moved = false;
+      ui.map.pointerId = event.pointerId;
+      ui.map.lastX = event.clientX;
+      ui.map.lastY = event.clientY;
+      plane.setPointerCapture(event.pointerId);
+    });
+
+    plane.addEventListener("pointermove", function (event) {
+      if (!ui.map.dragging || event.pointerId !== ui.map.pointerId) {
+        return;
+      }
+      ui.map.tx += event.clientX - ui.map.lastX;
+      ui.map.ty += event.clientY - ui.map.lastY;
+      if (Math.abs(event.clientX - ui.map.lastX) > 4 || Math.abs(event.clientY - ui.map.lastY) > 4) {
+        ui.map.moved = true;
+        plane.classList.add("is-dragging");
+      }
+      ui.map.lastX = event.clientX;
+      ui.map.lastY = event.clientY;
+      applyMapTransform();
+    });
+
+    function endDrag(event) {
+      if (event.pointerId !== ui.map.pointerId) {
+        return;
+      }
+      ui.map.dragging = false;
+      ui.map.pointerId = null;
+      plane.classList.remove("is-dragging");
+      try {
+        plane.releasePointerCapture(event.pointerId);
+      } catch (err) {
+        /* ignore */
+      }
+    }
+
+    plane.addEventListener("pointerup", endDrag);
+    plane.addEventListener("pointercancel", endDrag);
+
+    document.getElementById("btn-map-zoom-in").addEventListener("click", function () {
+      ui.map.scale = clampMapScale(ui.map.scale * 1.12);
+      applyMapTransform();
+    });
+
+    document.getElementById("btn-map-zoom-out").addEventListener("click", function () {
+      ui.map.scale = clampMapScale(ui.map.scale * 0.88);
+      applyMapTransform();
+    });
+
+    document.getElementById("btn-map-reset").addEventListener("click", function () {
+      ui.map.scale = 1;
+      ui.map.tx = 0;
+      ui.map.ty = 0;
+      applyMapTransform();
+    });
+
+    applyMapTransform();
   }
 
   function fillIcons() {
@@ -108,11 +207,16 @@ window.Nexus = window.Nexus || {};
   });
 
   function startNewGame() {
-    ui = { expandSlot: null, inspectedDevice: null, investorAwaitingResource: false };
-    autoQueue = false;
-    window.clearTimeout(harvestTimer);
+    clearHarvestTimer();
+    ui = {
+      expandSlot: null,
+      inspectedDevice: null,
+      investorAwaitingResource: false,
+      map: { scale: 1, tx: 0, ty: 0, dragging: false, moved: false, lastX: 0, lastY: 0, pointerId: null }
+    };
     Nexus.closeModal(document.getElementById("setup-screen"));
     commit(Nexus.startGame(setupChoice.count, setupChoice.lengthId));
+    applyMapTransform();
   }
 
   document.getElementById("btn-start-game").addEventListener("click", startNewGame);
@@ -123,24 +227,14 @@ window.Nexus = window.Nexus || {};
     commit(Nexus.acknowledgeRoleReveal(state));
   });
 
-  document.getElementById("btn-harvest-all").addEventListener("click", function () {
-    if (state.turnPhase !== "produce") {
-      return;
-    }
-    autoQueue = true;
-    startHarvest(findNextZoneId());
-  });
-
   document.getElementById("btn-end-round").addEventListener("click", function () {
-    autoQueue = false;
-    commit(Nexus.endTurn(state));
+    clearHarvestTimer();
+    commit(Nexus.endTurn(state), { skipAutoHarvest: true });
   });
 
   document.getElementById("district-svg").addEventListener("click", function (event) {
-    var owned = event.target.closest(".hex-owned.is-ready");
-    if (owned && state.turnPhase === "produce") {
-      autoQueue = false;
-      startHarvest(owned.getAttribute("data-zone"), event.clientX, event.clientY);
+    if (ui.map.moved) {
+      ui.map.moved = false;
       return;
     }
 
@@ -234,8 +328,7 @@ window.Nexus = window.Nexus || {};
   });
 
   document.getElementById("btn-restart").addEventListener("click", function () {
-    window.clearTimeout(harvestTimer);
-    autoQueue = false;
+    clearHarvestTimer();
     Nexus.closeModal(document.getElementById("end-screen"));
     state = Nexus.createSetupState();
     Nexus.openModal(document.getElementById("setup-screen"));
@@ -244,10 +337,12 @@ window.Nexus = window.Nexus || {};
   window.addEventListener("resize", function () {
     if (state.screen === "game") {
       Nexus.render(state, ui);
+      applyMapTransform();
     }
   });
 
   fillIcons();
   renderSetupScreen();
+  setupMapControls();
   Nexus.openModal(document.getElementById("setup-screen"));
 })();
