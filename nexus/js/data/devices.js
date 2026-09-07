@@ -4,6 +4,7 @@ Nexus.DEVICES = [
   {
     id: "thermostat",
     name: "Smart-Thermostat",
+    shortName: "Thermostat",
     effectText: "Spart 1 Energie pro Runde.",
     costs: {
       cloud: { energy: 2, connectivity: 1 },
@@ -16,6 +17,7 @@ Nexus.DEVICES = [
   {
     id: "camera",
     name: "Smart-Kamera",
+    shortName: "Kamera",
     effectText: "Erzeugt 1 Daten pro Runde.",
     costs: {
       cloud: { hardware: 1, connectivity: 1 },
@@ -28,6 +30,7 @@ Nexus.DEVICES = [
   {
     id: "shutters",
     name: "Rollladensteuerung",
+    shortName: "Rollladen",
     effectText: "Spart 1 Energie pro Runde.",
     costs: {
       cloud: { energy: 1, connectivity: 1 },
@@ -40,6 +43,7 @@ Nexus.DEVICES = [
   {
     id: "charger",
     name: "Ladesäule",
+    shortName: "Ladesäule",
     effectText: "+2 Innovationspunkte beim Bau (einmalig).",
     costs: {
       cloud: { energy: 2, hardware: 1, connectivity: 1 },
@@ -52,6 +56,7 @@ Nexus.DEVICES = [
   {
     id: "hub",
     name: "Sprachassistent / Hub",
+    shortName: "Hub",
     effectText: "Nächster Gerätebau kostet 1 Ressource weniger.",
     costs: {
       cloud: { data: 1, connectivity: 1 },
@@ -64,6 +69,7 @@ Nexus.DEVICES = [
   {
     id: "lock",
     name: "Smart Lock",
+    shortName: "Schloss",
     effectText: "Senkt das Gesamtrisiko beim Bau einmalig um 1.",
     costs: {
       cloud: { hardware: 1, connectivity: 1 },
@@ -76,6 +82,7 @@ Nexus.DEVICES = [
   {
     id: "hems",
     name: "HEMS (Energiemanagement)",
+    shortName: "HEMS",
     effectText: "Verdoppelt die Energieeinsparung aller anderen aktiven Geräte.",
     costs: {
       cloud: { energy: 2, data: 2, connectivity: 1 },

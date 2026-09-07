@@ -98,7 +98,8 @@ window.Nexus = window.Nexus || {};
     return Object.assign({}, device.costs[mode]);
   }
 
-  function getBuildOffer(state, deviceId, mode) {
+  function getBuildOffer(state, deviceId, mode, options) {
+    options = options || {};
     var device = Nexus.DEVICES_BY_ID[deviceId];
     var currentMode = state.devices[deviceId];
     var offer = {
@@ -114,7 +115,7 @@ window.Nexus = window.Nexus || {};
       offer.reason = "Ungültige Auswahl.";
       return offer;
     }
-    if (state.phase !== "build") {
+    if (state.phase !== "build" && !options.ignorePhase) {
       offer.reason = "Jetzt kann nicht gebaut werden.";
       return offer;
     }
@@ -123,7 +124,7 @@ window.Nexus = window.Nexus || {};
       return offer;
     }
     if (currentMode === "cloud" && mode === "cloud") {
-      offer.reason = "Cloud-Variante steht. Aufwerten auf lokal möglich.";
+      offer.reason = "Cloud steht. Aufwerten auf lokal möglich.";
       return offer;
     }
     if (currentMode === "cloud" && mode === "local") {
@@ -146,7 +147,7 @@ window.Nexus = window.Nexus || {};
 
     offer.cost = cost;
     if (!canAfford(state.resources, cost)) {
-      offer.reason = "Nicht genug Ressourcen (" + (formatCost(cost) || "kostenlos") + ").";
+      offer.reason = "Nicht genug Ressourcen.";
       return offer;
     }
     offer.allowed = true;
@@ -176,6 +177,129 @@ window.Nexus = window.Nexus || {};
     return eligible[Math.floor(Math.random() * eligible.length)];
   }
 
+  function bandWeightTotal() {
+    return C.PRODUCTION_BANDS.reduce(function (sum, band) {
+      return sum + band.weight;
+    }, 0);
+  }
+
+  function expectedYieldPerPlot() {
+    var total = bandWeightTotal();
+    var weighted = C.PRODUCTION_BANDS.reduce(function (sum, band) {
+      return sum + band.amount * band.weight;
+    }, 0);
+    return weighted / total;
+  }
+
+  function rollProductionBand() {
+    var pick = Math.random() * bandWeightTotal();
+    var i;
+    for (i = 0; i < C.PRODUCTION_BANDS.length; i++) {
+      pick -= C.PRODUCTION_BANDS[i].weight;
+      if (pick <= 0) {
+        return C.PRODUCTION_BANDS[i];
+      }
+    }
+    return C.PRODUCTION_BANDS[C.PRODUCTION_BANDS.length - 1];
+  }
+
+  function expectedByResource(state) {
+    var expected = emptyResources();
+    var per = expectedYieldPerPlot();
+    state.plots.forEach(function (plot) {
+      expected[plot.resource] += per;
+    });
+    return expected;
+  }
+
+  function plotAt(state, q, r) {
+    var found = null;
+    state.plots.forEach(function (plot) {
+      if (plot.q === q && plot.r === r) {
+        found = plot;
+      }
+    });
+    return found;
+  }
+
+  function isExpandableSlot(state, q, r) {
+    if (plotAt(state, q, r)) {
+      return false;
+    }
+    var inside = Nexus.allSlots(C.HEX_RADIUS).some(function (slot) {
+      return slot.q === q && slot.r === r;
+    });
+    if (!inside) {
+      return false;
+    }
+    if (!C.EXPAND_REQUIRES_ADJACENT) {
+      return true;
+    }
+    return state.plots.some(function (plot) {
+      return Nexus.isAdjacent(plot, { q: q, r: r });
+    });
+  }
+
+  function getExpandCost(state) {
+    var extra = Math.max(0, state.plots.length - C.START_PLOT_COUNT);
+    var cost = { hardware: 2 + extra };
+    if (extra >= 1) {
+      cost.energy = 1;
+    }
+    if (extra >= 3) {
+      cost.connectivity = 1;
+    }
+    return cost;
+  }
+
+  function getExpandOffer(state, q, r, resource) {
+    var offer = { allowed: false, reason: "", cost: getExpandCost(state) };
+    if (state.phase !== "build") {
+      offer.reason = "Erweitern nur in der Bauphase.";
+      return offer;
+    }
+    if (KEYS.indexOf(resource) === -1) {
+      offer.reason = "Ungültige Ressource.";
+      return offer;
+    }
+    if (!isExpandableSlot(state, q, r)) {
+      offer.reason = "Dieses Feld kann nicht bebaut werden.";
+      return offer;
+    }
+    if (!canAfford(state.resources, offer.cost)) {
+      offer.reason = "Nicht genug Ressourcen.";
+      return offer;
+    }
+    offer.allowed = true;
+    return offer;
+  }
+
+  function buyPlot(state, q, r, resource) {
+    var offer = getExpandOffer(state, q, r, resource);
+    if (!offer.allowed) {
+      return state;
+    }
+    var plots = state.plots.concat([
+      {
+        id: "plot-" + q + "-" + r + "-" + state.plots.length,
+        q: q,
+        r: r,
+        resource: resource,
+        lastBand: null,
+        lastAmount: 0,
+        harvested: true
+      }
+    ]);
+    return Object.assign({}, state, {
+      plots: plots,
+      resources: subtractCost(state.resources, offer.cost),
+      log: addLog(
+        state,
+        "Feld erweitert: " + Nexus.RESOURCE_LABELS[resource] + " für " + formatCost(offer.cost) + "."
+      )
+    });
+  }
+
   function createInitialState() {
     var resources = emptyResources();
     KEYS.forEach(function (key) {
@@ -185,13 +309,25 @@ window.Nexus = window.Nexus || {};
     Nexus.DEVICES.forEach(function (device) {
       devices[device.id] = null;
     });
+    var plots = Nexus.START_PLOTS.map(function (plot, index) {
+      return {
+        id: "plot-start-" + index,
+        q: plot.q,
+        r: plot.r,
+        resource: plot.resource,
+        lastBand: null,
+        lastAmount: 0,
+        harvested: false
+      };
+    });
     return {
       round: 1,
-      phase: "roll",
-      dice: [null, null],
-      lastSum: null,
+      phase: "produce",
       resources: resources,
       devices: devices,
+      plots: plots,
+      spinningPlotId: null,
+      spinningOutcome: null,
       risk: 0,
       efficiencyPoints: 0,
       innovationBonus: 0,
@@ -200,65 +336,136 @@ window.Nexus = window.Nexus || {};
       localHardwareDiscountPending: false,
       roundModifiers: { cloudDisabled: false, cloudHalfEffect: false },
       pendingEvent: null,
-      producedTiles: [],
       lastProduction: emptyResources(),
-      log: [{ round: 1, text: "Partie gestartet. Würfle, um Runde 1 zu beginnen." }]
+      lastGain: null,
+      log: [{ round: 1, text: "Tippe ein Feld an, um zu ernten." }]
     };
   }
 
-  function rollDice(state) {
-    if (state.phase !== "roll") {
-      return state;
+  function remainingHarvestCount(state) {
+    return state.plots.filter(function (plot) {
+      return !plot.harvested;
+    }).length;
+  }
+
+  function advanceAfterHarvest(state) {
+    if (remainingHarvestCount(state) > 0) {
+      return Object.assign({}, state, {
+        phase: "produce",
+        spinningPlotId: null,
+        spinningOutcome: null
+      });
     }
-    var d1 = 1 + Math.floor(Math.random() * C.DICE_SIDES);
-    var d2 = 1 + Math.floor(Math.random() * C.DICE_SIDES);
-    var sum = d1 + d2;
-    var producedTiles = [];
-    var lastProduction = emptyResources();
-    var resources = cloneResources(state.resources);
 
-    Nexus.DISTRICT_TILES.forEach(function (tile) {
-      if (tile.number === sum) {
-        producedTiles.push(tile.id);
-        lastProduction[tile.resource] += 1;
-        resources[tile.resource] += 1;
-      }
-    });
-
-    var logText;
-    if (sum === 7) {
-      logText = "Würfel " + d1 + "+" + d2 + "=7 – keine Produktion (7 bekommt später ein eigenes Ereignis).";
-    } else if (producedTiles.length === 0) {
-      logText = "Würfel " + d1 + "+" + d2 + "=" + sum + " – kein Feld trifft.";
-    } else {
-      var gained = KEYS.filter(function (key) {
-        return lastProduction[key] > 0;
+    var gained = KEYS.filter(function (key) {
+      return state.lastProduction[key] > 0;
+    })
+      .map(function (key) {
+        return "+" + state.lastProduction[key] + " " + Nexus.RESOURCE_SHORT[key];
       })
-        .map(function (key) {
-          return "+" + lastProduction[key] + " " + Nexus.RESOURCE_SHORT[key];
-        })
-        .join(", ");
-      logText = "Würfel " + d1 + "+" + d2 + "=" + sum + " → " + gained + ".";
-    }
-
+      .join(", ");
     var next = Object.assign({}, state, {
-      dice: [d1, d2],
-      lastSum: sum,
-      resources: resources,
-      producedTiles: producedTiles,
-      lastProduction: lastProduction,
-      log: addLog(state, logText)
+      phase: "build",
+      spinningPlotId: null,
+      spinningOutcome: null,
+      log: addLog(state, gained ? "Ernte abgeschlossen: " + gained + "." : "Ernte ohne Ertrag.")
     });
 
     if (state.round % C.EVENT_EVERY_N_ROUNDS === 0) {
       next.phase = "event";
       next.pendingEvent = pickEvent(next);
       next.log = addLog(next, "Ereignis: " + next.pendingEvent.title + ".");
-    } else {
-      next.phase = "build";
-      next.pendingEvent = null;
     }
     return next;
+  }
+
+  function beginHarvestPlot(state, plotId) {
+    if (state.phase !== "produce" || state.spinningPlotId) {
+      return state;
+    }
+    var target = null;
+    state.plots.forEach(function (plot) {
+      if (plot.id === plotId && !plot.harvested) {
+        target = plot;
+      }
+    });
+    if (!target) {
+      return state;
+    }
+    var band = rollProductionBand();
+    return Object.assign({}, state, {
+      phase: "spinning",
+      spinningPlotId: plotId,
+      spinningOutcome: {
+        plotId: plotId,
+        band: band.id,
+        amount: band.amount,
+        resource: target.resource
+      },
+      plots: state.plots.map(function (plot) {
+        if (plot.id !== plotId) {
+          return plot;
+        }
+        return Object.assign({}, plot, {
+          lastBand: band.id,
+          lastAmount: band.amount
+        });
+      })
+    });
+  }
+
+  function completeHarvestPlot(state) {
+    if (state.phase !== "spinning" || !state.spinningOutcome) {
+      return state;
+    }
+    var outcome = state.spinningOutcome;
+    var resources = cloneResources(state.resources);
+    var lastProduction = cloneResources(state.lastProduction);
+    resources[outcome.resource] += outcome.amount;
+    lastProduction[outcome.resource] += outcome.amount;
+
+    var plots = state.plots.map(function (plot) {
+      if (plot.id !== outcome.plotId) {
+        return plot;
+      }
+      return Object.assign({}, plot, {
+        harvested: true,
+        lastBand: outcome.band,
+        lastAmount: outcome.amount
+      });
+    });
+
+    var next = Object.assign({}, state, {
+      resources: resources,
+      lastProduction: lastProduction,
+      lastGain: {
+        resource: outcome.resource,
+        amount: outcome.amount,
+        band: outcome.band,
+        plotId: outcome.plotId
+      },
+      plots: plots,
+      log: addLog(
+        state,
+        Nexus.RESOURCE_SHORT[outcome.resource] +
+          (outcome.amount > 0 ? " +" + outcome.amount : " Ausfall") +
+          "."
+      )
+    });
+    return advanceAfterHarvest(next);
+  }
+
+  function beginHarvestAll(state) {
+    if (state.phase !== "produce") {
+      return state;
+    }
+    var pending = state.plots.filter(function (plot) {
+      return !plot.harvested;
+    });
+    if (!pending.length) {
+      return state;
+    }
+    return beginHarvestPlot(state, pending[0].id);
   }
 
   function applyEventChoice(state, choiceId, extra) {
@@ -313,7 +520,7 @@ window.Nexus = window.Nexus || {};
       phase: "build"
     });
 
-    var logText = event.title + " → " + choice.label + " (" + choice.summary + ").";
+    var logText = event.title + " → " + choice.label + ".";
     if (choice.needsResourcePick) {
       logText =
         event.title +
@@ -323,7 +530,7 @@ window.Nexus = window.Nexus || {};
         choice.pickAmount +
         " " +
         Nexus.RESOURCE_SHORT[extra.resource] +
-        ", +2 Risiko).";
+        ").";
     }
     next.log = addLog(next, logText);
     return next;
@@ -377,33 +584,6 @@ window.Nexus = window.Nexus || {};
       localHardwareDiscountPending = false;
     }
 
-    var action = offer.isUpgrade ? "auf lokal aufgewertet" : "gebaut (" + mode + ")";
-    var costText = formatCost(offer.cost);
-    var extras = [];
-    if (isNewBuild && deviceId === "charger") {
-      extras.push("+2 Innovation");
-    }
-    if (isNewBuild && deviceId === "lock") {
-      extras.push("Risiko −1");
-    }
-    if (isNewBuild && deviceId === "hub") {
-      extras.push("nächster Bau −1 Ressource");
-    }
-    if (offer.usedHubDiscount) {
-      extras.push("Hub-Rabatt genutzt");
-    }
-    if (offer.usedLocalHardwareDiscount) {
-      extras.push("Förder-Rabatt genutzt");
-    }
-
-    var logText =
-      device.name +
-      " " +
-      action +
-      (costText ? " für " + costText : " kostenlos") +
-      (extras.length ? " (" + extras.join(", ") + ")" : "") +
-      ".";
-
     return Object.assign({}, state, {
       resources: subtractCost(state.resources, offer.cost),
       devices: devices,
@@ -411,7 +591,7 @@ window.Nexus = window.Nexus || {};
       innovationBonus: innovationBonus,
       hubDiscountPending: hubDiscountPending,
       localHardwareDiscountPending: localHardwareDiscountPending,
-      log: addLog(state, logText)
+      log: addLog(state, device.shortName + (offer.isUpgrade ? " lokal" : " " + mode) + ".")
     });
   }
 
@@ -449,11 +629,7 @@ window.Nexus = window.Nexus || {};
 
     var parts = [];
     if (energySave > 0) {
-      parts.push(
-        "Energieeinsparung " +
-          energySave +
-          (energyGranted !== energySave ? " (gutschrift " + energyGranted + ")" : "")
-      );
+      parts.push("Spar " + energySave + " Energie");
     }
     if (dataGranted > 0) {
       parts.push("+" + dataGranted + " Daten");
@@ -461,21 +637,15 @@ window.Nexus = window.Nexus || {};
     if (addedRisk > 0) {
       parts.push("Risiko +" + addedRisk);
     }
-    if (modifiers.cloudDisabled) {
-      parts.push("Stromausfall: Cloud ohne Effekt");
-    }
-    if (modifiers.cloudHalfEffect) {
-      parts.push("Bandbreite: Cloud halber Effekt");
-    }
     if (parts.length === 0) {
-      parts.push("keine laufenden Effekte");
+      parts.push("keine Geräteeffekte");
     }
 
     return Object.assign({}, state, {
       resources: resources,
       risk: state.risk + addedRisk,
       efficiencyPoints: state.efficiencyPoints + energySave,
-      log: addLog(state, "Rundenende: " + parts.join(", ") + ".")
+      log: addLog(state, "Nacht: " + parts.join(", ") + ".")
     });
   }
 
@@ -503,19 +673,27 @@ window.Nexus = window.Nexus || {};
     }
     var next = applyOngoingEffects(state);
     next.roundModifiers = { cloudDisabled: false, cloudHalfEffect: false };
-    next.producedTiles = [];
     next.round += 1;
+    next.lastProduction = emptyResources();
+    next.lastGain = null;
+    next.plots = next.plots.map(function (plot) {
+      return Object.assign({}, plot, {
+        harvested: false,
+        lastBand: null,
+        lastAmount: 0
+      });
+    });
 
     if (next.round > C.MAX_ROUNDS) {
       next.phase = "ended";
       next.score = computeScore(next);
-      next.log = addLog(next, "Spielende nach " + C.MAX_ROUNDS + " Runden.");
+      next.log = addLog(next, "15 Runden vorbei.");
     } else {
-      next.phase = "roll";
-      next.dice = [null, null];
-      next.lastSum = null;
+      next.phase = "produce";
       next.pendingEvent = null;
-      next.log = addLog(next, "Runde " + next.round + " beginnt. Bitte würfeln.");
+      next.spinningPlotId = null;
+      next.spinningOutcome = null;
+      next.log = addLog(next, "Morgen. Tag " + next.round + " – tippe Felder an.");
     }
     return next;
   }
@@ -524,14 +702,35 @@ window.Nexus = window.Nexus || {};
     return state.phase === "build";
   }
 
+  function canBuyDevice(state, deviceId) {
+    if (state.devices[deviceId] === "local") {
+      return false;
+    }
+    return (
+      getBuildOffer(state, deviceId, "cloud", { ignorePhase: true }).allowed ||
+      getBuildOffer(state, deviceId, "local", { ignorePhase: true }).allowed
+    );
+  }
+
   Nexus.createInitialState = createInitialState;
-  Nexus.rollDice = rollDice;
+  Nexus.beginHarvestPlot = beginHarvestPlot;
+  Nexus.completeHarvestPlot = completeHarvestPlot;
+  Nexus.beginHarvestAll = beginHarvestAll;
+  Nexus.remainingHarvestCount = remainingHarvestCount;
   Nexus.applyEventChoice = applyEventChoice;
   Nexus.canChooseEventOption = canChooseEventOption;
   Nexus.buildDevice = buildDevice;
   Nexus.getBuildOffer = getBuildOffer;
+  Nexus.buyPlot = buyPlot;
+  Nexus.getExpandOffer = getExpandOffer;
+  Nexus.getExpandCost = getExpandCost;
+  Nexus.isExpandableSlot = isExpandableSlot;
+  Nexus.plotAt = plotAt;
+  Nexus.expectedYieldPerPlot = expectedYieldPerPlot;
+  Nexus.expectedByResource = expectedByResource;
   Nexus.endRound = endRound;
   Nexus.canEndRound = canEndRound;
+  Nexus.canBuyDevice = canBuyDevice;
   Nexus.computeScore = computeScore;
   Nexus.canAfford = canAfford;
   Nexus.formatCost = formatCost;
