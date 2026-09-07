@@ -86,17 +86,11 @@ Nexus.GAME_LENGTHS = [
   { id: "long", label: "Lang", rounds: 25 }
 ];
 
-/* 4×4-Distrikt: Home-Kachel + Start-Fabrik pro Spieler */
+/* Hex-Distrikt mit 4 Feldern Seitenlänge (Radius 3). Homes auf drei Ecken. */
 Nexus.HOME_POSITIONS = [
-  { q: 0, r: 0 },
-  { q: 3, r: 0 },
+  { q: 3, r: -3 },
+  { q: -3, r: 0 },
   { q: 0, r: 3 }
-];
-
-Nexus.START_FACTORY_LAYOUT = [
-  [{ q: 1, r: 0, type: "energy" }],
-  [{ q: 2, r: 0, type: "commercial" }],
-  [{ q: 1, r: 3, type: "infrastructure" }]
 ];
 
 Nexus.ZONE_TYPES.home = {
@@ -111,25 +105,28 @@ Nexus.ZONE_TYPE_COLORS.home = "#8b9cb8";
 Nexus.CONSTANTS = {
   MAX_ROUNDS: 20,
   START_RESOURCES: 3,
-  START_ZONE_COUNT: 2,
+  START_ZONE_COUNT: 1,
   PRIVACY_BASE: 20,
   EVENT_EVERY_N_TURNS: 2,
+  INNOVATION_DRAW_COST: { compute: 2, data: 1 },
   DEVICE_INNOVATION: 2,
   HEMS_INNOVATION: 4,
   CHARGER_INNOVATION_BONUS: 2,
   LOCK_RISK_REDUCTION: 1,
   LOG_LIMIT: 40,
-  GRID_COLS: 4,
-  GRID_ROWS: 4,
-  HEX_SIZE: 72,
+  HEX_RADIUS: 3,
+  HEX_SIZE: 64,
+  HEX_SHADOW_DY: 8,
   EXPAND_REQUIRES_ADJACENT: true,
   TILE_SPIN_MS: 900,
   HARVEST_STAGGER_MS: 120,
+  HOME_HARVEST_MS: 280,
   FACTORY_MIN_YIELD: 1,
   HOME_BASE_YIELD: 1,
-  MAP_MIN_SCALE: 0.35,
+  MAP_MIN_SCALE: 0.28,
   MAP_MAX_SCALE: 2.8,
-  MAP_FIT_PADDING: 0.9,
+  MAP_FIT_PADDING: 0.92,
+  MAP_ZOOM_OUT_BOARDS: 3,
   HUB_DISCOUNT_TIE_ORDER: ["connectivity", "energy", "data", "hardware", "compute"],
   MIN_PLAYERS: 2,
   MAX_PLAYERS: 3,

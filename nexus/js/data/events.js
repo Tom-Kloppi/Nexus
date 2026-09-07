@@ -185,7 +185,85 @@ Nexus.EVENTS = [
         effects: { risk: 1 }
       }
     ]
+  },
+  {
+    id: "overproduction",
+    title: "Überproduktion",
+    text: "Ein Boom im Netz setzt Kapazität frei. Du kannst eine Innovationskarte ziehen oder die Energie puffern.",
+    auto: false,
+    requiresCloudCamera: false,
+    choices: [
+      {
+        id: "a",
+        label: "Innovation nutzen",
+        summary: "+1 Innovationskarte",
+        effects: { innovationCard: 1 }
+      },
+      {
+        id: "b",
+        label: "Energie puffern",
+        summary: "+2 Energie",
+        effects: { energy: 2 }
+      }
+    ]
+  },
+  {
+    id: "civic-hearing",
+    title: "Bürgeranhörung",
+    text: "Das Quartier diskutiert Transparenz. Offene Daten oder geschützte Profile?",
+    auto: false,
+    requiresCloudCamera: false,
+    choices: [
+      {
+        id: "a",
+        label: "Daten offenlegen",
+        summary: "+1 Daten, +1 Risiko",
+        effects: { data: 1, risk: 1 }
+      },
+      {
+        id: "b",
+        label: "Profile schützen",
+        summary: "+1 Datenschutzbonus",
+        effects: { privacy: 1 }
+      }
+    ]
+  },
+  {
+    id: "standard-split",
+    title: "Standard-Streit",
+    text: "Zwei Hersteller-Lager werben um dein Home-Board.",
+    auto: false,
+    requiresCloudCamera: false,
+    choices: [
+      {
+        id: "a",
+        label: "Offen bleiben",
+        summary: "+1 Konnektivität",
+        effects: { connectivity: 1 }
+      },
+      {
+        id: "b",
+        label: "Proprietär bleiben",
+        summary: "+1 Bauteile, +1 Risiko",
+        effects: { hardware: 1, risk: 1 }
+      }
+    ]
   }
+];
+
+Nexus.EVENT_DECK_SPEC = [
+  { id: "software-update", count: 2 },
+  { id: "power-outage", count: 2 },
+  { id: "data-leak", count: 2 },
+  { id: "bandwidth", count: 2 },
+  { id: "local-hub-funding", count: 1 },
+  { id: "green-grant", count: 2 },
+  { id: "evasion-update", count: 1 },
+  { id: "investor", count: 1 },
+  { id: "maintenance", count: 2 },
+  { id: "overproduction", count: 1 },
+  { id: "civic-hearing", count: 1 },
+  { id: "standard-split", count: 1 }
 ];
 
 Nexus.EVENTS_BY_ID = {};

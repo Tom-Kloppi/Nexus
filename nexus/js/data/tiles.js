@@ -48,8 +48,7 @@ window.Nexus = window.Nexus || {};
   }
 
   function boardSlots() {
-    var c = Nexus.CONSTANTS;
-    return gridSlots(c.GRID_COLS, c.GRID_ROWS);
+    return allSlots(Nexus.CONSTANTS.HEX_RADIUS);
   }
 
   function isAdjacent(a, b) {

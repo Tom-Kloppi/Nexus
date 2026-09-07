@@ -72,6 +72,19 @@ window.Nexus = window.Nexus || {};
     )
   };
 
+  Nexus.HOME_MARKUP =
+    '<path d="M3 12l9-8 9 8"/><path d="M6 10.5V20h12v-9.5"/><path d="M10 20v-6h4v6"/>';
+
+  Nexus.homeIconGroup = function (stroke) {
+    return (
+      '<g fill="none" stroke="' +
+      (stroke || "#1b140c") +
+      '" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' +
+      Nexus.HOME_MARKUP +
+      "</g>"
+    );
+  };
+
   Nexus.MODE_ICONS = {
     cloud: svgWrap('<path d="M7 17h10a4 4 0 0 0 0-8 5.5 5.5 0 0 0-10.4-1.5A3.5 3.5 0 0 0 7 17z"/>'),
     local: svgWrap('<rect x="4" y="9" width="16" height="11" rx="2"/><path d="M8 9V7a4 4 0 0 1 8 0v2"/>')

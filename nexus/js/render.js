@@ -199,7 +199,7 @@ window.Nexus = window.Nexus || {};
     }
     row.innerHTML = state.players
       .map(function (player, index) {
-        var zoneCount = Nexus.playerFactoryZones(state, player.id).length;
+        var zoneCount = Nexus.playerZones(state, player.id).length;
         var role = Nexus.ROLES_BY_ID[player.roleId];
         var alignment = role ? role.alignment : "—";
         var standardLabel =
@@ -211,7 +211,7 @@ window.Nexus = window.Nexus || {};
         var isActive =
           index === state.currentPlayerIndex &&
           state.turnPhase !== "gameover" &&
-          state.turnPhase !== "role_reveal";
+          !Nexus.isHotSeatShield(state);
         return (
           '<span class="turn-chip' +
           (isActive ? " is-active" : "") +
@@ -240,7 +240,7 @@ window.Nexus = window.Nexus || {};
     if (!panel || !pill) {
       return;
     }
-    if (state.turnPhase === "role_reveal") {
+    if (Nexus.isHotSeatShield(state)) {
       panel.hidden = true;
       pill.hidden = true;
       return;
@@ -343,8 +343,54 @@ window.Nexus = window.Nexus || {};
     }
   }
 
+  function renderHandoffModal(state) {
+    var shell = document.getElementById("handoff-modal");
+    if (!shell) {
+      return;
+    }
+    var shouldOpen = state.turnPhase === "handoff";
+    if (!shouldOpen) {
+      if (!shell.hidden) {
+        closeModal(shell);
+      }
+      return;
+    }
+    var player = Nexus.currentPlayer(state);
+    if (!player) {
+      return;
+    }
+    var owned = Nexus.playerZones(state, player.id).length;
+    var factories = Nexus.playerFactoryZones(state, player.id).length;
+    document.getElementById("handoff-player").textContent = player.name + " ist dran";
+    document.getElementById("handoff-hint").textContent =
+      owned === 0
+        ? "Du besitzt noch keine Felder. Die Produktion wird übersprungen."
+        : factories === 0
+          ? "Nur dein Home produziert in dieser Runde (+1 aller Ressourcen). Danach kannst du den Startcoupon einlösen."
+          : "Nur du darfst deine Ziele und Ressourcen sehen. Wenn du bereit bist, startet die Produktion.";
+    document.getElementById("btn-handoff-ok").textContent = "Ich bin " + player.name;
+    if (shell.hidden || !shell.classList.contains("is-open")) {
+      openModal(shell);
+    }
+  }
+
   function renderWallet(state) {
     var player = Nexus.currentPlayer(state);
+    if (Nexus.isHotSeatShield(state)) {
+      Nexus.RESOURCE_KEYS.forEach(function (key) {
+        setDigitGroup(document.getElementById("res-" + key), "–", false);
+        var expect = document.getElementById("expect-" + key);
+        if (expect) {
+          expect.textContent = "";
+        }
+      });
+      setDigitGroup(document.getElementById("stat-round"), state.round > state.maxRounds ? state.maxRounds : state.round, false);
+      document.querySelector(".day-max").textContent = "/ " + state.maxRounds;
+      setDigitGroup(document.getElementById("stat-risk"), "–", false);
+      lastResourceSnapshot = null;
+      lastPlayerId = null;
+      return;
+    }
     var expected = Nexus.expectedByResource(state);
     var playerChanged = lastPlayerId !== player.id;
     Nexus.RESOURCE_KEYS.forEach(function (key) {
@@ -369,6 +415,7 @@ window.Nexus = window.Nexus || {};
     var board = document.getElementById("map-board");
     var slots = Nexus.boardSlots();
     var size = C.HEX_SIZE;
+    var shadowDy = C.HEX_SHADOW_DY || 8;
     var minX = Infinity;
     var minY = Infinity;
     var maxX = -Infinity;
@@ -380,17 +427,30 @@ window.Nexus = window.Nexus || {};
       maxX = Math.max(maxX, pos.x);
       maxY = Math.max(maxY, pos.y);
     });
-    var pad = size * 0.65;
-    var width = maxX - minX + pad * 2;
-    var height = maxY - minY + pad * 2;
+    /* Pointy-top hexes extend `size` from center; keep shadow offset inside the SVG. */
+    var pad = size + shadowDy + 6;
+    var width = Math.ceil(maxX - minX + pad * 2);
+    var height = Math.ceil(maxY - minY + pad * 2 + shadowDy);
     var originX = pad - minX;
     var originY = pad - minY;
     if (board) {
-      board.style.width = Math.ceil(width) + "px";
-      board.style.height = Math.ceil(height) + "px";
+      board.style.width = width + "px";
+      board.style.height = height + "px";
     }
-    svg.setAttribute("viewBox", "0 0 " + Math.ceil(width) + " " + Math.ceil(height));
+    svg.setAttribute("viewBox", "0 0 " + width + " " + height);
+    svg.setAttribute("width", String(width));
+    svg.setAttribute("height", String(height));
+    svg.setAttribute("overflow", "visible");
     svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
+    svg.style.width = width + "px";
+    svg.style.height = height + "px";
+
+    slots.sort(function (a, b) {
+      if (a.r !== b.r) {
+        return a.r - b.r;
+      }
+      return a.q - b.q;
+    });
 
     var player = Nexus.currentPlayer(state);
     var html = "";
@@ -410,12 +470,13 @@ window.Nexus = window.Nexus || {};
       var cy = originY + pos.y;
       var zone = Nexus.zoneAt(state, slot.q, slot.r);
       var expandable = Nexus.isExpandableSlot(state, slot.q, slot.r) && state.turnPhase === "build";
+      var buyable = expandable && Nexus.canAffordExpandSlot(state, slot.q, slot.r);
       var isSelected = selected && selected.q === slot.q && selected.r === slot.r;
 
       if (zone) {
         var isHome = zone.type === "home";
         var typeDef = Nexus.ZONE_TYPES[zone.type];
-        var color = isHome ? playerColor(state.players.filter(function (p) { return p.id === zone.ownerId; })[0]) : Nexus.ZONE_TYPE_COLORS[zone.type];
+        var color = isHome ? Nexus.ZONE_TYPE_COLORS.home : Nexus.ZONE_TYPE_COLORS[zone.type];
         var owner = state.players.filter(function (p) {
           return p.id === zone.ownerId;
         })[0];
@@ -424,14 +485,17 @@ window.Nexus = window.Nexus || {};
         var staggerMs = (staggerByZone[zone.id] || 0) * C.HARVEST_STAGGER_MS;
         var done = !!zone.harvested;
         var isHomeActive = isHome && isMine && homeSelected;
+        html +=
+          '<polygon class="hex-shadow" points="' +
+          hexPoints(cx, cy + shadowDy, size - 2) +
+          '"></polygon>';
 
         if (isHome) {
-          var homeDone = done && zone.lastYield;
           html +=
             '<g class="hex hex-home' +
             (isMine ? " is-mine" : " is-foreign") +
             (isHomeActive ? " is-selected" : "") +
-            (homeDone ? " is-done" : "") +
+            (done ? " is-done" : "") +
             (spinning ? " is-spinning" : "") +
             '" data-home="' +
             zone.id +
@@ -442,32 +506,27 @@ window.Nexus = window.Nexus || {};
             ";--spin-delay:" +
             staggerMs +
             'ms">' +
+            "<title>Smart Home</title>" +
             '<polygon points="' +
             hexPoints(cx, cy, size - 2) +
             '" fill="' +
             color +
             '" opacity="0.88"></polygon>' +
-            '<text class="hex-type" x="' +
-            cx +
-            '" y="' +
-            (cy - 4) +
-            '">Home</text>' +
-            '<text class="hex-home-sub" x="' +
-            cx +
-            '" y="' +
-            (cy + 14) +
-            '">+1 Basis</text>' +
-            (homeDone
-              ? '<text class="hex-amount" x="' + cx + '" y="' + (cy + 32) + '">+1×5</text>'
-              : "") +
+            '<g class="hex-icon" transform="translate(' +
+            (cx - 12) +
+            "," +
+            (cy - 14) +
+            ')">' +
+            Nexus.homeIconGroup("#1b140c") +
+            "</g>" +
             "</g>";
           return;
         }
 
-        var barW = size * 1.2;
-        var barH = 10;
+        var barW = size * 1.05;
+        var barH = 8;
         var barX = cx - barW / 2;
-        var barY = cy + size * 0.42;
+        var barY = cy + size * 0.38;
         var xCursor = barX;
         var bands = "";
         Nexus.PRODUCTION_DICE.forEach(function (die) {
@@ -488,14 +547,6 @@ window.Nexus = window.Nexus || {};
         });
         var settle = zone.lastDieId ? dieSettleRatio(zone.lastDieId) : 0.5;
         var needleX = barX + settle * barW;
-        var showAmount = done && zone.lastYield;
-        var amountText = "";
-        if (showAmount && zone.lastYield) {
-          amountText = "+" + zone.lastYield.primary.amount;
-          if (zone.lastYield.secondary) {
-            amountText += " / +" + zone.lastYield.secondary.amount;
-          }
-        }
         html +=
           '<g class="hex hex-owned' +
           (done ? " is-done" : "") +
@@ -512,25 +563,21 @@ window.Nexus = window.Nexus || {};
           "ms;--reveal-delay:" +
           (zone.revealDelay || 0) +
           'ms">' +
+          "<title>" +
+          typeDef.label +
+          "</title>" +
           '<polygon points="' +
           hexPoints(cx, cy, size - 2) +
           '" fill="' +
           color +
           '"></polygon>' +
           '<g class="hex-icon" transform="translate(' +
-          (cx - 14) +
+          (cx - 12) +
           "," +
-          (cy - 30) +
+          (cy - 22) +
           ')">' +
           Nexus.iconGroup(typeDef.primary) +
           "</g>" +
-          '<text class="hex-type" x="' +
-          cx +
-          '" y="' +
-          (cy + size * 0.2) +
-          '">' +
-          typeDef.shortLabel +
-          "</text>" +
           bands +
           '<rect x="' +
           barX +
@@ -554,14 +601,12 @@ window.Nexus = window.Nexus || {};
           staggerMs +
           'ms">' +
           '<polygon points="-5,-6 5,-6 0,10" fill="#071018"></polygon></g></g>' +
-          (showAmount
-            ? '<text class="hex-amount" x="' + cx + '" y="' + (cy + 10) + '">' + amountText + "</text>"
-            : "") +
           "</g>";
       } else {
         html +=
           '<g class="hex hex-empty' +
           (expandable ? " is-open" : "") +
+          (buyable ? " is-buyable" : "") +
           (isSelected ? " is-selected" : "") +
           '" data-q="' +
           slot.q +
@@ -586,14 +631,28 @@ window.Nexus = window.Nexus || {};
     }
 
     var hint = document.getElementById("table-hint");
-    if (state.turnPhase === "produce" || state.turnPhase === "spinning") {
-      hint.textContent = player.name + ": Produktion läuft auf allen Zonen …";
+    var factoryCount = Nexus.playerFactoryZones(state, player.id).length;
+    var ownedCount = Nexus.playerZones(state, player.id).length;
+    if (state.turnPhase === "handoff") {
+      hint.textContent = "Gerät an " + player.name + " weitergeben …";
+    } else if (state.turnPhase === "produce" || state.turnPhase === "spinning") {
+      if (ownedCount === 0) {
+        hint.textContent = player.name + ": keine Felder — Produktion wird übersprungen";
+      } else if (factoryCount === 0) {
+        hint.textContent = player.name + ": Home produziert +1 aller Ressourcen …";
+      } else {
+        hint.textContent = player.name + ": Produktion läuft auf allen Zonen …";
+      }
     } else if (state.turnPhase === "role_reveal") {
       hint.textContent = "Rollen werden einzeln vorbereitet …";
     } else if (state.turnPhase === "event") {
       hint.textContent = player.name + ": ein Ereignis wartet";
     } else if (state.turnPhase === "build") {
-      hint.textContent = player.name + ": Geräte bauen, Zonen erweitern oder Zug beenden";
+      if ((player.freeZoneClaims || 0) > 0) {
+        hint.textContent = player.name + ": Startcoupon — wähle ein Feld am Home (kostenlos)";
+      } else {
+        hint.textContent = player.name + ": Geräte bauen, Zonen erweitern oder Zug beenden";
+      }
     } else {
       hint.textContent = "";
     }
@@ -737,6 +796,40 @@ window.Nexus = window.Nexus || {};
       flags.push("Förderung");
     }
     document.getElementById("build-flags").textContent = flags.join(" · ");
+
+    var handList = document.getElementById("hand-list");
+    var handCount = document.getElementById("hand-count");
+    var cards = player.handCards || [];
+    if (handCount) {
+      handCount.textContent = String(cards.length);
+    }
+    if (handList) {
+      handList.innerHTML = cards.length
+        ? cards
+            .map(function (card) {
+              return (
+                '<li class="hand-card cat-' +
+                card.category +
+                '" title="' +
+                (card.text || "") +
+                '"><strong>' +
+                card.name +
+                "</strong><span>" +
+                (Nexus.INNOVATION_CATEGORY_LABELS[card.category] || card.category) +
+                "</span></li>"
+              );
+            })
+            .join("")
+        : '<li class="hand-empty">Keine Karten — „Karte ziehen“ oder Boom/Ereignis</li>';
+    }
+    var drawBtn = document.getElementById("btn-draw-innovation");
+    if (drawBtn) {
+      var drawOffer = Nexus.getInnovationDrawOffer(state);
+      drawBtn.disabled = !drawOffer.allowed;
+      drawBtn.title = drawOffer.allowed
+        ? "Kosten: " + Nexus.formatCost(drawOffer.cost)
+        : drawOffer.reason;
+    }
   }
 
   function renderExpandModal(state, ui) {
@@ -749,7 +842,16 @@ window.Nexus = window.Nexus || {};
       }
       return;
     }
-    document.getElementById("expand-cost").innerHTML = chipsHtml(Nexus.getExpandCost(state));
+    var cost = Nexus.getExpandCost(state);
+    var player = Nexus.currentPlayer(state);
+    var free = player && (player.freeZoneClaims || 0) > 0;
+    var kicker = document.querySelector("#expand-modal .modal-kicker");
+    if (kicker) {
+      kicker.textContent = free ? "Startfeld (Coupon)" : "Neues Feld";
+    }
+    document.getElementById("expand-cost").innerHTML = free
+      ? '<span class="chip">kostenlos</span>'
+      : chipsHtml(cost);
     document.getElementById("expand-choices").innerHTML = Nexus.ZONE_TYPE_KEYS.map(function (key) {
       var offer = Nexus.getExpandOffer(state, slot.q, slot.r, key);
       var typeDef = Nexus.ZONE_TYPES[key];
@@ -982,6 +1084,7 @@ window.Nexus = window.Nexus || {};
     renderTradeModal(state, ui);
     renderEventModal(state, ui);
     renderRoleRevealModal(state);
+    renderHandoffModal(state);
     renderLog(state);
     renderEndScreen(state);
   };

@@ -9,7 +9,7 @@ window.Nexus = window.Nexus || {};
     homeSelected: true,
     tradeOpen: false,
     tradePick: { partnerId: null, giveKey: "energy", giveAmount: 1, wantKey: "data", wantAmount: 1 },
-    map: { scale: 1, tx: 0, ty: 0, dragging: false, moved: false, lastX: 0, lastY: 0, pointerId: null, userAdjusted: false }
+    map: { scale: 1, tx: 0, ty: 0, dragging: false, panning: false, moved: false, lastX: 0, lastY: 0, startX: 0, startY: 0, pointerId: null, userAdjusted: false }
   };
   var harvestTimer = null;
 
@@ -45,14 +45,19 @@ window.Nexus = window.Nexus || {};
     if (state.turnPhase !== "produce") {
       return;
     }
-    if (Nexus.remainingHarvestCount(state) === 0) {
+    if (state.spinningOutcomes) {
       return;
     }
-    if (state.spinningOutcomes) {
+    if (Nexus.remainingHarvestCount(state) === 0) {
+      commit(Nexus.skipEmptyProduce(state), { skipAutoHarvest: true });
       return;
     }
     clearHarvestTimer();
     state = Nexus.beginHarvestAllSimultaneous(state);
+    if (state.turnPhase !== "spinning") {
+      commit(state, { skipAutoHarvest: true });
+      return;
+    }
     Nexus.render(state, ui);
     harvestTimer = window.setTimeout(function () {
       var next = Nexus.completeHarvestAll(state);
@@ -81,6 +86,32 @@ window.Nexus = window.Nexus || {};
       "translate(" + ui.map.tx + "px," + ui.map.ty + "px) scale(" + ui.map.scale + ")";
   }
 
+  function zoomAt(clientX, clientY, factor) {
+    var plane = document.querySelector(".city-plane");
+    if (!plane) {
+      return;
+    }
+    var rect = plane.getBoundingClientRect();
+    var px = clientX - rect.left;
+    var py = clientY - rect.top;
+    var worldX = (px - ui.map.tx) / ui.map.scale;
+    var worldY = (py - ui.map.ty) / ui.map.scale;
+    ui.map.scale = clampMapScale(ui.map.scale * factor);
+    ui.map.tx = px - worldX * ui.map.scale;
+    ui.map.ty = py - worldY * ui.map.scale;
+    ui.map.userAdjusted = true;
+    applyMapTransform();
+  }
+
+  function zoomTowardCenter(factor) {
+    var plane = document.querySelector(".city-plane");
+    if (!plane) {
+      return;
+    }
+    var rect = plane.getBoundingClientRect();
+    zoomAt(rect.left + rect.width / 2, rect.top + rect.height / 2, factor);
+  }
+
   function fitMapToView(force) {
     if (ui.map.userAdjusted && !force) {
       applyMapTransform();
@@ -103,8 +134,21 @@ window.Nexus = window.Nexus || {};
     applyMapTransform();
   }
 
+  function minMapScale() {
+    var plane = document.querySelector(".city-plane");
+    var board = document.getElementById("map-board");
+    var boards = Nexus.CONSTANTS.MAP_ZOOM_OUT_BOARDS || 3;
+    if (!plane || !board || !board.offsetWidth) {
+      return Nexus.CONSTANTS.MAP_MIN_SCALE;
+    }
+    return Math.max(
+      0.12,
+      plane.clientWidth / (boards * board.offsetWidth)
+    );
+  }
+
   function clampMapScale(scale) {
-    return Math.min(Nexus.CONSTANTS.MAP_MAX_SCALE, Math.max(Nexus.CONSTANTS.MAP_MIN_SCALE, scale));
+    return Math.min(Nexus.CONSTANTS.MAP_MAX_SCALE, Math.max(minMapScale(), scale));
   }
 
   function setupMapControls() {
@@ -121,9 +165,7 @@ window.Nexus = window.Nexus || {};
         }
         event.preventDefault();
         var factor = event.deltaY > 0 ? 0.92 : 1.08;
-        ui.map.scale = clampMapScale(ui.map.scale * factor);
-        ui.map.userAdjusted = true;
-        applyMapTransform();
+        zoomAt(event.clientX, event.clientY, factor);
       },
       { passive: false }
     );
@@ -139,26 +181,44 @@ window.Nexus = window.Nexus || {};
         return;
       }
       ui.map.dragging = true;
+      ui.map.panning = false;
       ui.map.moved = false;
       ui.map.pointerId = event.pointerId;
       ui.map.lastX = event.clientX;
       ui.map.lastY = event.clientY;
-      plane.setPointerCapture(event.pointerId);
+      ui.map.startX = event.clientX;
+      ui.map.startY = event.clientY;
+      if (window.getSelection) {
+        window.getSelection().removeAllRanges();
+      }
     });
 
     plane.addEventListener("pointermove", function (event) {
       if (!ui.map.dragging || event.pointerId !== ui.map.pointerId) {
         return;
       }
+      var dist = Math.hypot(event.clientX - ui.map.startX, event.clientY - ui.map.startY);
+      if (!ui.map.panning) {
+        if (dist < 8) {
+          return;
+        }
+        ui.map.panning = true;
+        ui.map.moved = true;
+        ui.map.userAdjusted = true;
+        plane.classList.add("is-dragging");
+        try {
+          plane.setPointerCapture(event.pointerId);
+        } catch (err) {
+          /* ignore */
+        }
+        ui.map.lastX = event.clientX;
+        ui.map.lastY = event.clientY;
+        return;
+      }
       ui.map.tx += event.clientX - ui.map.lastX;
       ui.map.ty += event.clientY - ui.map.lastY;
-      if (Math.abs(event.clientX - ui.map.lastX) > 4 || Math.abs(event.clientY - ui.map.lastY) > 4) {
-        ui.map.moved = true;
-        plane.classList.add("is-dragging");
-      }
       ui.map.lastX = event.clientX;
       ui.map.lastY = event.clientY;
-      ui.map.userAdjusted = true;
       applyMapTransform();
     });
 
@@ -167,6 +227,7 @@ window.Nexus = window.Nexus || {};
         return;
       }
       ui.map.dragging = false;
+      ui.map.panning = false;
       ui.map.pointerId = null;
       plane.classList.remove("is-dragging");
       try {
@@ -179,16 +240,18 @@ window.Nexus = window.Nexus || {};
     plane.addEventListener("pointerup", endDrag);
     plane.addEventListener("pointercancel", endDrag);
 
+    document.addEventListener("selectstart", function (event) {
+      if (ui.map.dragging || (event.target && event.target.closest && event.target.closest(".city-plane"))) {
+        event.preventDefault();
+      }
+    });
+
     document.getElementById("btn-map-zoom-in").addEventListener("click", function () {
-      ui.map.scale = clampMapScale(ui.map.scale * 1.12);
-      ui.map.userAdjusted = true;
-      applyMapTransform();
+      zoomTowardCenter(1.12);
     });
 
     document.getElementById("btn-map-zoom-out").addEventListener("click", function () {
-      ui.map.scale = clampMapScale(ui.map.scale * 0.88);
-      ui.map.userAdjusted = true;
-      applyMapTransform();
+      zoomTowardCenter(0.88);
     });
 
     document.getElementById("btn-map-reset").addEventListener("click", function () {
@@ -246,7 +309,7 @@ window.Nexus = window.Nexus || {};
       homeSelected: true,
       tradeOpen: false,
       tradePick: { partnerId: null, giveKey: "energy", giveAmount: 1, wantKey: "data", wantAmount: 1 },
-      map: { scale: 1, tx: 0, ty: 0, dragging: false, moved: false, lastX: 0, lastY: 0, pointerId: null, userAdjusted: false }
+      map: { scale: 1, tx: 0, ty: 0, dragging: false, panning: false, moved: false, lastX: 0, lastY: 0, startX: 0, startY: 0, pointerId: null, userAdjusted: false }
     };
     Nexus.closeModal(document.getElementById("setup-screen"));
     commit(Nexus.startGame(setupChoice.count, setupChoice.lengthId));
@@ -258,6 +321,13 @@ window.Nexus = window.Nexus || {};
 
   document.getElementById("btn-role-reveal-ok").addEventListener("click", function () {
     commit(Nexus.acknowledgeRoleReveal(state));
+  });
+
+  document.getElementById("btn-handoff-ok").addEventListener("click", function () {
+    ui.homeSelected = true;
+    ui.expandSlot = null;
+    ui.tradeOpen = false;
+    commit(Nexus.acknowledgeHandoff(state));
   });
 
   document.getElementById("btn-trade").addEventListener("click", function () {
@@ -334,6 +404,9 @@ window.Nexus = window.Nexus || {};
 
   document.getElementById("btn-end-round").addEventListener("click", function () {
     clearHarvestTimer();
+    ui.homeSelected = true;
+    ui.expandSlot = null;
+    ui.tradeOpen = false;
     commit(Nexus.endTurn(state), { skipAutoHarvest: true });
   });
 
@@ -438,6 +511,16 @@ window.Nexus = window.Nexus || {};
       return;
     }
     commit(Nexus.applyEventChoice(state, "a", { resource: button.getAttribute("data-resource") }));
+  });
+
+  document.getElementById("btn-draw-innovation").addEventListener("click", function () {
+    var next = Nexus.drawInnovationCard(state);
+    if (next === state) {
+      return;
+    }
+    var card = Nexus.currentPlayer(next).handCards.slice(-1)[0];
+    commit(next);
+    Nexus.pushToast(card ? "Innovation: " + card.name : "Innovationskarte gezogen", "#c084fc");
   });
 
   document.getElementById("btn-restart").addEventListener("click", function () {

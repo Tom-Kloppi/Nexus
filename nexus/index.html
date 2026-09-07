@@ -161,6 +161,13 @@
       </main>
 
       <footer class="action-bar">
+        <div id="hand-panel" class="hand-panel">
+          <div class="hand-head">
+            <p class="setup-label">Innovationskarten <span id="hand-count">0</span></p>
+            <button type="button" class="btn" id="btn-draw-innovation" disabled>Karte ziehen</button>
+          </div>
+          <ul id="hand-list" class="hand-list"></ul>
+        </div>
         <p id="table-hint" class="hint">Produktion startet automatisch</p>
         <div class="action-buttons">
           <button type="button" class="btn" id="btn-trade" disabled>Handeln</button>
@@ -217,6 +224,15 @@
       </div>
     </div>
 
+    <div id="handoff-modal" class="modal-shell t-modal-backdrop" hidden>
+      <div class="modal-card t-modal piece handoff-card" role="dialog" aria-modal="true">
+        <p class="modal-kicker">Zugübergabe</p>
+        <h2 id="handoff-player"></h2>
+        <p id="handoff-hint" class="role-reveal-hint"></p>
+        <button type="button" class="btn primary" id="btn-handoff-ok">Ich bin dran</button>
+      </div>
+    </div>
+
     <div id="end-screen" class="modal-shell t-modal-backdrop" hidden>
       <div class="modal-card t-modal piece end-card" role="dialog" aria-modal="true">
         <h2 id="end-screen-title">Spiel beendet</h2>
@@ -230,6 +246,7 @@
     <script src="js/data/tiles.js"></script>
     <script src="js/data/devices.js"></script>
     <script src="js/data/events.js"></script>
+    <script src="js/data/cards.js"></script>
     <script src="js/data/roles.js"></script>
     <script src="js/icons.js"></script>
     <script src="js/roles.js"></script>
