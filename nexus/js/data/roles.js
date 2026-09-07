@@ -10,8 +10,6 @@ Nexus.ALL_ROLE_IDS = [
   "controller"
 ];
 
-Nexus.PHASE2_ROLE_IDS = Nexus.ALL_ROLE_IDS;
-
 Nexus.ROLES = {
   climate: {
     id: "climate",
@@ -20,7 +18,7 @@ Nexus.ROLES = {
     subGoals: [
       {
         id: "energy_efficiency",
-        label: "Energieeffizienz-Fortschritt",
+        label: "Energieeffizienz (Effizienzpunkte)",
         maxContribution: 45,
         higherIsBetter: true,
         metricKey: "energyEfficiency",

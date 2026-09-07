@@ -1,0 +1,31 @@
+---
+description: NEXUS project conventions for agents
+alwaysApply: true
+---
+
+# NEXUS
+
+Browser-Brettspiel (Smart City / IoT / autonomes Fahren). Hot-Seat, 2–3 Spieler, reines HTML/CSS/JS.
+
+## Stack (nicht ohne Rückfrage ändern)
+
+- Kein Framework, kein Build, kein npm.
+- Board als SVG-Hex (Radius 3).
+- Zustand in `nexus/js/state.js` (keine DOM-Zugriffe).
+- Darstellung in `nexus/js/render.js` (keine Spiellogik).
+- Daten unter `nexus/js/data/`.
+- UI deutsch, Code englisch. Kurze deutsche Kommentare nur bei kniffliger Logik.
+
+## Spielstand (Stand 2.1)
+
+- Mehrspieler Hot-Seat und SAE/Mobilität sind **fertig**.
+- Sieg = geheime Rollen-% (`computeRoleProgress`), nicht ein alter Punkte-Score.
+- Effizienzpunkte, Risiko und Innovationskarten sind echte Mechanik. Datenschutz-Karteneffekte senken Risiko.
+- Online-Backend (Python/WebSockets) ist **nicht** im Repo und nicht anfassen, solange niemand danach fragt.
+
+## Agenten-Regeln
+
+- Nach JS/CSS-Änderungen Cache-Buster `?v=` in `nexus/index.html` hochzählen.
+- Keine neuen Abhängigkeiten. Keine Config-/Build-Tools.
+- Unklare Regeln: sinnvolle Annahme als Konstante in `CONSTANTS` + kurz erwähnen.
+- Commit/Push nur auf ausdrückliche Anweisung.

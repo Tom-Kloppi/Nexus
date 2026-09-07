@@ -8,7 +8,6 @@ window.Nexus = window.Nexus || {};
     inspectedPlayerId: null,
     inspectedZoneId: null,
     investorAwaitingResource: false,
-    homeSelected: false,
     homeOpen: false,
     tradeOpen: false,
     tradePick: { partnerId: null, giveKey: "energy", giveAmount: 1, wantKey: "data", wantAmount: 1 },
@@ -439,7 +438,6 @@ window.Nexus = window.Nexus || {};
       inspectedPlayerId: null,
       inspectedZoneId: null,
       investorAwaitingResource: false,
-      homeSelected: false,
       homeOpen: false,
       tradeOpen: false,
       tradePick: { partnerId: null, giveKey: "energy", giveAmount: 1, wantKey: "data", wantAmount: 1 },
@@ -458,7 +456,6 @@ window.Nexus = window.Nexus || {};
   });
 
   document.getElementById("btn-handoff-ok").addEventListener("click", function () {
-    ui.homeSelected = true;
     ui.expandSlot = null;
     ui.tradeOpen = false;
     ui.inspectedPlayerId = null;
@@ -565,7 +562,6 @@ window.Nexus = window.Nexus || {};
 
   document.getElementById("btn-end-round").addEventListener("click", function () {
     clearHarvestTimer();
-    ui.homeSelected = true;
     ui.expandSlot = null;
     ui.tradeOpen = false;
     ui.inspectedPlayerId = null;
@@ -585,11 +581,9 @@ window.Nexus = window.Nexus || {};
       ui.inspectedDevice = null;
       if (home.getAttribute("data-mine") === "1") {
         ui.homeOpen = true;
-        ui.homeSelected = true;
         ui.inspectedPlayerId = null;
       } else {
         ui.homeOpen = false;
-        ui.homeSelected = false;
         ui.inspectedPlayerId = home.getAttribute("data-owner");
       }
       Nexus.render(state, ui);
@@ -599,7 +593,6 @@ window.Nexus = window.Nexus || {};
     var owned = event.target.closest(".hex-owned[data-zone]");
     if (owned) {
       ui.inspectedZoneId = owned.getAttribute("data-zone");
-      ui.homeSelected = false;
       ui.homeOpen = false;
       ui.expandSlot = null;
       ui.inspectedDevice = null;
@@ -645,7 +638,6 @@ window.Nexus = window.Nexus || {};
     var id = room.getAttribute("data-device");
     ui.inspectedDevice = ui.inspectedDevice === id ? null : id;
     ui.inspectedZoneId = null;
-    ui.homeSelected = true;
     ui.homeOpen = true;
     Nexus.render(state, ui);
   });

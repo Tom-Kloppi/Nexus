@@ -47,7 +47,7 @@ Nexus.DEVICES = [
     id: "charger",
     name: "Ladesäule",
     shortName: "Ladesäule",
-    effectText: "+2 Innovationspunkte beim Bau (einmalig).",
+    effectText: "Zieht beim Bau einmalig 1 Innovationskarte.",
     costs: {
       cloud: { energy: 2, hardware: 1, connectivity: 1 },
       local: { energy: 3, hardware: 2, compute: 1 }
@@ -136,7 +136,7 @@ Nexus.DEVICES = [
     id: "charging_network",
     name: "Ladesäulen-Netz",
     shortName: "Ladenetz",
-    effectText: "Ermöglicht SAE-Ausbau und Mobilitätsbonus.",
+    effectText: "Ermöglicht SAE-Ausbau. SAE-Kosten: −1 Konnektivität.",
     requiresZoneType: "infrastructure",
     isSpecial: true,
     costs: {
@@ -152,7 +152,7 @@ Nexus.DEVICES = [
     id: "peak_load",
     name: "Peak-Load-Control",
     shortName: "Peak Load",
-    effectText: "+1 Effizienzpunkte pro Runde in der Gewerbezone.",
+    effectText: "+1 Effizienzpunkt pro Runde. Bau nur mit Gewerbezone.",
     requiresZoneType: "commercial",
     isSpecial: true,
     costs: {

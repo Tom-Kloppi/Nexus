@@ -342,26 +342,6 @@ window.Nexus = window.Nexus || {};
     }, 3200);
   }
 
-  function spawnFloat(resource, amount, clientX, clientY) {
-    var layer = document.getElementById("float-layer");
-    var plane = document.querySelector(".city-plane");
-    if (!layer || !plane) {
-      return;
-    }
-    var rect = plane.getBoundingClientRect();
-    var node = document.createElement("div");
-    node.className = "float-gain chip-" + resource;
-    node.textContent = amount > 0 ? "+" + amount : "–";
-    node.style.left = clientX - rect.left + "px";
-    node.style.top = clientY - rect.top + "px";
-    layer.appendChild(node);
-    setTimeout(function () {
-      if (node.parentNode) {
-        node.parentNode.removeChild(node);
-      }
-    }, 950);
-  }
-
   function renderTurnRow(state) {
     var row = document.getElementById("turn-row");
     if (!row) {
@@ -378,6 +358,7 @@ window.Nexus = window.Nexus || {};
             : player.standardsChoice === "proprietary"
               ? " · Prop."
               : "";
+        var colorName = Nexus.PLAYER_COLOR_NAMES[player.colorIndex % Nexus.PLAYER_COLOR_NAMES.length];
         var isActive =
           index === state.currentPlayerIndex &&
           state.turnPhase !== "gameover" &&
@@ -393,6 +374,8 @@ window.Nexus = window.Nexus || {};
           player.id +
           '" title="' +
           player.name +
+          " · " +
+          colorName +
           '">' +
           '<span class="turn-avatar">' +
           (index + 1) +
@@ -627,6 +610,7 @@ window.Nexus = window.Nexus || {};
       setDigitGroup(document.getElementById("stat-round"), state.round > state.maxRounds ? state.maxRounds : state.round, false);
       document.querySelector(".day-max").textContent = "/ " + state.maxRounds;
       setDigitGroup(document.getElementById("stat-risk"), "–", false);
+      setDigitGroup(document.getElementById("stat-efficiency"), "–", false);
       lastResourceSnapshot = null;
       lastPlayerId = null;
       return;
@@ -646,6 +630,7 @@ window.Nexus = window.Nexus || {};
     document.querySelector(".day-max").textContent = "/ " + state.maxRounds;
     setDigitGroup(document.getElementById("stat-risk"), player.risk, false);
     document.getElementById("risk-meter").style.setProperty("--risk", Math.min(20, player.risk));
+    setDigitGroup(document.getElementById("stat-efficiency"), Math.floor(player.efficiencyPoints || 0), false);
     lastResourceSnapshot = Object.assign({}, player.resources);
     lastPlayerId = player.id;
   }
@@ -1085,6 +1070,8 @@ window.Nexus = window.Nexus || {};
       var saeBtn = document.getElementById("btn-sae-upgrade");
       if (saeBtn) {
         saeBtn.disabled = !Nexus.canUpgradeSae(state);
+        var saeCost = Nexus.getSaeUpgradeCost(player.saeLevel || 0, player);
+        saeBtn.textContent = "SAE ausbauen · " + Nexus.formatCost(saeCost);
       }
     }
 
@@ -1526,7 +1513,6 @@ window.Nexus = window.Nexus || {};
   Nexus.openModal = openModal;
   Nexus.closeModal = closeModal;
   Nexus.pushToast = pushToast;
-  Nexus.spawnFloat = spawnFloat;
   Nexus.chipsHtml = chipsHtml;
   Nexus.playerColor = playerColor;
 })(window.Nexus);

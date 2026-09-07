@@ -50,10 +50,11 @@ window.Nexus = window.Nexus || {};
       }
     });
     if (effects.efficiency) {
-      parts.push("+" + effects.efficiency + " Effizienz");
+      parts.push((effects.efficiency > 0 ? "+" : "") + effects.efficiency + " Effizienz");
     }
     if (effects.privacy) {
-      parts.push((effects.privacy > 0 ? "+" : "") + effects.privacy + " Datenschutz");
+      var riskFromPrivacy = -effects.privacy;
+      parts.push((riskFromPrivacy > 0 ? "+" : "") + riskFromPrivacy + " Risiko");
     }
     return parts.join(" · ");
   }
@@ -425,7 +426,7 @@ window.Nexus = window.Nexus || {};
     return Object.assign({}, player, {
       resources: resources,
       efficiencyPoints: player.efficiencyPoints + (effects.efficiency || 0),
-      privacyAdjustment: player.privacyAdjustment + (effects.privacy || 0)
+      risk: Math.max(0, player.risk - (effects.privacy || 0))
     });
   }
 
@@ -708,8 +709,6 @@ window.Nexus = window.Nexus || {};
       devices: devices,
       risk: 0,
       efficiencyPoints: 0,
-      innovationBonus: 0,
-      privacyAdjustment: 0,
       greenInnovationCards: 0,
       privacyShieldEvents: 0,
       cumulativeProduction: 0,
@@ -731,8 +730,7 @@ window.Nexus = window.Nexus || {};
       localHardwareDiscountPending: false,
       roundModifiers: { cloudDisabled: false, cloudHalfEffect: false },
       pendingEvent: null,
-      lastProduction: emptyResources(),
-      lastGain: null
+      lastProduction: emptyResources()
     };
   }
 
@@ -745,6 +743,7 @@ window.Nexus = window.Nexus || {};
   }
 
   function startGame(playerCount, gameLengthId) {
+    playerCount = Math.max(C.MIN_PLAYERS, Math.min(C.MAX_PLAYERS, Number(playerCount) || C.MAX_PLAYERS));
     var gameLength =
       Nexus.GAME_LENGTHS.filter(function (g) {
         return g.id === gameLengthId;
@@ -772,12 +771,11 @@ window.Nexus = window.Nexus || {};
     return {
       screen: "game",
       round: 1,
-      maxRounds: gameLength.rounds,
+      maxRounds: gameLength.rounds || C.MAX_ROUNDS,
       gameLengthLabel: gameLength.label,
       currentPlayerIndex: 0,
       turnPhase: "role_reveal",
       roleRevealIndex: 0,
-      spinningZoneId: null,
       spinningOutcomes: null,
       eventDeck: buildEventDeck(),
       eventDiscard: [],
@@ -838,14 +836,13 @@ window.Nexus = window.Nexus || {};
     if (!player) {
       return Object.assign({}, state, {
         turnPhase: "build",
-        spinningOutcomes: null,
-        spinningZoneId: null
+        spinningOutcomes: null
       });
     }
     var next = replacePlayer(
-      Object.assign({}, state, { spinningOutcomes: null, spinningZoneId: null }),
+      Object.assign({}, state, { spinningOutcomes: null }),
       player.id,
-      Object.assign({}, player, { lastProduction: emptyResources(), lastGain: null })
+      Object.assign({}, player, { lastProduction: emptyResources() })
     );
     return advanceAfterAllHarvest(next);
   }
@@ -875,8 +872,7 @@ window.Nexus = window.Nexus || {};
       })
       .join(", ");
     var next = Object.assign({}, state, {
-      spinningOutcomes: null,
-      spinningZoneId: null
+      spinningOutcomes: null
     });
     next.log = addLog(
       next,
@@ -968,7 +964,6 @@ window.Nexus = window.Nexus || {};
     return Object.assign({}, state, {
       turnPhase: "spinning",
       spinningOutcomes: outcomes,
-      spinningZoneId: null,
       zones: zones
     });
   }
@@ -986,7 +981,6 @@ window.Nexus = window.Nexus || {};
     var cumulative = player.cumulativeProduction || 0;
     var harvestIds = {};
     var revealDelayByZone = {};
-    var firstGain = null;
 
     state.spinningOutcomes.forEach(function (outcome) {
       harvestIds[outcome.zoneId] = true;
@@ -1002,9 +996,6 @@ window.Nexus = window.Nexus || {};
           lastProduction[key] += amount;
           cumulative += amount;
         });
-        if (!firstGain) {
-          firstGain = { resource: "energy", amount: C.HOME_BASE_YIELD, zoneId: outcome.zoneId };
-        }
         return;
       }
       if (!outcome.yield || !outcome.yield.primary) {
@@ -1013,13 +1004,6 @@ window.Nexus = window.Nexus || {};
       resources[outcome.yield.primary.resource] += outcome.yield.primary.amount;
       lastProduction[outcome.yield.primary.resource] += outcome.yield.primary.amount;
       cumulative += outcome.yield.primary.amount;
-      if (!firstGain) {
-        firstGain = {
-          resource: outcome.yield.primary.resource,
-          amount: outcome.yield.primary.amount,
-          zoneId: outcome.zoneId
-        };
-      }
       if (outcome.yield.secondary) {
         resources[outcome.yield.secondary.resource] += outcome.yield.secondary.amount;
         lastProduction[outcome.yield.secondary.resource] += outcome.yield.secondary.amount;
@@ -1041,12 +1025,11 @@ window.Nexus = window.Nexus || {};
       resources: resources,
       lastProduction: lastProduction,
       cumulativeProduction: cumulative,
-      lastGain: firstGain,
       productionHistory: markProductionHistory(player, state, lastProduction)
     });
 
     var next = replacePlayer(
-      Object.assign({}, state, { zones: zones, spinningOutcomes: null, spinningZoneId: null }),
+      Object.assign({}, state, { zones: zones, spinningOutcomes: null }),
       player.id,
       nextPlayer
     );
@@ -1112,9 +1095,11 @@ window.Nexus = window.Nexus || {};
 
   function checkInstantWinAtRoundEnd(state) {
     var winner = null;
+    var best = 0;
     state.players.forEach(function (p) {
-      var progress = Nexus.computeRoleProgress(state, p);
-      if (progress.totalPercent >= 100) {
+      var pct = Nexus.computeRoleProgress(state, p).totalPercent;
+      if (pct >= 100 && (winner === null || pct > best)) {
+        best = pct;
         winner = p;
       }
     });
@@ -1173,7 +1158,7 @@ window.Nexus = window.Nexus || {};
       }
     });
 
-    var risk = player.risk + (effects.risk || 0);
+    var risk = player.risk + (effects.risk || 0) - (effects.privacy || 0);
     if (risk < 0) {
       risk = 0;
     }
@@ -1182,8 +1167,6 @@ window.Nexus = window.Nexus || {};
       resources: resources,
       risk: risk,
       efficiencyPoints: player.efficiencyPoints + (effects.efficiency || 0),
-      innovationBonus: player.innovationBonus + (effects.innovation || 0),
-      privacyAdjustment: player.privacyAdjustment + (effects.privacy || 0),
       privacyShieldEvents: player.privacyShieldEvents + (effects.privacyShield ? 1 : 0),
       localHardwareDiscountPending: effects.localHardwareDiscount
         ? true
@@ -1197,7 +1180,7 @@ window.Nexus = window.Nexus || {};
 
     var next = replacePlayer(state, player.id, nextPlayer);
     var greenDraws = effects.greenInnovation || 0;
-    var anyDraws = effects.innovationCard || 0;
+    var anyDraws = (effects.innovationCard || 0) + (effects.innovation || 0);
     if (greenDraws > 0) {
       var greenGrant = grantInnovationCards(next, nextPlayer, greenDraws, "green");
       next = replacePlayer(greenGrant.state, player.id, greenGrant.player);
@@ -1255,17 +1238,8 @@ window.Nexus = window.Nexus || {};
     devices[deviceId] = mode;
 
     var risk = player.risk;
-    var innovationBonus = player.innovationBonus;
-    if (isNewBuild && deviceId === "charger") {
-      innovationBonus += C.CHARGER_INNOVATION_BONUS;
-    }
     if (isNewBuild && deviceId === "lock") {
       risk = Math.max(0, risk - C.LOCK_RISK_REDUCTION);
-    }
-
-    var innovationCardsTotal = player.innovationCardsTotal || 0;
-    if (isNewBuild && deviceId === "charger") {
-      innovationCardsTotal += 1;
     }
 
     var hubDiscountPending = player.hubDiscountPending;
@@ -1285,18 +1259,20 @@ window.Nexus = window.Nexus || {};
       resources: subtractCost(player.resources, offer.cost),
       devices: devices,
       risk: risk,
-      innovationBonus: innovationBonus,
-      innovationCardsTotal: innovationCardsTotal,
       hubDiscountPending: hubDiscountPending,
       localHardwareDiscountPending: localHardwareDiscountPending
     });
 
     var next = replacePlayer(state, player.id, nextPlayer);
-    next.log = addLog(
-      next,
-      player.name,
-      device.shortName + (offer.isUpgrade ? " lokal" : " " + mode) + "."
-    );
+    var logText = device.shortName + (offer.isUpgrade ? " lokal" : " " + mode) + ".";
+    if (isNewBuild && deviceId === "charger") {
+      var granted = grantInnovationCards(next, nextPlayer, 1, null);
+      next = replacePlayer(granted.state, player.id, granted.player);
+      if (granted.cards[0]) {
+        logText += " Innovationskarte: " + granted.cards[0].name + ".";
+      }
+    }
+    next.log = addLog(next, player.name, logText);
     return next;
   }
 
@@ -1371,6 +1347,9 @@ window.Nexus = window.Nexus || {};
     if (addedRisk > 0) {
       parts.push("Risiko +" + addedRisk);
     }
+    if (efficiencyGain > 0) {
+      parts.push("+" + efficiencyGain + " Effizienz");
+    }
     if (parts.length === 0) {
       parts.push("keine Geräteeffekte");
     }
@@ -1383,24 +1362,6 @@ window.Nexus = window.Nexus || {};
     });
 
     return { player: nextPlayer, logText: "Zugende: " + parts.join(", ") + "." };
-  }
-
-  function computeScore(player) {
-    var efficiency = player.efficiencyPoints;
-    var privacy = Math.max(0, C.PRIVACY_BASE - player.risk + player.privacyAdjustment);
-    var innovation = player.innovationBonus;
-    Nexus.DEVICES.forEach(function (device) {
-      if (player.devices[device.id]) {
-        innovation += device.id === "hems" ? C.HEMS_INNOVATION : C.DEVICE_INNOVATION;
-      }
-    });
-    return {
-      efficiency: efficiency,
-      privacy: privacy,
-      innovation: innovation,
-      total: efficiency + privacy + innovation,
-      risk: player.risk
-    };
   }
 
   function endTurn(state) {
@@ -1716,12 +1677,16 @@ window.Nexus = window.Nexus || {};
     return next;
   }
 
-  function getSaeUpgradeCost(level) {
-    return {
+  function getSaeUpgradeCost(level, player) {
+    var cost = {
       connectivity: 1 + level,
       compute: 1,
       hardware: 1 + Math.floor(level / 2)
     };
+    if (player && player.devices && player.devices.charging_network) {
+      cost.connectivity = Math.max(0, cost.connectivity - (C.SAE_NETWORK_CONNECTIVITY_DISCOUNT || 0));
+    }
+    return cost;
   }
 
   function canUpgradeSae(state) {
@@ -1735,7 +1700,7 @@ window.Nexus = window.Nexus || {};
     if (!player.devices.v2x && !player.devices.charging_network) {
       return false;
     }
-    return canAfford(player.resources, getSaeUpgradeCost(player.saeLevel || 0));
+    return canAfford(player.resources, getSaeUpgradeCost(player.saeLevel || 0, player));
   }
 
   function upgradeSae(state) {
@@ -1744,7 +1709,7 @@ window.Nexus = window.Nexus || {};
       return state;
     }
     var level = player.saeLevel || 0;
-    var cost = getSaeUpgradeCost(level);
+    var cost = getSaeUpgradeCost(level, player);
     var nextPlayer = Object.assign({}, player, {
       resources: subtractCost(player.resources, cost),
       saeLevel: level + 1
@@ -1893,7 +1858,6 @@ window.Nexus = window.Nexus || {};
   Nexus.getInnovationDrawOffer = getInnovationDrawOffer;
   Nexus.drawInnovationCard = drawInnovationCard;
   Nexus.playInnovationCard = playInnovationCard;
-  Nexus.computeScore = computeScore;
   Nexus.canAfford = canAfford;
   Nexus.formatCost = formatCost;
   Nexus.formatEffects = formatEffects;

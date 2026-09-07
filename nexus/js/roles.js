@@ -179,6 +179,9 @@ window.Nexus = window.Nexus || {};
   }
 
   function formatMetricValue(subGoal, metricValue) {
+    if (subGoal.metricKey === "energyEfficiency") {
+      return metricValue + " EP";
+    }
     if (subGoal.id === "local_processing_ratio") {
       return metricValue + "%";
     }

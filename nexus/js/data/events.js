@@ -82,7 +82,7 @@ Nexus.EVENTS = [
   {
     id: "local-hub-funding",
     title: "Förderprogramm für lokale Hubs",
-    text: "Die Stadt fördert lokale Verarbeitung. Du kannst den Zuschuss annehmen oder dir Innovationspunkte sichern.",
+    text: "Die Stadt fördert lokale Verarbeitung. Du kannst den Zuschuss annehmen oder eine Innovationskarte ziehen.",
     auto: false,
     requiresCloudCamera: false,
     choices: [
@@ -95,8 +95,8 @@ Nexus.EVENTS = [
       {
         id: "b",
         label: "Ablehnen",
-        summary: "+1 Innovationspunkt",
-        effects: { innovation: 1 }
+        summary: "+1 Innovationskarte",
+        effects: { innovationCard: 1 }
       }
     ]
   },
@@ -131,13 +131,13 @@ Nexus.EVENTS = [
       {
         id: "a",
         label: "Insassensicherheit priorisieren",
-        summary: "+1 Effizienz, −1 Datenschutzbonus",
+        summary: "+1 Effizienz, +1 Risiko",
         effects: { efficiency: 1, privacy: -1 }
       },
       {
         id: "b",
         label: "Alle Verkehrsteilnehmer priorisieren",
-        summary: "−1 Effizienz, +1 Datenschutzbonus",
+        summary: "−1 Effizienz, −1 Risiko",
         effects: { efficiency: -1, privacy: 1 }
       }
     ]
@@ -223,7 +223,7 @@ Nexus.EVENTS = [
       {
         id: "b",
         label: "Profile schützen",
-        summary: "+1 Datenschutzbonus",
+        summary: "−1 Risiko",
         effects: { privacy: 1 }
       }
     ]

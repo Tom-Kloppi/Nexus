@@ -35,18 +35,6 @@ window.Nexus = window.Nexus || {};
     return slots;
   }
 
-  function gridSlots(cols, rows) {
-    var slots = [];
-    var q;
-    var r;
-    for (r = 0; r < rows; r++) {
-      for (q = 0; q < cols; q++) {
-        slots.push({ q: q, r: r, key: plotKey(q, r) });
-      }
-    }
-    return slots;
-  }
-
   function boardSlots() {
     return allSlots(Nexus.CONSTANTS.HEX_RADIUS);
   }
@@ -99,7 +87,6 @@ window.Nexus = window.Nexus || {};
   Nexus.plotKey = plotKey;
   Nexus.axialToPixel = axialToPixel;
   Nexus.allSlots = allSlots;
-  Nexus.gridSlots = gridSlots;
   Nexus.boardSlots = boardSlots;
   Nexus.boardLayout = boardLayout;
   Nexus.isAdjacent = isAdjacent;

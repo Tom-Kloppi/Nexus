@@ -18,8 +18,8 @@
       href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800&family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="transitions.css?v=15" />
-    <link rel="stylesheet" href="style.css?v=15" />
+    <link rel="stylesheet" href="transitions.css?v=16" />
+    <link rel="stylesheet" href="style.css?v=16" />
   </head>
   <body>
     <div class="modal-shell t-modal-backdrop" id="setup-screen">
@@ -75,7 +75,6 @@
               <svg id="district-svg" role="img" aria-label="Hex-Distrikt"></svg>
             </div>
           </div>
-          <div id="float-layer" class="float-layer" aria-hidden="true"></div>
           <div class="map-controls" aria-label="Kartensteuerung">
             <button type="button" class="btn map-btn" id="btn-map-zoom-in" title="Heranzoomen">+</button>
             <button type="button" class="btn map-btn" id="btn-map-zoom-out" title="Herauszoomen">−</button>
@@ -126,6 +125,11 @@
           <span class="risk-label">Risiko</span>
           <div id="risk-meter" class="risk-meter" style="--risk: 0"></div>
           <strong id="stat-risk" class="t-digit-group">0</strong>
+        </div>
+
+        <div class="efficiency-pill" title="Effizienzpunkte — Zielressource des Klimaingenieurs; auch durch Karten und Peak Load">
+          <span class="efficiency-label">Effizienz</span>
+          <strong id="stat-efficiency" class="t-digit-group">0</strong>
         </div>
 
         <div class="goal-pill" id="goal-pill" hidden>
@@ -330,16 +334,16 @@
       </div>
     </div>
 
-    <script src="js/data/constants.js?v=15"></script>
-    <script src="js/data/tiles.js?v=15"></script>
-    <script src="js/data/devices.js?v=15"></script>
-    <script src="js/data/events.js?v=15"></script>
-    <script src="js/data/cards.js?v=15"></script>
-    <script src="js/data/roles.js?v=15"></script>
-    <script src="js/icons.js?v=15"></script>
-    <script src="js/roles.js?v=15"></script>
-    <script src="js/state.js?v=15"></script>
-    <script src="js/render.js?v=15"></script>
-    <script src="js/main.js?v=15"></script>
+    <script src="js/data/constants.js?v=16"></script>
+    <script src="js/data/tiles.js?v=16"></script>
+    <script src="js/data/devices.js?v=16"></script>
+    <script src="js/data/events.js?v=16"></script>
+    <script src="js/data/cards.js?v=16"></script>
+    <script src="js/data/roles.js?v=16"></script>
+    <script src="js/icons.js?v=16"></script>
+    <script src="js/roles.js?v=16"></script>
+    <script src="js/state.js?v=16"></script>
+    <script src="js/render.js?v=16"></script>
+    <script src="js/main.js?v=16"></script>
   </body>
 </html>
