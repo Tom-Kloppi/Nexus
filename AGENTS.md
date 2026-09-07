@@ -2,6 +2,13 @@
 
 Anleitung für Coding-Agents, die in diesem Repo arbeiten.
 
+## Kontext schmal halten
+
+- Hard constraints stehen in `.cursor/rules/nexus.mdc` (immer geladen). Hier die Details.
+- `docs/GAME.md` nur lesen, wenn Spielregeln unklar sind — nicht bei jeder Code-Änderung.
+- Motion: Skills `transitions-dev` / `transitions-polish` nur bei Animations-Aufgaben laden.
+- Kein ECC-/Agent-Harness-Full-Install: immer-geladene Extra-Rules kosten Tokens und verwässern NEXUS-Regeln.
+
 ## Was das ist
 
 NEXUS 2.1 ist ein **hot-seat** Smart-City-Brettspiel im Browser (2–3 Spieler, ein Gerät). Kein Server, kein Build, kein Framework. Einstieg: `nexus/index.html` im Browser öffnen.

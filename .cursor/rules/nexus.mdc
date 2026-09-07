@@ -1,31 +1,17 @@
 ---
-description: NEXUS project conventions for agents
+description: NEXUS hard constraints (keep lean — details in AGENTS.md)
 alwaysApply: true
 ---
 
 # NEXUS
 
-Browser-Brettspiel (Smart City / IoT / autonomes Fahren). Hot-Seat, 2–3 Spieler, reines HTML/CSS/JS.
+Hot-seat Smart-City Brettspiel: reines HTML/CSS/JS, kein Framework/Build/npm.
 
-## Stack (nicht ohne Rückfrage ändern)
+**Hard constraints**
 
-- Kein Framework, kein Build, kein npm.
-- Board als SVG-Hex (Radius 3).
-- Zustand in `nexus/js/state.js` (keine DOM-Zugriffe).
-- Darstellung in `nexus/js/render.js` (keine Spiellogik).
-- Daten unter `nexus/js/data/`.
-- UI deutsch, Code englisch. Kurze deutsche Kommentare nur bei kniffliger Logik.
-
-## Spielstand (Stand 2.1)
-
-- Mehrspieler Hot-Seat und SAE/Mobilität sind **fertig**.
-- Sieg = geheime Rollen-% (`computeRoleProgress`), nicht ein alter Punkte-Score.
-- Effizienzpunkte, Risiko und Innovationskarten sind echte Mechanik. Datenschutz-Karteneffekte senken Risiko.
-- Online-Backend (Python/WebSockets) ist **nicht** im Repo und nicht anfassen, solange niemand danach fragt.
-
-## Agenten-Regeln
-
-- Nach JS/CSS-Änderungen Cache-Buster `?v=` in `nexus/index.html` hochzählen.
-- Keine neuen Abhängigkeiten. Keine Config-/Build-Tools.
-- Unklare Regeln: sinnvolle Annahme als Konstante in `CONSTANTS` + kurz erwähnen.
+- Logik nur in `nexus/js/state.js` (kein DOM). UI nur in `render.js` (keine Regeln).
+- Nach JS/CSS-Änderungen `?v=` in `nexus/index.html` hochzählen.
 - Commit/Push nur auf ausdrückliche Anweisung.
+- Keine neuen Dependencies, kein Online-Backend, solange niemand fragt.
+
+Details, Dateikarte, Fallen: `AGENTS.md`. Spielregeln nur bei Regel-Fragen: `docs/GAME.md`.
