@@ -203,13 +203,17 @@ button {
 .map-viewport {
   position: absolute;
   inset: 0;
-  transform-origin: center center;
+  transform-origin: 0 0;
   will-change: transform;
 }
 
+.map-board {
+  position: relative;
+  margin: 0;
+}
+
 #district-svg {
-  position: absolute;
-  inset: 0;
+  position: relative;
   width: 100%;
   height: 100%;
   display: block;
@@ -338,7 +342,75 @@ button {
 }
 
 .hex-owned.is-done {
-  opacity: 0.72;
+  opacity: 0.92;
+}
+
+.hex-home polygon {
+  stroke: rgba(255, 255, 255, 0.35);
+  stroke-width: 2;
+}
+
+.hex-home.is-mine {
+  cursor: pointer;
+}
+
+.hex-home.is-selected polygon {
+  stroke: #fff;
+  stroke-width: 3;
+  filter: drop-shadow(0 0 12px rgba(255, 255, 255, 0.35));
+}
+
+.hex-home-sub {
+  fill: rgba(7, 16, 24, 0.75);
+  font-size: 0.62rem;
+  font-weight: 700;
+  text-anchor: middle;
+}
+
+.standards-bar {
+  margin-bottom: 0.65rem;
+  padding: 0.55rem 0.65rem;
+  border-radius: 14px;
+  background: rgba(7, 16, 24, 0.35);
+}
+
+.standards-hint {
+  margin: 0.35rem 0 0;
+  font-size: 0.78rem;
+  opacity: 0.75;
+}
+
+.sae-panel {
+  margin-top: 0.65rem;
+  padding: 0.55rem 0.65rem;
+  border-radius: 14px;
+  background: rgba(192, 132, 252, 0.08);
+}
+
+.special-tag {
+  position: absolute;
+  right: 4px;
+  top: 4px;
+  font-size: 0.55rem;
+  font-weight: 800;
+  padding: 0.1rem 0.25rem;
+  border-radius: 4px;
+  background: rgba(63, 208, 201, 0.25);
+}
+
+.trade-hint {
+  margin: 0 0 0.75rem;
+  opacity: 0.85;
+}
+
+.trade-resource-row .tile-pick.is-selected {
+  outline: 2px solid rgba(63, 208, 201, 0.8);
+}
+
+.trade-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
 }
 
 .hex-owned.is-spinning polygon {

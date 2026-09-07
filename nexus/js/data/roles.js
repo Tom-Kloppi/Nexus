@@ -1,7 +1,16 @@
 window.Nexus = window.Nexus || {};
 
-/* NEXUS 2.1 – Abschnitt 2.4: Phase-2-Rollen (climate, privacy, investor) */
-Nexus.PHASE2_ROLE_IDS = ["climate", "privacy", "investor"];
+/* NEXUS 2.1 – alle sechs Rollen */
+Nexus.ALL_ROLE_IDS = [
+  "climate",
+  "privacy",
+  "investor",
+  "visionary",
+  "networker",
+  "controller"
+];
+
+Nexus.PHASE2_ROLE_IDS = Nexus.ALL_ROLE_IDS;
 
 Nexus.ROLES = {
   climate: {
@@ -150,10 +159,157 @@ Nexus.ROLES = {
         ]
       }
     ]
+  },
+  visionary: {
+    id: "visionary",
+    name: "Der Visionär",
+    alignment: "Innovation",
+    subGoals: [
+      {
+        id: "sae_level_progress",
+        label: "Höchster SAE-Level",
+        maxContribution: 60,
+        higherIsBetter: true,
+        metricKey: "saeLevel",
+        steps: [
+          { stage: 1, metricValue: 1, cumulativePercent: 7 },
+          { stage: 2, metricValue: 2, cumulativePercent: 17 },
+          { stage: 3, metricValue: 3, cumulativePercent: 33 },
+          { stage: 4, metricValue: 4, cumulativePercent: 53 },
+          { stage: 5, metricValue: 5, cumulativePercent: 60 }
+        ]
+      },
+      {
+        id: "tech_tier_devices",
+        label: "Lokal gebaute Geräte",
+        maxContribution: 35,
+        higherIsBetter: true,
+        metricKey: "localDeviceCount",
+        steps: [
+          { stage: 1, metricValue: 1, cumulativePercent: 4 },
+          { stage: 2, metricValue: 2, cumulativePercent: 10 },
+          { stage: 3, metricValue: 3, cumulativePercent: 19 },
+          { stage: 4, metricValue: 4, cumulativePercent: 31 },
+          { stage: 5, metricValue: 5, cumulativePercent: 35 }
+        ]
+      },
+      {
+        id: "innovation_cards_total",
+        label: "Innovationskarten gesamt",
+        maxContribution: 30,
+        higherIsBetter: true,
+        metricKey: "innovationCardsTotal",
+        steps: [
+          { stage: 1, metricValue: 1, cumulativePercent: 3 },
+          { stage: 2, metricValue: 2, cumulativePercent: 9 },
+          { stage: 3, metricValue: 3, cumulativePercent: 17 },
+          { stage: 4, metricValue: 4, cumulativePercent: 27 },
+          { stage: 5, metricValue: 5, cumulativePercent: 30 }
+        ]
+      }
+    ]
+  },
+  networker: {
+    id: "networker",
+    name: "Der Netzwerker",
+    alignment: "Offenheit",
+    subGoals: [
+      {
+        id: "open_standard_commitment",
+        label: "Runden im offenen Standard",
+        maxContribution: 55,
+        higherIsBetter: true,
+        metricKey: "openStandardStreak",
+        steps: [
+          { stage: 1, metricValue: 3, cumulativePercent: 6 },
+          { stage: 2, metricValue: 6, cumulativePercent: 16 },
+          { stage: 3, metricValue: 10, cumulativePercent: 31 },
+          { stage: 4, metricValue: 15, cumulativePercent: 49 },
+          { stage: 5, metricValue: 20, cumulativePercent: 55 }
+        ]
+      },
+      {
+        id: "distinct_trade_partners",
+        label: "Handelspartner-Anteil",
+        maxContribution: 40,
+        higherIsBetter: true,
+        metricKey: "tradePartnerRatio",
+        steps: [
+          { stage: 1, metricValue: 20, cumulativePercent: 4 },
+          { stage: 2, metricValue: 40, cumulativePercent: 12 },
+          { stage: 3, metricValue: 60, cumulativePercent: 22 },
+          { stage: 4, metricValue: 80, cumulativePercent: 36 },
+          { stage: 5, metricValue: 100, cumulativePercent: 40 }
+        ]
+      },
+      {
+        id: "cross_board_resource_flow",
+        label: "Standards-Bonus-Volumen",
+        maxContribution: 35,
+        higherIsBetter: true,
+        metricKey: "standardsBonusVolume",
+        steps: [
+          { stage: 1, metricValue: 10, cumulativePercent: 4 },
+          { stage: 2, metricValue: 20, cumulativePercent: 10 },
+          { stage: 3, metricValue: 35, cumulativePercent: 19 },
+          { stage: 4, metricValue: 50, cumulativePercent: 31 },
+          { stage: 5, metricValue: 70, cumulativePercent: 35 }
+        ]
+      }
+    ]
+  },
+  controller: {
+    id: "controller",
+    name: "Die Kontrolleurin",
+    alignment: "Kontrolle",
+    subGoals: [
+      {
+        id: "proprietary_commitment",
+        label: "Runden im proprietären System",
+        maxContribution: 55,
+        higherIsBetter: true,
+        metricKey: "proprietaryStandardStreak",
+        steps: [
+          { stage: 1, metricValue: 3, cumulativePercent: 6 },
+          { stage: 2, metricValue: 6, cumulativePercent: 16 },
+          { stage: 3, metricValue: 10, cumulativePercent: 31 },
+          { stage: 4, metricValue: 15, cumulativePercent: 49 },
+          { stage: 5, metricValue: 20, cumulativePercent: 55 }
+        ]
+      },
+      {
+        id: "zone_monopoly",
+        label: "Ressourcen-Monopole",
+        maxContribution: 40,
+        higherIsBetter: true,
+        metricKey: "zoneMonopolyCount",
+        steps: [
+          { stage: 1, metricValue: 1, cumulativePercent: 4 },
+          { stage: 2, metricValue: 2, cumulativePercent: 12 },
+          { stage: 3, metricValue: 3, cumulativePercent: 22 },
+          { stage: 4, metricValue: 4, cumulativePercent: 36 },
+          { stage: 5, metricValue: 5, cumulativePercent: 40 }
+        ]
+      },
+      {
+        id: "blocked_trade_attempts",
+        label: "Blockierte Handelsversuche",
+        maxContribution: 35,
+        higherIsBetter: true,
+        metricKey: "blockedTradesCaused",
+        steps: [
+          { stage: 1, metricValue: 1, cumulativePercent: 4 },
+          { stage: 2, metricValue: 2, cumulativePercent: 10 },
+          { stage: 3, metricValue: 3, cumulativePercent: 19 },
+          { stage: 4, metricValue: 5, cumulativePercent: 31 },
+          { stage: 5, metricValue: 8, cumulativePercent: 35 }
+        ]
+      }
+    ]
   }
 };
 
 Nexus.ROLES_BY_ID = {};
-Nexus.PHASE2_ROLE_IDS.forEach(function (id) {
+Nexus.ALL_ROLE_IDS.forEach(function (id) {
   Nexus.ROLES_BY_ID[id] = Nexus.ROLES[id];
 });

@@ -35,6 +35,23 @@ window.Nexus = window.Nexus || {};
     return slots;
   }
 
+  function gridSlots(cols, rows) {
+    var slots = [];
+    var q;
+    var r;
+    for (r = 0; r < rows; r++) {
+      for (q = 0; q < cols; q++) {
+        slots.push({ q: q, r: r, key: plotKey(q, r) });
+      }
+    }
+    return slots;
+  }
+
+  function boardSlots() {
+    var c = Nexus.CONSTANTS;
+    return gridSlots(c.GRID_COLS, c.GRID_ROWS);
+  }
+
   function isAdjacent(a, b) {
     return HEX_DIRS.some(function (dir) {
       return a.q + dir.q === b.q && a.r + dir.r === b.r;
@@ -44,6 +61,8 @@ window.Nexus = window.Nexus || {};
   Nexus.plotKey = plotKey;
   Nexus.axialToPixel = axialToPixel;
   Nexus.allSlots = allSlots;
+  Nexus.gridSlots = gridSlots;
+  Nexus.boardSlots = boardSlots;
   Nexus.isAdjacent = isAdjacent;
   Nexus.HEX_DIRS = HEX_DIRS;
 })(window.Nexus);

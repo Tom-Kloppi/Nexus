@@ -94,7 +94,9 @@
         <section class="city-plane" aria-label="Distrikt">
           <div class="map-glow"></div>
           <div class="map-viewport" id="map-viewport">
-            <svg id="district-svg" role="img" aria-label="Hex-Distrikt"></svg>
+            <div class="map-board" id="map-board">
+              <svg id="district-svg" role="img" aria-label="Hex-Distrikt"></svg>
+            </div>
           </div>
           <div id="float-layer" class="float-layer" aria-hidden="true"></div>
           <div class="map-controls" aria-label="Kartensteuerung">
@@ -119,10 +121,22 @@
           </div>
 
           <div class="dock-head">
-            <h2>Home</h2>
+            <h2 id="dock-title">Home</h2>
             <p id="build-flags" class="build-flags"></p>
           </div>
+          <div class="standards-bar" id="standards-bar" hidden>
+            <p class="setup-label">Standard (öffentlich)</p>
+            <div class="pick-row">
+              <button type="button" class="btn setup-choice" id="btn-standard-open" data-standard="open">Offen</button>
+              <button type="button" class="btn setup-choice" id="btn-standard-proprietary" data-standard="proprietary">Proprietär</button>
+            </div>
+            <p id="standards-hint" class="standards-hint"></p>
+          </div>
           <div id="device-list" class="hotbar"></div>
+          <div id="sae-panel" class="sae-panel" hidden>
+            <p class="setup-label">Mobilität · SAE <strong id="sae-level">0</strong>/5</p>
+            <button type="button" class="btn" id="btn-sae-upgrade">SAE ausbauen</button>
+          </div>
           <div id="inspect-card" class="inspect sheet" hidden>
             <div class="inspect-top">
               <span id="inspect-icon" class="inspect-icon"></span>
@@ -149,6 +163,7 @@
       <footer class="action-bar">
         <p id="table-hint" class="hint">Produktion startet automatisch</p>
         <div class="action-buttons">
+          <button type="button" class="btn" id="btn-trade" disabled>Handeln</button>
           <button type="button" class="btn primary" id="btn-end-round" disabled>Zug beenden</button>
         </div>
         <ol id="log-list" class="tape" aria-label="Verlauf"></ol>
@@ -156,6 +171,23 @@
     </div>
 
     <div id="toast-stack" class="toast-stack" aria-live="polite"></div>
+
+    <div id="trade-modal" class="modal-shell t-modal-backdrop" hidden>
+      <div class="modal-card t-modal piece" role="dialog" aria-modal="true">
+        <p class="modal-kicker">Handel</p>
+        <p id="trade-hint" class="trade-hint"></p>
+        <label class="setup-label">Partner</label>
+        <div id="trade-partners" class="pick-row"></div>
+        <label class="setup-label">Du gibst</label>
+        <div id="trade-give" class="pick-row trade-resource-row"></div>
+        <label class="setup-label">Du erhältst</label>
+        <div id="trade-want" class="pick-row trade-resource-row"></div>
+        <div class="trade-actions">
+          <button type="button" class="btn primary" id="btn-trade-confirm" disabled>Tausch bestätigen</button>
+          <button type="button" class="btn ghost" id="btn-trade-cancel">Abbrechen</button>
+        </div>
+      </div>
+    </div>
 
     <div id="expand-modal" class="modal-shell t-modal-backdrop" hidden>
       <div class="modal-card t-modal piece" role="dialog" aria-modal="true">

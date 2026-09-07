@@ -86,21 +86,27 @@ Nexus.GAME_LENGTHS = [
   { id: "long", label: "Lang", rounds: 25 }
 ];
 
-/* Start-Zonen pro Spieler-Slot, verteilt auf den radius-2-Hex-Ring (Abschnitt 3.2) */
-Nexus.START_ZONE_LAYOUT = [
-  [
-    { q: 2, r: -2, type: "energy" },
-    { q: 2, r: 0, type: "residential" }
-  ],
-  [
-    { q: -2, r: 2, type: "energy" },
-    { q: -2, r: 0, type: "commercial" }
-  ],
-  [
-    { q: 0, r: 2, type: "energy" },
-    { q: 0, r: -2, type: "infrastructure" }
-  ]
+/* 4×4-Distrikt: Home-Kachel + Start-Fabrik pro Spieler */
+Nexus.HOME_POSITIONS = [
+  { q: 0, r: 0 },
+  { q: 3, r: 0 },
+  { q: 0, r: 3 }
 ];
+
+Nexus.START_FACTORY_LAYOUT = [
+  [{ q: 1, r: 0, type: "energy" }],
+  [{ q: 2, r: 0, type: "commercial" }],
+  [{ q: 1, r: 3, type: "infrastructure" }]
+];
+
+Nexus.ZONE_TYPES.home = {
+  id: "home",
+  label: "Smart Home",
+  shortLabel: "Home",
+  isHome: true
+};
+
+Nexus.ZONE_TYPE_COLORS.home = "#8b9cb8";
 
 Nexus.CONSTANTS = {
   MAX_ROUNDS: 20,
@@ -113,15 +119,21 @@ Nexus.CONSTANTS = {
   CHARGER_INNOVATION_BONUS: 2,
   LOCK_RISK_REDUCTION: 1,
   LOG_LIMIT: 40,
-  HEX_RADIUS: 2,
+  GRID_COLS: 4,
+  GRID_ROWS: 4,
   HEX_SIZE: 72,
   EXPAND_REQUIRES_ADJACENT: true,
   TILE_SPIN_MS: 900,
   HARVEST_STAGGER_MS: 120,
-  MIN_PRODUCTION_YIELD: 1,
-  MAP_MIN_SCALE: 0.55,
-  MAP_MAX_SCALE: 2.4,
+  FACTORY_MIN_YIELD: 1,
+  HOME_BASE_YIELD: 1,
+  MAP_MIN_SCALE: 0.35,
+  MAP_MAX_SCALE: 2.8,
+  MAP_FIT_PADDING: 0.9,
   HUB_DISCOUNT_TIE_ORDER: ["connectivity", "energy", "data", "hardware", "compute"],
   MIN_PLAYERS: 2,
-  MAX_PLAYERS: 3
+  MAX_PLAYERS: 3,
+  TRADE_RECENT_ROUNDS: 2,
+  OPEN_STANDARD_DISCOUNT: 1,
+  SAE_MAX_LEVEL: 5
 };

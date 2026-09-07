@@ -121,6 +121,26 @@ window.Nexus = window.Nexus || {};
     });
   }
 
+  function playerFactoryZones(state, playerId) {
+    return playerZones(state, playerId).filter(function (zone) {
+      return zone.type !== "home";
+    });
+  }
+
+  function playerHasZoneType(state, playerId, zoneType) {
+    return playerFactoryZones(state, playerId).some(function (zone) {
+      return zone.type === zoneType;
+    });
+  }
+
+  function homeBaseProduction() {
+    var yieldMap = emptyResources();
+    KEYS.forEach(function (key) {
+      yieldMap[key] = C.HOME_BASE_YIELD;
+    });
+    return yieldMap;
+  }
+
   /* ---------- Geräte ---------- */
 
   function getBuildOffer(state, deviceId, mode, options) {
@@ -155,6 +175,18 @@ window.Nexus = window.Nexus || {};
     }
     if (currentMode === "cloud" && mode === "local") {
       offer.isUpgrade = true;
+    }
+    if (device.requiresZoneType && !playerHasZoneType(state, player.id, device.requiresZoneType)) {
+      offer.reason = "Benötigt Zone: " + (ZONE_TYPES[device.requiresZoneType] || {}).label + ".";
+      return offer;
+    }
+    if (device.localOnly && mode === "cloud") {
+      offer.reason = "Nur lokal verfügbar.";
+      return offer;
+    }
+    if (!device.costs[mode]) {
+      offer.reason = "Modus nicht verfügbar.";
+      return offer;
     }
 
     var cost = rawBuildCost(device, mode, currentMode);
@@ -257,7 +289,7 @@ window.Nexus = window.Nexus || {};
   }
 
   function yieldAmount(base, modifier) {
-    return Math.max(C.MIN_PRODUCTION_YIELD, base + modifier);
+    return Math.max(C.FACTORY_MIN_YIELD, base + modifier);
   }
 
   function expectedYieldForBase(base) {
@@ -269,6 +301,9 @@ window.Nexus = window.Nexus || {};
   }
 
   function produceForZoneType(zoneTypeId, modifier) {
+    if (zoneTypeId === "home") {
+      return null;
+    }
     var typeDef = ZONE_TYPES[zoneTypeId];
     var result = {
       primary: { resource: typeDef.primary, amount: yieldAmount(typeDef.primaryBase, modifier) }
@@ -283,12 +318,12 @@ window.Nexus = window.Nexus || {};
   }
 
   function expectedByResource(state) {
-    var expected = emptyResources();
+    var expected = homeBaseProduction();
     var player = currentPlayer(state);
     if (!player) {
       return expected;
     }
-    playerZones(state, player.id).forEach(function (zone) {
+    playerFactoryZones(state, player.id).forEach(function (zone) {
       var typeDef = ZONE_TYPES[zone.type];
       expected[typeDef.primary] += expectedYieldForBase(typeDef.primaryBase);
       if (typeDef.secondary) {
@@ -313,23 +348,29 @@ window.Nexus = window.Nexus || {};
     if (!player || zoneAt(state, q, r)) {
       return false;
     }
-    var inside = Nexus.allSlots(C.HEX_RADIUS).some(function (slot) {
+    var inside = Nexus.boardSlots().some(function (slot) {
       return slot.q === q && slot.r === r;
     });
     if (!inside) {
       return false;
     }
+    var reservedHome = Nexus.HOME_POSITIONS.some(function (pos) {
+      return pos.q === q && pos.r === r;
+    });
+    if (reservedHome) {
+      return false;
+    }
     if (!C.EXPAND_REQUIRES_ADJACENT) {
       return true;
     }
-    return playerZones(state, player.id).some(function (zone) {
+    return playerFactoryZones(state, player.id).some(function (zone) {
       return Nexus.isAdjacent(zone, { q: q, r: r });
     });
   }
 
   function getExpandCost(state) {
     var player = currentPlayer(state);
-    var owned = player ? playerZones(state, player.id).length : 0;
+    var owned = player ? playerFactoryZones(state, player.id).length : 0;
     var extra = Math.max(0, owned - C.START_ZONE_COUNT);
     var cost = { hardware: 2 + extra };
     if (extra >= 1) {
@@ -419,6 +460,14 @@ window.Nexus = window.Nexus || {};
       privacyShieldEvents: 0,
       cumulativeProduction: 0,
       tradeVolume: 0,
+      tradePartners: [],
+      standardsChoice: null,
+      standardStreak: 0,
+      standardsBonusVolume: 0,
+      blockedTradesCaused: 0,
+      saeLevel: 0,
+      innovationCardsTotal: 0,
+      productionHistory: {},
       hubDiscountPending: false,
       localHardwareDiscountPending: false,
       roundModifiers: { cloudDisabled: false, cloudHalfEffect: false },
@@ -449,7 +498,17 @@ window.Nexus = window.Nexus || {};
     for (i = 0; i < playerCount; i++) {
       var id = "p" + (i + 1);
       players.push(createEmptyPlayer(id, "Spieler " + (i + 1), i, roleIds[i]));
-      Nexus.START_ZONE_LAYOUT[i].forEach(function (spec) {
+      var homePos = Nexus.HOME_POSITIONS[i];
+      zones.push({
+        id: "home-" + id,
+        q: homePos.q,
+        r: homePos.r,
+        type: "home",
+        ownerId: id,
+        harvested: false,
+        lastYield: null
+      });
+      Nexus.START_FACTORY_LAYOUT[i].forEach(function (spec) {
         zones.push({
           id: "zone-" + spec.q + "-" + spec.r,
           q: spec.q,
@@ -513,9 +572,24 @@ window.Nexus = window.Nexus || {};
     if (!player) {
       return 0;
     }
-    return playerZones(state, player.id).filter(function (zone) {
+    return playerFactoryZones(state, player.id).filter(function (zone) {
       return !zone.harvested;
-    }).length;
+    }).length + (playerHomeNeedsHarvest(state, player.id) ? 1 : 0);
+  }
+
+  function playerHomeZone(state, playerId) {
+    var found = null;
+    playerZones(state, playerId).forEach(function (zone) {
+      if (zone.type === "home") {
+        found = zone;
+      }
+    });
+    return found;
+  }
+
+  function playerHomeNeedsHarvest(state, playerId) {
+    var home = playerHomeZone(state, playerId);
+    return home && !home.harvested;
   }
 
   function advanceAfterAllHarvest(state) {
@@ -552,20 +626,42 @@ window.Nexus = window.Nexus || {};
     if (state.turnPhase !== "produce" || !player || state.spinningOutcomes) {
       return state;
     }
-    var pending = playerZones(state, player.id).filter(function (zone) {
+    var pending = playerFactoryZones(state, player.id).filter(function (zone) {
       return !zone.harvested;
     });
-    if (!pending.length) {
+    var homePending = playerHomeNeedsHarvest(state, player.id);
+    if (!pending.length && !homePending) {
       return state;
     }
 
     var outcomes = [];
     var zones = state.zones.map(function (zone) {
+      if (zone.type === "home" && zone.ownerId === player.id && !zone.harvested) {
+        var homeYield = homeBaseProduction();
+        outcomes.push({
+          zoneId: zone.id,
+          dieId: "home",
+          modifier: 0,
+          yield: {
+            primary: { resource: "energy", amount: homeYield.energy },
+            homeBundle: homeYield
+          },
+          staggerIndex: 0,
+          isHome: true
+        });
+        return Object.assign({}, zone, {
+          lastYield: {
+            primary: { resource: "energy", amount: C.HOME_BASE_YIELD },
+            homeBundle: homeYield
+          },
+          lastDieId: "home"
+        });
+      }
       var staggerIndex = -1;
       var i;
       for (i = 0; i < pending.length; i++) {
         if (pending[i].id === zone.id) {
-          staggerIndex = i;
+          staggerIndex = homePending ? i + 1 : i;
           break;
         }
       }
@@ -573,7 +669,8 @@ window.Nexus = window.Nexus || {};
         return zone;
       }
       var die = rollProductionDie();
-      var produced = produceForZoneType(zone.type, die.modifier);
+      var modifier = applyStorageBatteryModifier(state, player, die.modifier);
+      var produced = produceForZoneType(zone.type, modifier);
       outcomes.push({
         zoneId: zone.id,
         dieId: die.id,
@@ -607,6 +704,18 @@ window.Nexus = window.Nexus || {};
     state.spinningOutcomes.forEach(function (outcome) {
       harvestIds[outcome.zoneId] = true;
       revealDelayByZone[outcome.zoneId] = outcome.staggerIndex * C.HARVEST_STAGGER_MS;
+      if (outcome.isHome && outcome.yield.homeBundle) {
+        KEYS.forEach(function (key) {
+          var amount = outcome.yield.homeBundle[key] || 0;
+          resources[key] += amount;
+          lastProduction[key] += amount;
+          cumulative += amount;
+        });
+        if (!firstGain) {
+          firstGain = { resource: "energy", amount: C.HOME_BASE_YIELD, zoneId: outcome.zoneId };
+        }
+        return;
+      }
       resources[outcome.yield.primary.resource] += outcome.yield.primary.amount;
       lastProduction[outcome.yield.primary.resource] += outcome.yield.primary.amount;
       cumulative += outcome.yield.primary.amount;
@@ -638,7 +747,8 @@ window.Nexus = window.Nexus || {};
       resources: resources,
       lastProduction: lastProduction,
       cumulativeProduction: cumulative,
-      lastGain: firstGain
+      lastGain: firstGain,
+      productionHistory: markProductionHistory(player, state, lastProduction)
     });
 
     var next = replacePlayer(
@@ -756,6 +866,10 @@ window.Nexus = window.Nexus || {};
       privacyAdjustment: player.privacyAdjustment + (effects.privacy || 0),
       greenInnovationCards: player.greenInnovationCards + (effects.greenInnovation || 0),
       privacyShieldEvents: player.privacyShieldEvents + (effects.privacyShield ? 1 : 0),
+      innovationCardsTotal:
+        (player.innovationCardsTotal || 0) +
+        (effects.greenInnovation || 0) +
+        (effects.innovationCard || 0),
       localHardwareDiscountPending: effects.localHardwareDiscount
         ? true
         : player.localHardwareDiscountPending,
@@ -822,6 +936,11 @@ window.Nexus = window.Nexus || {};
       risk = Math.max(0, risk - C.LOCK_RISK_REDUCTION);
     }
 
+    var innovationCardsTotal = player.innovationCardsTotal || 0;
+    if (isNewBuild && deviceId === "charger") {
+      innovationCardsTotal += 1;
+    }
+
     var hubDiscountPending = player.hubDiscountPending;
     if (offer.usedHubDiscount) {
       hubDiscountPending = false;
@@ -840,6 +959,7 @@ window.Nexus = window.Nexus || {};
       devices: devices,
       risk: risk,
       innovationBonus: innovationBonus,
+      innovationCardsTotal: innovationCardsTotal,
       hubDiscountPending: hubDiscountPending,
       localHardwareDiscountPending: localHardwareDiscountPending
     });
@@ -874,7 +994,17 @@ window.Nexus = window.Nexus || {};
       var factor = effectFactor(mode, modifiers);
       baseSave += (device.energySave || 0) * factor;
       dataGain += (device.dataGain || 0) * factor;
+      if (device.efficiencyPerRound && mode) {
+        /* peak_load handled below */
+      }
     });
+
+    var peakMode = player.devices.peak_load;
+    var efficiencyGain = 0;
+    if (peakMode) {
+      efficiencyGain +=
+        (Nexus.DEVICES_BY_ID.peak_load.efficiencyPerRound || 0) * effectFactor(peakMode, modifiers);
+    }
 
     var hemsFactor = hemsMode ? effectFactor(hemsMode, modifiers) : 0;
     var energySave = baseSave * (1 + hemsFactor);
@@ -902,7 +1032,7 @@ window.Nexus = window.Nexus || {};
     var nextPlayer = Object.assign({}, player, {
       resources: resources,
       risk: player.risk + addedRisk,
-      efficiencyPoints: player.efficiencyPoints + energySave,
+      efficiencyPoints: player.efficiencyPoints + energySave + efficiencyGain,
       roundModifiers: { cloudDisabled: false, cloudHalfEffect: false }
     });
 
@@ -950,7 +1080,10 @@ window.Nexus = window.Nexus || {};
       next.currentPlayerIndex = 0;
       next.turnPhase = "produce";
       next.zones = next.zones.map(function (zone) {
-        return Object.assign({}, zone, { harvested: false, lastYield: null });
+        return Object.assign({}, zone, { harvested: false, lastYield: null, lastDieId: null });
+      });
+      next.players = next.players.map(function (p) {
+        return updateStandardStreak(p, state.round + 1);
       });
       next.log = addLog(next, null, "Runde " + newRound + " beginnt. " + next.players[0].name + " ist am Zug.");
     } else {
@@ -959,6 +1092,275 @@ window.Nexus = window.Nexus || {};
       next.log = addLog(next, null, next.players[nextIndex].name + " ist am Zug.");
     }
     return next;
+  }
+
+  function updateStandardStreak(player, round) {
+    if (!player.standardsChoice) {
+      return Object.assign({}, player, { standardStreak: 0 });
+    }
+    return Object.assign({}, player, { standardStreak: (player.standardStreak || 0) + 1 });
+  }
+
+  function markProductionHistory(player, state, lastProduction) {
+    var history = Object.assign({}, player.productionHistory || {});
+    KEYS.forEach(function (key) {
+      if ((lastProduction[key] || 0) > 0) {
+        var rounds = (history[key] || []).slice();
+        rounds.push(state.round);
+        history[key] = rounds.slice(-4);
+      }
+    });
+    return history;
+  }
+
+  function hasRecentProduction(player, resource, currentRound) {
+    var rounds = (player.productionHistory || {})[resource] || [];
+    return rounds.some(function (round) {
+      return currentRound - round <= C.TRADE_RECENT_ROUNDS;
+    });
+  }
+
+  function canTradeWith(fromPlayer, toPlayer) {
+    if (!fromPlayer.standardsChoice || !toPlayer.standardsChoice) {
+      return { allowed: false, reason: "Beide Spieler brauchen eine Standards-Wahl." };
+    }
+    if (fromPlayer.standardsChoice === "open" && toPlayer.standardsChoice === "open") {
+      return { allowed: true, reason: "" };
+    }
+    if (
+      fromPlayer.standardsChoice === "proprietary" &&
+      toPlayer.standardsChoice === "proprietary"
+    ) {
+      return { allowed: true, reason: "" };
+    }
+    return {
+      allowed: false,
+      reason: "Unterschiedliche Standards blockieren den Handel."
+    };
+  }
+
+  function tradeGiveAmount(baseAmount, isPremium) {
+    if (!isPremium) {
+      return baseAmount;
+    }
+    return baseAmount * 2;
+  }
+
+  function getTradeOffer(state, partnerId, giveKey, giveAmount, wantKey, wantAmount) {
+    var offer = { allowed: false, reason: "", giveCost: giveAmount, wantGain: wantAmount };
+    var player = currentPlayer(state);
+    var partner = state.players.filter(function (p) {
+      return p.id === partnerId;
+    })[0];
+    if (state.turnPhase !== "build") {
+      offer.reason = "Handel nur in der Bauphase.";
+      return offer;
+    }
+    if (!partner || partner.id === player.id) {
+      offer.reason = "Ungültiger Handelspartner.";
+      return offer;
+    }
+    var compatibility = canTradeWith(player, partner);
+    if (!compatibility.allowed) {
+      offer.reason = compatibility.reason;
+      return offer;
+    }
+    if (giveAmount <= 0 || wantAmount <= 0) {
+      offer.reason = "Menge muss größer als 0 sein.";
+      return offer;
+    }
+    var givePremium = !hasRecentProduction(player, giveKey, state.round);
+    var wantPremium = !hasRecentProduction(partner, wantKey, state.round);
+    offer.giveCost = tradeGiveAmount(giveAmount, givePremium);
+    offer.wantGain = wantAmount;
+    if (player.standardsChoice === "open" && partner.standardsChoice === "open" && givePremium) {
+      offer.giveCost = Math.max(wantAmount, offer.giveCost - C.OPEN_STANDARD_DISCOUNT);
+    }
+    var spend = {};
+    spend[giveKey] = offer.giveCost;
+    if (!canAfford(player.resources, spend)) {
+      offer.reason = "Nicht genug " + Nexus.RESOURCE_SHORT[giveKey] + ".";
+      return offer;
+    }
+    if ((partner.resources[wantKey] || 0) < wantAmount) {
+      offer.reason = partner.name + " hat nicht genug " + Nexus.RESOURCE_SHORT[wantKey] + ".";
+      return offer;
+    }
+    offer.allowed = true;
+    offer.giveKey = giveKey;
+    offer.wantKey = wantKey;
+    return offer;
+  }
+
+  function executeTrade(state, partnerId, giveKey, giveAmount, wantKey, wantAmount) {
+    var offer = getTradeOffer(state, partnerId, giveKey, giveAmount, wantKey, wantAmount);
+    if (!offer.allowed) {
+      return state;
+    }
+    var player = currentPlayer(state);
+    var partner = state.players.filter(function (p) {
+      return p.id === partnerId;
+    })[0];
+    var playerResources = subtractCost(player.resources, (function () {
+      var spend = {};
+      spend[giveKey] = offer.giveCost;
+      return spend;
+    })());
+    playerResources[wantKey] = (playerResources[wantKey] || 0) + offer.wantGain;
+    var partnerResources = subtractCost(partner.resources, (function () {
+      var spend = {};
+      spend[wantKey] = wantAmount;
+      return spend;
+    })());
+    partnerResources[giveKey] = (partnerResources[giveKey] || 0) + offer.giveCost;
+
+    var playerPartners = (player.tradePartners || []).slice();
+    if (playerPartners.indexOf(partner.id) === -1) {
+      playerPartners.push(partner.id);
+    }
+    var partnerPartners = (partner.tradePartners || []).slice();
+    if (partnerPartners.indexOf(player.id) === -1) {
+      partnerPartners.push(player.id);
+    }
+
+    var bonusVolume = 0;
+    if (player.standardsChoice === "open" && partner.standardsChoice === "open") {
+      bonusVolume = offer.giveCost + wantAmount;
+    }
+
+    var nextPlayer = Object.assign({}, player, {
+      resources: playerResources,
+      tradeVolume: (player.tradeVolume || 0) + offer.giveCost + offer.wantGain,
+      tradePartners: playerPartners,
+      standardsBonusVolume: (player.standardsBonusVolume || 0) + bonusVolume
+    });
+    var nextPartner = Object.assign({}, partner, {
+      resources: partnerResources,
+      tradeVolume: (partner.tradeVolume || 0) + offer.giveCost + wantAmount,
+      tradePartners: partnerPartners,
+      standardsBonusVolume: (partner.standardsBonusVolume || 0) + bonusVolume
+    });
+
+    var next = replacePlayer(state, player.id, nextPlayer);
+    next = replacePlayer(next, partner.id, nextPartner);
+    next.log = addLog(
+      next,
+      player.name,
+      "Handel mit " +
+        partner.name +
+        ": " +
+        offer.giveCost +
+        " " +
+        Nexus.RESOURCE_SHORT[giveKey] +
+        " ↔ " +
+        wantAmount +
+        " " +
+        Nexus.RESOURCE_SHORT[wantKey] +
+        "."
+    );
+    return next;
+  }
+
+  function setStandardsChoice(state, choice) {
+    if (state.turnPhase !== "build") {
+      return state;
+    }
+    if (choice !== "open" && choice !== "proprietary") {
+      return state;
+    }
+    var player = currentPlayer(state);
+    if (player.standardsChoice === choice) {
+      return state;
+    }
+    var nextPlayer = Object.assign({}, player, {
+      standardsChoice: choice,
+      standardStreak: 0
+    });
+    var next = replacePlayer(state, player.id, nextPlayer);
+    next.log = addLog(
+      next,
+      player.name,
+      choice === "open" ? "Offener Standard gewählt." : "Proprietäres System gewählt."
+    );
+    return next;
+  }
+
+  function getSaeUpgradeCost(level) {
+    return {
+      connectivity: 1 + level,
+      compute: 1,
+      hardware: 1 + Math.floor(level / 2)
+    };
+  }
+
+  function canUpgradeSae(state) {
+    var player = currentPlayer(state);
+    if (state.turnPhase !== "build" || !player) {
+      return false;
+    }
+    if ((player.saeLevel || 0) >= C.SAE_MAX_LEVEL) {
+      return false;
+    }
+    if (!player.devices.v2x && !player.devices.charging_network) {
+      return false;
+    }
+    return canAfford(player.resources, getSaeUpgradeCost(player.saeLevel || 0));
+  }
+
+  function upgradeSae(state) {
+    var player = currentPlayer(state);
+    if (!canUpgradeSae(state)) {
+      return state;
+    }
+    var level = player.saeLevel || 0;
+    var cost = getSaeUpgradeCost(level);
+    var nextPlayer = Object.assign({}, player, {
+      resources: subtractCost(player.resources, cost),
+      saeLevel: level + 1
+    });
+    var next = replacePlayer(state, player.id, nextPlayer);
+    next.log = addLog(next, player.name, "SAE-Level " + (level + 1) + " erreicht.");
+    return next;
+  }
+
+  function countResourceMonopolies(state, playerId) {
+    var counts = {};
+    KEYS.forEach(function (key) {
+      counts[key] = { total: 0, owned: 0 };
+    });
+    state.zones.forEach(function (zone) {
+      if (zone.type === "home") {
+        return;
+      }
+      var typeDef = ZONE_TYPES[zone.type];
+      if (!typeDef) {
+        return;
+      }
+      counts[typeDef.primary].total += 1;
+      if (zone.ownerId === playerId) {
+        counts[typeDef.primary].owned += 1;
+      }
+      if (typeDef.secondary) {
+        counts[typeDef.secondary].total += 1;
+        if (zone.ownerId === playerId) {
+          counts[typeDef.secondary].owned += 1;
+        }
+      }
+    });
+    var monopolies = 0;
+    KEYS.forEach(function (key) {
+      if (counts[key].total > 0 && counts[key].owned === counts[key].total) {
+        monopolies += 1;
+      }
+    });
+    return monopolies;
+  }
+
+  function applyStorageBatteryModifier(state, player, modifier) {
+    if (modifier >= 0 || !player.devices.storage_battery) {
+      return modifier;
+    }
+    return 0;
   }
 
   function canEndTurn(state) {
@@ -982,6 +1384,14 @@ window.Nexus = window.Nexus || {};
   Nexus.roleRevealPlayer = roleRevealPlayer;
   Nexus.currentPlayer = currentPlayer;
   Nexus.playerZones = playerZones;
+  Nexus.playerFactoryZones = playerFactoryZones;
+  Nexus.setStandardsChoice = setStandardsChoice;
+  Nexus.getTradeOffer = getTradeOffer;
+  Nexus.executeTrade = executeTrade;
+  Nexus.canUpgradeSae = canUpgradeSae;
+  Nexus.upgradeSae = upgradeSae;
+  Nexus.getSaeUpgradeCost = getSaeUpgradeCost;
+  Nexus.countResourceMonopolies = countResourceMonopolies;
   Nexus.beginHarvestAllSimultaneous = beginHarvestAllSimultaneous;
   Nexus.completeHarvestAll = completeHarvestAll;
   Nexus.harvestAnimationMs = harvestAnimationMs;

@@ -84,6 +84,8 @@ Nexus.DEVICES = [
     name: "HEMS (Energiemanagement)",
     shortName: "HEMS",
     effectText: "Verdoppelt die Energieeinsparung aller anderen aktiven Geräte.",
+    requiresZoneType: "commercial",
+    isSpecial: true,
     costs: {
       cloud: { energy: 2, data: 2, connectivity: 1 },
       local: { energy: 2, compute: 3, hardware: 2 }
@@ -91,6 +93,67 @@ Nexus.DEVICES = [
     cloudRiskPerRound: 2,
     energySave: 0,
     dataGain: 0
+  },
+  {
+    id: "storage_battery",
+    name: "Speicherbatterie",
+    shortName: "Batterie",
+    effectText: "Neutralisiert pro Runde einen negativen Fabrik-Modifikator (−1).",
+    requiresZoneType: "energy",
+    isSpecial: true,
+    localOnly: true,
+    costs: {
+      local: { hardware: 3, energy: 2, compute: 1 }
+    },
+    cloudRiskPerRound: 0,
+    energySave: 0,
+    dataGain: 0
+  },
+  {
+    id: "v2x",
+    name: "V2X-Sender",
+    shortName: "V2X",
+    effectText: "Voraussetzung für SAE-Level-Ausbau im Mobilitätsnetz.",
+    requiresZoneType: "infrastructure",
+    isSpecial: true,
+    costs: {
+      cloud: { hardware: 2, data: 1, connectivity: 1 },
+      local: { hardware: 3, compute: 2, connectivity: 1 }
+    },
+    cloudRiskPerRound: 3,
+    energySave: 0,
+    dataGain: 0
+  },
+  {
+    id: "charging_network",
+    name: "Ladesäulen-Netz",
+    shortName: "Ladenetz",
+    effectText: "Ermöglicht SAE-Ausbau und Mobilitätsbonus.",
+    requiresZoneType: "infrastructure",
+    isSpecial: true,
+    costs: {
+      cloud: { hardware: 2, connectivity: 1 },
+      local: { hardware: 3, compute: 1, energy: 1 }
+    },
+    cloudRiskPerRound: 2,
+    energySave: 0,
+    dataGain: 0
+  },
+  {
+    id: "peak_load",
+    name: "Peak-Load-Control",
+    shortName: "Peak Load",
+    effectText: "+1 Effizienzpunkte pro Runde in der Gewerbezone.",
+    requiresZoneType: "commercial",
+    isSpecial: true,
+    costs: {
+      cloud: { hardware: 1, data: 1, connectivity: 1 },
+      local: { hardware: 2, compute: 1, energy: 1 }
+    },
+    cloudRiskPerRound: 2,
+    energySave: 0,
+    dataGain: 0,
+    efficiencyPerRound: 1
   }
 ];
 

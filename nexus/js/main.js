@@ -6,7 +6,10 @@ window.Nexus = window.Nexus || {};
     expandSlot: null,
     inspectedDevice: null,
     investorAwaitingResource: false,
-    map: { scale: 1, tx: 0, ty: 0, dragging: false, moved: false, lastX: 0, lastY: 0, pointerId: null }
+    homeSelected: true,
+    tradeOpen: false,
+    tradePick: { partnerId: null, giveKey: "energy", giveAmount: 1, wantKey: "data", wantAmount: 1 },
+    map: { scale: 1, tx: 0, ty: 0, dragging: false, moved: false, lastX: 0, lastY: 0, pointerId: null, userAdjusted: false }
   };
   var harvestTimer = null;
 
@@ -22,6 +25,11 @@ window.Nexus = window.Nexus || {};
     Nexus.render(state, ui);
     if (!options.skipAutoHarvest) {
       triggerAutoHarvest();
+    }
+    if (state.screen === "game") {
+      requestAnimationFrame(function () {
+        fitMapToView(false);
+      });
     }
   }
 
@@ -68,8 +76,31 @@ window.Nexus = window.Nexus || {};
     if (!viewport) {
       return;
     }
+    viewport.style.transformOrigin = "0 0";
     viewport.style.transform =
       "translate(" + ui.map.tx + "px," + ui.map.ty + "px) scale(" + ui.map.scale + ")";
+  }
+
+  function fitMapToView(force) {
+    if (ui.map.userAdjusted && !force) {
+      applyMapTransform();
+      return;
+    }
+    var plane = document.querySelector(".city-plane");
+    var board = document.getElementById("map-board");
+    if (!plane || !board || !board.offsetWidth) {
+      applyMapTransform();
+      return;
+    }
+    var pw = plane.clientWidth;
+    var ph = plane.clientHeight;
+    var bw = board.offsetWidth;
+    var bh = board.offsetHeight;
+    var scale = Math.min(pw / bw, ph / bh) * Nexus.CONSTANTS.MAP_FIT_PADDING;
+    ui.map.scale = clampMapScale(scale);
+    ui.map.tx = (pw - bw * ui.map.scale) / 2;
+    ui.map.ty = (ph - bh * ui.map.scale) / 2;
+    applyMapTransform();
   }
 
   function clampMapScale(scale) {
@@ -91,6 +122,7 @@ window.Nexus = window.Nexus || {};
         event.preventDefault();
         var factor = event.deltaY > 0 ? 0.92 : 1.08;
         ui.map.scale = clampMapScale(ui.map.scale * factor);
+        ui.map.userAdjusted = true;
         applyMapTransform();
       },
       { passive: false }
@@ -126,6 +158,7 @@ window.Nexus = window.Nexus || {};
       }
       ui.map.lastX = event.clientX;
       ui.map.lastY = event.clientY;
+      ui.map.userAdjusted = true;
       applyMapTransform();
     });
 
@@ -148,22 +181,20 @@ window.Nexus = window.Nexus || {};
 
     document.getElementById("btn-map-zoom-in").addEventListener("click", function () {
       ui.map.scale = clampMapScale(ui.map.scale * 1.12);
+      ui.map.userAdjusted = true;
       applyMapTransform();
     });
 
     document.getElementById("btn-map-zoom-out").addEventListener("click", function () {
       ui.map.scale = clampMapScale(ui.map.scale * 0.88);
+      ui.map.userAdjusted = true;
       applyMapTransform();
     });
 
     document.getElementById("btn-map-reset").addEventListener("click", function () {
-      ui.map.scale = 1;
-      ui.map.tx = 0;
-      ui.map.ty = 0;
-      applyMapTransform();
+      ui.map.userAdjusted = false;
+      fitMapToView(true);
     });
-
-    applyMapTransform();
   }
 
   function fillIcons() {
@@ -212,11 +243,13 @@ window.Nexus = window.Nexus || {};
       expandSlot: null,
       inspectedDevice: null,
       investorAwaitingResource: false,
-      map: { scale: 1, tx: 0, ty: 0, dragging: false, moved: false, lastX: 0, lastY: 0, pointerId: null }
+      homeSelected: true,
+      tradeOpen: false,
+      tradePick: { partnerId: null, giveKey: "energy", giveAmount: 1, wantKey: "data", wantAmount: 1 },
+      map: { scale: 1, tx: 0, ty: 0, dragging: false, moved: false, lastX: 0, lastY: 0, pointerId: null, userAdjusted: false }
     };
     Nexus.closeModal(document.getElementById("setup-screen"));
     commit(Nexus.startGame(setupChoice.count, setupChoice.lengthId));
-    applyMapTransform();
   }
 
   document.getElementById("btn-start-game").addEventListener("click", startNewGame);
@@ -227,6 +260,78 @@ window.Nexus = window.Nexus || {};
     commit(Nexus.acknowledgeRoleReveal(state));
   });
 
+  document.getElementById("btn-trade").addEventListener("click", function () {
+    if (state.turnPhase !== "build") {
+      return;
+    }
+    ui.tradeOpen = true;
+    Nexus.render(state, ui);
+  });
+
+  document.getElementById("btn-trade-cancel").addEventListener("click", function () {
+    ui.tradeOpen = false;
+    Nexus.closeModal(document.getElementById("trade-modal"));
+    Nexus.render(state, ui);
+  });
+
+  document.getElementById("trade-partners").addEventListener("click", function (event) {
+    var btn = event.target.closest("[data-partner]");
+    if (!btn) {
+      return;
+    }
+    ui.tradePick.partnerId = btn.getAttribute("data-partner");
+    Nexus.render(state, ui);
+  });
+
+  document.getElementById("trade-give").addEventListener("click", function (event) {
+    var btn = event.target.closest("[data-give]");
+    if (!btn) {
+      return;
+    }
+    ui.tradePick.giveKey = btn.getAttribute("data-give");
+    Nexus.render(state, ui);
+  });
+
+  document.getElementById("trade-want").addEventListener("click", function (event) {
+    var btn = event.target.closest("[data-want]");
+    if (!btn) {
+      return;
+    }
+    ui.tradePick.wantKey = btn.getAttribute("data-want");
+    Nexus.render(state, ui);
+  });
+
+  document.getElementById("btn-trade-confirm").addEventListener("click", function () {
+    var pick = ui.tradePick;
+    if (!pick.partnerId || !pick.giveKey || !pick.wantKey) {
+      return;
+    }
+    var next = Nexus.executeTrade(state, pick.partnerId, pick.giveKey, pick.giveAmount || 1, pick.wantKey, pick.wantAmount || 1);
+    if (next === state) {
+      Nexus.pushToast("Handel nicht möglich", "#ff8fb0");
+      return;
+    }
+    ui.tradeOpen = false;
+    commit(next);
+    Nexus.pushToast("Handel abgeschlossen", "#3fd0c9");
+  });
+
+  document.getElementById("btn-standard-open").addEventListener("click", function () {
+    commit(Nexus.setStandardsChoice(state, "open"));
+  });
+
+  document.getElementById("btn-standard-proprietary").addEventListener("click", function () {
+    commit(Nexus.setStandardsChoice(state, "proprietary"));
+  });
+
+  document.getElementById("btn-sae-upgrade").addEventListener("click", function () {
+    var next = Nexus.upgradeSae(state);
+    if (next !== state) {
+      commit(next);
+      Nexus.pushToast("SAE ausgebaut", "#c084fc");
+    }
+  });
+
   document.getElementById("btn-end-round").addEventListener("click", function () {
     clearHarvestTimer();
     commit(Nexus.endTurn(state), { skipAutoHarvest: true });
@@ -235,6 +340,14 @@ window.Nexus = window.Nexus || {};
   document.getElementById("district-svg").addEventListener("click", function (event) {
     if (ui.map.moved) {
       ui.map.moved = false;
+      return;
+    }
+
+    var home = event.target.closest(".hex-home[data-mine='1']");
+    if (home && state.turnPhase === "build") {
+      ui.homeSelected = true;
+      ui.expandSlot = null;
+      Nexus.render(state, ui);
       return;
     }
 
@@ -337,7 +450,7 @@ window.Nexus = window.Nexus || {};
   window.addEventListener("resize", function () {
     if (state.screen === "game") {
       Nexus.render(state, ui);
-      applyMapTransform();
+      fitMapToView(false);
     }
   });
 

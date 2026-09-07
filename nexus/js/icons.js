@@ -57,6 +57,18 @@ window.Nexus = window.Nexus || {};
     ),
     hems: svgWrap(
       '<path d="M3 11l9-7 9 7"/><path d="M6 10v9h12v-9"/><path d="M10 19v-5h4v5"/>'
+    ),
+    storage_battery: svgWrap(
+      '<rect x="7" y="8" width="10" height="12" rx="2"/><path d="M10 6h4v2h-4z"/><path d="M9 12h6M9 16h6"/>'
+    ),
+    v2x: svgWrap(
+      '<path d="M4 16h16"/><path d="M7 16l2-6h6l2 6"/><circle cx="8" cy="16" r="1.5"/><circle cx="16" cy="16" r="1.5"/><path d="M12 6v4"/>'
+    ),
+    charging_network: svgWrap(
+      '<path d="M8 7h8v7a4 4 0 0 1-8 0V7z"/><path d="M10 3v4M14 3v4"/>'
+    ),
+    peak_load: svgWrap(
+      '<path d="M4 18h16"/><path d="M6 16l3-8 4 5 3-9 2 12"/>'
     )
   };
 

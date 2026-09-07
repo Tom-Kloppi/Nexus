@@ -14,7 +14,26 @@ window.Nexus = window.Nexus || {};
   }
 
   function assignRoles(playerCount) {
-    return shuffle(Nexus.PHASE2_ROLE_IDS).slice(0, playerCount);
+    return shuffle(Nexus.ALL_ROLE_IDS).slice(0, playerCount);
+  }
+
+  function localDeviceCount(player) {
+    var count = 0;
+    Nexus.DEVICES.forEach(function (device) {
+      if (player.devices[device.id] === "local") {
+        count += 1;
+      }
+    });
+    return count;
+  }
+
+  function tradePartnerRatio(state, player) {
+    var others = state.players.length - 1;
+    if (others <= 0) {
+      return 0;
+    }
+    var partners = (player.tradePartners || []).length;
+    return Math.round((partners / others) * 100);
   }
 
   function builtDeviceCount(player) {
@@ -42,9 +61,7 @@ window.Nexus = window.Nexus || {};
   }
 
   function zoneControlCount(state, playerId) {
-    return state.zones.filter(function (zone) {
-      return zone.ownerId === playerId;
-    }).length;
+    return Nexus.playerFactoryZones(state, playerId).length;
   }
 
   function readMetric(state, player, metricKey) {
@@ -65,6 +82,24 @@ window.Nexus = window.Nexus || {};
         return player.tradeVolume || 0;
       case "zoneControlCount":
         return zoneControlCount(state, player.id);
+      case "saeLevel":
+        return player.saeLevel || 0;
+      case "localDeviceCount":
+        return localDeviceCount(player);
+      case "innovationCardsTotal":
+        return player.innovationCardsTotal || 0;
+      case "openStandardStreak":
+        return player.standardsChoice === "open" ? player.standardStreak || 0 : 0;
+      case "proprietaryStandardStreak":
+        return player.standardsChoice === "proprietary" ? player.standardStreak || 0 : 0;
+      case "tradePartnerRatio":
+        return tradePartnerRatio(state, player);
+      case "standardsBonusVolume":
+        return player.standardsBonusVolume || 0;
+      case "zoneMonopolyCount":
+        return Nexus.countResourceMonopolies(state, player.id);
+      case "blockedTradesCaused":
+        return player.blockedTradesCaused || 0;
       default:
         return 0;
     }

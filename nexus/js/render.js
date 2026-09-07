@@ -199,9 +199,15 @@ window.Nexus = window.Nexus || {};
     }
     row.innerHTML = state.players
       .map(function (player, index) {
-        var zoneCount = Nexus.playerZones(state, player.id).length;
+        var zoneCount = Nexus.playerFactoryZones(state, player.id).length;
         var role = Nexus.ROLES_BY_ID[player.roleId];
         var alignment = role ? role.alignment : "—";
+        var standardLabel =
+          player.standardsChoice === "open"
+            ? " · Offen"
+            : player.standardsChoice === "proprietary"
+              ? " · Prop."
+              : "";
         var isActive =
           index === state.currentPlayerIndex &&
           state.turnPhase !== "gameover" &&
@@ -216,6 +222,7 @@ window.Nexus = window.Nexus || {};
           player.name +
           '<span class="turn-alignment">' +
           alignment +
+          standardLabel +
           "</span>" +
           '<span class="zone-count">· ' +
           zoneCount +
@@ -359,15 +366,9 @@ window.Nexus = window.Nexus || {};
 
   function renderDistrict(state, ui) {
     var svg = document.getElementById("district-svg");
-    var plane = document.querySelector(".city-plane");
-    var slots = Nexus.allSlots(C.HEX_RADIUS);
-    var availW = (plane && plane.clientWidth) || 900;
-    var availH = (plane && plane.clientHeight) || 620;
-    var span = 2 * C.HEX_RADIUS + 0.95;
-    var size = Math.floor(
-      Math.min(availW / (Math.sqrt(3) * span), availH / (1.5 * span))
-    );
-    size = Math.max(64, Math.min(size, 130));
+    var board = document.getElementById("map-board");
+    var slots = Nexus.boardSlots();
+    var size = C.HEX_SIZE;
     var minX = Infinity;
     var minY = Infinity;
     var maxX = -Infinity;
@@ -379,17 +380,22 @@ window.Nexus = window.Nexus || {};
       maxX = Math.max(maxX, pos.x);
       maxY = Math.max(maxY, pos.y);
     });
-    var pad = size * 0.55;
+    var pad = size * 0.65;
     var width = maxX - minX + pad * 2;
     var height = maxY - minY + pad * 2;
     var originX = pad - minX;
     var originY = pad - minY;
+    if (board) {
+      board.style.width = Math.ceil(width) + "px";
+      board.style.height = Math.ceil(height) + "px";
+    }
     svg.setAttribute("viewBox", "0 0 " + Math.ceil(width) + " " + Math.ceil(height));
     svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
 
     var player = Nexus.currentPlayer(state);
     var html = "";
     var selected = ui && ui.expandSlot;
+    var homeSelected = ui && ui.homeSelected;
     var totalWeight = dieWeightTotal();
     var spinningSet = {};
     var staggerByZone = {};
@@ -407,8 +413,9 @@ window.Nexus = window.Nexus || {};
       var isSelected = selected && selected.q === slot.q && selected.r === slot.r;
 
       if (zone) {
+        var isHome = zone.type === "home";
         var typeDef = Nexus.ZONE_TYPES[zone.type];
-        var color = Nexus.ZONE_TYPE_COLORS[zone.type];
+        var color = isHome ? playerColor(state.players.filter(function (p) { return p.id === zone.ownerId; })[0]) : Nexus.ZONE_TYPE_COLORS[zone.type];
         var owner = state.players.filter(function (p) {
           return p.id === zone.ownerId;
         })[0];
@@ -416,6 +423,47 @@ window.Nexus = window.Nexus || {};
         var spinning = !!spinningSet[zone.id];
         var staggerMs = (staggerByZone[zone.id] || 0) * C.HARVEST_STAGGER_MS;
         var done = !!zone.harvested;
+        var isHomeActive = isHome && isMine && homeSelected;
+
+        if (isHome) {
+          var homeDone = done && zone.lastYield;
+          html +=
+            '<g class="hex hex-home' +
+            (isMine ? " is-mine" : " is-foreign") +
+            (isHomeActive ? " is-selected" : "") +
+            (homeDone ? " is-done" : "") +
+            (spinning ? " is-spinning" : "") +
+            '" data-home="' +
+            zone.id +
+            '" data-mine="' +
+            (isMine ? "1" : "0") +
+            '" style="--owner-color:' +
+            playerColor(owner) +
+            ";--spin-delay:" +
+            staggerMs +
+            'ms">' +
+            '<polygon points="' +
+            hexPoints(cx, cy, size - 2) +
+            '" fill="' +
+            color +
+            '" opacity="0.88"></polygon>' +
+            '<text class="hex-type" x="' +
+            cx +
+            '" y="' +
+            (cy - 4) +
+            '">Home</text>' +
+            '<text class="hex-home-sub" x="' +
+            cx +
+            '" y="' +
+            (cy + 14) +
+            '">+1 Basis</text>' +
+            (homeDone
+              ? '<text class="hex-amount" x="' + cx + '" y="' + (cy + 32) + '">+1×5</text>'
+              : "") +
+            "</g>";
+          return;
+        }
+
         var barW = size * 1.2;
         var barH = 10;
         var barX = cx - barW / 2;
@@ -532,6 +580,10 @@ window.Nexus = window.Nexus || {};
     svg.innerHTML = html;
 
     document.getElementById("btn-end-round").disabled = !Nexus.canEndTurn(state);
+    var tradeBtn = document.getElementById("btn-trade");
+    if (tradeBtn) {
+      tradeBtn.disabled = state.turnPhase !== "build";
+    }
 
     var hint = document.getElementById("table-hint");
     if (state.turnPhase === "produce" || state.turnPhase === "spinning") {
@@ -551,7 +603,24 @@ window.Nexus = window.Nexus || {};
     var player = Nexus.currentPlayer(state);
     var list = document.getElementById("device-list");
     var inspected = ui && ui.inspectedDevice;
-    list.innerHTML = Nexus.DEVICES.map(function (device) {
+    var homeSelected = ui && ui.homeSelected;
+    var dockTitle = document.getElementById("dock-title");
+    if (dockTitle) {
+      dockTitle.textContent = homeSelected ? "Smart Home · aktiv" : "Home";
+    }
+
+    var basicDevices = Nexus.DEVICES.filter(function (d) {
+      return !d.isSpecial;
+    });
+    var specialDevices = Nexus.DEVICES.filter(function (d) {
+      return d.isSpecial;
+    });
+    var visibleDevices = homeSelected
+      ? basicDevices.concat(specialDevices)
+      : basicDevices;
+
+    list.innerHTML = visibleDevices
+      .map(function (device) {
       var mode = player.devices[device.id];
       var buyable = Nexus.canBuyDevice(state, device.id);
       var classes = ["room", "t-tt-wrap"];
@@ -591,12 +660,48 @@ window.Nexus = window.Nexus || {};
             "</span></span>"
           : "") +
         (buyable ? '<span class="buy-dot"></span>' : "") +
+        (device.isSpecial ? '<span class="special-tag">Zone</span>' : "") +
         '<span class="t-tt" role="tooltip">' +
         device.shortName +
         "</span>" +
         "</button>"
       );
-    }).join("");
+    })
+      .join("");
+
+    var standardsBar = document.getElementById("standards-bar");
+    if (standardsBar) {
+      var showStandards = state.turnPhase === "build";
+      standardsBar.hidden = !showStandards;
+      var openBtn = document.getElementById("btn-standard-open");
+      var propBtn = document.getElementById("btn-standard-proprietary");
+      if (openBtn) {
+        openBtn.classList.toggle("is-selected", player.standardsChoice === "open");
+      }
+      if (propBtn) {
+        propBtn.classList.toggle("is-selected", player.standardsChoice === "proprietary");
+      }
+      var hint = document.getElementById("standards-hint");
+      if (hint) {
+        hint.textContent = player.standardsChoice
+          ? "Streak: " + (player.standardStreak || 0) + " Runden"
+          : "Wähle offen (Handel) oder proprietär (Kontrolle).";
+      }
+    }
+
+    var saePanel = document.getElementById("sae-panel");
+    if (saePanel) {
+      var canSae = !!(player.devices.v2x || player.devices.charging_network);
+      saePanel.hidden = !canSae || state.turnPhase !== "build";
+      var saeLevel = document.getElementById("sae-level");
+      if (saeLevel) {
+        saeLevel.textContent = String(player.saeLevel || 0);
+      }
+      var saeBtn = document.getElementById("btn-sae-upgrade");
+      if (saeBtn) {
+        saeBtn.disabled = !Nexus.canUpgradeSae(state);
+      }
+    }
 
     var inspect = document.getElementById("inspect-card");
     if (!inspected || state.turnPhase === "event") {
@@ -800,6 +905,70 @@ window.Nexus = window.Nexus || {};
     }
   }
 
+  function renderTradeModal(state, ui) {
+    var shell = document.getElementById("trade-modal");
+    var open = !!(ui && ui.tradeOpen && state.turnPhase === "build");
+    if (!open) {
+      if (shell && !shell.hidden) {
+        closeModal(shell);
+      }
+      return;
+    }
+    var player = Nexus.currentPlayer(state);
+    var pick = ui.tradePick || { partnerId: null, giveKey: null, giveAmount: 1, wantKey: null, wantAmount: 1 };
+    document.getElementById("trade-hint").textContent =
+      player.name + " tauscht Ressourcen (Standards beachten).";
+    document.getElementById("trade-partners").innerHTML = state.players
+      .filter(function (p) {
+        return p.id !== player.id;
+      })
+      .map(function (p) {
+        var compat = Nexus.getTradeOffer(state, p.id, pick.giveKey || "energy", pick.giveAmount || 1, pick.wantKey || "data", pick.wantAmount || 1);
+        var blocked = p.standardsChoice && player.standardsChoice && p.standardsChoice !== player.standardsChoice;
+        return (
+          '<button type="button" class="btn setup-choice' +
+          (pick.partnerId === p.id ? " is-selected" : "") +
+          '" data-partner="' +
+          p.id +
+          '">' +
+          p.name +
+          (blocked ? " · ✕" : "") +
+          "</button>"
+        );
+      })
+      .join("");
+    function resourceButtons(prefix, selectedKey, dataAttr) {
+      return Nexus.RESOURCE_KEYS.map(function (key) {
+        return (
+          '<button type="button" class="tile-pick chip-' +
+          key +
+          (selectedKey === key ? " is-selected" : "") +
+          '" data-' +
+          dataAttr +
+          '="' +
+          key +
+          '">' +
+          Nexus.RESOURCE_ICONS[key] +
+          "<small>" +
+          Nexus.RESOURCE_SHORT[key] +
+          "</small></button>"
+        );
+      }).join("");
+    }
+    document.getElementById("trade-give").innerHTML = resourceButtons("give", pick.giveKey, "give");
+    document.getElementById("trade-want").innerHTML = resourceButtons("want", pick.wantKey, "want");
+    var confirm = document.getElementById("btn-trade-confirm");
+    if (pick.partnerId && pick.giveKey && pick.wantKey) {
+      var offer = Nexus.getTradeOffer(state, pick.partnerId, pick.giveKey, pick.giveAmount || 1, pick.wantKey, pick.wantAmount || 1);
+      confirm.disabled = !offer.allowed;
+    } else {
+      confirm.disabled = true;
+    }
+    if (shell.hidden || !shell.classList.contains("is-open")) {
+      openModal(shell);
+    }
+  }
+
   Nexus.render = function (state, ui) {
     if (!state || state.screen !== "game") {
       return;
@@ -810,6 +979,7 @@ window.Nexus = window.Nexus || {};
     renderDistrict(state, ui);
     renderHome(state, ui);
     renderExpandModal(state, ui);
+    renderTradeModal(state, ui);
     renderEventModal(state, ui);
     renderRoleRevealModal(state);
     renderLog(state);
