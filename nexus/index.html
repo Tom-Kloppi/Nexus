@@ -18,8 +18,8 @@
       href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800&family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="transitions.css?v=16" />
-    <link rel="stylesheet" href="style.css?v=16" />
+    <link rel="stylesheet" href="transitions.css?v=18" />
+    <link rel="stylesheet" href="style.css?v=18" />
   </head>
   <body>
     <div class="modal-shell t-modal-backdrop" id="setup-screen">
@@ -44,10 +44,10 @@
             </div>
           </div>
         </div>
-        <p class="modal-kicker">NEXUS 2.1</p>
+        <p class="modal-kicker">NEXUS · Stadtteil</p>
         <h2>Neue Partie</h2>
-        <p>Hot-Seat-Mehrspieler: Spieler wechseln sich am selben Gerät ab.</p>
-        <p class="setup-note">Bei 2 Spielern werden Handels- und Blockade-Ziele angepasst. Geräte und Standards der anderen sind öffentlich — Ressourcen und Ziele bleiben privat.</p>
+        <p>Hot-Seat: Stadtteilmanager wechseln sich am selben Gerät ab.</p>
+        <p class="setup-note">Bei 2 Spielern werden Handels- und Blockade-Ziele angepasst. Geräte und Standards der anderen sind öffentlich — Ressourcen und Wahlversprechen bleiben privat.</p>
 
         <p class="setup-label">Spielerzahl</p>
         <div class="pick-row" id="setup-player-count">
@@ -99,25 +99,15 @@
             <strong id="res-energy" class="t-digit-group">3</strong>
             <span class="expect" id="expect-energy">~0</span>
           </li>
-          <li class="wallet-item chip-data" data-res="data" title="Daten">
-            <span class="token-icon" data-res="data"></span>
-            <strong id="res-data" class="t-digit-group">3</strong>
-            <span class="expect" id="expect-data">~0</span>
+          <li class="wallet-item chip-money" data-res="money" title="Geld">
+            <span class="token-icon" data-res="money"></span>
+            <strong id="res-money" class="t-digit-group">3</strong>
+            <span class="expect" id="expect-money">~0</span>
           </li>
-          <li class="wallet-item chip-compute" data-res="compute" title="Rechenleistung">
-            <span class="token-icon" data-res="compute"></span>
-            <strong id="res-compute" class="t-digit-group">3</strong>
-            <span class="expect" id="expect-compute">~0</span>
-          </li>
-          <li class="wallet-item chip-hardware" data-res="hardware" title="Bauteile">
-            <span class="token-icon" data-res="hardware"></span>
-            <strong id="res-hardware" class="t-digit-group">3</strong>
-            <span class="expect" id="expect-hardware">~0</span>
-          </li>
-          <li class="wallet-item chip-connectivity" data-res="connectivity" title="Konnektivität">
-            <span class="token-icon" data-res="connectivity"></span>
-            <strong id="res-connectivity" class="t-digit-group">3</strong>
-            <span class="expect" id="expect-connectivity">~0</span>
+          <li class="wallet-item chip-bandwidth" data-res="bandwidth" title="Bandbreite">
+            <span class="token-icon" data-res="bandwidth"></span>
+            <strong id="res-bandwidth" class="t-digit-group">3</strong>
+            <span class="expect" id="expect-bandwidth">~0</span>
           </li>
         </ul>
 
@@ -133,7 +123,7 @@
         </div>
 
         <div class="goal-pill" id="goal-pill" hidden>
-          <span class="goal-label">Ziel</span>
+          <span class="goal-label">Versprechen</span>
           <strong id="stat-goal-total">0</strong>
           <span class="goal-max">/ 100%</span>
         </div>
@@ -165,13 +155,14 @@
           <div id="goal-panel" class="goal-panel" hidden>
             <div class="goal-panel-head">
               <div>
-                <p class="goal-kicker">Geheimes Ziel</p>
+                <p class="goal-kicker">Wahlversprechen</p>
                 <h2 id="goal-role-name"></h2>
               </div>
               <div class="goal-total-ring">
                 <strong id="goal-total">0%</strong>
               </div>
             </div>
+            <div id="score-tracks" class="score-tracks" aria-label="Wertungsspuren" hidden></div>
             <ul id="goal-list" class="goal-list"></ul>
           </div>
 
@@ -281,7 +272,9 @@
       <div class="modal-card t-modal piece" role="dialog" aria-modal="true">
         <p class="modal-kicker">Neues Feld</p>
         <div id="expand-cost" class="cost-line"></div>
+        <p id="expand-step-label" class="setup-label">Feldtyp</p>
         <div id="expand-choices" class="pick-row"></div>
+        <div id="expand-variants" class="pick-row" hidden></div>
         <button type="button" class="btn ghost" id="btn-expand-cancel">Zurück</button>
       </div>
     </div>
@@ -297,7 +290,7 @@
 
     <div id="role-reveal-modal" class="modal-shell t-modal-backdrop" hidden>
       <div class="modal-card t-modal piece role-reveal-card" role="dialog" aria-modal="true">
-        <p class="modal-kicker">Geheime Rolle</p>
+        <p class="modal-kicker">Wahlversprechen</p>
         <h2 id="role-reveal-player"></h2>
         <p id="role-reveal-hint" class="role-reveal-hint"></p>
         <div id="role-reveal-body" class="role-reveal-body"></div>
@@ -334,16 +327,16 @@
       </div>
     </div>
 
-    <script src="js/data/constants.js?v=16"></script>
-    <script src="js/data/tiles.js?v=16"></script>
-    <script src="js/data/devices.js?v=16"></script>
-    <script src="js/data/events.js?v=16"></script>
-    <script src="js/data/cards.js?v=16"></script>
-    <script src="js/data/roles.js?v=16"></script>
-    <script src="js/icons.js?v=16"></script>
-    <script src="js/roles.js?v=16"></script>
-    <script src="js/state.js?v=16"></script>
-    <script src="js/render.js?v=16"></script>
-    <script src="js/main.js?v=16"></script>
+    <script src="js/data/constants.js?v=18"></script>
+    <script src="js/data/tiles.js?v=18"></script>
+    <script src="js/data/devices.js?v=18"></script>
+    <script src="js/data/events.js?v=18"></script>
+    <script src="js/data/cards.js?v=18"></script>
+    <script src="js/data/roles.js?v=18"></script>
+    <script src="js/icons.js?v=18"></script>
+    <script src="js/roles.js?v=18"></script>
+    <script src="js/state.js?v=18"></script>
+    <script src="js/render.js?v=18"></script>
+    <script src="js/main.js?v=18"></script>
   </body>
 </html>

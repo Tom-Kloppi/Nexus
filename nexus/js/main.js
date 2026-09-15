@@ -10,7 +10,7 @@ window.Nexus = window.Nexus || {};
     investorAwaitingResource: false,
     homeOpen: false,
     tradeOpen: false,
-    tradePick: { partnerId: null, giveKey: "energy", giveAmount: 1, wantKey: "data", wantAmount: 1 },
+    tradePick: { partnerId: null, giveKey: "energy", giveAmount: 1, wantKey: "money", wantAmount: 1 },
     map: { scale: 1, tx: 0, ty: 0, dragging: false, panning: false, moved: false, lastX: 0, lastY: 0, startX: 0, startY: 0, pointerId: null, userAdjusted: false }
   };
   var harvestTimer = null;
@@ -392,7 +392,8 @@ window.Nexus = window.Nexus || {};
 
   function fillIcons() {
     Array.prototype.forEach.call(document.querySelectorAll(".token-icon"), function (node) {
-      node.innerHTML = Nexus.RESOURCE_ICONS[node.getAttribute("data-res")];
+      var key = node.getAttribute("data-res");
+      node.innerHTML = (Nexus.RESOURCE_ICONS && Nexus.RESOURCE_ICONS[key]) || "";
     });
     Array.prototype.forEach.call(document.querySelectorAll(".mode-icon"), function (node) {
       node.innerHTML = Nexus.MODE_ICONS[node.getAttribute("data-mode")];
@@ -440,7 +441,7 @@ window.Nexus = window.Nexus || {};
       investorAwaitingResource: false,
       homeOpen: false,
       tradeOpen: false,
-      tradePick: { partnerId: null, giveKey: "energy", giveAmount: 1, wantKey: "data", wantAmount: 1 },
+      tradePick: { partnerId: null, giveKey: "energy", giveAmount: 1, wantKey: "money", wantAmount: 1 },
       map: { scale: 1, tx: 0, ty: 0, dragging: false, panning: false, moved: false, lastX: 0, lastY: 0, startX: 0, startY: 0, pointerId: null, userAdjusted: false }
     };
     Nexus.closeModal(document.getElementById("setup-screen"));
@@ -606,7 +607,8 @@ window.Nexus = window.Nexus || {};
     }
     ui.expandSlot = {
       q: Number(empty.getAttribute("data-q")),
-      r: Number(empty.getAttribute("data-r"))
+      r: Number(empty.getAttribute("data-r")),
+      type: null
     };
     ui.inspectedDevice = null;
     ui.inspectedZoneId = null;
@@ -619,12 +621,46 @@ window.Nexus = window.Nexus || {};
     if (!button || button.disabled || !ui.expandSlot) {
       return;
     }
+    var type = button.getAttribute("data-zone-type");
+    var variants =
+      (Nexus.ZONE_VARIANTS && Nexus.ZONE_VARIANTS[type]) ||
+      (Nexus.ZONE_TYPES[type] && Nexus.ZONE_TYPES[type].variants) ||
+      (type === "energy"
+        ? [{ id: "solar" }, { id: "transformer" }]
+        : type === "datacenter"
+          ? [{ id: "insecure" }, { id: "secure" }]
+          : []);
+    if (variants.length) {
+      ui.expandSlot = {
+        q: ui.expandSlot.q,
+        r: ui.expandSlot.r,
+        type: type
+      };
+      Nexus.render(state, ui);
+      return;
+    }
     var slot = ui.expandSlot;
     ui.expandSlot = null;
-    commit(Nexus.buyZone(state, slot.q, slot.r, button.getAttribute("data-zone-type")));
+    commit(Nexus.buyZone(state, slot.q, slot.r, type, null));
+  });
+
+  document.getElementById("expand-variants").addEventListener("click", function (event) {
+    var button = event.target.closest("[data-zone-variant]");
+    if (!button || button.disabled || !ui.expandSlot || !ui.expandSlot.type) {
+      return;
+    }
+    var slot = ui.expandSlot;
+    var variant = button.getAttribute("data-zone-variant");
+    ui.expandSlot = null;
+    commit(Nexus.buyZone(state, slot.q, slot.r, slot.type, variant));
   });
 
   document.getElementById("btn-expand-cancel").addEventListener("click", function () {
+    if (ui.expandSlot && ui.expandSlot.type) {
+      ui.expandSlot = { q: ui.expandSlot.q, r: ui.expandSlot.r, type: null };
+      Nexus.render(state, ui);
+      return;
+    }
     ui.expandSlot = null;
     Nexus.closeModal(document.getElementById("expand-modal"));
     Nexus.render(state, ui);

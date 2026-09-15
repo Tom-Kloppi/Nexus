@@ -64,10 +64,22 @@ window.Nexus = window.Nexus || {};
     return Nexus.playerFactoryZones(state, playerId).length;
   }
 
+  function scoreOf(player, key) {
+    return (player.scores && player.scores[key]) || 0;
+  }
+
   function readMetric(state, player, metricKey) {
     switch (metricKey) {
       case "energyEfficiency":
         return Math.floor(player.efficiencyPoints || 0);
+      case "environmentScore":
+        return scoreOf(player, "environment");
+      case "securityScore":
+        return scoreOf(player, "security");
+      case "imageScore":
+        return scoreOf(player, "image");
+      case "comfortScore":
+        return scoreOf(player, "comfort");
       case "localProcessingRatio":
         return localDeviceRatio(player);
       case "greenInnovationCards":
@@ -77,6 +89,8 @@ window.Nexus = window.Nexus || {};
       case "privacyShieldEvents":
         return player.privacyShieldEvents || 0;
       case "totalResourceThroughput":
+        return player.cumulativeProduction || 0;
+      case "moneyThroughput":
         return player.cumulativeProduction || 0;
       case "tradeVolume":
         return player.tradeVolume || 0;

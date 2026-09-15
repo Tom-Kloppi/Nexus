@@ -1,103 +1,66 @@
-# NEXUS 2.1 — Spielregeln (Stand im Code)
+# NEXUS — Spielregeln (Post-Playtest)
 
-Diese Datei beschreibt, was das Spiel **wirklich tut**. Quelle: `nexus/js/`.
+Diese Datei beschreibt, was das Spiel **im Code tun soll** laut [`DESIGN.md`](DESIGN.md). Bei Abweichung: DESIGN gewinnt, dann Code anpassen.
+
+**Freeze:** Branch `prototype` = NEXUS 2.1 (fünf Ressourcen, alte Zonen).
 
 ## Setup
 
 - 2 oder 3 Spieler, ein Gerät (Hot-Seat).
 - Spiellänge: Kurz 15 / Standard 20 / Lang 25 Runden.
-- Jeder startet mit 3 von jeder Ressource, einem Smart Home in einer Hex-Ecke und einem **Startcoupon** (erstes Feld kostenlos, muss im ersten Zug gesetzt werden).
-- Sechs Rollen werden gemischt; jeder bekommt eine geheime. Nacheinander im Modal anschauen, dann beginnt Spieler 1.
+- Start: 3× Energie, Geld, Bandbreite; Smart Home in einer Hex-Ecke; Startcoupon (erstes Feld kostenlos, muss im ersten Zug).
+- Sechs Wahlversprechen werden gemischt; nacheinander geheim anschauen, dann Spieler 1.
 
 ## Ziel
 
-Kein Siegpunkt-Rennen. Jede Rolle hat drei Unterziele. Der Fortschritt wird in **Prozent** angezeigt. Wer nach einer vollen Runde **≥ 100 %** hat, gewinnt sofort (bei mehreren der mit dem höheren Wert, sonst wer in der Reihenfolge weiter vorn steht). Sonst gewinnt nach der letzten Runde, wer den höchsten Prozentwert hat.
+Kein Spurensummen-Rennen. Jedes Versprechen hat Unterziele (u. a. auf Image, Komfort, Umwelt, Sicherheit und abgeleiteten Metriken). Fortschritt in **Prozent**. ≥ 100 % nach voller Runde = Sofortsieg. Sonst höchster Prozentwert nach letzter Runde.
 
 ## Ablauf eines Zugs
 
-1. **Zugübergabe** — Gerät weitergeben, private Infos sind verdeckt.
-2. **Produktion** — alle eigenen ungenutzten Fabriken + Home gleichzeitig.
-3. **Ereignis** — in jeder geraden Runde für den aktiven Spieler.
-4. **Bauphase** — Felder, Geräte, Karten, Handel, Standard, SAE, Zugende.
+1. Zugübergabe (private Infos verdeckt)
+2. Produktion (eigene Fabriken + Home)
+3. Ereignis (gerade Runden)
+4. Bauphase: Felder, Geräte, Karten, Handel, Standard, SAE, Zugende
 
-Am Zugende laufen Geräteeffekte (Energie sparen, Daten, Cloud-Risiko, Peak-Load-Effizienz). Cloud-Upkeep in Konnektivität: ohne Bezahlung sind Cloud-Effekte in dieser Auswertung aus.
+Cloud-Upkeep in Bandbreite. Ohne Zahlung: Cloud-Effekte in der Auswertung aus.
 
 ## Ressourcen
 
-Energie, Daten, Rechenleistung, Bauteile, Konnektivität.
+Energie, Geld, Bandbreite.
+
+## Wertungsspuren
+
+Image, Komfort, Umwelt, Sicherheit (`player.scores`). Öffentlich nur soweit die UI es zeigt; unter Hot-Seat-Schutz wie private Infos behandeln.
 
 ## Hex-Distrikt
 
-Axiales Hex mit Radius 3 (37 Felder). Homes auf drei Ecken. Neue Felder nur **benachbart** zum eigenen Netz, nicht auf Home-Slots.
+Radius 3. Homes auf drei Ecken. Expand nur benachbart zum eigenen Netz.
 
-| Feld | Primär | Sekundär |
+| Feld | Variante | Ertrag / Regel |
 | --- | --- | --- |
-| Wohngebiet | Daten 2 | — |
-| Gewerbe | Bauteile 2 | Rechenleistung 1 |
-| Infrastruktur | Konnektivität 2 | — |
-| Energieversorgung | Energie 3 | — |
-| Smart Home | +1 aller fünf, kein Würfel | — |
+| Wohngebiet | — | Bandbreite; **0**, solange kein eigenes Datenzentrum |
+| Energie | Solar | Energie mit Würfel-Mod |
+| Energie | Transformator | stabile Energie, kostet Geld pro Einheit |
+| Datenzentrum | Unsicher | günstig, erhöht Risiko |
+| Datenzentrum | Sicher | teurer, stärkt Sicherheit |
+| Verkehr | — | Stub, wenig Geld |
+| Smart Home | — | +1 aller drei Ressourcen, kein Würfel |
 
-Fabrik-Ertrag = `max(1, Basis + W6-Modifikator)`:
+Solar nutzt PRODUCTION_DICE (Ausfall…Boom). Boom → grüne Innovationskarte. Neu gebautes Feld produziert erst nächste Runde.
 
-| Ergebnis | Mod | Gewicht |
-| --- | --- | --- |
-| Wartung/Ausfall | −1 | 1 |
-| Normalbetrieb | 0 | 2 |
-| Guter Lauf | +1 | 2 |
-| Boom | +2 | 1 |
+## Geräte
 
-Boom zieht eine **grüne** Innovationskarte. Speicherbatterie setzt einen negativen Modifikator auf 0. Ein neu gekauftes Feld produziert erst nächste Runde.
+Cloud vs. lokal (Kosten nur noch in den 3 Ressourcen). Lokal → Datenschutz-Schild-Logik bleibt. Upkeep in Bandbreite.
 
-## Geräte — Cloud vs. lokal
+## Karten, Handel, Standards, SAE
 
-Cloud: günstiger, **Risiko/Zug**, **Konnekt.-Upkeep**. Lokal: voller Effekt, kein Upkeep. Upgrade Cloud → lokal gegen Kostendifferenz.
+Wie bisher strukturell: Handlimit, Offen/Proprietär, 1:1-Handel, SAE 0–5 — Kosten/Effekte auf neue Ressourcen umgebogen.
 
-| Gerät | Effekt |
-| --- | --- |
-| Smart-Thermostat / Shading | −1 Energie/Runde |
-| Kamera-Netzwerk | +1 Daten/Runde; lokal zählt zum Datenschutz-Schild |
-| Ladesäule | einmalig 1 Innovationskarte |
-| Home Hub | nur lokal; nächster Bau −1 der teuersten Ressource; lokal = Schild |
-| Smart Lock | einmalig −1 Risiko |
-| HEMS | braucht Gewerbe; verdoppelt Energie-Sparen der anderen Geräte |
-| Speicherbatterie | nur lokal, braucht Energiezone; fängt −1 Fabrik-Mod |
-| V2X / Ladesäulen-Netz | braucht Infra; schaltet SAE frei. Netz: SAE kostet 1 Konnekt. weniger |
-| Peak-Load-Control | braucht Gewerbe zum Bau; +1 Effizienzpunkt/Runde |
+## Wahlversprechen
 
-**Datenschutz-Schild** (blockt das Datenleck-Ereignis): lokale Kamera **oder** lokaler Hub **oder** ≥ 75 % der gebauten Geräte lokal.
+IDs: climate, privacy, investor, visionary, networker, controller — Labels politisch/Versprechen. Unterziele in `data/roles.js`.
 
-## Karten
+## Öffentlich vs. privat
 
-Einmal pro Zug automatisch eine Innovationskarte (Handlimit 4), zusätzlich frei nachziehbar. Kategorien: Grün, Datenschutz, Mobilität, Allgemein.
-
-- Ressourcen-Effekte gehen ins Wallet.
-- `efficiency` → Effizienzpunkte (Klimaingenieur).
-- `privacy` → senkt Risiko (Datenschützerin).
-
-## Handel und Standards
-
-Standard ist öffentlich: **Offen** oder **Proprietär** (Start: offen). Handel nur bei gleichem Standard. 1:1 in der UI. Wer eine Ressource in den letzten 2 Runden nicht selbst produziert hat, zahlt Premium (2). Zwei offene Spieler können den Premium mildern.
-
-Proprietärer Partner, den man nicht bedienen kann, kann der Kontrolleurin **blockierte Handelsversuche** einbringen.
-
-## SAE
-
-Level 0–5. Braucht V2X oder Ladesäulen-Netz. Kosten steigen mit dem Level; Ladenetz −1 Konnektivität.
-
-## Rollen
-
-| Rolle | Unterziele |
-| --- | --- |
-| Klimaingenieur | Effizienzpunkte, lokaler Geräteanteil, grüne Karten |
-| Datenschützerin | niedriges Risiko, lokaler Anteil, abgewehrte Datenlecks |
-| Investorin | kumulierte Produktion, Handelsvolumen, Fabrikzahl |
-| Visionär | SAE-Level, lokale Geräte, Innovationskarten gesamt |
-| Netzwerker | Runden im offenen Standard, Handelspartner-Anteil, Standards-Bonus |
-| Kontrolleurin | Runden proprietär, Ressourcen-Monopole, blockierte Handel |
-
-Bei 2 Spielern werden Handels-/Blockade-Ziele etwas herunterskaliert.
-
-## Öffentliche vs. private Info
-
-Sichtbar für andere: Name, Ausrichtung, Standard, SAE, Zonenzahl, **Cloud-Geräte**. Privat: Ressourcen, Hand, geheimes Ziel, lokale Geräte, Effizienzpunkte, Risiko.
+Öffentlich: Name, Ausrichtung, Standard, SAE, Zonenzahl, Cloud-Geräte.  
+Privat: Ressourcen, Spuren, Hand, Versprechen-Details, lokale Geräte, Risiko.

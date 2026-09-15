@@ -12,6 +12,62 @@ window.Nexus = window.Nexus || {};
     return String(value);
   }
 
+  var DEFAULT_SCORE_KEYS = ["image", "comfort", "environment", "security"];
+  var DEFAULT_SCORE_LABELS = {
+    image: "Image",
+    comfort: "Komfort",
+    environment: "Umwelt",
+    security: "Sicherheit"
+  };
+  var DEFAULT_ZONE_VARIANTS = {
+    energy: [
+      { id: "solar", label: "Solar" },
+      { id: "transformer", label: "Transformator" }
+    ],
+    datacenter: [
+      { id: "insecure", label: "Unsicher" },
+      { id: "secure", label: "Sicher" }
+    ]
+  };
+
+  function scoreKeys() {
+    return Nexus.SCORE_KEYS || Nexus.TRACK_KEYS || DEFAULT_SCORE_KEYS;
+  }
+
+  function scoreLabel(key) {
+    var labels = Nexus.SCORE_LABELS || Nexus.TRACK_LABELS || DEFAULT_SCORE_LABELS;
+    return labels[key] || key;
+  }
+
+  function zoneVariantsFor(type) {
+    var fromData = Nexus.ZONE_VARIANTS && Nexus.ZONE_VARIANTS[type];
+    if (fromData && fromData.length) {
+      return fromData;
+    }
+    var typeDef = Nexus.ZONE_TYPES && Nexus.ZONE_TYPES[type];
+    var ids = typeDef && typeDef.variants;
+    if (ids && ids.length) {
+      var catalog =
+        type === "energy"
+          ? Nexus.ENERGY_VARIANTS
+          : type === "datacenter"
+            ? Nexus.DATACENTER_VARIANTS
+            : null;
+      return ids.map(function (id) {
+        return (catalog && catalog[id]) || { id: id, label: id };
+      });
+    }
+    return DEFAULT_ZONE_VARIANTS[type] || [];
+  }
+
+  function tradeFallbackKey(preferred) {
+    var keys = Nexus.RESOURCE_KEYS || [];
+    if (preferred && keys.indexOf(preferred) !== -1) {
+      return preferred;
+    }
+    return keys[0] || "energy";
+  }
+
   function playerColor(player) {
     return Nexus.PLAYER_COLORS[player.colorIndex % Nexus.PLAYER_COLORS.length];
   }
@@ -46,13 +102,17 @@ window.Nexus = window.Nexus || {};
       return (cost[key] || 0) > 0;
     })
       .map(function (key) {
+        var label =
+          (Nexus.RESOURCE_LABELS && Nexus.RESOURCE_LABELS[key]) ||
+          (Nexus.RESOURCE_SHORT && Nexus.RESOURCE_SHORT[key]) ||
+          key;
         return (
           '<span class="chip chip-' +
           key +
           '" title="' +
-          Nexus.RESOURCE_LABELS[key] +
+          label +
           '">' +
-          Nexus.RESOURCE_ICONS[key] +
+          ((Nexus.RESOURCE_ICONS && Nexus.RESOURCE_ICONS[key]) || "") +
           "<b>" +
           cost[key] +
           "</b></span>"
@@ -401,12 +461,17 @@ window.Nexus = window.Nexus || {};
   function renderGoalPanel(state) {
     var panel = document.getElementById("goal-panel");
     var pill = document.getElementById("goal-pill");
+    var tracks = document.getElementById("score-tracks");
     if (!panel || !pill) {
       return;
     }
     if (Nexus.isHotSeatShield(state)) {
       panel.hidden = true;
       pill.hidden = true;
+      if (tracks) {
+        tracks.hidden = true;
+        tracks.innerHTML = "";
+      }
       return;
     }
     var player = Nexus.currentPlayer(state);
@@ -414,6 +479,10 @@ window.Nexus = window.Nexus || {};
     if (!progress.role) {
       panel.hidden = true;
       pill.hidden = true;
+      if (tracks) {
+        tracks.hidden = true;
+        tracks.innerHTML = "";
+      }
       return;
     }
     panel.hidden = false;
@@ -421,6 +490,26 @@ window.Nexus = window.Nexus || {};
     document.getElementById("goal-role-name").textContent = progress.role.name;
     document.getElementById("goal-total").textContent = progress.totalPercent + "%";
     document.getElementById("stat-goal-total").textContent = progress.totalPercent;
+
+    if (tracks) {
+      var scores = player.scores || {};
+      tracks.hidden = false;
+      tracks.innerHTML = scoreKeys()
+        .map(function (key) {
+          var value = scores[key];
+          if (value == null) {
+            value = 0;
+          }
+          return (
+            '<span class="score-track"><span>' +
+            scoreLabel(key) +
+            '</span><strong>' +
+            value +
+            "</strong></span>"
+          );
+        })
+        .join("");
+    }
 
     var roleDef = progress.role;
     document.getElementById("goal-list").innerHTML = progress.subGoals
@@ -474,8 +563,8 @@ window.Nexus = window.Nexus || {};
     document.getElementById("role-reveal-player").textContent = player.name;
     document.getElementById("role-reveal-hint").textContent =
       state.roleRevealIndex < state.players.length - 1
-        ? "Nur du darfst diese Ziele sehen. Gib das Gerät an den nächsten Spieler weiter."
-        : "Das war die letzte Rolle. Danach beginnt Spieler 1.";
+        ? "Nur du darfst dein Wahlversprechen sehen. Gib das Gerät an den nächsten Stadtteilmanager weiter."
+        : "Das war das letzte Wahlversprechen. Danach beginnt Spieler 1.";
     var okBtn = document.getElementById("btn-role-reveal-ok");
     okBtn.textContent =
       state.roleRevealIndex < state.players.length - 1 ? "Verstanden – weiter" : "Spiel beginnen";
@@ -485,6 +574,7 @@ window.Nexus = window.Nexus || {};
       " · " +
       role.name +
       "</p>" +
+      '<p class="role-reveal-label">Wahlversprechen</p>' +
       progress.subGoals
         .map(function (goal, index) {
           var subDef = role.subGoals[index];
@@ -531,7 +621,7 @@ window.Nexus = window.Nexus || {};
         ? "Du besitzt noch keine Felder. Die Produktion wird übersprungen."
         : factories === 0
           ? "Nur dein Home produziert in dieser Runde (+1 aller Ressourcen). Danach kannst du den Startcoupon einlösen."
-          : "Nur du darfst deine Ziele und Ressourcen sehen. Wenn du bereit bist, startet die Produktion.";
+          : "Nur du darfst dein Wahlversprechen und deine Ressourcen sehen. Wenn du bereit bist, startet die Produktion.";
     document.getElementById("btn-handoff-ok").textContent = "Ich bin " + player.name;
     if (shell.hidden || !shell.classList.contains("is-open")) {
       openModal(shell);
@@ -901,7 +991,7 @@ window.Nexus = window.Nexus || {};
         hint.textContent = player.name + ": Produktion läuft auf allen Zonen …";
       }
     } else if (state.turnPhase === "role_reveal") {
-      hint.textContent = "Rollen werden einzeln vorbereitet …";
+      hint.textContent = "Wahlversprechen werden einzeln vorbereitet …";
     } else if (state.turnPhase === "event") {
       hint.textContent = player.name + ": ein Ereignis wartet";
     } else if (state.turnPhase === "build") {
@@ -1265,22 +1355,72 @@ window.Nexus = window.Nexus || {};
     document.getElementById("expand-cost").innerHTML = free
       ? '<span class="chip">kostenlos</span>'
       : chipsHtml(cost);
-    document.getElementById("expand-choices").innerHTML = Nexus.ZONE_TYPE_KEYS.map(function (key) {
-      var offer = Nexus.getExpandOffer(state, slot.q, slot.r, key);
-      var typeDef = Nexus.ZONE_TYPES[key];
-      return (
-        '<button type="button" class="tile-pick zone-pick" data-zone-type="' +
-        key +
-        '" style="--zone-color:' +
-        Nexus.ZONE_TYPE_COLORS[key] +
-        '"' +
-        (offer.allowed ? "" : " disabled") +
-        ">" +
-        Nexus.iconGroup(typeDef.primary, "#071018") +
-        '<small>' + typeDef.shortLabel + '</small>' +
-        "</button>"
-      );
-    }).join("");
+
+    var pendingType = slot.type || null;
+    var variants = pendingType ? zoneVariantsFor(pendingType) : [];
+    var stepLabel = document.getElementById("expand-step-label");
+    var choices = document.getElementById("expand-choices");
+    var variantRow = document.getElementById("expand-variants");
+
+    if (pendingType && variants.length) {
+      if (stepLabel) {
+        var typeDef = Nexus.ZONE_TYPES[pendingType];
+        stepLabel.textContent =
+          "Variante · " + ((typeDef && (typeDef.shortLabel || typeDef.label)) || pendingType);
+      }
+      choices.hidden = true;
+      choices.innerHTML = "";
+      if (variantRow) {
+        variantRow.hidden = false;
+        variantRow.innerHTML = variants
+          .map(function (variant) {
+            var id = variant.id || variant.key || variant;
+            var label = variant.label || variant.shortLabel || id;
+            return (
+              '<button type="button" class="tile-pick zone-pick" data-zone-variant="' +
+              id +
+              '" style="--zone-color:' +
+              (Nexus.ZONE_TYPE_COLORS[pendingType] || "rgba(255,255,255,0.12)") +
+              '">' +
+              "<small>" +
+              label +
+              "</small></button>"
+            );
+          })
+          .join("");
+      }
+    } else {
+      if (stepLabel) {
+        stepLabel.textContent = "Feldtyp";
+      }
+      choices.hidden = false;
+      if (variantRow) {
+        variantRow.hidden = true;
+        variantRow.innerHTML = "";
+      }
+      choices.innerHTML = Nexus.ZONE_TYPE_KEYS.map(function (key) {
+        var offer = Nexus.getExpandOffer(state, slot.q, slot.r, key);
+        var typeDef = Nexus.ZONE_TYPES[key];
+        var iconKey = typeDef && typeDef.primary;
+        var iconHtml =
+          iconKey && Nexus.RESOURCE_MARKUP[iconKey]
+            ? Nexus.iconGroup(iconKey, "#071018")
+            : "";
+        return (
+          '<button type="button" class="tile-pick zone-pick" data-zone-type="' +
+          key +
+          '" style="--zone-color:' +
+          Nexus.ZONE_TYPE_COLORS[key] +
+          '"' +
+          (offer.allowed ? "" : " disabled") +
+          ">" +
+          iconHtml +
+          "<small>" +
+          typeDef.shortLabel +
+          "</small></button>"
+        );
+      }).join("");
+    }
     if (shell.hidden || !shell.classList.contains("is-open")) {
       openModal(shell);
     }
@@ -1366,7 +1506,7 @@ window.Nexus = window.Nexus || {};
     if (reason) {
       reason.textContent = winner
         ? (state.winReason === "instant"
-            ? winner.name + " hat 100 % des Zielprofils erreicht."
+            ? winner.name + " hat 100 % des Wahlversprechens erreicht."
             : winner.name + " war am nächsten dran (" + best + "%).")
         : "";
     }
@@ -1430,9 +1570,9 @@ window.Nexus = window.Nexus || {};
         var compat = Nexus.getTradeOffer(
           state,
           selected.id,
-          pick.giveKey || "energy",
+          pick.giveKey || tradeFallbackKey("energy"),
           pick.giveAmount || 1,
-          pick.wantKey || "data",
+          pick.wantKey || tradeFallbackKey("money"),
           pick.wantAmount || 1
         );
         if (!compat.allowed) {
@@ -1446,7 +1586,7 @@ window.Nexus = window.Nexus || {};
         return p.id !== player.id;
       })
       .map(function (p) {
-        var compat = Nexus.getTradeOffer(state, p.id, pick.giveKey || "energy", pick.giveAmount || 1, pick.wantKey || "data", pick.wantAmount || 1);
+        var compat = Nexus.getTradeOffer(state, p.id, pick.giveKey || tradeFallbackKey("energy"), pick.giveAmount || 1, pick.wantKey || tradeFallbackKey("money"), pick.wantAmount || 1);
         var blocked = p.standardsChoice && player.standardsChoice && p.standardsChoice !== player.standardsChoice;
         return (
           '<button type="button" class="btn setup-choice' +
@@ -1462,6 +1602,10 @@ window.Nexus = window.Nexus || {};
       .join("");
     function resourceButtons(prefix, selectedKey, dataAttr) {
       return Nexus.RESOURCE_KEYS.map(function (key) {
+        var shortLabel =
+          (Nexus.RESOURCE_SHORT && Nexus.RESOURCE_SHORT[key]) ||
+          (Nexus.RESOURCE_LABELS && Nexus.RESOURCE_LABELS[key]) ||
+          key;
         return (
           '<button type="button" class="tile-pick chip-' +
           key +
@@ -1471,9 +1615,9 @@ window.Nexus = window.Nexus || {};
           '="' +
           key +
           '">' +
-          Nexus.RESOURCE_ICONS[key] +
+          (Nexus.RESOURCE_ICONS[key] || "") +
           "<small>" +
-          Nexus.RESOURCE_SHORT[key] +
+          shortLabel +
           "</small></button>"
         );
       }).join("");

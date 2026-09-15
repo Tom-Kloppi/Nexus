@@ -11,8 +11,8 @@ Nexus.EVENTS = [
       {
         id: "a",
         label: "Sofort einspielen",
-        summary: "−1 Konnektivität, −1 Risiko",
-        effects: { spend: { connectivity: 1 }, risk: -1 }
+        summary: "−1 Bandbreite, −1 Risiko, +1 Sicherheit",
+        effects: { spend: { bandwidth: 1 }, risk: -1, security: 1 }
       },
       {
         id: "b",
@@ -47,8 +47,8 @@ Nexus.EVENTS = [
       {
         id: "a",
         label: "Vorfall öffentlich machen",
-        summary: "−2 Daten, −3 Risiko",
-        effects: { spend: { data: 2 }, risk: -3 }
+        summary: "−2 Bandbreite, −3 Risiko, −1 Image",
+        effects: { spend: { bandwidth: 2 }, risk: -3, image: -1 }
       },
       {
         id: "b",
@@ -67,7 +67,7 @@ Nexus.EVENTS = [
     choices: [
       {
         id: "a",
-        label: "Konnektivität priorisieren",
+        label: "Bandbreite priorisieren",
         summary: "−1 Energie, Cloud läuft normal",
         effects: { spend: { energy: 1 } }
       },
@@ -89,8 +89,8 @@ Nexus.EVENTS = [
       {
         id: "a",
         label: "Annehmen",
-        summary: "Nächster lokaler Bau: −1 Bauteile, +1 grüne Innovationskarte",
-        effects: { localHardwareDiscount: true, greenInnovation: 1 }
+        summary: "Nächster lokaler Bau: −1 Geld, +1 grüne Innovationskarte",
+        effects: { localMoneyDiscount: true, greenInnovation: 1 }
       },
       {
         id: "b",
@@ -131,14 +131,14 @@ Nexus.EVENTS = [
       {
         id: "a",
         label: "Insassensicherheit priorisieren",
-        summary: "+1 Effizienz, +1 Risiko",
-        effects: { efficiency: 1, privacy: -1 }
+        summary: "+1 Effizienz, +1 Risiko, +1 Komfort",
+        effects: { efficiency: 1, privacy: -1, comfort: 1 }
       },
       {
         id: "b",
         label: "Alle Verkehrsteilnehmer priorisieren",
-        summary: "−1 Effizienz, −1 Risiko",
-        effects: { efficiency: -1, privacy: 1 }
+        summary: "−1 Effizienz, −1 Risiko, +1 Image",
+        effects: { efficiency: -1, privacy: 1, image: 1 }
       }
     ]
   },
@@ -168,15 +168,15 @@ Nexus.EVENTS = [
   {
     id: "maintenance",
     title: "Wartungsintervall",
-    text: "Geplante Wartung steht an. Durchführen kostet Rechenleistung, Aufschieben erhöht das Risiko.",
+    text: "Geplante Wartung steht an. Durchführen kostet Energie, Aufschieben erhöht das Risiko.",
     auto: false,
     requiresCloudCamera: false,
     choices: [
       {
         id: "a",
         label: "Durchführen",
-        summary: "−1 Rechenleistung, −1 Risiko",
-        effects: { spend: { compute: 1 }, risk: -1 }
+        summary: "−1 Energie, −1 Risiko",
+        effects: { spend: { energy: 1 }, risk: -1 }
       },
       {
         id: "b",
@@ -217,14 +217,14 @@ Nexus.EVENTS = [
       {
         id: "a",
         label: "Daten offenlegen",
-        summary: "+1 Daten, +1 Risiko",
-        effects: { data: 1, risk: 1 }
+        summary: "+1 Bandbreite, +1 Risiko, +1 Image",
+        effects: { bandwidth: 1, risk: 1, image: 1 }
       },
       {
         id: "b",
         label: "Profile schützen",
-        summary: "−1 Risiko",
-        effects: { privacy: 1 }
+        summary: "−1 Risiko, +1 Sicherheit",
+        effects: { privacy: 1, security: 1 }
       }
     ]
   },
@@ -238,14 +238,14 @@ Nexus.EVENTS = [
       {
         id: "a",
         label: "Offen bleiben",
-        summary: "+1 Konnektivität",
-        effects: { connectivity: 1 }
+        summary: "+1 Bandbreite",
+        effects: { bandwidth: 1 }
       },
       {
         id: "b",
         label: "Proprietär bleiben",
-        summary: "+1 Bauteile, +1 Risiko",
-        effects: { hardware: 1, risk: 1 }
+        summary: "+1 Geld, +1 Risiko",
+        effects: { money: 1, risk: 1 }
       }
     ]
   }

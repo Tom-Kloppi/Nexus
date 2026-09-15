@@ -1,56 +1,42 @@
 window.Nexus = window.Nexus || {};
 
-Nexus.RESOURCE_KEYS = ["energy", "data", "compute", "hardware", "connectivity"];
+Nexus.RESOURCE_KEYS = ["energy", "money", "bandwidth"];
 
 Nexus.RESOURCE_LABELS = {
   energy: "Energie",
-  data: "Daten",
-  compute: "Rechenleistung",
-  hardware: "Bauteile",
-  connectivity: "Konnektivität"
+  money: "Geld",
+  bandwidth: "Bandbreite"
 };
 
 Nexus.RESOURCE_SHORT = {
   energy: "Energie",
-  data: "Daten",
-  compute: "Rechenl.",
-  hardware: "Bauteile",
-  connectivity: "Konnekt."
+  money: "Geld",
+  bandwidth: "Bandbr."
 };
 
 Nexus.RESOURCE_COLORS = {
   energy: "#c4a56a",
-  data: "#7d8fa3",
-  compute: "#9a8aa0",
-  hardware: "#c08960",
-  connectivity: "#6e8b82"
+  money: "#c08960",
+  bandwidth: "#7d8fa3"
 };
 
-/* NEXUS 2.1 – Abschnitt 3.2: Zone-Ressourcen-Zuordnung */
-Nexus.ZONE_TYPE_KEYS = ["residential", "commercial", "infrastructure", "energy"];
+Nexus.SCORE_KEYS = ["image", "comfort", "environment", "security"];
+
+Nexus.SCORE_LABELS = {
+  image: "Image",
+  comfort: "Komfort",
+  environment: "Umwelt",
+  security: "Sicherheit"
+};
+
+Nexus.ZONE_TYPE_KEYS = ["residential", "energy", "datacenter", "traffic"];
 
 Nexus.ZONE_TYPES = {
   residential: {
     id: "residential",
     label: "Wohngebiet",
     shortLabel: "Wohnen",
-    primary: "data",
-    primaryBase: 2
-  },
-  commercial: {
-    id: "commercial",
-    label: "Gewerbe",
-    shortLabel: "Gewerbe",
-    primary: "hardware",
-    primaryBase: 2,
-    secondary: "compute",
-    secondaryBase: 1
-  },
-  infrastructure: {
-    id: "infrastructure",
-    label: "Infrastruktur",
-    shortLabel: "Infra",
-    primary: "connectivity",
+    primary: "bandwidth",
     primaryBase: 2
   },
   energy: {
@@ -58,18 +44,78 @@ Nexus.ZONE_TYPES = {
     label: "Energieversorgung",
     shortLabel: "Energie",
     primary: "energy",
-    primaryBase: 3
+    variants: ["solar", "transformer"]
+  },
+  datacenter: {
+    id: "datacenter",
+    label: "Datenzentrum",
+    shortLabel: "Datenz.",
+    primary: "bandwidth",
+    variants: ["insecure", "secure"]
+  },
+  traffic: {
+    id: "traffic",
+    label: "Verkehr",
+    shortLabel: "Verkehr",
+    primary: "money",
+    primaryBase: 1
   }
 };
 
-Nexus.ZONE_TYPE_COLORS = {
-  residential: Nexus.RESOURCE_COLORS.data,
-  commercial: Nexus.RESOURCE_COLORS.hardware,
-  infrastructure: Nexus.RESOURCE_COLORS.connectivity,
-  energy: Nexus.RESOURCE_COLORS.energy
+Nexus.ENERGY_VARIANTS = {
+  solar: {
+    id: "solar",
+    label: "Solar",
+    shortLabel: "Solar",
+    primary: "energy",
+    primaryBase: 3,
+    dice: true,
+    scoreHint: { environment: 1 }
+  },
+  transformer: {
+    id: "transformer",
+    label: "Transformer",
+    shortLabel: "Transf.",
+    primary: "energy",
+    primaryBase: 2,
+    dice: false,
+    stable: true,
+    scoreHint: { environment: -1 }
+  }
 };
 
-/* NEXUS 2.1 – Abschnitt 3.3: W6-Produktionsmodifikator je Fabrik/Runde */
+Nexus.DATACENTER_VARIANTS = {
+  insecure: {
+    id: "insecure",
+    label: "Ungesichert",
+    shortLabel: "Offen",
+    primary: "bandwidth",
+    primaryBase: 1,
+    risk: true,
+    riskOnBuild: 2
+  },
+  secure: {
+    id: "secure",
+    label: "Gesichert",
+    shortLabel: "Sicher",
+    primary: "bandwidth",
+    primaryBase: 1,
+    scoreHint: { security: 1 }
+  }
+};
+
+Nexus.ZONE_VARIANTS = {
+  energy: [Nexus.ENERGY_VARIANTS.solar, Nexus.ENERGY_VARIANTS.transformer],
+  datacenter: [Nexus.DATACENTER_VARIANTS.insecure, Nexus.DATACENTER_VARIANTS.secure]
+};
+
+Nexus.ZONE_TYPE_COLORS = {
+  residential: Nexus.RESOURCE_COLORS.bandwidth,
+  energy: Nexus.RESOURCE_COLORS.energy,
+  datacenter: "#6e8b82",
+  traffic: Nexus.RESOURCE_COLORS.money
+};
+
 Nexus.PRODUCTION_DICE = [
   { id: "fail", modifier: -1, weight: 1, label: "Wartung/Ausfall", color: "#8a5a52" },
   { id: "normal", modifier: 0, weight: 2, label: "Normalbetrieb", color: "#5d7468" },
@@ -86,7 +132,6 @@ Nexus.GAME_LENGTHS = [
   { id: "long", label: "Lang", rounds: 25 }
 ];
 
-/* Hex-Distrikt mit 4 Feldern Seitenlänge (Radius 3). Homes auf drei Ecken. */
 Nexus.HOME_POSITIONS = [
   { q: 3, r: -3 },
   { q: -3, r: 0 },
@@ -122,11 +167,12 @@ Nexus.CONSTANTS = {
   MAP_MIN_SCALE: 0.28,
   MAP_MAX_SCALE: 2.8,
   MAP_FIT_PADDING: 0.96,
-  HUB_DISCOUNT_TIE_ORDER: ["connectivity", "energy", "data", "hardware", "compute"],
+  HUB_DISCOUNT_TIE_ORDER: ["energy", "money", "bandwidth"],
+  TRANSFORMER_MONEY_PER_ENERGY: 1,
   MIN_PLAYERS: 2,
   MAX_PLAYERS: 3,
   TRADE_RECENT_ROUNDS: 2,
   OPEN_STANDARD_DISCOUNT: 1,
   SAE_MAX_LEVEL: 5,
-  SAE_NETWORK_CONNECTIVITY_DISCOUNT: 1
+  SAE_NETWORK_BANDWIDTH_DISCOUNT: 1
 };

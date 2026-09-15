@@ -3,7 +3,15 @@ window.Nexus = window.Nexus || {};
 (function (Nexus) {
   var C = Nexus.CONSTANTS;
   var KEYS = Nexus.RESOURCE_KEYS;
+  var SCORE_KEYS = Nexus.SCORE_KEYS || ["image", "comfort", "environment", "security"];
   var ZONE_TYPES = Nexus.ZONE_TYPES;
+
+  var LEGACY_RESOURCE_MAP = {
+    data: "bandwidth",
+    connectivity: "bandwidth",
+    hardware: "money",
+    compute: "money"
+  };
 
   function emptyResources() {
     var res = {};
@@ -11,6 +19,37 @@ window.Nexus = window.Nexus || {};
       res[key] = 0;
     });
     return res;
+  }
+
+  function emptyScores() {
+    var scores = {};
+    SCORE_KEYS.forEach(function (key) {
+      scores[key] = 0;
+    });
+    return scores;
+  }
+
+  function cloneScores(scores) {
+    var next = emptyScores();
+    SCORE_KEYS.forEach(function (key) {
+      next[key] = (scores && scores[key]) || 0;
+    });
+    return next;
+  }
+
+  function normalizeCost(cost) {
+    var next = {};
+    if (!cost) {
+      return next;
+    }
+    Object.keys(cost).forEach(function (key) {
+      var mapped = LEGACY_RESOURCE_MAP[key] || key;
+      if (KEYS.indexOf(mapped) === -1) {
+        return;
+      }
+      next[mapped] = (next[mapped] || 0) + (cost[key] || 0);
+    });
+    return next;
   }
 
   function cloneResources(resources) {
@@ -49,6 +88,12 @@ window.Nexus = window.Nexus || {};
         parts.push("+" + effects[key] + " " + Nexus.RESOURCE_SHORT[key]);
       }
     });
+    SCORE_KEYS.forEach(function (key) {
+      if (effects[key]) {
+        var label = (Nexus.SCORE_LABELS && Nexus.SCORE_LABELS[key]) || key;
+        parts.push((effects[key] > 0 ? "+" : "") + effects[key] + " " + label);
+      }
+    });
     if (effects.efficiency) {
       parts.push((effects.efficiency > 0 ? "+" : "") + effects.efficiency + " Effizienz");
     }
@@ -73,6 +118,7 @@ window.Nexus = window.Nexus || {};
   }
 
   function canAfford(resources, cost) {
+    cost = normalizeCost(cost);
     return KEYS.every(function (key) {
       return (resources[key] || 0) >= (cost[key] || 0);
     });
@@ -80,6 +126,7 @@ window.Nexus = window.Nexus || {};
 
   function subtractCost(resources, cost) {
     var next = cloneResources(resources);
+    cost = normalizeCost(cost);
     KEYS.forEach(function (key) {
       next[key] -= cost[key] || 0;
     });
@@ -87,6 +134,8 @@ window.Nexus = window.Nexus || {};
   }
 
   function upgradeCost(cloudCost, localCost) {
+    cloudCost = normalizeCost(cloudCost);
+    localCost = normalizeCost(localCost);
     var cost = {};
     KEYS.forEach(function (key) {
       var diff = (localCost[key] || 0) - (cloudCost[key] || 0);
@@ -129,7 +178,53 @@ window.Nexus = window.Nexus || {};
     if (currentMode === "cloud" && mode === "local") {
       return upgradeCost(device.costs.cloud, device.costs.local);
     }
-    return Object.assign({}, device.costs[mode]);
+    return normalizeCost(device.costs[mode]);
+  }
+
+  function defaultVariantFor(zoneType) {
+    if (zoneType === "energy") {
+      return "solar";
+    }
+    if (zoneType === "datacenter") {
+      return "insecure";
+    }
+    return null;
+  }
+
+  function variantDefFor(zoneType, variant) {
+    if (zoneType === "energy") {
+      return (Nexus.ENERGY_VARIANTS && Nexus.ENERGY_VARIANTS[variant]) || null;
+    }
+    if (zoneType === "datacenter") {
+      return (Nexus.DATACENTER_VARIANTS && Nexus.DATACENTER_VARIANTS[variant]) || null;
+    }
+    return null;
+  }
+
+  function resolveZoneYieldDef(zone) {
+    var typeDef = ZONE_TYPES[zone.type];
+    if (!typeDef) {
+      return null;
+    }
+    var variant = zone.variant || defaultVariantFor(zone.type);
+    var variantDef = variantDefFor(zone.type, variant);
+    if (variantDef) {
+      return Object.assign({}, typeDef, variantDef, { variant: variant });
+    }
+    return Object.assign({}, typeDef, { variant: variant });
+  }
+
+  function bumpScores(scores, hint) {
+    var next = cloneScores(scores);
+    if (!hint) {
+      return next;
+    }
+    SCORE_KEYS.forEach(function (key) {
+      if (hint[key]) {
+        next[key] = Math.max(0, next[key] + hint[key]);
+      }
+    });
+    return next;
   }
 
   /* ---------- Spieler-Helfer ---------- */
@@ -227,11 +322,11 @@ window.Nexus = window.Nexus || {};
       cost = applyHubDiscount(cost);
       offer.usedHubDiscount = true;
     }
-    if (player.localHardwareDiscountPending && mode === "local" && (cost.hardware || 0) > 0) {
+    if (player.localHardwareDiscountPending && mode === "local" && (cost.money || 0) > 0) {
       cost = Object.assign({}, cost);
-      cost.hardware -= 1;
-      if (cost.hardware <= 0) {
-        delete cost.hardware;
+      cost.money -= 1;
+      if (cost.money <= 0) {
+        delete cost.money;
       }
       offer.usedLocalHardwareDiscount = true;
     }
@@ -418,15 +513,18 @@ window.Nexus = window.Nexus || {};
   function applyCardEffects(player, card) {
     var effects = card.effects || {};
     var resources = cloneResources(player.resources);
+    var mapped = normalizeCost(effects);
     KEYS.forEach(function (key) {
-      if (effects[key]) {
-        resources[key] += effects[key];
+      if (mapped[key]) {
+        resources[key] += mapped[key];
       }
     });
+    var scores = bumpScores(player.scores, effects);
     return Object.assign({}, player, {
       resources: resources,
+      scores: scores,
       efficiencyPoints: player.efficiencyPoints + (effects.efficiency || 0),
-      risk: Math.max(0, player.risk - (effects.privacy || 0))
+      risk: Math.max(0, player.risk - (effects.privacy || 0) + (effects.risk || 0))
     });
   }
 
@@ -538,21 +636,50 @@ window.Nexus = window.Nexus || {};
     return weighted / total;
   }
 
-  function produceForZoneType(zoneTypeId, modifier) {
-    if (zoneTypeId === "home") {
+  function produceForZone(zone, modifier, player, state) {
+    if (zone.type === "home") {
       return null;
     }
-    var typeDef = ZONE_TYPES[zoneTypeId];
+    var def = resolveZoneYieldDef(zone);
+    if (!def || !def.primary) {
+      return null;
+    }
+    var amount;
+    var moneySpent = 0;
+    if (zone.type === "energy" && def.stable) {
+      amount = def.primaryBase;
+      moneySpent = amount * (C.TRANSFORMER_MONEY_PER_ENERGY || 1);
+      if ((player.resources.money || 0) < moneySpent) {
+        amount = 0;
+        moneySpent = 0;
+      }
+    } else if (zone.type === "residential") {
+      amount = playerHasZoneType(state, player.id, "datacenter")
+        ? yieldAmount(def.primaryBase, modifier)
+        : 0;
+    } else {
+      amount = yieldAmount(def.primaryBase, modifier);
+    }
     var result = {
-      primary: { resource: typeDef.primary, amount: yieldAmount(typeDef.primaryBase, modifier) }
+      primary: { resource: def.primary, amount: amount },
+      moneySpent: moneySpent,
+      scoreHint: def.scoreHint || null,
+      riskDelta: def.risk ? 1 : 0
     };
-    if (typeDef.secondary) {
+    if (def.secondary) {
       result.secondary = {
-        resource: typeDef.secondary,
-        amount: yieldAmount(typeDef.secondaryBase, modifier)
+        resource: def.secondary,
+        amount: yieldAmount(def.secondaryBase, modifier)
       };
     }
     return result;
+  }
+
+  function produceForZoneType(zoneTypeId, modifier) {
+    return produceForZone({ type: zoneTypeId, variant: defaultVariantFor(zoneTypeId) }, modifier, {
+      resources: emptyResources(),
+      id: "_"
+    }, { zones: [] });
   }
 
   function expectedByResource(state) {
@@ -561,14 +688,26 @@ window.Nexus = window.Nexus || {};
     if (!player) {
       return expected;
     }
+    var hasDc = playerHasZoneType(state, player.id, "datacenter");
     playerFactoryZones(state, player.id).forEach(function (zone) {
-      var typeDef = ZONE_TYPES[zone.type];
-      expected[typeDef.primary] += expectedYieldForBase(typeDef.primaryBase);
-      if (typeDef.secondary) {
-        expected[typeDef.secondary] += expectedYieldForBase(typeDef.secondaryBase);
+      var def = resolveZoneYieldDef(zone);
+      if (!def || !def.primary) {
+        return;
+      }
+      if (zone.type === "residential" && !hasDc) {
+        return;
+      }
+      if (zone.type === "energy" && def.stable) {
+        expected[def.primary] += def.primaryBase;
+        expected.money -= def.primaryBase * (C.TRANSFORMER_MONEY_PER_ENERGY || 1);
+        return;
+      }
+      expected[def.primary] += expectedYieldForBase(def.primaryBase);
+      if (def.secondary) {
+        expected[def.secondary] += expectedYieldForBase(def.secondaryBase);
       }
     });
-    expected.connectivity -= cloudUpkeepCost(player);
+    expected.bandwidth -= cloudUpkeepCost(player);
     return expected;
   }
 
@@ -614,17 +753,17 @@ window.Nexus = window.Nexus || {};
     }
     var owned = player ? playerFactoryZones(state, player.id).length : 0;
     var extra = Math.max(0, owned - C.START_ZONE_COUNT);
-    var cost = { hardware: 2 + extra };
+    var cost = { money: 2 + extra };
     if (extra >= 1) {
       cost.energy = 1;
     }
     if (extra >= 3) {
-      cost.connectivity = 1;
+      cost.bandwidth = 1;
     }
     return cost;
   }
 
-  function getExpandOffer(state, q, r, zoneType) {
+  function getExpandOffer(state, q, r, zoneType, variant) {
     var offer = { allowed: false, reason: "", cost: getExpandCost(state) };
     var player = currentPlayer(state);
     if (state.turnPhase !== "build") {
@@ -635,6 +774,14 @@ window.Nexus = window.Nexus || {};
       offer.reason = "Ungültiger Zonentyp.";
       return offer;
     }
+    var typeDef = ZONE_TYPES[zoneType];
+    if (typeDef && typeDef.variants && typeDef.variants.length) {
+      variant = variant || defaultVariantFor(zoneType);
+      if (typeDef.variants.indexOf(variant) === -1) {
+        offer.reason = "Ungültige Variante.";
+        return offer;
+      }
+    }
     if (!isExpandableSlot(state, q, r)) {
       offer.reason = "Dieses Feld kann nicht bebaut werden.";
       return offer;
@@ -644,6 +791,7 @@ window.Nexus = window.Nexus || {};
       return offer;
     }
     offer.allowed = true;
+    offer.variant = variant || null;
     return offer;
   }
 
@@ -656,18 +804,31 @@ window.Nexus = window.Nexus || {};
     });
   }
 
-  function buyZone(state, q, r, zoneType) {
-    var offer = getExpandOffer(state, q, r, zoneType);
+  function buyZone(state, q, r, zoneType, variant) {
+    var offer = getExpandOffer(state, q, r, zoneType, variant);
     if (!offer.allowed) {
       return state;
     }
     var player = currentPlayer(state);
+    var resolvedVariant = offer.variant;
+    var variantDef = variantDefFor(zoneType, resolvedVariant);
+    var scores = cloneScores(player.scores);
+    var risk = player.risk || 0;
+    if (variantDef) {
+      if (variantDef.scoreHint) {
+        scores = bumpScores(scores, variantDef.scoreHint);
+      }
+      if (variantDef.riskOnBuild) {
+        risk += variantDef.riskOnBuild;
+      }
+    }
     var zones = state.zones.concat([
       {
         id: "zone-" + q + "-" + r,
         q: q,
         r: r,
         type: zoneType,
+        variant: resolvedVariant,
         ownerId: player.id,
         harvested: true, /* erst ab nächster Runde produktiv */
         lastYield: null
@@ -676,15 +837,21 @@ window.Nexus = window.Nexus || {};
     var usedCoupon = Object.keys(offer.cost).length === 0 && (player.freeZoneClaims || 0) > 0;
     var nextPlayer = Object.assign({}, player, {
       resources: subtractCost(player.resources, offer.cost),
-      freeZoneClaims: usedCoupon ? player.freeZoneClaims - 1 : player.freeZoneClaims || 0
+      freeZoneClaims: usedCoupon ? player.freeZoneClaims - 1 : player.freeZoneClaims || 0,
+      scores: scores,
+      risk: risk
     });
+    var label = ZONE_TYPES[zoneType].label;
+    if (variantDef && variantDef.label) {
+      label += " (" + variantDef.label + ")";
+    }
     var next = replacePlayer(Object.assign({}, state, { zones: zones }), player.id, nextPlayer);
     next.log = addLog(
       next,
       player.name,
       usedCoupon
-        ? "Startfeld gewählt: " + ZONE_TYPES[zoneType].label + "."
-        : "Zone erweitert: " + ZONE_TYPES[zoneType].label + " für " + formatCost(offer.cost) + "."
+        ? "Startfeld gewählt: " + label + "."
+        : "Zone erweitert: " + label + " für " + formatCost(offer.cost) + "."
     );
     return next;
   }
@@ -706,6 +873,7 @@ window.Nexus = window.Nexus || {};
       colorIndex: colorIndex,
       roleId: roleId,
       resources: resources,
+      scores: emptyScores(),
       devices: devices,
       risk: 0,
       efficiencyPoints: 0,
@@ -943,18 +1111,19 @@ window.Nexus = window.Nexus || {};
       }
       var die = rollProductionDie();
       var modifier = applyStorageBatteryModifier(state, player, die.modifier);
-      var produced = produceForZoneType(zone.type, modifier);
+      var produced = produceForZone(zone, modifier, player, state);
       if (!produced) {
         return zone;
       }
+      var dieId = zone.type === "energy" && resolveZoneYieldDef(zone).stable ? "stable" : die.id;
       outcomes.push({
         zoneId: zone.id,
-        dieId: die.id,
-        modifier: die.modifier,
+        dieId: dieId,
+        modifier: dieId === "stable" ? 0 : die.modifier,
         yield: produced,
         staggerIndex: staggerIndex
       });
-      return Object.assign({}, zone, { lastYield: produced, lastDieId: die.id });
+      return Object.assign({}, zone, { lastYield: produced, lastDieId: dieId });
     });
 
     if (!outcomes.length) {
@@ -977,10 +1146,13 @@ window.Nexus = window.Nexus || {};
     }
     var player = currentPlayer(state);
     var resources = cloneResources(player.resources);
+    var scores = cloneScores(player.scores);
+    var risk = player.risk || 0;
     var lastProduction = emptyResources();
     var cumulative = player.cumulativeProduction || 0;
     var harvestIds = {};
     var revealDelayByZone = {};
+    var boomDraws = 0;
 
     state.spinningOutcomes.forEach(function (outcome) {
       harvestIds[outcome.zoneId] = true;
@@ -1001,13 +1173,29 @@ window.Nexus = window.Nexus || {};
       if (!outcome.yield || !outcome.yield.primary) {
         return;
       }
-      resources[outcome.yield.primary.resource] += outcome.yield.primary.amount;
-      lastProduction[outcome.yield.primary.resource] += outcome.yield.primary.amount;
+      if (outcome.yield.moneySpent) {
+        resources.money = Math.max(0, resources.money - outcome.yield.moneySpent);
+      }
+      resources[outcome.yield.primary.resource] =
+        (resources[outcome.yield.primary.resource] || 0) + outcome.yield.primary.amount;
+      lastProduction[outcome.yield.primary.resource] =
+        (lastProduction[outcome.yield.primary.resource] || 0) + outcome.yield.primary.amount;
       cumulative += outcome.yield.primary.amount;
       if (outcome.yield.secondary) {
-        resources[outcome.yield.secondary.resource] += outcome.yield.secondary.amount;
-        lastProduction[outcome.yield.secondary.resource] += outcome.yield.secondary.amount;
+        resources[outcome.yield.secondary.resource] =
+          (resources[outcome.yield.secondary.resource] || 0) + outcome.yield.secondary.amount;
+        lastProduction[outcome.yield.secondary.resource] =
+          (lastProduction[outcome.yield.secondary.resource] || 0) + outcome.yield.secondary.amount;
         cumulative += outcome.yield.secondary.amount;
+      }
+      if (outcome.yield.scoreHint) {
+        scores = bumpScores(scores, outcome.yield.scoreHint);
+      }
+      if (outcome.yield.riskDelta) {
+        risk += outcome.yield.riskDelta;
+      }
+      if (outcome.dieId === "boom") {
+        boomDraws += 1;
       }
     });
 
@@ -1023,6 +1211,8 @@ window.Nexus = window.Nexus || {};
 
     var nextPlayer = Object.assign({}, player, {
       resources: resources,
+      scores: scores,
+      risk: risk,
       lastProduction: lastProduction,
       cumulativeProduction: cumulative,
       productionHistory: markProductionHistory(player, state, lastProduction)
@@ -1033,11 +1223,8 @@ window.Nexus = window.Nexus || {};
       player.id,
       nextPlayer
     );
-    var hadBoom = state.spinningOutcomes.some(function (outcome) {
-      return outcome.dieId === "boom";
-    });
-    if (hadBoom) {
-      var boomGrant = grantInnovationCards(next, nextPlayer, 1, "green");
+    if (boomDraws > 0) {
+      var boomGrant = grantInnovationCards(next, nextPlayer, boomDraws, "green");
       next = replacePlayer(boomGrant.state, player.id, boomGrant.player);
       if (boomGrant.cards[0]) {
         next.log = addLog(
@@ -1152,9 +1339,10 @@ window.Nexus = window.Nexus || {};
     if (choice.needsResourcePick) {
       resources[extra.resource] += choice.pickAmount;
     }
+    var mappedGain = normalizeCost(effects);
     KEYS.forEach(function (key) {
-      if (effects[key]) {
-        resources[key] += effects[key];
+      if (mappedGain[key]) {
+        resources[key] += mappedGain[key];
       }
     });
 
@@ -1165,12 +1353,14 @@ window.Nexus = window.Nexus || {};
 
     var nextPlayer = Object.assign({}, player, {
       resources: resources,
+      scores: bumpScores(player.scores, effects),
       risk: risk,
       efficiencyPoints: player.efficiencyPoints + (effects.efficiency || 0),
       privacyShieldEvents: player.privacyShieldEvents + (effects.privacyShield ? 1 : 0),
-      localHardwareDiscountPending: effects.localHardwareDiscount
-        ? true
-        : player.localHardwareDiscountPending,
+      localHardwareDiscountPending:
+        effects.localHardwareDiscount || effects.localMoneyDiscount
+          ? true
+          : player.localHardwareDiscountPending,
       roundModifiers: {
         cloudDisabled: !!(player.roundModifiers.cloudDisabled || effects.cloudDisabled),
         cloudHalfEffect: !!(player.roundModifiers.cloudHalfEffect || effects.cloudHalfEffect)
@@ -1279,11 +1469,12 @@ window.Nexus = window.Nexus || {};
   function applyOngoingEffects(player) {
     var modifiers = player.roundModifiers;
     var upkeep = cloudUpkeepCost(player);
-    var cloudOnline = upkeep === 0 || canAfford(player.resources, { connectivity: upkeep });
+    var cloudOnline = upkeep === 0 || canAfford(player.resources, { bandwidth: upkeep });
     var baseSave = 0;
-    var dataGain = 0;
+    var bandwidthGain = 0;
     var addedRisk = 0;
     var hemsMode = player.devices.hems;
+    var scoreHint = emptyScores();
 
     Nexus.DEVICES.forEach(function (device) {
       var mode = player.devices[device.id];
@@ -1301,7 +1492,12 @@ window.Nexus = window.Nexus || {};
         factor = 0;
       }
       baseSave += (device.energySave || 0) * factor;
-      dataGain += (device.dataGain || 0) * factor;
+      bandwidthGain += ((device.bandwidthGain != null ? device.bandwidthGain : device.dataGain) || 0) * factor;
+      if (device.scoreGain && factor > 0) {
+        SCORE_KEYS.forEach(function (key) {
+          scoreHint[key] += (device.scoreGain[key] || 0) * factor;
+        });
+      }
     });
 
     var peakMode = player.devices.peak_load;
@@ -1323,26 +1519,26 @@ window.Nexus = window.Nexus || {};
     }
     var energySave = baseSave * (1 + hemsFactor);
     var energyGranted = Math.floor(energySave);
-    var dataGranted = Math.floor(dataGain);
+    var bandwidthGranted = Math.floor(bandwidthGain);
 
     var resources = cloneResources(player.resources);
     if (cloudOnline && upkeep > 0) {
-      resources.connectivity -= upkeep;
+      resources.bandwidth -= upkeep;
     }
     resources.energy += energyGranted;
-    resources.data += dataGranted;
+    resources.bandwidth += bandwidthGranted;
 
     var parts = [];
     if (upkeep > 0 && cloudOnline) {
-      parts.push("Cloud −" + upkeep + " Konnekt.");
+      parts.push("Cloud −" + upkeep + " Bandbr.");
     } else if (upkeep > 0) {
-      parts.push("Cloud offline (Konnekt. fehlt)");
+      parts.push("Cloud offline (Bandbr. fehlt)");
     }
     if (energySave > 0) {
       parts.push("Spar " + energySave + " Energie");
     }
-    if (dataGranted > 0) {
-      parts.push("+" + dataGranted + " Daten");
+    if (bandwidthGranted > 0) {
+      parts.push("+" + bandwidthGranted + " Bandbr.");
     }
     if (addedRisk > 0) {
       parts.push("Risiko +" + addedRisk);
@@ -1356,6 +1552,7 @@ window.Nexus = window.Nexus || {};
 
     var nextPlayer = Object.assign({}, player, {
       resources: resources,
+      scores: bumpScores(player.scores, scoreHint),
       risk: player.risk + addedRisk,
       efficiencyPoints: player.efficiencyPoints + energySave + efficiencyGain,
       roundModifiers: { cloudDisabled: false, cloudHalfEffect: false }
@@ -1679,12 +1876,15 @@ window.Nexus = window.Nexus || {};
 
   function getSaeUpgradeCost(level, player) {
     var cost = {
-      connectivity: 1 + level,
-      compute: 1,
-      hardware: 1 + Math.floor(level / 2)
+      bandwidth: 1 + level,
+      money: 1 + Math.floor(level / 2),
+      energy: 1
     };
     if (player && player.devices && player.devices.charging_network) {
-      cost.connectivity = Math.max(0, cost.connectivity - (C.SAE_NETWORK_CONNECTIVITY_DISCOUNT || 0));
+      cost.bandwidth = Math.max(
+        0,
+        cost.bandwidth - (C.SAE_NETWORK_BANDWIDTH_DISCOUNT || C.SAE_NETWORK_CONNECTIVITY_DISCOUNT || 0)
+      );
     }
     return cost;
   }
@@ -1728,15 +1928,15 @@ window.Nexus = window.Nexus || {};
       if (zone.type === "home") {
         return;
       }
-      var typeDef = ZONE_TYPES[zone.type];
-      if (!typeDef) {
+      var typeDef = resolveZoneYieldDef(zone) || ZONE_TYPES[zone.type];
+      if (!typeDef || !typeDef.primary || !counts[typeDef.primary]) {
         return;
       }
       counts[typeDef.primary].total += 1;
       if (zone.ownerId === playerId) {
         counts[typeDef.primary].owned += 1;
       }
-      if (typeDef.secondary) {
+      if (typeDef.secondary && counts[typeDef.secondary]) {
         counts[typeDef.secondary].total += 1;
         if (zone.ownerId === playerId) {
           counts[typeDef.secondary].owned += 1;
@@ -1862,4 +2062,38 @@ window.Nexus = window.Nexus || {};
   Nexus.formatCost = formatCost;
   Nexus.formatEffects = formatEffects;
   Nexus.cloudUpkeepCost = cloudUpkeepCost;
+
+  /* ponytail: console smoke only; expand if CI lands */
+  Nexus.runSmokeCheck = function () {
+    if (KEYS.length !== 3) {
+      throw new Error("RESOURCE_KEYS length");
+    }
+    if ((SCORE_KEYS || []).length !== 4) {
+      throw new Error("SCORE_KEYS length");
+    }
+    var state = startGame(2, "short");
+    var player = state.players[0];
+    if (!player.scores || player.scores.environment === undefined) {
+      throw new Error("scores missing");
+    }
+    state = Object.assign({}, state, { turnPhase: "build", screen: "play", currentPlayerIndex: 0 });
+    var home = playerZones(state, player.id)[0];
+    var pick = null;
+    Nexus.HEX_DIRS.forEach(function (dir) {
+      var q = home.q + dir.q;
+      var r = home.r + dir.r;
+      if (!pick && isExpandableSlot(state, q, r)) {
+        pick = { q: q, r: r };
+      }
+    });
+    if (!pick) {
+      throw new Error("no expand slot");
+    }
+    state = buyZone(state, pick.q, pick.r, "energy", "solar");
+    var built = zoneAt(state, pick.q, pick.r);
+    if (!built || built.variant !== "solar") {
+      throw new Error("buyZone variant");
+    }
+    return "ok";
+  };
 })(window.Nexus);
