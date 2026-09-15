@@ -1,34 +1,33 @@
 # AGENTS.md — NEXUS
 
-Anleitung für Coding-Agents, die in diesem Repo arbeiten.
+Anleitung für Coding-Agents in diesem Repo.
 
-## Kontext schmal halten
+## Zuerst lesen
 
-- Hard constraints stehen in `.cursor/rules/nexus.mdc` (immer geladen). Hier die Details.
-- `docs/GAME.md` nur lesen, wenn Spielregeln unklar sind — nicht bei jeder Code-Änderung.
-- Motion: Skills `transitions-dev` / `transitions-polish` nur bei Animations-Aufgaben laden.
-- Kein ECC-/Agent-Harness-Full-Install: immer-geladene Extra-Rules kosten Tokens und verwässern NEXUS-Regeln.
+1. **Hard constraints:** `.cursor/rules/nexus.mdc` (immer geladen).
+2. **Ziel-Design:** [`docs/DESIGN.md`](docs/DESIGN.md) — Vertrag für Post-Playtest. Bei Regelkonflikt gewinnt DESIGN.
+3. **Ist-Regeln im Code:** [`docs/GAME.md`](docs/GAME.md) — nur lesen wenn Verhalten unklar.
+4. **Parallel-Plan:** [`docs/AGENT_PLAN.md`](docs/AGENT_PLAN.md) — Ownership, nicht umgehen.
+5. Motion-Skills nur bei Animations-Aufgaben.
 
 ## Was das ist
 
-NEXUS 2.1 ist ein **hot-seat** Smart-City-Brettspiel im Browser (2–3 Spieler, ein Gerät). Kein Server, kein Build, kein Framework. Einstieg: `nexus/index.html` im Browser öffnen.
+NEXUS ist ein **hot-seat** Smart-City-Brettspiel im Browser (2–3 Spieler, ein Gerät). Spieler = Stadtteilmanager mit geheimem **Wahlversprechen**. Kein Server, kein Build, kein Framework. Einstieg: `nexus/index.html`.
 
-Ausführliche Spielregeln: [`docs/GAME.md`](docs/GAME.md). GitHub-Überblick: [`README.md`](README.md).
+Branch **`prototype`**: eingefrorener Stand NEXUS 2.1 (fünf Ressourcen, alte Zonen). Arbeit am Redesign läuft auf **`main`**.
 
-## Dateikarte
+## Dateikarte / Ownership
 
 | Datei | Darf | Darf nicht |
 | --- | --- | --- |
-| `nexus/js/state.js` | Reine Spiellogik, immutable-ish State-Updates | DOM, `document`, CSS |
-| `nexus/js/render.js` | DOM/SVG aus dem State zeichnen | Regeln ändern, Ressourcen verbuchen |
-| `nexus/js/main.js` | Events, Map-Gesten, Prefs, `commit()` | Lange Regelblöcke (gehören nach `state.js`) |
-| `nexus/js/roles.js` | Rollen zuweisen, Metriken, `computeRoleProgress` | Geräte bauen |
-| `nexus/js/data/*.js` | Konstanten, Geräte, Karten, Events, Rollen, Hex-Layout | Ablauf steuern |
-| `nexus/js/icons.js` | SVG-Icons | — |
-| `nexus/style.css` | Look | — |
-| `nexus/transitions.css` | Motion-Tokens aus transitions.dev | Ad-hoc-Keyframes ohne Tokens, wenn vermeidbar |
+| `nexus/js/state.js` | Reine Spiellogik | DOM, CSS |
+| `nexus/js/render.js` | DOM/SVG aus State | Regeln ändern |
+| `nexus/js/main.js` | Events, Gesten, Prefs, `commit()` | Lange Regelblöcke |
+| `nexus/js/roles.js` | Versprechen/Metriken, `computeRoleProgress` | Geräte bauen |
+| `nexus/js/data/*.js` | Konstanten, Geräte, Karten, Events, Rollen, Hex | Ablauf steuern |
+| `docs/DESIGN.md` | Nur Orchestrator / explizite Design-Änderung | „Nebenbei“ umschreiben |
 
-Namespace: `window.Nexus`. Script-Reihenfolge steht in `index.html` und muss erhalten bleiben.
+Namespace: `window.Nexus`. Script-Reihenfolge in `index.html` nicht brechen.
 
 ## Architektur-Vertrag
 
@@ -37,36 +36,29 @@ Klick in main.js  →  Nexus.someRule(state, …) in state.js  →  neuer State
                   →  Nexus.render(state, ui) in render.js
 ```
 
-`state.js` soll später netzwerkfähig bleiben: alle Regeln als reine Funktionen über ein Zustandsobjekt.
+## Kernmodell (Post-Playtest)
 
-## Sieg und Metriken (nicht verwechseln)
-
-- **Gewinner** = höchste / 100 % **Rollen-Zielerfüllung** (`Nexus.computeRoleProgress`).
-- Es gibt **keinen** alten Drei-Säulen-Score mehr (`computeScore` ist entfernt).
-- `efficiencyPoints` (HUD: Effizienz) zählt für den Klimaingenieur.
-- Karteneffekt `privacy` senkt `risk` (Datenschützerin).
-- `innovationCardsTotal` zählt gezogene Karten; die Ladesäule zieht wirklich eine Karte.
-- Ladesäulen-Netz verbilligt SAE um 1 Konnektivität.
+- Ressourcen: `energy`, `money`, `bandwidth`
+- Spuren: `image`, `comfort`, `environment`, `security`
+- Zonen: `residential`, `energy` (+solar/transformer), `datacenter` (+insecure/secure), `traffic`, `home`
+- Gewinner = höchste / ≥100 % Versprechens-Erfüllung (`computeRoleProgress`), nicht Spurensumme
 
 ## UI-Konventionen
 
-- Sprache der Oberfläche: Deutsch.
-- Theme/UI-Größe: `localStorage` Keys `nexus-theme`, `nexus-ui-scale`.
-- Nach Änderungen an JS oder CSS den Query-Parameter `?v=` **aller** betroffenen (besser: aller) Script-/CSS-Tags in `nexus/index.html` erhöhen. Sonst sieht Tom den alten Cache.
-
-## Motion
-
-Transitions liegen in `.agents/skills/transitions-dev/` und `.agents/skills/transitions-polish/`. Bestehende `t-*`-Klassen und Tokens in `nexus/transitions.css` wiederverwenden, nicht parallel neu erfinden.
+- Oberfläche: Deutsch.
+- Theme/UI: `localStorage` `nexus-theme`, `nexus-ui-scale`.
+- Nach JS/CSS: `?v=` aller betroffenen Tags in `nexus/index.html` erhöhen.
 
 ## Nicht bauen, solange niemand fragt
 
-- React/Vue/Svelte, Bundler, npm, Tests-Frameworks
-- Accounts, Persistenz der Partie, Online-Multiplayer, Python-Backend
-- KI-Gegner, variable Handelsmengen
+- React/Vue/Svelte, Bundler, npm, Test-Frameworks
+- Online-Multiplayer, Accounts, Persistenz
+- Koalition, Transport-Layer, Umweltsteuer-UI, Amortisierung (siehe DESIGN „fehlt“)
 
-## Typische Fallen
+## Fallen
 
-- Private Infos (Hand, Ressourcen, geheimes Ziel) dürfen in `role_reveal` / `handoff` nicht durchscheinen (`isHotSeatShield`).
-- Cloud-Geräte anderer sind öffentlich, lokale Geräte nicht.
-- Produktion läuft automatisch zu Zugbeginn; es gibt keinen Ernten-Button.
-- 2-Spieler-Spiele skalieren einige Rollenmetriken in `roles.js` (`TWO_PLAYER_METRIC_SCALE`).
+- Private Infos in `role_reveal` / `handoff` nicht leaken (`isHotSeatShield`).
+- Cloud-Geräte anderer öffentlich, lokale privat.
+- Produktion auto zu Zugbeginn.
+- 2-Spieler: Metrik-Skalierung in `roles.js`.
+- Bandbreite aus Wohnen ohne eigenes Datenzentrum = 0.

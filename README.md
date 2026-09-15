@@ -1,46 +1,38 @@
-# NEXUS 2.1
+# NEXUS
 
-Hot-Seat-Brettspiel im Browser über Smart City, IoT und autonomes Fahren. Seminarfachprojekt am Herbartgymnasium Oldenburg. Es geht um Abwägung — Cloud gegen lokale Verarbeitung, Komfort gegen Datenschutz — nicht um Quiz-Wissen.
+Hot-Seat-Brettspiel im Browser: Stadtteilmanager in der nahen Zukunft, IoT und Abwägung statt Quiz. Seminarfachprojekt am Herbartgymnasium Oldenburg.
 
-Zwei oder drei Personen spielen am **selben Gerät**. Jeder hat eine **geheime Rolle** und versucht, deren Zielprofil auf 100 % zu bringen, bevor die Runden auslaufen.
+Zwei oder drei Personen am **selben Gerät**. Jeder hat ein geheimes **Wahlversprechen** und versucht, dessen Zielprofil auf 100 % zu bringen, bevor die Runden auslaufen. Wer gewinnt, wird Bürgermeister.
 
 **Spielen:** [`nexus/index.html`](nexus/index.html) im Browser öffnen. Kein Install, kein Server.
 
-## Features
+## Stand
 
-- Hex-Distrikt (Radius 3) mit Smart Homes, Zoom/Pan und automatischer Produktion
-- Fünf Ressourcen, Fabrik-Gacha (Ausfall bis Boom) und Home-Grundversorgung
-- Geräte Cloud oder lokal: Upkeep, Risiko, HEMS, Batterie, Peak Load, V2X, Ladesäulen-Netz
-- SAE-Level 0–5 als Mobilitätsschicht
-- Innovationskarten und Ereignisdeck (inkl. Datenleck vs. Privacy-Schild)
-- Offene vs. proprietäre Standards und 1:1-Handel
-- Sechs geheime Rollen mit gestuften Unterzielen
-- Hot-Seat-Schutz: zwischen den Zügen bleiben Hand, Ressourcen und Ziele verdeckt
-- Öffentliche Cloud-Geräte der anderen; lokale Verarbeitung bleibt privat
-- Dark/Light-Theme und UI-Skalierung
+- **`main`** — Post-Playtest-Redesign (3 Ressourcen, 4 Wertungsspuren, neue Feldtypen). Vertrag: [`docs/DESIGN.md`](docs/DESIGN.md).
+- **`prototype`** — eingefrorener NEXUS-2.1-Stand (5 Ressourcen, alte Zonen) zum Vergleichen.
 
-Volle Regeln: [`docs/GAME.md`](docs/GAME.md). Für Agents: [`AGENTS.md`](AGENTS.md).
+## Features (Zielbild)
+
+- Hex-Distrikt, Hot-Seat mit verdeckten Ressourcen/Zielen
+- Ressourcen: Energie, Geld, Bandbreite
+- Felder: Wohnen, Energie (Solar vs. Transformator), Datenzentrum (unsicher vs. sicher), Verkehr (Stub)
+- Wertung: Image, Komfort, Umwelt, Sicherheit — gekoppelt an das Wahlversprechen
+- Geräte Cloud oder lokal, Standards offen/proprietär, Handel, SAE, Karten & Ereignisse
+
+Ausführlich: [`docs/GAME.md`](docs/GAME.md). Für Agents: [`AGENTS.md`](AGENTS.md), Plan: [`docs/AGENT_PLAN.md`](docs/AGENT_PLAN.md).
 
 ## Tech
 
-Reines HTML, CSS und JavaScript. Zustand, Darstellung und Daten sind getrennt (`state.js` / `render.js` / `js/data/`). Das Board ist SVG. Es gibt bewusst **kein** npm, kein Bundler und kein Backend — Partien leben nur im Tab.
+Reines HTML, CSS und JavaScript. `state.js` / `render.js` / `js/data/`. SVG-Board. Kein npm, kein Bundler, kein Backend.
 
 ## Repo-Karte
 
 ```
-nexus/                 Spielclient (hier starten)
-  index.html
-  style.css
-  js/state.js          Regeln
-  js/render.js         DOM/SVG
-  js/main.js           Eingaben
-  js/data/             Geräte, Karten, Events, Rollen, Hex
-docs/GAME.md           Regeln aus dem Code
-AGENTS.md              Konventionen für Coding-Agents
-.cursor/rules/         Cursor-Projektregel
-.agents/skills/        transitions.dev Motion-Skills
+nexus/                 Spielclient
+docs/DESIGN.md         Ziel-Vertrag (Post-Playtest)
+docs/GAME.md           Regeln = Code-Stand
+docs/AGENT_PLAN.md     Parallel-Ownership für Agents
+docs/concepts/         Konzept-PDFs
+AGENTS.md              Agent-Konventionen
+.cursor/rules/         immer-geladene Hard Constraints
 ```
-
-## Status
-
-Lokaler Mehrspieler und Mobilität (SAE) sind spielbar. Online-Mehrspieler / Accounts sind nicht implementiert.
