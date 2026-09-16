@@ -131,14 +131,14 @@ Nexus.EVENTS = [
       {
         id: "a",
         label: "Insassensicherheit priorisieren",
-        summary: "+1 Effizienz, +1 Risiko, +1 Komfort",
-        effects: { efficiency: 1, privacy: -1, comfort: 1 }
+        summary: "+1 Umwelt, +1 Risiko, +1 Komfort",
+        effects: { environment: 1, risk: 1, comfort: 1 }
       },
       {
         id: "b",
         label: "Alle Verkehrsteilnehmer priorisieren",
-        summary: "−1 Effizienz, −1 Risiko, +1 Image",
-        effects: { efficiency: -1, privacy: 1, image: 1 }
+        summary: "−1 Umwelt, −1 Risiko, +1 Image",
+        effects: { environment: -1, risk: -1, image: 1 }
       }
     ]
   },
@@ -224,7 +224,7 @@ Nexus.EVENTS = [
         id: "b",
         label: "Profile schützen",
         summary: "−1 Risiko, +1 Sicherheit",
-        effects: { privacy: 1, security: 1 }
+        effects: { risk: -1, security: 1 }
       }
     ]
   },

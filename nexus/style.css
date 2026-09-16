@@ -1736,8 +1736,18 @@ button {
   margin-left: 0;
 }
 
+.card-fan.is-dense .play-card-text {
+  display: none;
+}
+
+.card-fan.is-dense .play-card-name {
+  font-size: 0.64rem;
+  flex: 1 1 auto;
+}
+
+/* Große Hand: Karten schmaler und ohne Fließtext, damit nichts aus dem Tray läuft */
 .play-card {
-  width: calc(5.6rem * var(--ui-scale));
+  width: calc(clamp(4.4rem, 6.4rem - var(--fan-n, 1) * 0.2rem, 5.6rem) * var(--ui-scale));
   height: calc(5.9rem * var(--ui-scale));
   display: flex;
   flex-direction: column;

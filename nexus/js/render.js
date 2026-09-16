@@ -2427,6 +2427,7 @@ window.Nexus = window.Nexus || {};
     var fan = document.getElementById("hand-fan");
     if (fan) {
       if (!cards.length) {
+        fan.classList.remove("is-dense");
         fan.innerHTML = shield
           ? ""
           : '<li class="hand-empty">' +
@@ -2438,6 +2439,7 @@ window.Nexus = window.Nexus || {};
         var n = cards.length;
         /* Flacher Fächer: die Karten dürfen nicht unter die Trayleiste schwenken */
         var spread = n > 6 ? 2.5 : 3;
+        fan.classList.toggle("is-dense", n > 5);
         fan.innerHTML = cards
           .map(function (card, index) {
             var effects = Nexus.formatEffects(card.effects);

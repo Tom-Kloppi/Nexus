@@ -74,8 +74,6 @@ window.Nexus = window.Nexus || {};
 
   function readMetric(state, player, metricKey) {
     switch (metricKey) {
-      case "energyEfficiency":
-        return Math.floor(player.efficiencyPoints || 0);
       case "environmentScore":
         return scoreOf(player, "environment");
       case "securityScore":
@@ -197,9 +195,6 @@ window.Nexus = window.Nexus || {};
   }
 
   function formatMetricValue(subGoal, metricValue) {
-    if (subGoal.metricKey === "energyEfficiency") {
-      return metricValue + " EP";
-    }
     if (subGoal.id === "local_processing_ratio") {
       return metricValue + "%";
     }

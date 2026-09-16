@@ -94,12 +94,8 @@ window.Nexus = window.Nexus || {};
         parts.push((effects[key] > 0 ? "+" : "") + effects[key] + " " + label);
       }
     });
-    if (effects.efficiency) {
-      parts.push((effects.efficiency > 0 ? "+" : "") + effects.efficiency + " Effizienz");
-    }
-    if (effects.privacy) {
-      var riskFromPrivacy = -effects.privacy;
-      parts.push((riskFromPrivacy > 0 ? "+" : "") + riskFromPrivacy + " Risiko");
+    if (effects.risk) {
+      parts.push((effects.risk > 0 ? "+" : "") + effects.risk + " Risiko");
     }
     return parts.join(" · ");
   }
@@ -523,8 +519,7 @@ window.Nexus = window.Nexus || {};
     return Object.assign({}, player, {
       resources: resources,
       scores: scores,
-      efficiencyPoints: player.efficiencyPoints + (effects.efficiency || 0),
-      risk: Math.max(0, player.risk - (effects.privacy || 0) + (effects.risk || 0))
+      risk: Math.max(0, player.risk + (effects.risk || 0))
     });
   }
 
@@ -879,7 +874,6 @@ window.Nexus = window.Nexus || {};
       scores: emptyScores(),
       devices: devices,
       risk: 0,
-      efficiencyPoints: 0,
       greenInnovationCards: 0,
       privacyShieldEvents: 0,
       cumulativeProduction: 0,
@@ -1361,7 +1355,7 @@ window.Nexus = window.Nexus || {};
       }
     });
 
-    var risk = player.risk + (effects.risk || 0) - (effects.privacy || 0);
+    var risk = player.risk + (effects.risk || 0);
     if (risk < 0) {
       risk = 0;
     }
@@ -1370,7 +1364,6 @@ window.Nexus = window.Nexus || {};
       resources: resources,
       scores: bumpScores(player.scores, effects),
       risk: risk,
-      efficiencyPoints: player.efficiencyPoints + (effects.efficiency || 0),
       privacyShieldEvents: player.privacyShieldEvents + (effects.privacyShield ? 1 : 0),
       localHardwareDiscountPending:
         effects.localHardwareDiscount || effects.localMoneyDiscount
@@ -1516,13 +1509,13 @@ window.Nexus = window.Nexus || {};
     });
 
     var peakMode = player.devices.peak_load;
-    var efficiencyGain = 0;
     if (peakMode) {
       var peakFactor = effectFactor(peakMode, modifiers);
       if (peakMode === "cloud" && !cloudOnline) {
         peakFactor = 0;
       }
-      efficiencyGain += (Nexus.DEVICES_BY_ID.peak_load.efficiencyPerRound || 0) * peakFactor;
+      scoreHint.environment +=
+        (Nexus.DEVICES_BY_ID.peak_load.environmentPerRound || 0) * peakFactor;
     }
 
     var hemsFactor = 0;
@@ -1558,9 +1551,6 @@ window.Nexus = window.Nexus || {};
     if (addedRisk > 0) {
       parts.push("Risiko +" + addedRisk);
     }
-    if (efficiencyGain > 0) {
-      parts.push("+" + efficiencyGain + " Effizienz");
-    }
     if (parts.length === 0) {
       parts.push("keine Geräteeffekte");
     }
@@ -1569,7 +1559,6 @@ window.Nexus = window.Nexus || {};
       resources: resources,
       scores: bumpScores(player.scores, scoreHint),
       risk: player.risk + addedRisk,
-      efficiencyPoints: player.efficiencyPoints + energySave + efficiencyGain,
       roundModifiers: { cloudDisabled: false, cloudHalfEffect: false }
     });
 

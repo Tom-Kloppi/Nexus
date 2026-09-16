@@ -6,14 +6,14 @@ Nexus.INNOVATION_CARDS = [
     name: "Wärmepumpen-Pilot",
     category: "green",
     text: "Quartierswärme senkt den Verbrauch.",
-    effects: { efficiency: 3, environment: 1 }
+    effects: { environment: 4 }
   },
   {
     id: "pv-facade",
     name: "PV-Fassade",
     category: "green",
     text: "Gebäudehülle erzeugt Strom.",
-    effects: { energy: 2, efficiency: 1, environment: 1 }
+    effects: { energy: 2, environment: 2 }
   },
   {
     id: "green-ppa",
@@ -27,35 +27,35 @@ Nexus.INNOVATION_CARDS = [
     name: "Speicher-Dispatch",
     category: "green",
     text: "Batterien glätten Lastspitzen.",
-    effects: { efficiency: 2, energy: 1 }
+    effects: { environment: 2, energy: 1 }
   },
   {
     id: "load-shift",
     name: "Lastverschiebung",
     category: "green",
     text: "Verbrauch wandert in Schwachlastzeiten.",
-    effects: { efficiency: 2 }
+    effects: { environment: 2 }
   },
   {
     id: "zero-trust",
     name: "Zero-Trust-Architektur",
     category: "privacy",
     text: "Zugriffe werden streng segmentiert.",
-    effects: { privacy: 2, security: 1 }
+    effects: { risk: -2, security: 1 }
   },
   {
     id: "on-device-ai",
     name: "On-Device-KI",
     category: "privacy",
     text: "Auswertung bleibt auf dem Gerät.",
-    effects: { privacy: 1, energy: 1, security: 1 }
+    effects: { risk: -1, energy: 1, security: 1 }
   },
   {
     id: "data-minimization",
     name: "Datensparsamkeit",
     category: "privacy",
     text: "Nur nötige Daten werden erhoben.",
-    effects: { privacy: 2 }
+    effects: { risk: -2 }
   },
   {
     id: "v2g-pilot",

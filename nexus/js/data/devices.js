@@ -157,7 +157,7 @@ Nexus.DEVICES = [
     id: "peak_load",
     name: "Peak-Load-Control",
     shortName: "Peak Load",
-    effectText: "+1 Effizienzpunkt pro Runde. Bau nur mit Wohngebiet.",
+    effectText: "+1 Umwelt pro Runde. Bau nur mit Wohngebiet.",
     requiresZoneType: "residential",
     isSpecial: true,
     costs: {
@@ -168,7 +168,7 @@ Nexus.DEVICES = [
     cloudUpkeep: 1,
     energySave: 0,
     bandwidthGain: 0,
-    efficiencyPerRound: 1
+    environmentPerRound: 1
   }
 ];
 
