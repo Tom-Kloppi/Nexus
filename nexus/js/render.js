@@ -704,8 +704,39 @@ window.Nexus = window.Nexus || {};
     road: '<path d="M4 1 L2 13 H5.5 L6.3 1 Z M7.7 1 L8.5 13 H12 L10 1 Z"/>',
     home: '<path d="M7 1.5 L12.5 6 H11 V12.5 H3 V6 H1.5 Z"/>',
     tree: '<path d="M7 1 L11 8 H3 Z M6.2 8 h1.6 v5 h-1.6 z"/>',
-    wave: '<path d="M1 5q3-2.2 6 0t6 0v2q-3 2.2-6 0t-6 0z"/>'
+    wave: '<path d="M1 5q3-2.2 6 0t6 0v2q-3 2.2-6 0t-6 0z"/>',
+    shield: '<path d="M7 1 L12 3v4.2C12 10.3 9.9 12.4 7 13.2 4.1 12.4 2 10.3 2 7.2V3Z"/>',
+    solar: '<path d="M2 10 L5.2 4 H12.5 L9.3 10 Z M6.5 11.1h1.3v2H6.5z M4.3 13h5.7v0.9H4.3z"/>',
+    pylon: '<path d="M7 1 L10.7 13.2 H9 L7 5.3 L5 13.2 H3.3 Z M4.6 8.2h4.8v1.1H4.6z M5.4 5.3h3.2v1.1H5.4z"/>'
   };
+
+  /* Feldtyp-Auswahl spricht dieselbe Sprache wie das Brett */
+  var PICK_PREVIEW = {
+    residential: { top: "--lu-res-top", side: "--lu-res-side", glyph: "house" },
+    energy: { top: "--lu-solar-top", side: "--lu-solar-side", glyph: "energy" },
+    datacenter: { top: "--lu-dcopen-top", side: "--lu-dcopen-side", glyph: "data" },
+    traffic: { top: "--lu-traffic-top", side: "--lu-traffic-side", glyph: "road" },
+    "energy-solar": { top: "--lu-solar-top", side: "--lu-solar-side", glyph: "solar" },
+    "energy-transformer": { top: "--lu-trafo-top", side: "--lu-trafo-side", glyph: "pylon" },
+    "datacenter-insecure": { top: "--lu-dcopen-top", side: "--lu-dcopen-side", glyph: "data" },
+    "datacenter-secure": { top: "--lu-dcsafe-top", side: "--lu-dcsafe-side", glyph: "shield" }
+  };
+
+  function pickHex(key) {
+    var entry = PICK_PREVIEW[key];
+    if (!entry) {
+      return "";
+    }
+    return (
+      '<span class="pick-hex" style="--sw: var(' +
+      entry.top +
+      "); --sd: var(" +
+      entry.side +
+      ')"><svg viewBox="0 0 14 14" aria-hidden="true">' +
+      (LEGEND_GLYPHS[entry.glyph] || "") +
+      "</svg></span>"
+    );
+  }
 
   function landUseKey(zone) {
     if (!zone) {
@@ -2144,7 +2175,17 @@ window.Nexus = window.Nexus || {};
       ui.yieldPops = false;
     }
 
-    document.getElementById("btn-end-round").disabled = !Nexus.canEndTurn(state);
+    /* Blockiert statt disabled: der Klick soll den Grund zeigen, nicht verpuffen */
+    var endBtn = document.getElementById("btn-end-round");
+    var endBlocked = !Nexus.canEndTurn(state);
+    endBtn.disabled = state.turnPhase !== "build";
+    endBtn.classList.toggle("is-blocked", endBlocked && !endBtn.disabled);
+    endBtn.setAttribute("aria-disabled", endBlocked ? "true" : "false");
+    endBtn.title = endBtn.disabled
+      ? "Produktion läuft — kurz warten."
+      : endBlocked
+        ? "Startcoupon: erst ein Nachbarfeld platzieren."
+        : "Zug beenden";
     var tradeBtn = document.getElementById("btn-trade");
     if (tradeBtn) {
       tradeBtn.disabled = state.turnPhase !== "build";
@@ -2525,9 +2566,8 @@ window.Nexus = window.Nexus || {};
             return (
               '<button type="button" class="tile-pick zone-pick" data-zone-variant="' +
               id +
-              '" style="--zone-color:' +
-              (Nexus.ZONE_TYPE_COLORS[pendingType] || "rgba(255,255,255,0.12)") +
               '">' +
+              pickHex(pendingType + "-" + id) +
               "<small>" +
               label +
               "</small></button>"
@@ -2547,20 +2587,13 @@ window.Nexus = window.Nexus || {};
       choices.innerHTML = Nexus.ZONE_TYPE_KEYS.map(function (key) {
         var offer = Nexus.getExpandOffer(state, slot.q, slot.r, key);
         var typeDef = Nexus.ZONE_TYPES[key];
-        var iconKey = typeDef && typeDef.primary;
-        var iconHtml =
-          iconKey && Nexus.RESOURCE_MARKUP[iconKey]
-            ? Nexus.iconGroup(iconKey, "#071018")
-            : "";
         return (
           '<button type="button" class="tile-pick zone-pick" data-zone-type="' +
           key +
-          '" style="--zone-color:' +
-          Nexus.ZONE_TYPE_COLORS[key] +
           '"' +
-          (offer.allowed ? "" : " disabled") +
+          (offer.allowed ? "" : " disabled title=\"" + (offer.reason || "Nicht bezahlbar") + '"') +
           ">" +
-          iconHtml +
+          pickHex(key) +
           "<small>" +
           typeDef.shortLabel +
           "</small></button>"

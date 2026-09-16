@@ -22,6 +22,34 @@ window.Nexus = window.Nexus || {};
     prefs.uiScale = 1;
   }
 
+  /* Klick auf einen gesperrten Knopf: wackeln und den Grund nennen, nicht schweigen */
+  document.addEventListener(
+    "pointerdown",
+    function (event) {
+      if (!document.elementsFromPoint) {
+        return;
+      }
+      var stack = document.elementsFromPoint(event.clientX, event.clientY);
+      var i;
+      for (i = 0; i < stack.length; i++) {
+        var el = stack[i];
+        if (el.tagName !== "BUTTON") {
+          continue;
+        }
+        if (!el.disabled) {
+          return;
+        }
+        triggerControlShake(el);
+        var reason = el.getAttribute("title") || el.getAttribute("aria-label");
+        if (reason) {
+          Nexus.pushToast(reason);
+        }
+        return;
+      }
+    },
+    true
+  );
+
   function triggerControlShake(el) {
     if (!el || !el.classList) {
       return;

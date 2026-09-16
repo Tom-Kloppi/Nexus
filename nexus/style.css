@@ -1846,6 +1846,12 @@ button {
 
 /* ---------- 7 Bausteine & Modals ---------- */
 
+/* Gesperrt, aber klickbar: das Feedback erklärt, was noch fehlt */
+.btn.is-blocked {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 .btn {
   appearance: none;
   border-radius: var(--radius-pill);
@@ -2206,25 +2212,58 @@ button {
 
 .zone-pick {
   height: auto;
-  min-height: 86px;
+  min-height: 84px;
   min-width: 96px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 0.15rem;
-  background: var(--zone-color, var(--surface-2));
-  color: #1d2430;
+  gap: 0.35rem;
+  background: var(--surface-2);
+  color: var(--ink);
   font-weight: 700;
-  box-shadow: inset 0 -4px 0 rgba(0, 0, 0, 0.14);
+  transition:
+    border-color var(--duration-fast) var(--ease-smooth-out),
+    transform var(--duration-fast) var(--ease-smooth-out);
+}
+
+.zone-pick:hover:not(:disabled) {
+  transform: translateY(-2px);
+  border-color: var(--accent);
+}
+
+/* Gleiche Kachelsprache wie Brett und Legende, nur größer */
+.pick-hex {
+  width: 38px;
+  height: 33px;
+  display: grid;
+  place-items: center;
+  clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+  background: linear-gradient(
+    to bottom,
+    var(--sw, var(--lu-grass-top)) 0 68%,
+    var(--sd, var(--lu-grass-side)) 68% 100%
+  );
+}
+
+.pick-hex svg {
+  width: 17px;
+  height: 17px;
+  margin-top: -1px;
+  fill: color-mix(in srgb, var(--sd, var(--lu-grass-side)) 70%, #000 30%);
+}
+
+[data-theme="dark"] .pick-hex svg {
+  fill: color-mix(in srgb, var(--sw, var(--lu-grass-top)) 35%, #fff 65%);
+  opacity: 0.85;
 }
 
 .zone-pick small {
-  font-size: 0.62rem;
+  font-size: 0.64rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  opacity: 0.8;
+  color: var(--ink-dim);
 }
 
 .choice-stack .btn {
