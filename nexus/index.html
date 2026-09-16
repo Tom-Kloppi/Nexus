@@ -18,8 +18,8 @@
       href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800&family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="transitions.css?v=20" />
-    <link rel="stylesheet" href="style.css?v=20" />
+    <link rel="stylesheet" href="transitions.css?v=26" />
+    <link rel="stylesheet" href="style.css?v=26" />
   </head>
   <body>
     <div class="modal-shell t-modal-backdrop" id="setup-screen">
@@ -147,6 +147,7 @@
             <span class="sky-stars"></span>
             <span class="sky-cloud sky-cloud--a"></span>
             <span class="sky-cloud sky-cloud--b"></span>
+            <span class="sky-cloud sky-cloud--c"></span>
             <span class="sky-haze"></span>
           </div>
           <div class="map-viewport" id="map-viewport">
@@ -170,9 +171,9 @@
         <div class="dock-scroll">
           <button type="button" class="dock-close" id="btn-dock-close" aria-label="Panel schließen">Fertig</button>
 
-          <div id="goal-panel" class="goal-panel" hidden>
+          <section id="goal-panel" class="dock-card goal-panel" hidden>
             <div class="goal-panel-head">
-              <div>
+              <div class="goal-panel-title">
                 <p class="goal-kicker">Wahlversprechen</p>
                 <h2 id="goal-role-name"></h2>
               </div>
@@ -180,32 +181,44 @@
                 <strong id="goal-total">0%</strong>
               </div>
             </div>
-            <div id="score-tracks" class="score-tracks" aria-label="Wertungsspuren" hidden></div>
             <ul id="goal-list" class="goal-list"></ul>
-          </div>
+          </section>
 
-          <div class="dock-head" hidden>
-            <h2 id="dock-title">Feld</h2>
-          </div>
-          <div id="zone-inspect" class="zone-inspect" hidden>
-            <p id="zone-inspect-type" class="zone-inspect-type"></p>
-            <p id="zone-inspect-owner" class="zone-inspect-meta"></p>
-            <p id="zone-inspect-yield" class="zone-inspect-yield"></p>
-            <p id="zone-inspect-die" class="zone-inspect-meta"></p>
-          </div>
-          <div class="standards-bar" id="standards-bar" hidden>
-            <p class="setup-label">Standard (öffentlich)</p>
+          <section class="dock-card" id="tracks-card" hidden>
+            <p class="dock-card-title">Stadtspuren</p>
+            <div id="score-tracks" class="score-tracks" aria-label="Wertungsspuren"></div>
+          </section>
+
+          <section class="dock-card" id="field-card">
+            <p class="dock-card-title" id="dock-title">Feld</p>
+            <div id="zone-inspect" class="zone-inspect" hidden>
+              <p id="zone-inspect-type" class="zone-inspect-type"></p>
+              <p id="zone-inspect-owner" class="zone-inspect-meta"></p>
+              <p id="zone-inspect-yield" class="zone-inspect-yield"></p>
+              <p id="zone-inspect-die" class="zone-inspect-meta"></p>
+            </div>
+            <p class="dock-empty" id="inspect-empty">
+              Tippe eine Kachel im Distrikt — Typ, Besitz und letzter Wurf erscheinen hier.
+            </p>
+          </section>
+
+          <section class="dock-card standards-bar" id="standards-bar" hidden>
+            <p class="dock-card-title">Standard (öffentlich)</p>
             <div class="pick-row">
               <button type="button" class="btn setup-choice" id="btn-standard-open" data-standard="open">Offen</button>
               <button type="button" class="btn setup-choice" id="btn-standard-proprietary" data-standard="proprietary">Proprietär</button>
             </div>
             <p id="standards-hint" class="standards-hint"></p>
-          </div>
+          </section>
 
-          <div class="legend" id="board-legend">
-            <p class="setup-label">Landnutzung</p>
+          <details class="dock-card legend" id="board-legend" open>
+            <summary class="dock-card-title">Landnutzung</summary>
             <ul class="legend-list"></ul>
-          </div>
+            <p class="legend-foot">
+              Rand = Besitzer
+              <span class="legend-owners" id="legend-owner-note"></span>
+            </p>
+          </details>
         </div>
       </aside>
 
@@ -351,16 +364,16 @@
       </div>
     </div>
 
-    <script src="js/data/constants.js?v=20"></script>
-    <script src="js/data/tiles.js?v=20"></script>
-    <script src="js/data/devices.js?v=20"></script>
-    <script src="js/data/events.js?v=20"></script>
-    <script src="js/data/cards.js?v=20"></script>
-    <script src="js/data/roles.js?v=20"></script>
-    <script src="js/icons.js?v=20"></script>
-    <script src="js/roles.js?v=20"></script>
-    <script src="js/state.js?v=20"></script>
-    <script src="js/render.js?v=20"></script>
-    <script src="js/main.js?v=20"></script>
+    <script src="js/data/constants.js?v=26"></script>
+    <script src="js/data/tiles.js?v=26"></script>
+    <script src="js/data/devices.js?v=26"></script>
+    <script src="js/data/events.js?v=26"></script>
+    <script src="js/data/cards.js?v=26"></script>
+    <script src="js/data/roles.js?v=26"></script>
+    <script src="js/icons.js?v=26"></script>
+    <script src="js/roles.js?v=26"></script>
+    <script src="js/state.js?v=26"></script>
+    <script src="js/render.js?v=26"></script>
+    <script src="js/main.js?v=26"></script>
   </body>
 </html>

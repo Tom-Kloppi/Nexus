@@ -94,6 +94,9 @@ window.Nexus = window.Nexus || {};
     }
     toastNewLogs(prev, state);
     Nexus.render(state, ui);
+    if (Nexus.syncDockScrollHint) {
+      Nexus.syncDockScrollHint();
+    }
     if (!options.skipAutoHarvest) {
       triggerAutoHarvest();
     }
@@ -863,6 +866,30 @@ window.Nexus = window.Nexus || {};
     setDockOpen(false);
     refreshMapAfterChrome();
   });
+
+  /* Verblassende Unterkante nur zeigen, wenn im Dock wirklich etwas unter der Kante liegt */
+  var dockScroll = document.querySelector(".dock-scroll");
+
+  function syncDockScrollHint() {
+    var dock = document.getElementById("dock");
+    if (!dock || !dockScroll) {
+      return;
+    }
+    var hidden = dockScroll.scrollHeight - dockScroll.clientHeight;
+    var atEnd = dockScroll.scrollTop + dockScroll.clientHeight >= dockScroll.scrollHeight - 4;
+    dock.classList.toggle("is-scrollable", hidden > 6 && !atEnd);
+  }
+
+  if (dockScroll) {
+    dockScroll.addEventListener("scroll", syncDockScrollHint, { passive: true });
+    if (window.ResizeObserver) {
+      new window.ResizeObserver(syncDockScrollHint).observe(dockScroll);
+    } else {
+      window.addEventListener("resize", syncDockScrollHint);
+    }
+    document.getElementById("board-legend").addEventListener("toggle", syncDockScrollHint);
+  }
+  Nexus.syncDockScrollHint = syncDockScrollHint;
 
   applyAppearance();
   fillIcons();

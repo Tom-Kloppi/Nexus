@@ -14,6 +14,8 @@ window.Nexus = window.Nexus || {};
   }
 
   var DEFAULT_SCORE_KEYS = ["image", "comfort", "environment", "security"];
+  /* Nur Darstellung: Schienenlänge der Stadtspuren, keine Regelgrenze */
+  var TRACK_RAIL_MAX = 20;
   var DEFAULT_SCORE_LABELS = {
     image: "Image",
     comfort: "Komfort",
@@ -684,14 +686,26 @@ window.Nexus = window.Nexus || {};
     home: { key: "home", label: "Smart Home", swatch: "--lu-home-top" }
   };
 
+  /* Legende nach Materialfamilie: die Variante liest man am Bau, nicht am Boden */
   var LEGEND_ROWS = [
-    "residential",
-    "energy-solar",
-    "energy-transformer",
-    "datacenter-insecure",
-    "datacenter-secure",
-    "traffic"
+    { label: "Wohngebiet", note: "Häuser, Gärten", top: "--lu-res-top", side: "--lu-res-side", glyph: "house" },
+    { label: "Energie", note: "Solar · Transformator", top: "--lu-solar-top", side: "--lu-solar-side", glyph: "energy" },
+    { label: "Datenzentrum", note: "offen · sicher", top: "--lu-dcopen-top", side: "--lu-dcopen-side", glyph: "data" },
+    { label: "Verkehr", note: "Straße, Laternen", top: "--lu-traffic-top", side: "--lu-traffic-side", glyph: "road" },
+    { label: "Smart Home", note: "dein Startfeld", top: "--lu-home-top", side: "--lu-home-side", glyph: "home" },
+    { label: "Park & Wiese", note: "frei bebaubar", top: "--lu-grass-top", side: "--lu-grass-side", glyph: "tree" },
+    { label: "Wasser", note: "Distriktgrenze", top: "--lu-water-top", side: "--lu-water-side", glyph: "wave" }
   ];
+
+  var LEGEND_GLYPHS = {
+    house: '<path d="M2 7 L7 3 L12 7 V12 H2 Z"/>',
+    energy: '<path d="M7 1 L3.5 7.5 H6.5 L5.5 13 L10.5 6 H7.5 L9 1 Z"/>',
+    data: '<path d="M2.5 2.5h9v3h-9z M2.5 6.5h9v3h-9z M2.5 10.5h9v2.5h-9z"/>',
+    road: '<path d="M4 1 L2 13 H5.5 L6.3 1 Z M7.7 1 L8.5 13 H12 L10 1 Z"/>',
+    home: '<path d="M7 1.5 L12.5 6 H11 V12.5 H3 V6 H1.5 Z"/>',
+    tree: '<path d="M7 1 L11 8 H3 Z M6.2 8 h1.6 v5 h-1.6 z"/>',
+    wave: '<path d="M1 5q3-2.2 6 0t6 0v2q-3 2.2-6 0t-6 0z"/>'
+  };
 
   function landUseKey(zone) {
     if (!zone) {
@@ -1080,20 +1094,41 @@ window.Nexus = window.Nexus || {};
     return out;
   }
 
+  /* Wasser: kurze Kräusel-Striche statt Wellenlinien — ruhiger im Raster */
   function artWater(cx, cy, sx, sy, rand) {
-    var out = "";
-    var i;
-    for (i = 0; i < 3; i++) {
-      var wx = cx - sx * 0.55 + rand() * sx * 0.9;
-      var wy = cy - sy * 0.3 + i * sy * 0.32;
-      out +=
-        '<path class="wave" d="M' +
-        n(wx) +
-        " " +
-        n(wy) +
-        "q6 -3.4 12 0t12 0" +
-        '"/>';
-    }
+    var rows = [-0.42, -0.1, 0.22, 0.5];
+    var out =
+      '<ellipse class="water-glint" cx="' +
+      n(cx - sx * 0.1) +
+      '" cy="' +
+      n(cy - sy * 0.24) +
+      '" rx="' +
+      n(sx * 0.4) +
+      '" ry="' +
+      n(sy * 0.17) +
+      '"/>';
+    rows.forEach(function (ry, row) {
+      var count = row === 0 || row === 3 ? 1 : 2;
+      var i;
+      for (i = 0; i < count; i++) {
+        if (rand() < 0.3) {
+          continue;
+        }
+        var len = 6 + rand() * 8;
+        var wx = cx - sx * 0.45 + rand() * (sx * 0.9 - len);
+        var wy = cy + sy * ry + rand() * 3;
+        out +=
+          '<line class="ripple" x1="' +
+          n(wx) +
+          '" y1="' +
+          n(wy) +
+          '" x2="' +
+          n(wx + len) +
+          '" y2="' +
+          n(wy) +
+          '"/>';
+      }
+    });
     return out;
   }
 
@@ -1357,16 +1392,22 @@ window.Nexus = window.Nexus || {};
     var panel = document.getElementById("goal-panel");
     var pill = document.getElementById("goal-pill");
     var tracks = document.getElementById("score-tracks");
+    var tracksCard = document.getElementById("tracks-card");
     if (!panel || !pill) {
       return;
+    }
+    function hideTracks() {
+      if (tracksCard) {
+        tracksCard.hidden = true;
+      }
+      if (tracks) {
+        tracks.innerHTML = "";
+      }
     }
     if (Nexus.isHotSeatShield(state)) {
       panel.hidden = true;
       pill.hidden = true;
-      if (tracks) {
-        tracks.hidden = true;
-        tracks.innerHTML = "";
-      }
+      hideTracks();
       return;
     }
     var player = Nexus.currentPlayer(state);
@@ -1374,10 +1415,7 @@ window.Nexus = window.Nexus || {};
     if (!progress.role) {
       panel.hidden = true;
       pill.hidden = true;
-      if (tracks) {
-        tracks.hidden = true;
-        tracks.innerHTML = "";
-      }
+      hideTracks();
       return;
     }
     panel.hidden = false;
@@ -1400,7 +1438,9 @@ window.Nexus = window.Nexus || {};
       if (!lastScoreSnapshot || lastPlayerId !== player.id) {
         lastScoreSnapshot = {};
       }
-      tracks.hidden = false;
+      if (tracksCard) {
+        tracksCard.hidden = false;
+      }
       tracks.innerHTML = scoreKeys()
         .map(function (key) {
           var value = scores[key];
@@ -1411,12 +1451,17 @@ window.Nexus = window.Nexus || {};
             scoreChanged = true;
           }
           lastScoreSnapshot[key] = value;
+          var fill = Math.max(0, Math.min(100, (value / TRACK_RAIL_MAX) * 100));
           return (
-            '<span class="score-track"><span>' +
+            '<div class="score-track track-' +
+            key +
+            '"><span class="track-label">' +
             scoreLabel(key) +
-            '</span><strong class="t-digit-group">' +
+            '</span><span class="track-rail"><i style="width:' +
+            n(fill) +
+            '%"></i></span><strong class="t-digit-group">' +
             value +
-            "</strong></span>"
+            "</strong></div>"
           );
         })
         .join("");
@@ -2005,16 +2050,32 @@ window.Nexus = window.Nexus || {};
     if (!list || list.childElementCount) {
       return;
     }
-    list.innerHTML = LEGEND_ROWS.map(function (key) {
-      var entry = LAND_USE[key];
+    list.innerHTML = LEGEND_ROWS.map(function (row) {
       return (
-        '<li><span class="legend-swatch" style="--sw: var(' +
-        entry.swatch +
-        ')"></span>' +
-        entry.label +
-        "</li>"
+        '<li title="' +
+        row.label +
+        " · " +
+        row.note +
+        '"><span class="legend-swatch" style="--sw: var(' +
+        row.top +
+        "); --sd: var(" +
+        row.side +
+        ')"><svg viewBox="0 0 14 14" aria-hidden="true">' +
+        (LEGEND_GLYPHS[row.glyph] || "") +
+        "</svg></span>" +
+        '<span class="legend-text"><b>' +
+        row.label +
+        "</b><i>" +
+        row.note +
+        "</i></span></li>"
       );
     }).join("");
+    var ownerNote = document.getElementById("legend-owner-note");
+    if (ownerNote) {
+      ownerNote.innerHTML = Nexus.PLAYER_COLORS.map(function (color, index) {
+        return '<span class="legend-owner" style="--oc:' + color + '">' + (index + 1) + "</span>";
+      }).join("");
+    }
   }
 
   function renderDistrict(state, ui) {
@@ -2098,12 +2159,11 @@ window.Nexus = window.Nexus || {};
     }
     var dockTitle = document.getElementById("dock-title");
     if (dockTitle) {
-      if (inspectedZone) {
-        var typeDef = Nexus.ZONE_TYPES[inspectedZone.type] || { label: inspectedZone.type };
-        dockTitle.textContent = typeDef.label;
-      } else {
-        dockTitle.textContent = "Distrikt";
-      }
+      dockTitle.textContent = "Feld";
+    }
+    var inspectEmpty = document.getElementById("inspect-empty");
+    if (inspectEmpty) {
+      inspectEmpty.hidden = !!inspectedZone;
     }
 
     var homeModal = document.getElementById("home-modal");
@@ -2316,7 +2376,11 @@ window.Nexus = window.Nexus || {};
       if (!cards.length) {
         fan.innerHTML = shield
           ? ""
-          : '<li class="hand-empty">Keine Handkarten</li>';
+          : '<li class="hand-empty">' +
+            '<span class="hand-ghost" aria-hidden="true"></span>' +
+            '<span class="hand-ghost" aria-hidden="true"></span>' +
+            "<span class=\"hand-empty-text\">Keine Handkarten — Innovationen kommen beim Ernten oder über <b>Nachziehen</b>.</span>" +
+            "</li>";
       } else {
         var n = cards.length;
         var spread = n > 6 ? 5 : 7;
@@ -2401,11 +2465,6 @@ window.Nexus = window.Nexus || {};
       drawBtn.setAttribute("aria-label", drawBtn.title);
     }
 
-    var dockHead = document.querySelector(".dock-head");
-    var zoneInspectPanel = document.getElementById("zone-inspect");
-    if (dockHead) {
-      dockHead.hidden = !zoneInspectPanel || zoneInspectPanel.hidden;
-    }
     bindCardFanOnce();
   }
 
