@@ -756,13 +756,23 @@ button {
   gap: 0.3rem;
 }
 
-.coach {
+/* Ein Kanal am unteren Brettrand: Toasts über dem Coach, nie übereinander */
+.board-feed {
   position: absolute;
   left: 50%;
   bottom: 0.65rem;
-  z-index: 3;
+  z-index: 6;
   transform: translateX(-50%);
-  max-width: min(84%, 720px);
+  width: min(92%, 720px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.45rem;
+  pointer-events: none;
+}
+
+.coach {
+  max-width: 100%;
   margin: 0;
   padding: 0.5rem 0.95rem;
   border-radius: var(--radius-pill);
@@ -1695,18 +1705,19 @@ button {
   z-index: 2;
 }
 
+/* Höhe reserviert Rotationsschwenk + Hover-Hub, sonst schneidet die Trayleiste die Karten ab */
 .card-fan {
-  --avatar-lift: -10px;
-  --avatar-scale: 1.04;
+  --avatar-lift: -7px;
+  --avatar-scale: 1.03;
   --avatar-falloff: 0.3;
   display: flex;
   justify-content: center;
   align-items: flex-end;
   list-style: none;
   margin: 0;
-  padding: 0.55rem 0.5rem 0.1rem;
+  padding: 0.55rem 0.5rem 0.4rem;
   min-width: 0;
-  min-height: calc(6.5rem * var(--ui-scale));
+  min-height: calc(7.3rem * var(--ui-scale));
   overflow-x: auto;
   overflow-y: hidden;
   scrollbar-width: none;
@@ -1718,7 +1729,7 @@ button {
 
 .card-fan .t-avatar {
   flex: 0 0 auto;
-  margin-left: calc(-1 * clamp(0.6rem, 0.2rem + var(--fan-n, 1) * 0.15rem, 1.8rem));
+  margin-left: calc(-1 * clamp(0.25rem, var(--fan-n, 1) * 0.12rem, 1.1rem));
 }
 
 .card-fan .t-avatar:first-child {
@@ -2108,13 +2119,11 @@ button {
   gap: 3px;
 }
 
+/* Höhe 0: die Banner wachsen nach oben, ohne Platz zu reservieren */
 .toast-stack {
-  position: fixed;
-  left: 1.1rem;
-  bottom: 9.2rem;
-  width: min(330px, calc(100vw - 2.2rem));
-  height: 84px;
-  z-index: 26;
+  position: relative;
+  width: min(340px, 100%);
+  height: 0;
   pointer-events: none;
 }
 
@@ -2638,6 +2647,51 @@ button {
   }
 }
 
+/* Flache Fenster (Telefon quer): Chrome schrumpfen, damit das Brett Fläche behält */
+@media (max-height: 620px) {
+  .topbar-row--main {
+    flex-wrap: nowrap;
+  }
+
+  .day-line {
+    display: none;
+  }
+
+  .card-pile {
+    width: calc(2.5rem * var(--ui-scale));
+  }
+
+  .pile-stack {
+    width: calc(2.4rem * var(--ui-scale));
+    height: calc(3.2rem * var(--ui-scale));
+  }
+
+  .hand-ghost {
+    height: calc(2.6rem * var(--ui-scale));
+  }
+
+  .card-fan {
+    min-height: calc(3.6rem * var(--ui-scale));
+  }
+
+  .play-card {
+    height: calc(3.6rem * var(--ui-scale));
+  }
+
+  .btn {
+    min-height: calc(36px * var(--ui-scale));
+  }
+
+  .tray-grid {
+    padding: 0.35rem 0.5rem;
+  }
+
+  .hand-empty-text,
+  .pile-caption {
+    display: none;
+  }
+}
+
 @media (max-width: 720px) {
   .brand h1 {
     font-size: 1rem;
@@ -2698,16 +2752,17 @@ button {
   }
 
   .coach {
-    max-width: 94%;
     font-size: 0.76rem;
     padding: 0.4rem 0.7rem;
   }
 
-  .toast-stack {
-    left: 0.6rem;
+  /* Zoom-Spalte links freihalten, statt den Coach darüber zu legen */
+  .board-feed {
+    left: 3.2rem;
     right: 0.6rem;
-    bottom: 11rem;
     width: auto;
+    transform: none;
+    align-items: stretch;
   }
 
   .map-controls .icon-btn:nth-child(3) {

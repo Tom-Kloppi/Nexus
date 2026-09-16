@@ -1037,7 +1037,7 @@ window.Nexus = window.Nexus || {};
   }
 
   /* Parks und Wiesen sind Deko — keine Punkte, nur Lesbarkeit und Ruhe */
-  function artPark(cx, cy, sy, rand) {
+  function artPark(cx, cy, sx, sy, rand) {
     var out = "";
     var pond = rand() < 0.45;
     if (pond) {
@@ -1048,12 +1048,24 @@ window.Nexus = window.Nexus || {};
         n(cy + sy * 0.26) +
         '" rx="21" ry="9"/>';
     } else {
+      /* Trampelpfad entlang der Hex-Diagonale statt Schlangenlinie */
+      var x0 = cx - sx * 0.74;
+      var y0 = cy + sy * 0.44;
+      var x1 = cx + sx * 0.74;
+      var y1 = cy - sy * 0.3;
       out +=
         '<path class="park-path" d="M' +
-        n(cx - 36) +
+        n(x0) +
         " " +
-        n(cy + sy * 0.4) +
-        "q20 -14 34 -4t34 -10" +
+        n(y0) +
+        "Q" +
+        n(cx - sx * 0.05) +
+        " " +
+        n(cy + sy * 0.34) +
+        " " +
+        n(x1) +
+        " " +
+        n(y1) +
         '"/>';
     }
     var spots = [
@@ -1951,7 +1963,7 @@ window.Nexus = window.Nexus || {};
       use = tile.dist <= 1 ? "park" : "grass";
       classes.push("tile--" + use);
       classes.push("g-" + (1 + Math.floor(rand() * 3)));
-      art = use === "park" ? artPark(cx, cy, sy, rand) : artMeadow(cx, cy, sy, rand);
+      art = use === "park" ? artPark(cx, cy, sx, sy, rand) : artMeadow(cx, cy, sy, rand);
       if (expandable) {
         classes.push("tile--open", "hex-empty", "is-open", "is-clickable");
         if (affordable) {
@@ -2383,7 +2395,8 @@ window.Nexus = window.Nexus || {};
             "</li>";
       } else {
         var n = cards.length;
-        var spread = n > 6 ? 5 : 7;
+        /* Flacher Fächer: die Karten dürfen nicht unter die Trayleiste schwenken */
+        var spread = n > 6 ? 2.5 : 3;
         fan.innerHTML = cards
           .map(function (card, index) {
             var effects = Nexus.formatEffects(card.effects);

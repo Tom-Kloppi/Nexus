@@ -887,9 +887,20 @@ window.Nexus = window.Nexus || {};
     } else {
       window.addEventListener("resize", syncDockScrollHint);
     }
-    document.getElementById("board-legend").addEventListener("toggle", syncDockScrollHint);
   }
   Nexus.syncDockScrollHint = syncDockScrollHint;
+
+  /* Legende ist Lernhilfe: auf flachen Fenstern zu, sonst offen — Wahl bleibt gespeichert */
+  var legendEl = document.getElementById("board-legend");
+  if (legendEl) {
+    var storedLegend = localStorage.getItem("nexus-legend-open");
+    legendEl.open =
+      storedLegend === null ? window.innerHeight >= 860 || isDockSheet() : storedLegend === "1";
+    legendEl.addEventListener("toggle", function () {
+      localStorage.setItem("nexus-legend-open", legendEl.open ? "1" : "0");
+      syncDockScrollHint();
+    });
+  }
 
   applyAppearance();
   fillIcons();

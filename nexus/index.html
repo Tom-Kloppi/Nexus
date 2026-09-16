@@ -18,8 +18,8 @@
       href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800&family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="transitions.css?v=26" />
-    <link rel="stylesheet" href="style.css?v=26" />
+    <link rel="stylesheet" href="transitions.css?v=31" />
+    <link rel="stylesheet" href="style.css?v=31" />
   </head>
   <body>
     <div class="modal-shell t-modal-backdrop" id="setup-screen">
@@ -164,7 +164,10 @@
           <button type="button" class="btn icon-btn" id="btn-map-reset" title="Ansicht zurücksetzen">◎</button>
         </div>
 
-        <p id="table-hint" class="coach" role="status"></p>
+        <div class="board-feed">
+          <div id="toast-stack" class="toast-stack t-stack" aria-live="polite"></div>
+          <p id="table-hint" class="coach" role="status"></p>
+        </div>
       </section>
 
       <aside class="dock" id="dock" aria-label="Ziele und Feld">
@@ -248,8 +251,6 @@
         </div>
       </footer>
     </div>
-
-    <div id="toast-stack" class="toast-stack t-stack" aria-live="polite"></div>
 
     <div id="trade-modal" class="modal-shell t-modal-backdrop" hidden>
       <div class="modal-card t-modal piece" role="dialog" aria-modal="true">
@@ -364,16 +365,16 @@
       </div>
     </div>
 
-    <script src="js/data/constants.js?v=26"></script>
-    <script src="js/data/tiles.js?v=26"></script>
-    <script src="js/data/devices.js?v=26"></script>
-    <script src="js/data/events.js?v=26"></script>
-    <script src="js/data/cards.js?v=26"></script>
-    <script src="js/data/roles.js?v=26"></script>
-    <script src="js/icons.js?v=26"></script>
-    <script src="js/roles.js?v=26"></script>
-    <script src="js/state.js?v=26"></script>
-    <script src="js/render.js?v=26"></script>
-    <script src="js/main.js?v=26"></script>
+    <script src="js/data/constants.js?v=31"></script>
+    <script src="js/data/tiles.js?v=31"></script>
+    <script src="js/data/devices.js?v=31"></script>
+    <script src="js/data/events.js?v=31"></script>
+    <script src="js/data/cards.js?v=31"></script>
+    <script src="js/data/roles.js?v=31"></script>
+    <script src="js/icons.js?v=31"></script>
+    <script src="js/roles.js?v=31"></script>
+    <script src="js/state.js?v=31"></script>
+    <script src="js/render.js?v=31"></script>
+    <script src="js/main.js?v=31"></script>
   </body>
 </html>
