@@ -2080,7 +2080,7 @@ window.Nexus = window.Nexus || {};
     if (!player.scores || player.scores.environment === undefined) {
       throw new Error("scores missing");
     }
-    state = Object.assign({}, state, { turnPhase: "build", screen: "play", currentPlayerIndex: 0 });
+    state = Object.assign({}, state, { turnPhase: "build", screen: "game", currentPlayerIndex: 0 });
     var home = playerZones(state, player.id)[0];
     var pick = null;
     Nexus.HEX_DIRS.forEach(function (dir) {
@@ -2097,6 +2097,23 @@ window.Nexus = window.Nexus || {};
     var built = zoneAt(state, pick.q, pick.r);
     if (!built || built.variant !== "solar") {
       throw new Error("buyZone variant");
+    }
+    if (currentPlayer(state).scores.environment < 1) {
+      throw new Error("solar environment hint");
+    }
+    var pick2 = null;
+    Nexus.HEX_DIRS.forEach(function (dir) {
+      var q = built.q + dir.q;
+      var r = built.r + dir.r;
+      if (!pick2 && isExpandableSlot(state, q, r)) {
+        pick2 = { q: q, r: r };
+      }
+    });
+    if (pick2) {
+      state = buyZone(state, pick2.q, pick2.r, "traffic");
+      if (currentPlayer(state).scores.comfort < 1) {
+        throw new Error("traffic comfort hint");
+      }
     }
     return "ok";
   };
