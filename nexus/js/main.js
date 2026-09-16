@@ -132,59 +132,29 @@ window.Nexus = window.Nexus || {};
     Nexus.render(state, ui);
     harvestTimer = window.setTimeout(function () {
       var next = Nexus.completeHarvestAll(state);
+      ui.yieldPops = true;
       commit(next, { skipAutoHarvest: true });
     }, Nexus.harvestAnimationMs(state));
   }
 
+  /* Das Board hat eine eigene Grid-Zelle — hier nur Luft für Kartensteuerung
+     und Coach-Zeile, keine Overlay-Messung mehr. */
   function mapSafeRect() {
     var plane = document.querySelector(".city-plane");
     if (!plane) {
-      return { x: 0, y: 0, w: 1, h: 1, pw: 1, ph: 1 };
+      return { x: 0, y: 0, w: 1, h: 1 };
     }
-    var pw = plane.clientWidth;
-    var ph = plane.clientHeight;
-    var planeBox = plane.getBoundingClientRect();
-    var hud = document.querySelector(".hud");
-    var tray = document.querySelector(".card-tray");
-    var dock = document.querySelector(".dock");
-    var controls = document.querySelector(".map-controls");
-    var top = 16;
-    var bottom = 16;
-    var left = 56;
-    var right = 16;
-    function overlapInset(el, edge) {
-      if (!el || el.hidden) {
-        return 0;
-      }
-      var box = el.getBoundingClientRect();
-      if (box.right < planeBox.left || box.left > planeBox.right || box.bottom < planeBox.top || box.top > planeBox.bottom) {
-        return 0;
-      }
-      if (edge === "top") {
-        return Math.max(0, box.bottom - planeBox.top);
-      }
-      if (edge === "bottom") {
-        return Math.max(0, planeBox.bottom - box.top);
-      }
-      if (edge === "left") {
-        return Math.max(0, box.right - planeBox.left);
-      }
-      return Math.max(0, planeBox.right - box.left);
-    }
-    top = Math.max(top, overlapInset(hud, "top") + 10);
-    bottom = Math.max(bottom, overlapInset(tray, "bottom") + 10);
-    left = Math.max(left, overlapInset(controls, "left") + 10);
-    if (dock && !dock.hidden) {
-      right = Math.max(right, overlapInset(dock, "right") + 12);
-    }
+    var pad = { top: 12, right: 12, bottom: 50, left: 12 };
     return {
-      x: left,
-      y: top,
-      w: Math.max(140, pw - left - right),
-      h: Math.max(140, ph - top - bottom),
-      pw: pw,
-      ph: ph
+      x: pad.left,
+      y: pad.top,
+      w: Math.max(120, plane.clientWidth - pad.left - pad.right),
+      h: Math.max(120, plane.clientHeight - pad.top - pad.bottom)
     };
+  }
+
+  function boardFocus() {
+    return Nexus.boardView().focus;
   }
 
   function applyMapTransform() {
@@ -224,36 +194,37 @@ window.Nexus = window.Nexus || {};
     zoomAt(rect.left + rect.width / 2, rect.top + rect.height / 2, factor);
   }
 
+  function centerOnFocus(scale) {
+    var safe = mapSafeRect();
+    var focus = boardFocus();
+    ui.map.tx = safe.x + safe.w / 2 - (focus.x + focus.w / 2) * scale;
+    ui.map.ty = safe.y + safe.h / 2 - (focus.y + focus.h / 2) * scale;
+  }
+
   function fitMapToView(force) {
     if (ui.map.userAdjusted && !force) {
       applyMapTransform();
       return;
     }
     var plane = document.querySelector(".city-plane");
-    var board = document.getElementById("map-board");
-    if (!plane || !board || !board.offsetWidth) {
+    if (!plane || !plane.clientWidth) {
       applyMapTransform();
       return;
     }
-    var safe = mapSafeRect();
-    var bw = board.offsetWidth;
-    var bh = board.offsetHeight;
-    var scale = Math.min(safe.w / bw, safe.h / bh) * Nexus.CONSTANTS.MAP_FIT_PADDING;
-    ui.map.scale = clampMapScale(scale);
-    ui.map.tx = safe.x + (safe.w - bw * ui.map.scale) / 2;
-    ui.map.ty = safe.y + (safe.h - bh * ui.map.scale) / 2;
+    ui.map.scale = clampMapScale(minMapScale());
+    centerOnFocus(ui.map.scale);
     applyMapTransform();
   }
 
   function minMapScale() {
     var plane = document.querySelector(".city-plane");
-    var board = document.getElementById("map-board");
-    if (!plane || !board || !board.offsetWidth) {
+    if (!plane || !plane.clientWidth) {
       return Nexus.CONSTANTS.MAP_MIN_SCALE;
     }
     var safe = mapSafeRect();
+    var focus = boardFocus();
     var pad = Nexus.CONSTANTS.MAP_FIT_PADDING || 0.96;
-    return Math.min(safe.w / board.offsetWidth, safe.h / board.offsetHeight) * pad;
+    return Math.min(safe.w / focus.w, safe.h / focus.h) * pad;
   }
 
   function clampMapScale(scale) {
@@ -262,38 +233,21 @@ window.Nexus = window.Nexus || {};
 
   function clampMapPan() {
     var plane = document.querySelector(".city-plane");
-    var board = document.getElementById("map-board");
-    if (!plane || !board || !board.offsetWidth) {
+    if (!plane || !plane.clientWidth) {
       return;
     }
-    var safe = mapSafeRect();
     var scale = ui.map.scale;
-    var fit = minMapScale();
-    if (scale <= fit + 0.002) {
-      ui.map.tx = safe.x + (safe.w - board.offsetWidth * scale) / 2;
-      ui.map.ty = safe.y + (safe.h - board.offsetHeight * scale) / 2;
+    if (scale <= minMapScale() + 0.002) {
+      centerOnFocus(scale);
       ui.map.userAdjusted = false;
       return;
     }
-    var layout = Nexus.boardLayout();
-    var minCx = Infinity;
-    var maxCx = -Infinity;
-    var minCy = Infinity;
-    var maxCy = -Infinity;
-    layout.hexes.forEach(function (hex) {
-      minCx = Math.min(minCx, hex.x);
-      maxCx = Math.max(maxCx, hex.x);
-      minCy = Math.min(minCy, hex.y);
-      maxCy = Math.max(maxCy, hex.y);
-    });
+    var safe = mapSafeRect();
+    var focus = boardFocus();
     var midX = safe.x + safe.w / 2;
     var midY = safe.y + safe.h / 2;
-    var txMin = midX - maxCx * scale;
-    var txMax = midX - minCx * scale;
-    var tyMin = midY - maxCy * scale;
-    var tyMax = midY - minCy * scale;
-    ui.map.tx = Math.min(txMax, Math.max(txMin, ui.map.tx));
-    ui.map.ty = Math.min(tyMax, Math.max(tyMin, ui.map.ty));
+    ui.map.tx = Math.min(midX - focus.x * scale, Math.max(midX - (focus.x + focus.w) * scale, ui.map.tx));
+    ui.map.ty = Math.min(midY - focus.y * scale, Math.max(midY - (focus.y + focus.h) * scale, ui.map.ty));
   }
 
   function setupMapControls() {
@@ -482,13 +436,7 @@ window.Nexus = window.Nexus || {};
   });
 
   document.getElementById("turn-row").addEventListener("click", function (event) {
-    var row = event.currentTarget;
     var chip = event.target.closest("[data-player-id]");
-    var canHover = window.matchMedia("(hover: hover)").matches;
-    if (!canHover && !row.classList.contains("is-open")) {
-      row.classList.add("is-open");
-      return;
-    }
     if (!chip || Nexus.isHotSeatShield(state) || state.turnPhase === "gameover") {
       return;
     }
@@ -625,6 +573,9 @@ window.Nexus = window.Nexus || {};
       ui.expandSlot = null;
       ui.inspectedDevice = null;
       Nexus.render(state, ui);
+      if (isDockSheet()) {
+        setDockOpen(true);
+      }
       return;
     }
 
@@ -877,10 +828,40 @@ window.Nexus = window.Nexus || {};
     if (!insideSettings) {
       closeSettingsPanels(null);
     }
-    var turnRow = document.getElementById("turn-row");
-    if (turnRow && !turnRow.contains(event.target)) {
-      turnRow.classList.remove("is-open");
+  });
+
+  /* ---------- Dock: Rail auf dem Desktop, Sheet auf schmalen Geräten ---------- */
+
+  var dockSheetQuery = window.matchMedia("(max-width: 880px), (max-height: 560px)");
+
+  function isDockSheet() {
+    return dockSheetQuery.matches;
+  }
+
+  function setDockOpen(open) {
+    var dock = document.getElementById("dock");
+    var toggle = document.getElementById("btn-dock-toggle");
+    if (!dock) {
+      return;
     }
+    dock.classList.toggle("is-open", !!open);
+    if (toggle) {
+      toggle.setAttribute("aria-expanded", open ? "true" : "false");
+    }
+  }
+
+  document.getElementById("btn-dock-toggle").addEventListener("click", function () {
+    var dock = document.getElementById("dock");
+    setDockOpen(!dock.classList.contains("is-open"));
+  });
+
+  document.getElementById("btn-dock-close").addEventListener("click", function () {
+    setDockOpen(false);
+  });
+
+  dockSheetQuery.addEventListener("change", function () {
+    setDockOpen(false);
+    refreshMapAfterChrome();
   });
 
   applyAppearance();

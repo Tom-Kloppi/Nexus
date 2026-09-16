@@ -123,7 +123,8 @@ Nexus.PRODUCTION_DICE = [
   { id: "boom", modifier: 2, weight: 1, label: "Boom", color: "#b89a6a" }
 ];
 
-Nexus.PLAYER_COLORS = ["#6e8b82", "#b89a6a", "#b07c86"];
+/* Kräftig genug, um als Kachelkante auf hellem Land zu lesen */
+Nexus.PLAYER_COLORS = ["#1f8f76", "#d6942a", "#c04b6e"];
 Nexus.PLAYER_COLOR_NAMES = ["Salbei", "Sand", "Rose"];
 
 Nexus.GAME_LENGTHS = [

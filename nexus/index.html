@@ -2,7 +2,7 @@
 <html lang="de" data-theme="light">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>NEXUS</title>
     <script>
       (function () {
@@ -18,14 +18,14 @@
       href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800&family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="transitions.css?v=19" />
-    <link rel="stylesheet" href="style.css?v=19" />
+    <link rel="stylesheet" href="transitions.css?v=20" />
+    <link rel="stylesheet" href="style.css?v=20" />
   </head>
   <body>
     <div class="modal-shell t-modal-backdrop" id="setup-screen">
       <div class="modal-card t-modal piece setup-card" role="dialog" aria-modal="true">
         <div class="settings-wrap settings-wrap--card">
-          <button type="button" class="btn map-btn js-settings-btn" title="Darstellung">⚙</button>
+          <button type="button" class="btn icon-btn js-settings-btn" title="Darstellung" aria-label="Darstellung">⚙</button>
           <div class="settings-panel" hidden>
             <div class="settings-row">
               <span>Tageslicht</span>
@@ -66,94 +66,117 @@
       </div>
     </div>
 
-    <div class="stage" id="stage">
-      <div class="board-window">
-        <section class="city-plane" aria-label="Distrikt">
-          <div class="map-glow"></div>
-          <div class="map-viewport" id="map-viewport">
-            <div class="map-board" id="map-board">
-              <svg id="district-svg" role="img" aria-label="Hex-Distrikt"></svg>
-            </div>
+    <div class="app" id="app">
+      <header class="topbar">
+        <div class="topbar-row topbar-row--main">
+          <div class="brand">
+            <h1>NEXUS</h1>
+            <p class="day-line">
+              Runde <span id="stat-round" class="t-digit-group">1</span>
+              <span class="day-max">/ 20</span>
+            </p>
           </div>
-          <div class="map-controls" aria-label="Kartensteuerung">
-            <button type="button" class="btn map-btn" id="btn-map-zoom-in" title="Heranzoomen">+</button>
-            <button type="button" class="btn map-btn" id="btn-map-zoom-out" title="Herauszoomen">−</button>
-            <button type="button" class="btn map-btn" id="btn-map-reset" title="Ansicht zurücksetzen">◎</button>
-          </div>
-        </section>
 
-        <header class="hud">
-        <div class="brand">
-          <h1>NEXUS</h1>
-          <p class="day-line">
-            Runde <span id="stat-round" class="t-digit-group">1</span>
-            <span class="day-max">/ 20</span>
-          </p>
-        </div>
+          <div class="turn-row" id="turn-row" aria-label="Spielerreihenfolge"></div>
 
-        <div class="turn-row" id="turn-row" aria-label="Spielerreihenfolge"></div>
+          <ul class="wallet" aria-label="Ressourcen">
+            <li class="wallet-item chip-energy" data-res="energy" title="Energie">
+              <span class="token-icon" data-res="energy"></span>
+              <strong id="res-energy" class="t-digit-group">3</strong>
+              <span class="expect" id="expect-energy">~0</span>
+            </li>
+            <li class="wallet-item chip-money" data-res="money" title="Geld">
+              <span class="token-icon" data-res="money"></span>
+              <strong id="res-money" class="t-digit-group">3</strong>
+              <span class="expect" id="expect-money">~0</span>
+            </li>
+            <li class="wallet-item chip-bandwidth" data-res="bandwidth" title="Bandbreite">
+              <span class="token-icon" data-res="bandwidth"></span>
+              <strong id="res-bandwidth" class="t-digit-group">3</strong>
+              <span class="expect" id="expect-bandwidth">~0</span>
+            </li>
+          </ul>
 
-        <ul class="wallet" aria-label="Ressourcen">
-          <li class="wallet-item chip-energy" data-res="energy" title="Energie">
-            <span class="token-icon" data-res="energy"></span>
-            <strong id="res-energy" class="t-digit-group">3</strong>
-            <span class="expect" id="expect-energy">~0</span>
-          </li>
-          <li class="wallet-item chip-money" data-res="money" title="Geld">
-            <span class="token-icon" data-res="money"></span>
-            <strong id="res-money" class="t-digit-group">3</strong>
-            <span class="expect" id="expect-money">~0</span>
-          </li>
-          <li class="wallet-item chip-bandwidth" data-res="bandwidth" title="Bandbreite">
-            <span class="token-icon" data-res="bandwidth"></span>
-            <strong id="res-bandwidth" class="t-digit-group">3</strong>
-            <span class="expect" id="expect-bandwidth">~0</span>
-          </li>
-        </ul>
-
-        <div class="risk-pill" title="Risiko">
-          <span class="risk-label">Risiko</span>
-          <div id="risk-meter" class="risk-meter" style="--risk: 0"></div>
-          <strong id="stat-risk" class="t-digit-group">0</strong>
-        </div>
-
-        <div class="goal-pill" id="goal-pill" hidden>
-          <span class="goal-label">Versprechen</span>
-          <strong id="stat-goal-total">0</strong>
-          <span class="goal-max">/ 100%</span>
-        </div>
-
-        <div class="settings-wrap settings-wrap--hud">
-          <button type="button" class="btn map-btn js-settings-btn" title="Darstellung">⚙</button>
-          <div class="settings-panel" hidden>
-            <div class="settings-row">
-              <span>Tageslicht</span>
-              <button type="button" class="t-toggle js-theme-toggle" role="switch" data-on="true" aria-checked="true" aria-label="Tageslicht">
-                <span class="t-toggle-thumb"></span>
-              </button>
-            </div>
-            <div class="settings-scale">
-              <label>UI-Größe</label>
-              <input type="range" class="js-ui-scale" min="0.8" max="1.25" step="0.05" value="1" />
-              <div class="scale-presets">
-                <button type="button" class="btn" data-ui-scale="0.85">Klein</button>
-                <button type="button" class="btn" data-ui-scale="1">Normal</button>
-                <button type="button" class="btn" data-ui-scale="1.2">Groß</button>
+          <div class="topbar-tools">
+            <button type="button" class="btn icon-btn dock-toggle" id="btn-dock-toggle" aria-expanded="false" title="Ziele &amp; Feld">
+              <span class="dock-toggle-glyph" aria-hidden="true"></span>
+              <span class="dock-toggle-text">Ziele</span>
+            </button>
+            <div class="settings-wrap settings-wrap--hud">
+              <button type="button" class="btn icon-btn js-settings-btn" title="Darstellung" aria-label="Darstellung">⚙</button>
+              <div class="settings-panel" hidden>
+                <div class="settings-row">
+                  <span>Tageslicht</span>
+                  <button type="button" class="t-toggle js-theme-toggle" role="switch" data-on="true" aria-checked="true" aria-label="Tageslicht">
+                    <span class="t-toggle-thumb"></span>
+                  </button>
+                </div>
+                <div class="settings-scale">
+                  <label>UI-Größe</label>
+                  <input type="range" class="js-ui-scale" min="0.8" max="1.25" step="0.05" value="1" />
+                  <div class="scale-presets">
+                    <button type="button" class="btn" data-ui-scale="0.85">Klein</button>
+                    <button type="button" class="btn" data-ui-scale="1">Normal</button>
+                    <button type="button" class="btn" data-ui-scale="1.2">Groß</button>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
         </div>
 
-        </header>
+        <div class="topbar-row topbar-row--meters">
+          <div class="risk-pill" title="Risiko">
+            <span class="meter-label">Risiko</span>
+            <div id="risk-meter" class="risk-meter" style="--risk: 0"></div>
+            <strong id="stat-risk" class="t-digit-group">0</strong>
+          </div>
 
-        <aside class="dock" aria-label="Ziele und Feld">
+          <div class="goal-pill" id="goal-pill" hidden>
+            <span class="meter-label">Versprechen</span>
+            <div class="goal-pill-bar"><span id="goal-pill-fill" style="width: 0%"></span></div>
+            <strong id="stat-goal-total">0</strong><span class="goal-max">%</span>
+          </div>
+        </div>
+      </header>
+
+      <section class="city-frame" aria-label="Distrikt">
+        <div class="city-plane">
+          <div class="sky" aria-hidden="true">
+            <span class="sky-orb"></span>
+            <span class="sky-stars"></span>
+            <span class="sky-cloud sky-cloud--a"></span>
+            <span class="sky-cloud sky-cloud--b"></span>
+            <span class="sky-haze"></span>
+          </div>
+          <div class="map-viewport" id="map-viewport">
+            <div class="map-board" id="map-board">
+              <svg id="district-svg" role="img" aria-label="Hex-Distrikt"></svg>
+            </div>
+          </div>
+          <div class="board-veil" aria-hidden="true"></div>
+        </div>
+
+        <div class="map-controls" aria-label="Kartensteuerung">
+          <button type="button" class="btn icon-btn" id="btn-map-zoom-in" title="Heranzoomen">+</button>
+          <button type="button" class="btn icon-btn" id="btn-map-zoom-out" title="Herauszoomen">−</button>
+          <button type="button" class="btn icon-btn" id="btn-map-reset" title="Ansicht zurücksetzen">◎</button>
+        </div>
+
+        <p id="table-hint" class="coach" role="status"></p>
+      </section>
+
+      <aside class="dock" id="dock" aria-label="Ziele und Feld">
+        <div class="dock-scroll">
+          <button type="button" class="dock-close" id="btn-dock-close" aria-label="Panel schließen">Fertig</button>
+
           <div id="goal-panel" class="goal-panel" hidden>
             <div class="goal-panel-head">
               <div>
                 <p class="goal-kicker">Wahlversprechen</p>
                 <h2 id="goal-role-name"></h2>
               </div>
-              <div class="goal-total-ring">
+              <div class="goal-total-ring" id="goal-total-ring" style="--pct: 0">
                 <strong id="goal-total">0%</strong>
               </div>
             </div>
@@ -161,7 +184,7 @@
             <ul id="goal-list" class="goal-list"></ul>
           </div>
 
-          <div class="dock-head">
+          <div class="dock-head" hidden>
             <h2 id="dock-title">Feld</h2>
           </div>
           <div id="zone-inspect" class="zone-inspect" hidden>
@@ -178,10 +201,16 @@
             </div>
             <p id="standards-hint" class="standards-hint"></p>
           </div>
-        </aside>
 
-        <footer class="card-tray">
-        <div class="card-table">
+          <div class="legend" id="board-legend">
+            <p class="setup-label">Landnutzung</p>
+            <ul class="legend-list"></ul>
+          </div>
+        </div>
+      </aside>
+
+      <footer class="tray">
+        <div class="tray-grid">
           <div class="card-piles">
             <button type="button" class="card-pile draw-pile" id="btn-draw-deck" disabled>
               <span class="pile-stack" aria-hidden="true">
@@ -189,13 +218,13 @@
                 <span class="pile-layer"></span>
                 <span class="pile-layer pile-back"></span>
               </span>
-              <span class="pile-caption">Nachziehen</span>
               <span class="pile-count" id="draw-count">0</span>
+              <span class="pile-caption">Nachziehen</span>
             </button>
             <div class="card-pile played-pile" id="played-pile">
               <span class="pile-stack" id="played-stack" aria-hidden="true"></span>
-              <span class="pile-caption">Ausgespielt</span>
               <span class="pile-count" id="played-count">0</span>
+              <span class="pile-caption">Ausgespielt</span>
             </div>
           </div>
           <ul id="hand-fan" class="card-fan t-avatar-group" aria-label="Ausspielbare Karten"></ul>
@@ -204,9 +233,7 @@
             <button type="button" class="btn primary" id="btn-end-round" disabled>Zug beenden</button>
           </div>
         </div>
-        <p id="table-hint" class="hint">Home anklicken für Geräte · Karten liegen im Fach</p>
       </footer>
-      </div>
     </div>
 
     <div id="toast-stack" class="toast-stack t-stack" aria-live="polite"></div>
@@ -245,12 +272,14 @@
           <div class="inspect-modes">
             <button type="button" class="mode-hit" id="mode-cloud" data-mode="cloud">
               <span class="mode-icon" data-mode="cloud"></span>
+              <span class="mode-name">Cloud</span>
               <span class="mode-cost" id="inspect-cloud-cost"></span>
               <span class="mode-risk risk-row" id="inspect-cloud-risk"></span>
               <span class="mode-upkeep" id="inspect-cloud-upkeep"></span>
             </button>
             <button type="button" class="mode-hit" id="mode-local" data-mode="local">
               <span class="mode-icon" data-mode="local"></span>
+              <span class="mode-name">Lokal</span>
               <span class="mode-cost" id="inspect-local-cost"></span>
             </button>
           </div>
@@ -322,16 +351,16 @@
       </div>
     </div>
 
-    <script src="js/data/constants.js?v=19"></script>
-    <script src="js/data/tiles.js?v=19"></script>
-    <script src="js/data/devices.js?v=19"></script>
-    <script src="js/data/events.js?v=19"></script>
-    <script src="js/data/cards.js?v=19"></script>
-    <script src="js/data/roles.js?v=19"></script>
-    <script src="js/icons.js?v=19"></script>
-    <script src="js/roles.js?v=19"></script>
-    <script src="js/state.js?v=19"></script>
-    <script src="js/render.js?v=19"></script>
-    <script src="js/main.js?v=19"></script>
+    <script src="js/data/constants.js?v=20"></script>
+    <script src="js/data/tiles.js?v=20"></script>
+    <script src="js/data/devices.js?v=20"></script>
+    <script src="js/data/events.js?v=20"></script>
+    <script src="js/data/cards.js?v=20"></script>
+    <script src="js/data/roles.js?v=20"></script>
+    <script src="js/icons.js?v=20"></script>
+    <script src="js/roles.js?v=20"></script>
+    <script src="js/state.js?v=20"></script>
+    <script src="js/render.js?v=20"></script>
+    <script src="js/main.js?v=20"></script>
   </body>
 </html>

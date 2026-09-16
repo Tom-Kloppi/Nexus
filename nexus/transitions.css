@@ -362,10 +362,16 @@
     filter: none !important;
   }
 
-  .hex.is-place-pop,
-  .hex.is-coupon-pulse,
+  .tile.is-place-pop,
+  .tile.is-coupon-pulse .plus-pin-body,
+  .tile.is-spinning .gacha-needle,
+  .yield-pop,
   .is-shaking {
     animation: none !important;
+  }
+
+  .yield-pop {
+    opacity: 1;
   }
 }
 
@@ -403,31 +409,67 @@
   }
 }
 
-.hex.is-place-pop {
-  animation: hex-place-pop var(--duration-fast) var(--ease-bounce);
+/* Neue Kachel: kurz einrasten (Lehre: „hier ist etwas entstanden“) */
+.tile.is-place-pop {
+  animation: tile-place-pop var(--duration-medium) var(--ease-bounce);
 }
 
-@keyframes hex-place-pop {
+@keyframes tile-place-pop {
   0% {
-    transform: scale(var(--scale-large));
-    opacity: 0.65;
+    transform: translateY(-10px) scale(0.92);
+    opacity: 0.4;
+  }
+  60% {
+    transform: translateY(1px) scale(1.02);
+    opacity: 1;
   }
   100% {
-    transform: scale(1);
+    transform: translateY(0) scale(1);
     opacity: 1;
   }
 }
 
-.hex-empty.is-coupon-pulse.is-buyable polygon {
-  animation: coupon-pulse 1.4s var(--ease-smooth-out) infinite;
+/* Gratis-Bauplatz atmet, solange der Startcoupon offen ist */
+.tile.is-coupon-pulse .plus-pin-body {
+  animation: coupon-pulse 1.6s var(--ease-in-out) infinite;
+  transform-box: fill-box;
+  transform-origin: 50% 50%;
 }
 
 @keyframes coupon-pulse {
   0%,
   100% {
-    stroke-opacity: 1;
+    transform: scale(1);
+    opacity: 1;
   }
   50% {
-    stroke-opacity: 0.45;
+    transform: scale(1.16);
+    opacity: 0.82;
+  }
+}
+
+/* Ertrag: Chip steigt über der Kachel auf und verblasst */
+.yield-pop {
+  animation: yield-float 1.5s var(--ease-smooth-out) both;
+  animation-delay: var(--reveal-delay, 0ms);
+  opacity: 0;
+}
+
+@keyframes yield-float {
+  0% {
+    transform: translateY(6px) scale(0.86);
+    opacity: 0;
+  }
+  18% {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+  70% {
+    transform: translateY(-8px) scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(-16px) scale(0.98);
+    opacity: 0;
   }
 }

@@ -235,30 +235,866 @@ window.Nexus = window.Nexus || {};
     return html || '<span class="pip" style="opacity:0.15"></span>';
   }
 
-  function hexPoints(cx, cy, size) {
-    var points = [];
-    var i;
-    for (i = 0; i < 6; i++) {
-      var angle = (Math.PI / 180) * (60 * i - 30);
-      points.push(cx + size * Math.cos(angle) + "," + (cy + size * Math.sin(angle)));
-    }
-    return points.join(" ");
-  }
+  /* ==================== Stadt-Präsentation ====================
+     Projektion: Bodenebene vertikal gestaucht (Axonometrie-Anmutung),
+     Kacheln als Prisma mit Kantenhöhe, Gebäude als Körper mit fester
+     Tiefenrichtung nach rechts-oben. Reine Darstellung, keine Regeln. */
+
+  var VIEW = {
+    squash: 0.6,
+    thickness: 17,
+    waterDrop: 8,
+    decoRings: 1,
+    depthX: 13,
+    depthY: -10
+  };
+
+  var viewCache = null;
 
   function axialDistance(q, r) {
     return (Math.abs(q) + Math.abs(r) + Math.abs(q + r)) / 2;
   }
 
-  function isParkLot(q, r) {
-    return axialDistance(q, r) <= 1;
+  function boardView() {
+    if (viewCache) {
+      return viewCache;
+    }
+    var size = C.HEX_SIZE;
+    var playRadius = C.HEX_RADIUS;
+    var sx = (size * Math.sqrt(3)) / 2;
+    var sy = size * VIEW.squash;
+    var padTop = sy + 68;
+    var padBottom = sy + VIEW.thickness + 28;
+    var padSide = sx + 18;
+    var minX = Infinity;
+    var maxX = -Infinity;
+    var minY = Infinity;
+    var maxY = -Infinity;
+    var raw = Nexus.allSlots(playRadius + VIEW.decoRings).map(function (slot) {
+      var p = Nexus.axialToPixel(slot.q, slot.r, size);
+      var tile = {
+        q: slot.q,
+        r: slot.r,
+        key: slot.key,
+        dist: axialDistance(slot.q, slot.r),
+        x: p.x,
+        y: p.y * VIEW.squash
+      };
+      minX = Math.min(minX, tile.x);
+      maxX = Math.max(maxX, tile.x);
+      minY = Math.min(minY, tile.y);
+      maxY = Math.max(maxY, tile.y);
+      return tile;
+    });
+    var ox = padSide - minX;
+    var oy = padTop - minY;
+    var fx0 = Infinity;
+    var fx1 = -Infinity;
+    var fy0 = Infinity;
+    var fy1 = -Infinity;
+    var tiles = raw.map(function (tile) {
+      tile.x += ox;
+      tile.y += oy;
+      if (tile.dist <= playRadius) {
+        fx0 = Math.min(fx0, tile.x);
+        fx1 = Math.max(fx1, tile.x);
+        fy0 = Math.min(fy0, tile.y);
+        fy1 = Math.max(fy1, tile.y);
+      }
+      return tile;
+    });
+    tiles.sort(function (a, b) {
+      return a.r !== b.r ? a.r - b.r : a.q - b.q;
+    });
+    viewCache = {
+      size: size,
+      sx: sx,
+      sy: sy,
+      thickness: VIEW.thickness,
+      playRadius: playRadius,
+      width: Math.ceil(maxX - minX + padSide * 2),
+      height: Math.ceil(maxY - minY + padTop + padBottom),
+      tiles: tiles,
+      /* Sichtfenster: Spielfeld, Deko-Ring darf angeschnitten werden */
+      focus: {
+        x: fx0 - sx - 4,
+        y: fy0 - sy - 34,
+        w: fx1 - fx0 + sx * 2 + 8,
+        h: fy1 - fy0 + sy * 2 + 50
+      }
+    };
+    return viewCache;
   }
 
-  function zoneHexClass(zone) {
-    var cls = "hex-zone--" + zone.type;
-    if (zone.variant) {
-      cls += " hex-zone--" + zone.type + "-" + zone.variant;
+  /* ---- Geometrie-Helfer ---- */
+
+  function n(value) {
+    return Math.round(value * 10) / 10;
+  }
+
+  function pts(list) {
+    return list
+      .map(function (p) {
+        return n(p[0]) + "," + n(p[1]);
+      })
+      .join(" ");
+  }
+
+  function poly(points, cls, extra) {
+    return '<polygon class="' + cls + '" points="' + points + '"' + (extra || "") + "/>";
+  }
+
+  function rectPts(x, y, w, h) {
+    return pts([
+      [x, y],
+      [x + w, y],
+      [x + w, y + h],
+      [x, y + h]
+    ]);
+  }
+
+  function hexTopPts(cx, cy, sx, sy) {
+    return pts([
+      [cx, cy - sy],
+      [cx + sx, cy - sy / 2],
+      [cx + sx, cy + sy / 2],
+      [cx, cy + sy],
+      [cx - sx, cy + sy / 2],
+      [cx - sx, cy - sy / 2]
+    ]);
+  }
+
+  function hexSkirtPts(cx, cy, sx, sy, t) {
+    return pts([
+      [cx - sx, cy - sy / 2],
+      [cx - sx, cy + sy / 2],
+      [cx, cy + sy],
+      [cx + sx, cy + sy / 2],
+      [cx + sx, cy - sy / 2],
+      [cx + sx, cy - sy / 2 + t],
+      [cx + sx, cy + sy / 2 + t],
+      [cx, cy + sy + t],
+      [cx - sx, cy + sy / 2 + t],
+      [cx - sx, cy - sy / 2 + t]
+    ]);
+  }
+
+  function tileRandom(q, r, salt) {
+    var h = (q + 32) * 73856093 ^ (r + 32) * 19349663 ^ (salt || 7) * 83492791;
+    h = h >>> 0;
+    return function () {
+      h = (h * 1664525 + 1013904223) % 4294967296;
+      return h / 4294967296;
+    };
+  }
+
+  function pick(rand, list) {
+    return list[Math.min(list.length - 1, Math.floor(rand() * list.length))];
+  }
+
+  /* ---- Bau-Primitive ---- */
+
+  function dropShadow(cx, baseY, w) {
+    return (
+      '<ellipse class="drop" cx="' +
+      n(cx + 2) +
+      '" cy="' +
+      n(baseY + 1) +
+      '" rx="' +
+      n(w * 0.58) +
+      '" ry="' +
+      n(Math.max(2, w * 0.14)) +
+      '"/>'
+    );
+  }
+
+  function windowGrid(ax, ay, w, h, cols, rows, rand, litChance) {
+    if (cols < 1 || rows < 1) {
+      return "";
     }
-    return cls;
+    var padX = Math.max(2.5, w * 0.13);
+    var ww = (w - padX * (cols + 1)) / cols;
+    var padY = 3.4;
+    var wh = Math.min(5.6, (h - padY * (rows + 1)) / rows);
+    if (ww < 1.6 || wh < 1.6) {
+      return "";
+    }
+    var out = "";
+    var ri;
+    var ci;
+    for (ri = 0; ri < rows; ri++) {
+      for (ci = 0; ci < cols; ci++) {
+        var lit = rand() < (litChance === undefined ? 0.62 : litChance) ? " is-lit" : "";
+        out +=
+          '<rect class="win' +
+          lit +
+          '" x="' +
+          n(ax + padX + ci * (ww + padX)) +
+          '" y="' +
+          n(ay - h + padY + ri * (wh + padY)) +
+          '" width="' +
+          n(ww) +
+          '" height="' +
+          n(wh) +
+          '" rx="0.8"/>';
+      }
+    }
+    return out;
+  }
+
+  /* Körper mit Front-, Seiten- und Dachflächen. ax/ay = vordere untere Ecke. */
+  function building(ax, ay, w, h, opts) {
+    opts = opts || {};
+    var depth = opts.depth === undefined ? 1 : opts.depth;
+    var dx = VIEW.depthX * depth;
+    var dy = VIEW.depthY * depth;
+    var top = ay - h;
+    var roof = opts.roof || "flat";
+    var out = '<g class="bld ' + (opts.cls || "w-cream r-terra") + '">';
+    if (opts.shadow !== false) {
+      out += dropShadow(ax + w / 2, ay, w + Math.abs(dx));
+    }
+    out += poly(
+      pts([
+        [ax + w, ay],
+        [ax + w + dx, ay + dy],
+        [ax + w + dx, top + dy],
+        [ax + w, top]
+      ]),
+      "fc-side"
+    );
+    if (roof === "gable") {
+      var rh = opts.roofH || Math.max(8, w * 0.38);
+      var apex = [ax + w / 2, top - rh];
+      out += poly(
+        pts([
+          [ax, top],
+          apex,
+          [apex[0] + dx, apex[1] + dy],
+          [ax + dx, top + dy]
+        ]),
+        "rf-a"
+      );
+      out += poly(
+        pts([
+          apex,
+          [ax + w, top],
+          [ax + w + dx, top + dy],
+          [apex[0] + dx, apex[1] + dy]
+        ]),
+        "rf-b"
+      );
+      out += poly(rectPts(ax, top, w, h), "fc-front");
+      out += poly(
+        pts([
+          [ax, top],
+          [ax + w, top],
+          apex
+        ]),
+        "rf-front"
+      );
+    } else if (roof === "saw") {
+      out += poly(
+        pts([
+          [ax, top],
+          [ax + w, top],
+          [ax + w + dx, top + dy],
+          [ax + dx, top + dy]
+        ]),
+        "fc-top"
+      );
+      out += poly(rectPts(ax, top, w, h), "fc-front");
+      var teeth = Math.max(2, Math.round(w / 14));
+      var tw = w / teeth;
+      var i;
+      for (i = 0; i < teeth; i++) {
+        out += poly(
+          pts([
+            [ax + i * tw + dx * 0.5, top + dy * 0.5],
+            [ax + (i + 1) * tw + dx * 0.5, top + dy * 0.5],
+            [ax + (i + 1) * tw + dx * 0.5, top + dy * 0.5 - 6]
+          ]),
+          "rf-b"
+        );
+      }
+    } else {
+      out += poly(
+        pts([
+          [ax, top],
+          [ax + w, top],
+          [ax + w + dx, top + dy],
+          [ax + dx, top + dy]
+        ]),
+        "fc-top"
+      );
+      out += poly(rectPts(ax, top, w, h), "fc-front");
+      if (opts.parapet !== false) {
+        out += poly(rectPts(ax, top - 2.2, w, 2.4), "rf-a");
+      }
+    }
+    if (opts.windows) {
+      out += windowGrid(
+        ax,
+        ay,
+        w,
+        h,
+        opts.windows.cols,
+        opts.windows.rows,
+        opts.rand || Math.random,
+        opts.windows.lit
+      );
+    }
+    if (opts.door) {
+      out +=
+        '<rect class="door" x="' +
+        n(ax + w * 0.5 - 3) +
+        '" y="' +
+        n(ay - 8.5) +
+        '" width="6" height="8.5" rx="1.4"/>';
+    }
+    out += poly(rectPts(ax, top, w, h), "fc-line");
+    out += "</g>";
+    return out;
+  }
+
+  function tree(x, groundY, scale, alt) {
+    var s = scale || 1;
+    return (
+      '<g class="tree">' +
+      dropShadow(x, groundY, 15 * s) +
+      '<rect class="tree-trunk" x="' +
+      n(x - 1.4 * s) +
+      '" y="' +
+      n(groundY - 9 * s) +
+      '" width="' +
+      n(2.8 * s) +
+      '" height="' +
+      n(9 * s) +
+      '" rx="1"/>' +
+      '<circle class="' +
+      (alt ? "tree-crown-2" : "tree-crown") +
+      '" cx="' +
+      n(x) +
+      '" cy="' +
+      n(groundY - 13 * s) +
+      '" r="' +
+      n(7 * s) +
+      '"/>' +
+      '<circle class="' +
+      (alt ? "tree-crown" : "tree-crown-2") +
+      '" cx="' +
+      n(x - 4 * s) +
+      '" cy="' +
+      n(groundY - 9.5 * s) +
+      '" r="' +
+      n(4.6 * s) +
+      '"/>' +
+      '<circle class="' +
+      (alt ? "tree-crown" : "tree-crown-2") +
+      '" cx="' +
+      n(x + 4.2 * s) +
+      '" cy="' +
+      n(groundY - 10 * s) +
+      '" r="' +
+      n(4.2 * s) +
+      '"/>' +
+      "</g>"
+    );
+  }
+
+  function streetLamp(x, groundY, h) {
+    var height = h || 20;
+    return (
+      '<g class="lamp">' +
+      '<ellipse class="lamp-glow" cx="' +
+      n(x + 2) +
+      '" cy="' +
+      n(groundY + 2) +
+      '" rx="24" ry="10" fill="url(#nx-glow)"/>' +
+      '<path class="antenna" d="M' +
+      n(x) +
+      " " +
+      n(groundY) +
+      "V" +
+      n(groundY - height) +
+      "q0 -4 5 -4" +
+      '"/>' +
+      '<circle class="lamp-head" cx="' +
+      n(x + 5.5) +
+      '" cy="' +
+      n(groundY - height - 3.4) +
+      '" r="2.6"/>' +
+      "</g>"
+    );
+  }
+
+  function pvArray(x, groundY, w) {
+    var h = 13;
+    var lean = 9;
+    var top = pts([
+      [x, groundY],
+      [x + w, groundY],
+      [x + w + lean, groundY - h],
+      [x + lean, groundY - h]
+    ]);
+    var out = '<g class="pv">' + dropShadow(x + w / 2 + 3, groundY + 1, w * 0.9);
+    out += '<path class="antenna" d="M' + n(x + 3) + " " + n(groundY) + "l" + n(lean * 0.4) + " " + n(-h * 0.5) + '"/>';
+    out += '<path class="antenna" d="M' + n(x + w - 3) + " " + n(groundY) + "l" + n(lean * 0.4) + " " + n(-h * 0.5) + '"/>';
+    out += poly(top, "pv-panel");
+    out += poly(
+      pts([
+        [x + lean, groundY - h],
+        [x + lean + w * 0.42, groundY - h],
+        [x + w * 0.42, groundY],
+        [x, groundY]
+      ]),
+      "pv-shine"
+    );
+    out +=
+      '<path class="pv-frame" d="M' +
+      n(x + w * 0.33) +
+      " " +
+      n(groundY) +
+      "l" +
+      n(lean) +
+      " " +
+      n(-h) +
+      "M" +
+      n(x + w * 0.66) +
+      " " +
+      n(groundY) +
+      "l" +
+      n(lean) +
+      " " +
+      n(-h) +
+      '"/>';
+    out += "</g>";
+    return out;
+  }
+
+  /* ---- Landnutzung ---- */
+
+  var LAND_USE = {
+    residential: { key: "residential", label: "Wohngebiet", swatch: "--lu-res-top" },
+    "energy-solar": { key: "energy-solar", label: "Energie · Solar", swatch: "--lu-solar-top" },
+    "energy-transformer": { key: "energy-transformer", label: "Energie · Transformator", swatch: "--lu-trafo-top" },
+    "datacenter-insecure": { key: "datacenter-insecure", label: "Datenzentrum · offen", swatch: "--lu-dcopen-top" },
+    "datacenter-secure": { key: "datacenter-secure", label: "Datenzentrum · sicher", swatch: "--lu-dcsafe-top" },
+    traffic: { key: "traffic", label: "Verkehr", swatch: "--lu-traffic-top" },
+    home: { key: "home", label: "Smart Home", swatch: "--lu-home-top" }
+  };
+
+  var LEGEND_ROWS = [
+    "residential",
+    "energy-solar",
+    "energy-transformer",
+    "datacenter-insecure",
+    "datacenter-secure",
+    "traffic"
+  ];
+
+  function landUseKey(zone) {
+    if (!zone) {
+      return "grass";
+    }
+    if (zone.variant && LAND_USE[zone.type + "-" + zone.variant]) {
+      return zone.type + "-" + zone.variant;
+    }
+    if (zone.type === "energy") {
+      return "energy-solar";
+    }
+    if (zone.type === "datacenter") {
+      return "datacenter-insecure";
+    }
+    return zone.type;
+  }
+
+  /* Wohnhäuser: 2–3 Baukörper, Dachfarben aus der Palette */
+  function artResidential(cx, cy, sy, rand) {
+    var walls = ["w-cream", "w-sand", "w-clay", "w-mint"];
+    var roofs = ["r-terra", "r-sage", "r-slate", "r-tile", "r-copper"];
+    var lots = [
+      { x: cx - 34, y: cy + sy * 0.34, w: 27, h: 15 + rand() * 7 },
+      { x: cx + 2, y: cy + sy * 0.42, w: 24, h: 13 + rand() * 6 },
+      { x: cx - 13, y: cy - sy * 0.04, w: 25, h: 18 + rand() * 10 }
+    ];
+    if (rand() < 0.35) {
+      lots.splice(2, 1);
+    }
+    lots.sort(function (a, b) {
+      return a.y - b.y;
+    });
+    var out = "";
+    lots.forEach(function (lot, index) {
+      var gable = rand() < 0.75;
+      out += building(lot.x, lot.y, lot.w, lot.h, {
+        cls: pick(rand, walls) + " " + pick(rand, roofs),
+        roof: gable ? "gable" : "flat",
+        roofH: 8 + rand() * 5,
+        rand: rand,
+        door: index === lots.length - 1,
+        windows: { cols: 2, rows: lot.h > 22 ? 2 : 1, lit: 0.55 }
+      });
+    });
+    out += tree(cx + 30, cy + sy * 0.3, 0.85, rand() < 0.5);
+    if (rand() < 0.6) {
+      out += tree(cx - 42, cy + sy * 0.06, 0.62, true);
+    }
+    return out;
+  }
+
+  function artSolar(cx, cy, sy, rand) {
+    var out = "";
+    out += pvArray(cx - 40, cy + sy * 0.42, 30);
+    out += pvArray(cx - 4, cy + sy * 0.42, 30);
+    out += pvArray(cx - 22, cy + sy * 0.02, 30);
+    out += building(cx + 26, cy + sy * 0.12, 17, 12, {
+      cls: "w-concrete r-flat",
+      roof: "flat",
+      rand: rand,
+      windows: { cols: 1, rows: 1, lit: 0.4 }
+    });
+    return out;
+  }
+
+  function artTransformer(cx, cy, sy, rand) {
+    var baseY = cy + sy * 0.4;
+    var out = "";
+    /* Gittermast */
+    out +=
+      '<path class="antenna" d="M' +
+      n(cx + 22) +
+      " " +
+      n(baseY - 2) +
+      "L" +
+      n(cx + 29) +
+      " " +
+      n(baseY - 42) +
+      "M" +
+      n(cx + 40) +
+      " " +
+      n(baseY - 2) +
+      "L" +
+      n(cx + 33) +
+      " " +
+      n(baseY - 42) +
+      "M" +
+      n(cx + 24) +
+      " " +
+      n(baseY - 14) +
+      "L" +
+      n(cx + 38) +
+      " " +
+      n(baseY - 14) +
+      "M" +
+      n(cx + 26) +
+      " " +
+      n(baseY - 26) +
+      "L" +
+      n(cx + 36) +
+      " " +
+      n(baseY - 26) +
+      "M" +
+      n(cx + 22) +
+      " " +
+      n(baseY - 2) +
+      "L" +
+      n(cx + 38) +
+      " " +
+      n(baseY - 14) +
+      "M" +
+      n(cx + 40) +
+      " " +
+      n(baseY - 2) +
+      "L" +
+      n(cx + 24) +
+      " " +
+      n(baseY - 14) +
+      "M" +
+      n(cx + 24) +
+      " " +
+      n(baseY - 42) +
+      "L" +
+      n(cx + 38) +
+      " " +
+      n(baseY - 42) +
+      '"/>';
+    out += building(cx - 36, baseY, 40, 22, {
+      cls: "w-concrete r-flat",
+      roof: "flat",
+      rand: rand,
+      windows: { cols: 2, rows: 1, lit: 0.35 }
+    });
+    out +=
+      '<rect class="warn-stripe" x="' +
+      n(cx - 34) +
+      '" y="' +
+      n(baseY - 6) +
+      '" width="36" height="3.2"/>';
+    /* Trafo-Zylinder */
+    out += dropShadow(cx + 6, baseY, 20);
+    out +=
+      '<rect class="steel" x="' +
+      n(cx - 2) +
+      '" y="' +
+      n(baseY - 17) +
+      '" width="11" height="17" rx="3"/>' +
+      '<ellipse class="fc-top steel" cx="' +
+      n(cx + 3.5) +
+      '" cy="' +
+      n(baseY - 17) +
+      '" rx="5.5" ry="2.4"/>' +
+      '<rect class="steel-dark" x="' +
+      n(cx + 10) +
+      '" y="' +
+      n(baseY - 13) +
+      '" width="8" height="13" rx="2.6"/>';
+    return out;
+  }
+
+  function artDatacenter(cx, cy, sy, rand, secure) {
+    var baseY = cy + sy * 0.4;
+    var out = "";
+    var i;
+    if (secure) {
+      out += building(cx - 24, baseY, 42, 32, {
+        cls: "w-steel r-slate",
+        roof: "flat",
+        rand: rand,
+        windows: { cols: 3, rows: 1, lit: 0.28 }
+      });
+      /* Kühlrippen auf dem Dach */
+      for (i = 0; i < 3; i++) {
+        out +=
+          '<rect class="steel-dark" x="' +
+          n(cx - 17 + i * 12) +
+          '" y="' +
+          n(baseY - 41) +
+          '" width="8" height="8" rx="1.5"/>';
+      }
+      /* Sicherheitsplakette */
+      out +=
+        '<circle class="badge-disc" cx="' +
+        n(cx + 2) +
+        '" cy="' +
+        n(baseY - 16) +
+        '" r="7.5"/>' +
+        '<path class="shield-badge" d="M' +
+        n(cx - 2.5) +
+        " " +
+        n(baseY - 19.5) +
+        "l4.5 -2 4.5 2v4q0 4 -4.5 6 -4.5 -2 -4.5 -6z" +
+        '"/>';
+      /* geschlossene Mauer davor */
+      out +=
+        '<rect class="steel" x="' +
+        n(cx - 30) +
+        '" y="' +
+        n(baseY - 6) +
+        '" width="56" height="6.5" rx="2"/>';
+    } else {
+      out += building(cx - 26, baseY, 44, 19, {
+        cls: "w-slate r-flat",
+        roof: "saw",
+        rand: rand
+      });
+      /* Lüftungsschlitze statt Fenster */
+      out +=
+        '<path class="fc-line" d="M' +
+        n(cx - 22) +
+        " " +
+        n(baseY - 13) +
+        "h36M" +
+        n(cx - 22) +
+        " " +
+        n(baseY - 9) +
+        "h36M" +
+        n(cx - 22) +
+        " " +
+        n(baseY - 5) +
+        "h36" +
+        '"/>';
+      /* offener Zaun = ungesichert */
+      out +=
+        '<path class="cage" d="M' +
+        n(cx - 34) +
+        " " +
+        n(baseY + 7) +
+        "v-9h62v9" +
+        '"/>';
+      for (i = 0; i < 5; i++) {
+        out +=
+          '<path class="cage" d="M' +
+          n(cx - 34 + i * 15.5) +
+          " " +
+          n(baseY + 7) +
+          "v-9" +
+          '"/>';
+      }
+      out +=
+        '<ellipse class="lamp-glow" cx="' +
+        n(cx + 16) +
+        '" cy="' +
+        n(baseY - 25) +
+        '" rx="12" ry="9" fill="url(#nx-warn)"/>';
+      out += '<path class="antenna" d="M' + n(cx + 16) + " " + n(baseY - 20) + "v-5" + '"/>';
+      out += '<circle class="pip-warn" cx="' + n(cx + 16) + '" cy="' + n(baseY - 26) + '" r="2.8"/>';
+    }
+    return out;
+  }
+
+  function artTraffic(cx, cy, sx, sy, rand) {
+    var half = 11;
+    var out = "";
+    out += poly(rectPts(cx - sx, cy - half - 3, sx * 2, 3), "kerb");
+    out += poly(rectPts(cx - sx, cy + half, sx * 2, 3), "kerb");
+    out += poly(rectPts(cx - sx, cy - half, sx * 2, half * 2), "asphalt");
+    out +=
+      '<path class="marking marking--dash" d="M' +
+      n(cx - sx + 4) +
+      " " +
+      n(cy) +
+      "H" +
+      n(cx + sx - 4) +
+      '"/>';
+    var i;
+    if (rand() < 0.45) {
+      /* Zebrastreifen als Quartiers-Detail, nicht auf jedem Feld */
+      for (i = 0; i < 4; i++) {
+        out += poly(rectPts(cx + 22 + i * 5, cy - half + 1.5, 2.4, half * 2 - 3), "marking-solid");
+      }
+    }
+    out += streetLamp(cx - 34, cy - half - 2, 20);
+    out += streetLamp(cx + 8, cy - half - 2, 20);
+    if (rand() < 0.8) {
+      var carX = cx - 26 + rand() * 20;
+      out += dropShadow(carX + 8, cy + half - 3, 18);
+      out +=
+        '<rect class="car-body" x="' +
+        n(carX) +
+        '" y="' +
+        n(cy + half - 11) +
+        '" width="17" height="6.5" rx="2.6"/>' +
+        '<rect class="car-glass" x="' +
+        n(carX + 4) +
+        '" y="' +
+        n(cy + half - 13.6) +
+        '" width="8.5" height="3.6" rx="1.4"/>';
+    }
+    out += tree(cx + 38, cy - half - 6, 0.5, true);
+    return out;
+  }
+
+  function artHome(cx, cy, sy, rand) {
+    var baseY = cy + sy * 0.36;
+    var out = "";
+    out += building(cx - 24, baseY, 34, 24, {
+      cls: "w-cream r-slate",
+      roof: "gable",
+      roofH: 13,
+      rand: rand,
+      door: true,
+      windows: { cols: 2, rows: 2, lit: 0.8 }
+    });
+    out += building(cx + 12, baseY - 1, 18, 14, {
+      cls: "w-mint r-sage",
+      roof: "gable",
+      roofH: 7,
+      rand: rand,
+      windows: { cols: 1, rows: 1, lit: 0.7 }
+    });
+    out +=
+      '<path class="flag-pole" d="M' +
+      n(cx - 30) +
+      " " +
+      n(baseY - 2) +
+      "v-40" +
+      '"/>' +
+      poly(
+        pts([
+          [cx - 30, baseY - 42],
+          [cx - 14, baseY - 38],
+          [cx - 30, baseY - 33]
+        ]),
+        "flag-cloth"
+      );
+    out += tree(cx + 34, baseY - 2, 0.7, true);
+    return out;
+  }
+
+  /* Parks und Wiesen sind Deko — keine Punkte, nur Lesbarkeit und Ruhe */
+  function artPark(cx, cy, sy, rand) {
+    var out = "";
+    var pond = rand() < 0.45;
+    if (pond) {
+      out +=
+        '<ellipse class="pond" cx="' +
+        n(cx + 10) +
+        '" cy="' +
+        n(cy + sy * 0.26) +
+        '" rx="21" ry="9"/>';
+    } else {
+      out +=
+        '<path class="park-path" d="M' +
+        n(cx - 36) +
+        " " +
+        n(cy + sy * 0.4) +
+        "q20 -14 34 -4t34 -10" +
+        '"/>';
+    }
+    var spots = [
+      [cx - 26, cy + sy * 0.34, 0.95],
+      [cx + 4, cy - sy * 0.12, 0.8],
+      [cx + 26, cy + sy * 0.1, 0.66]
+    ];
+    spots.forEach(function (spot, index) {
+      if (rand() < 0.14) {
+        return;
+      }
+      out += tree(spot[0], spot[1], spot[2], index % 2 === 0);
+    });
+    return out;
+  }
+
+  function artMeadow(cx, cy, sy, rand) {
+    var out = "";
+    if (rand() < 0.45) {
+      out += tree(cx - 16 + rand() * 30, cy + sy * 0.28, 0.6, rand() < 0.5);
+    }
+    if (rand() < 0.6) {
+      out +=
+        '<ellipse class="bush" cx="' +
+        n(cx - 28 + rand() * 56) +
+        '" cy="' +
+        n(cy + sy * 0.1 + rand() * sy * 0.3) +
+        '" rx="5.4" ry="3.2"/>';
+    }
+    if (rand() < 0.3) {
+      out +=
+        '<ellipse class="rock" cx="' +
+        n(cx - 22 + rand() * 44) +
+        '" cy="' +
+        n(cy - sy * 0.18) +
+        '" rx="4" ry="2.2"/>';
+    }
+    return out;
+  }
+
+  function artWater(cx, cy, sx, sy, rand) {
+    var out = "";
+    var i;
+    for (i = 0; i < 3; i++) {
+      var wx = cx - sx * 0.55 + rand() * sx * 0.9;
+      var wy = cy - sy * 0.3 + i * sy * 0.32;
+      out +=
+        '<path class="wave" d="M' +
+        n(wx) +
+        " " +
+        n(wy) +
+        "q6 -3.4 12 0t12 0" +
+        '"/>';
+    }
+    return out;
   }
 
   function playerHasDatacenter(state, playerId) {
@@ -302,205 +1138,6 @@ window.Nexus = window.Nexus || {};
       return "Bandbreite + Risiko — Gate für Wohn-Bandbreite";
     }
     return formatZoneYield(zone);
-  }
-
-  function buildingDeco(cx, cy, size, zone) {
-    var w = size * 0.42;
-    var h = size * 0.28;
-    var x = cx - w / 2;
-    var y = cy - size * 0.22;
-    if (zone.type === "traffic") {
-      return (
-        '<g class="hex-deco hex-deco--traffic">' +
-        '<rect class="deco-road" x="' +
-        (cx - size * 0.55) +
-        '" y="' +
-        (cy + size * 0.02) +
-        '" width="' +
-        size * 1.1 +
-        '" height="' +
-        size * 0.32 +
-        '" rx="3"/>' +
-        '<line class="deco-lane" x1="' +
-        (cx - size * 0.35) +
-        '" y1="' +
-        (cy + size * 0.18) +
-        '" x2="' +
-        (cx + size * 0.35) +
-        '" y2="' +
-        (cy + size * 0.18) +
-        '"/>' +
-        '<circle class="deco-lamp" cx="' +
-        (cx + size * 0.38) +
-        '" cy="' +
-        (cy - size * 0.12) +
-        '" r="2.8"/>' +
-        "</g>"
-      );
-    }
-    if (zone.type === "energy" && zone.variant === "solar") {
-      return (
-        '<g class="hex-deco hex-deco--solar">' +
-        '<rect class="deco-pv" x="' +
-        x +
-        '" y="' +
-        y +
-        '" width="' +
-        w +
-        '" height="' +
-        h +
-        '"/>' +
-        '<rect class="deco-pv deco-pv--2" x="' +
-        (x + w * 0.08) +
-        '" y="' +
-        (y + h * 0.12) +
-        '" width="' +
-        w * 0.84 +
-        '" height="' +
-        h * 0.2 +
-        '"/>' +
-        "</g>"
-      );
-    }
-    if (zone.type === "energy" && zone.variant === "transformer") {
-      return (
-        '<g class="hex-deco hex-deco--transformer">' +
-        '<rect class="deco-block" x="' +
-        x +
-        '" y="' +
-        y +
-        '" width="' +
-        w +
-        '" height="' +
-        (h * 1.2) +
-        '"/>' +
-        '<rect class="deco-coil" x="' +
-        (cx - w * 0.12) +
-        '" y="' +
-        (y - h * 0.35) +
-        '" width="' +
-        w * 0.24 +
-        '" height="' +
-        h * 0.5 +
-        '"/>' +
-        "</g>"
-      );
-    }
-    if (zone.type === "datacenter") {
-      var secure = zone.variant === "secure";
-      return (
-        '<g class="hex-deco hex-deco--dc' +
-        (secure ? " is-secure" : " is-open") +
-        '">' +
-        '<rect class="deco-dc" x="' +
-        x +
-        '" y="' +
-        y +
-        '" width="' +
-        w +
-        '" height="' +
-        (h * 1.35) +
-        '"/>' +
-        (!secure
-          ? '<rect class="deco-cage" x="' + (x + w * 0.15) + '" y="' + (y + h * 0.2) + '" width="' + w * 0.7 + '" height="' + h * 0.55 + '"/>'
-          : "") +
-        "</g>"
-      );
-    }
-    if (zone.type === "residential") {
-      return (
-        '<g class="hex-deco hex-deco--res">' +
-        '<rect class="deco-roof deco-roof--a" x="' +
-        (cx - w * 0.55) +
-        '" y="' +
-        y +
-        '" width="' +
-        w * 0.5 +
-        '" height="' +
-        h +
-        '"/>' +
-        '<rect class="deco-roof deco-roof--b" x="' +
-        (cx + w * 0.05) +
-        '" y="' +
-        (y - h * 0.15) +
-        '" width="' +
-        w * 0.55 +
-        '" height="' +
-        (h * 1.1) +
-        '"/>' +
-        "</g>"
-      );
-    }
-    return "";
-  }
-
-  function nightWindowLayer(cx, cy, size, zone, isMine, owner) {
-    var windows = "";
-    var i;
-    var count = 0;
-    if (zone.type === "home") {
-      count = isMine ? 4 : Math.min(3, cloudDeviceCount(owner));
-    } else if (zone.type === "residential" && isMine) {
-      count = 5;
-    } else if (zone.type === "traffic") {
-      count = 2;
-    } else if (zone.type === "datacenter") {
-      count = zone.variant === "insecure" ? 4 : 1;
-    } else if (zone.type === "energy") {
-      count = zone.variant === "transformer" ? 2 : 0;
-    }
-    if (!count) {
-      return "";
-    }
-    var cols = Math.min(3, count);
-    var rows = Math.ceil(count / cols);
-    var gap = size * 0.08;
-    var ww = size * 0.1;
-    var wh = size * 0.08;
-    var startX = cx - ((cols - 1) * (ww + gap)) / 2;
-    var startY = cy - size * 0.05;
-    var placed = 0;
-    for (i = 0; i < count; i++) {
-      var col = i % cols;
-      var row = Math.floor(i / cols);
-      windows +=
-        '<rect class="hex-window" x="' +
-        (startX + col * (ww + gap)) +
-        '" y="' +
-        (startY + row * (wh + gap)) +
-        '" width="' +
-        ww +
-        '" height="' +
-        wh +
-        '"/>';
-      placed += 1;
-      if (placed >= count) {
-        break;
-      }
-    }
-    return '<g class="hex-windows">' + windows + "</g>";
-  }
-
-  function parkDeco(cx, cy, size) {
-    var trees = "";
-    var offsets = [
-      { dx: 0, dy: -4 },
-      { dx: -10, dy: 6 },
-      { dx: 12, dy: 8 },
-      { dx: -6, dy: -12 },
-      { dx: 8, dy: -8 }
-    ];
-    offsets.forEach(function (off) {
-      trees +=
-        '<circle class="deco-tree" cx="' +
-        (cx + off.dx) +
-        '" cy="' +
-        (cy + off.dy) +
-        '" r="' +
-        size * 0.14 +
-        '"/>';
-    });
-    return '<g class="hex-deco hex-deco--park">' + trees + "</g>";
   }
 
   function dieWeightTotal() {
@@ -687,14 +1324,18 @@ window.Nexus = window.Nexus || {};
           (isActive ? " is-active" : "") +
           '" style="--player-color:' +
           playerColor(player) +
-          ";--turn-i:" +
-          index +
           '" data-player-id="' +
           player.id +
           '" title="' +
           player.name +
           " · " +
           colorName +
+          " · " +
+          alignment +
+          " · " +
+          zoneCount +
+          " Zone" +
+          (zoneCount === 1 ? "" : "n") +
           '">' +
           '<span class="turn-avatar">' +
           (index + 1) +
@@ -706,11 +1347,6 @@ window.Nexus = window.Nexus || {};
           '<span class="turn-alignment">' +
           alignment +
           standardLabel +
-          "</span>" +
-          '<span class="zone-count">· ' +
-          zoneCount +
-          " Zone" +
-          (zoneCount === 1 ? "" : "n") +
           "</span></span></button>"
         );
       })
@@ -749,6 +1385,14 @@ window.Nexus = window.Nexus || {};
     document.getElementById("goal-role-name").textContent = progress.role.name;
     document.getElementById("goal-total").textContent = progress.totalPercent + "%";
     document.getElementById("stat-goal-total").textContent = progress.totalPercent;
+    var ring = document.getElementById("goal-total-ring");
+    if (ring) {
+      ring.style.setProperty("--pct", String(Math.min(100, progress.totalPercent)));
+    }
+    var pillFill = document.getElementById("goal-pill-fill");
+    if (pillFill) {
+      pillFill.style.width = Math.min(100, progress.totalPercent) + "%";
+    }
 
     if (tracks) {
       var scores = player.scores || {};
@@ -998,7 +1642,8 @@ window.Nexus = window.Nexus || {};
     lastPlayerId = player.id;
   }
 
-  function homeDevicePips(owner, cx, cy, publicOnly) {
+  /* Öffentliche Cloud-Geräte als Sockel-Chips, lokale nur für die Besitzerin */
+  function homeDevicePips(owner, cx, baseY, publicOnly) {
     if (!owner) {
       return "";
     }
@@ -1016,267 +1661,414 @@ window.Nexus = window.Nexus || {};
     if (!built.length) {
       return "";
     }
-    var cols = Math.min(4, built.length);
-    var gap = 10;
+    var cols = Math.min(5, built.length);
+    var gap = 7.5;
     var startX = cx - ((cols - 1) * gap) / 2;
-    var startY = cy + 16;
-    return built
+    var out =
+      '<rect class="pip-plinth" x="' +
+      n(startX - 6) +
+      '" y="' +
+      n(baseY - 1) +
+      '" width="' +
+      n((cols - 1) * gap + 12) +
+      '" height="' +
+      n(4 + Math.ceil(built.length / cols) * 6) +
+      '" rx="2.5"/>';
+    out += built
       .map(function (item, index) {
         var col = index % cols;
         var row = Math.floor(index / cols);
-        var x = startX + col * gap;
-        var y = startY + row * 10;
         return (
-          '<circle class="home-device-pip is-' +
+          '<circle class="pip-' +
           item.mode +
           '" cx="' +
-          x +
+          n(startX + col * gap) +
           '" cy="' +
-          y +
-          '" r="3.6"><title>' +
+          n(baseY + 3 + row * 6) +
+          '" r="2.6"><title>' +
           item.name +
           (item.mode === "cloud" ? " · Cloud" : " · Lokal") +
           "</title></circle>"
         );
       })
       .join("");
+    return out;
+  }
+
+  function boardDefs() {
+    return (
+      "<defs>" +
+      '<linearGradient id="nx-light" x1="0.1" y1="0" x2="0.75" y2="1">' +
+      '<stop offset="0%" stop-color="#ffffff" stop-opacity="0.34"/>' +
+      '<stop offset="62%" stop-color="#ffffff" stop-opacity="0.04"/>' +
+      '<stop offset="100%" stop-color="#000000" stop-opacity="0.07"/>' +
+      "</linearGradient>" +
+      '<radialGradient id="nx-glow" cx="50%" cy="50%" r="50%">' +
+      '<stop offset="0%" stop-color="#ffdf9e" stop-opacity="0.8"/>' +
+      '<stop offset="55%" stop-color="#ffd07a" stop-opacity="0.3"/>' +
+      '<stop offset="100%" stop-color="#ffc864" stop-opacity="0"/>' +
+      "</radialGradient>" +
+      '<radialGradient id="nx-warn" cx="50%" cy="50%" r="50%">' +
+      '<stop offset="0%" stop-color="#ff8a6a" stop-opacity="0.85"/>' +
+      '<stop offset="100%" stop-color="#ff6a4a" stop-opacity="0"/>' +
+      "</radialGradient>" +
+      '<radialGradient id="nx-island" cx="50%" cy="50%" r="50%">' +
+      '<stop offset="0%" stop-color="#0b1a12" stop-opacity="0.3"/>' +
+      '<stop offset="100%" stop-color="#0b1a12" stop-opacity="0"/>' +
+      "</radialGradient>" +
+      "</defs>"
+    );
+  }
+
+  function rollChip(cx, cy, zone, staggerMs) {
+    var barW = 46;
+    var barH = 9;
+    var barX = cx - barW / 2;
+    var barY = cy - 7;
+    var total = dieWeightTotal();
+    var cursor = barX;
+    var bands = "";
+    Nexus.PRODUCTION_DICE.forEach(function (die) {
+      var w = (die.weight / total) * barW;
+      bands +=
+        '<rect x="' +
+        n(cursor) +
+        '" y="' +
+        n(barY) +
+        '" width="' +
+        n(w) +
+        '" height="' +
+        barH +
+        '" fill="' +
+        die.color +
+        '" rx="1.5"/>';
+      cursor += w;
+    });
+    var settle = zone.lastDieId ? dieSettleRatio(zone.lastDieId) : 0.5;
+    return (
+      '<g class="roll-chip">' +
+      '<rect class="roll-chip-bg" x="' +
+      n(barX - 4) +
+      '" y="' +
+      n(barY - 4) +
+      '" width="' +
+      n(barW + 8) +
+      '" height="' +
+      n(barH + 8) +
+      '" rx="6"/>' +
+      bands +
+      '<g transform="translate(' +
+      n(barX) +
+      "," +
+      n(barY) +
+      ')"><g class="gacha-needle" style="--settle-x:' +
+      n(settle * barW) +
+      "px;--bar-w:" +
+      barW +
+      "px;--spin-delay:" +
+      staggerMs +
+      'ms"><polygon class="roll-chip-mark" points="-4,-6 4,-6 0,5"/></g></g>' +
+      "</g>"
+    );
+  }
+
+  function yieldPop(cx, cy, zone) {
+    var data = zone.lastYield;
+    if (!data) {
+      return "";
+    }
+    var label;
+    var iconKey;
+    if (zone.type === "home" && data.homeBundle) {
+      label = "+1 alle";
+      iconKey = "money";
+    } else if (data.primary) {
+      label = (data.primary.amount >= 0 ? "+" : "") + data.primary.amount;
+      iconKey = data.primary.resource;
+    } else {
+      return "";
+    }
+    var w = label.length > 3 ? 56 : 44;
+    var top = cy - 26;
+    return (
+      '<g class="yield-pop" style="--reveal-delay:' +
+      (zone.revealDelay || 0) +
+      'ms">' +
+      '<rect class="yield-pop-bg" x="' +
+      n(cx - w / 2) +
+      '" y="' +
+      n(top) +
+      '" width="' +
+      w +
+      '" height="21" rx="10.5"/>' +
+      '<g transform="translate(' +
+      n(cx - w / 2 + 5) +
+      "," +
+      n(top + 4) +
+      ') scale(0.56)">' +
+      Nexus.iconGroup(iconKey, "currentColor") +
+      "</g>" +
+      '<text class="yield-pop-text" x="' +
+      n(cx + 7) +
+      '" y="' +
+      n(top + 15.5) +
+      '">' +
+      label +
+      "</text>" +
+      "</g>"
+    );
+  }
+
+  function tileMarkup(state, ui, view, tile, player, ctx) {
+    var cx = tile.x;
+    var cy = tile.y;
+    var sx = view.sx;
+    var sy = view.sy;
+    var isDeco = tile.dist > view.playRadius;
+    var zone = isDeco ? null : Nexus.zoneAt(state, tile.q, tile.r);
+    var rand = tileRandom(tile.q, tile.r, 11);
+    var classes = ["tile"];
+    var attrs = "";
+    var style = "";
+    var thickness = view.thickness;
+    var art = "";
+    var overlay = "";
+    var title = "";
+    var use;
+
+    if (isDeco) {
+      use = "water";
+      cy += VIEW.waterDrop;
+      thickness = 9;
+      classes.push("tile--water");
+      art = artWater(cx, cy, sx, sy, rand);
+    } else if (zone) {
+      use = landUseKey(zone);
+      var owner = state.players.filter(function (p) {
+        return p.id === zone.ownerId;
+      })[0];
+      var isMine = zone.ownerId === player.id;
+      var isHome = zone.type === "home";
+      classes.push("tile--" + use);
+      classes.push("is-clickable");
+      classes.push(isMine ? "is-mine" : "is-foreign");
+      classes.push(isHome ? "hex-home" : "hex-owned");
+      style += "--owner-color:" + playerColor(owner) + ";";
+      attrs +=
+        ' data-mine="' +
+        (isMine ? "1" : "0") +
+        '"' +
+        (isHome
+          ? ' data-home="' + zone.id + '" data-owner="' + zone.ownerId + '"'
+          : ' data-zone="' + zone.id + '"');
+      title =
+        (Nexus.ZONE_TYPES[zone.type] || {}).label +
+        (zone.variant ? " · " + zone.variant : "") +
+        " · " +
+        (owner ? owner.name : "");
+      if (ctx.spinning[zone.id]) {
+        classes.push("is-spinning");
+      }
+      if (ui && ui.inspectedZoneId === zone.id) {
+        classes.push("is-selected");
+      }
+      if (isHome && isMine && ui && ui.homeOpen) {
+        classes.push("is-selected");
+      }
+      if (ctx.placePopId === zone.id) {
+        classes.push("is-place-pop");
+      }
+      if (isHome) {
+        art = artHome(cx, cy, sy, rand);
+        overlay += homeDevicePips(owner, cx, cy + sy * 0.46, !isMine);
+      } else if (use === "residential") {
+        art = artResidential(cx, cy, sy, rand);
+      } else if (use === "energy-solar") {
+        art = artSolar(cx, cy, sy, rand);
+      } else if (use === "energy-transformer") {
+        art = artTransformer(cx, cy, sy, rand);
+      } else if (use === "datacenter-secure") {
+        art = artDatacenter(cx, cy, sy, rand, true);
+      } else if (use === "datacenter-insecure") {
+        art = artDatacenter(cx, cy, sy, rand, false);
+      } else if (use === "traffic") {
+        art = artTraffic(cx, cy, sx, sy, rand);
+      }
+      if (ctx.spinning[zone.id]) {
+        overlay += rollChip(cx, cy - sy * 0.75, zone, ctx.stagger[zone.id] || 0);
+      } else if (ctx.showYield && isMine && zone.lastYield) {
+        overlay += yieldPop(cx, cy - sy * 0.7, zone);
+      }
+    } else {
+      var expandable =
+        Nexus.isExpandableSlot(state, tile.q, tile.r) && state.turnPhase === "build";
+      var affordable = expandable && Nexus.canAffordExpandSlot(state, tile.q, tile.r);
+      use = tile.dist <= 1 ? "park" : "grass";
+      classes.push("tile--" + use);
+      classes.push("g-" + (1 + Math.floor(rand() * 3)));
+      art = use === "park" ? artPark(cx, cy, sy, rand) : artMeadow(cx, cy, sy, rand);
+      if (expandable) {
+        classes.push("tile--open", "hex-empty", "is-open", "is-clickable");
+        if (affordable) {
+          classes.push("tile--affordable", "is-buyable", "is-coupon-pulse");
+        }
+        attrs += ' data-q="' + tile.q + '" data-r="' + tile.r + '"';
+        title = affordable ? "Freies Feld — bebaubar" : "Freies Feld";
+        overlay +=
+          '<g class="plus-pin">' +
+          '<path class="antenna" d="M' +
+          n(cx) +
+          " " +
+          n(cy + 2) +
+          "V" +
+          n(cy - 14) +
+          '"/>' +
+          '<circle class="plus-pin-body" cx="' +
+          n(cx) +
+          '" cy="' +
+          n(cy - 25) +
+          '" r="10.5"/>' +
+          '<text class="plus-pin-glyph" x="' +
+          n(cx) +
+          '" y="' +
+          n(cy - 19.5) +
+          '">+</text>' +
+          "</g>";
+      }
+      if (ui && ui.expandSlot && ui.expandSlot.q === tile.q && ui.expandSlot.r === tile.r) {
+        classes.push("is-selected");
+      }
+    }
+
+    var inner =
+      poly(hexSkirtPts(cx, cy, sx, sy, thickness), "tile-skirt") +
+      poly(hexTopPts(cx, cy, sx, sy), "tile-top") +
+      poly(hexTopPts(cx, cy, sx, sy), "tile-light", ' fill="url(#nx-light)"');
+    if (zone) {
+      inner +=
+        poly(hexTopPts(cx, cy, sx * 0.965, sy * 0.965), "tile-owner-ring") +
+        poly(hexTopPts(cx, cy, sx * 0.9, sy * 0.9), "tile-owner-ring-inner");
+    }
+    inner += art + overlay;
+    inner += poly(hexTopPts(cx, cy, sx, sy), "tile-hit");
+
+    return (
+      '<g class="' +
+      classes.join(" ") +
+      '"' +
+      attrs +
+      (style ? ' style="' + style + '"' : "") +
+      ">" +
+      (title ? "<title>" + title + "</title>" : "") +
+      inner +
+      "</g>"
+    );
+  }
+
+  function coachText(state, player) {
+    var factoryCount = Nexus.playerFactoryZones(state, player.id).length;
+    var ownedCount = Nexus.playerZones(state, player.id).length;
+    if (state.turnPhase === "handoff") {
+      return "Gerät an <b>" + player.name + "</b> weitergeben — Bildschirm bleibt verdeckt.";
+    }
+    if (state.turnPhase === "role_reveal") {
+      return "Wahlversprechen werden einzeln gezeigt — nur die Person am Gerät liest mit.";
+    }
+    if (state.turnPhase === "produce" || state.turnPhase === "spinning") {
+      if (ownedCount === 0) {
+        return player.name + ": keine Felder — Produktion wird übersprungen.";
+      }
+      if (factoryCount === 0) {
+        return player.name + ": <b>Home</b> liefert +1 aller Ressourcen …";
+      }
+      return player.name + ": Produktion läuft — Solarfelder würfeln, Transformatoren zahlen.";
+    }
+    if (state.turnPhase === "event") {
+      return player.name + ": ein Ereignis wartet.";
+    }
+    if (state.turnPhase === "build") {
+      if ((player.freeZoneClaims || 0) > 0) {
+        return (
+          "<b>Startcoupon:</b> ein Nachbarfeld (+) ist gratis. Wohnen bringt erst mit eigenem Datenzentrum Bandbreite."
+        );
+      }
+      if (state.round <= 1 && factoryCount <= 1) {
+        return "<b>Erste Erweiterung:</b> Solar würfelt, Transformator zahlt Geld pro Energie — Datenzentrum schaltet Wohn-Bandbreite frei.";
+      }
+      return "Feld antippen für Details · eigenes Home öffnet die Geräte · dann Zug beenden.";
+    }
+    return "";
+  }
+
+  function renderLegend() {
+    var list = document.querySelector("#board-legend .legend-list");
+    if (!list || list.childElementCount) {
+      return;
+    }
+    list.innerHTML = LEGEND_ROWS.map(function (key) {
+      var entry = LAND_USE[key];
+      return (
+        '<li><span class="legend-swatch" style="--sw: var(' +
+        entry.swatch +
+        ')"></span>' +
+        entry.label +
+        "</li>"
+      );
+    }).join("");
   }
 
   function renderDistrict(state, ui) {
     var svg = document.getElementById("district-svg");
     var board = document.getElementById("map-board");
-    var layout = Nexus.boardLayout();
-    var size = layout.size;
-    var shadowDy = layout.shadowDy;
-    var width = layout.width;
-    var height = layout.height;
-    var slots = layout.hexes;
+    var view = boardView();
     if (board) {
-      board.style.width = width + "px";
-      board.style.height = height + "px";
+      board.style.width = view.width + "px";
+      board.style.height = view.height + "px";
     }
-    svg.setAttribute("viewBox", "0 0 " + width + " " + height);
-    svg.setAttribute("width", String(width));
-    svg.setAttribute("height", String(height));
-    svg.setAttribute("overflow", "visible");
-    svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
-    svg.style.width = width + "px";
-    svg.style.height = height + "px";
-
-    slots.sort(function (a, b) {
-      if (a.r !== b.r) {
-        return a.r - b.r;
-      }
-      return a.q - b.q;
-    });
+    svg.setAttribute("viewBox", "0 0 " + view.width + " " + view.height);
+    svg.setAttribute("width", String(view.width));
+    svg.setAttribute("height", String(view.height));
 
     var player = Nexus.currentPlayer(state);
-    var html =
-      '<g class="board-water" aria-hidden="true"><ellipse class="water-ring" cx="' +
-      width / 2 +
-      '" cy="' +
-      height / 2 +
-      '" rx="' +
-      (width * 0.52) +
-      '" ry="' +
-      (height * 0.48) +
-      '"/></g>';
-    var selected = ui && ui.expandSlot;
-    var placePopId = ui && ui.placePopZoneId;
-    var totalWeight = dieWeightTotal();
-    var spinningSet = {};
-    var staggerByZone = {};
+    var ctx = {
+      spinning: {},
+      stagger: {},
+      placePopId: (ui && ui.placePopZoneId) || null,
+      showYield: !!(ui && ui.yieldPops)
+    };
     (state.spinningOutcomes || []).forEach(function (outcome) {
-      spinningSet[outcome.zoneId] = true;
-      staggerByZone[outcome.zoneId] = outcome.staggerIndex;
+      ctx.spinning[outcome.zoneId] = true;
+      ctx.stagger[outcome.zoneId] = (outcome.staggerIndex || 0) * C.HARVEST_STAGGER_MS;
     });
 
-    slots.forEach(function (slot) {
-      var cx = slot.x;
-      var cy = slot.y;
-      var zone = Nexus.zoneAt(state, slot.q, slot.r);
-      var expandable = Nexus.isExpandableSlot(state, slot.q, slot.r) && state.turnPhase === "build";
-      var buyable = expandable && Nexus.canAffordExpandSlot(state, slot.q, slot.r);
-      var isSelected = selected && selected.q === slot.q && selected.r === slot.r;
-
-      if (zone) {
-        var isHome = zone.type === "home";
-        var typeDef = Nexus.ZONE_TYPES[zone.type];
-        var owner = state.players.filter(function (p) {
-          return p.id === zone.ownerId;
-        })[0];
-        var isMine = zone.ownerId === player.id;
-        var spinning = !!spinningSet[zone.id];
-        var staggerMs = (staggerByZone[zone.id] || 0) * C.HARVEST_STAGGER_MS;
-        var done = !!zone.harvested;
-        var isHomeActive = isHome && isMine && ui && ui.homeOpen;
-        html +=
-          '<polygon class="hex-shadow" points="' +
-          hexPoints(cx, cy + shadowDy, size - 2) +
-          '"></polygon>';
-
-        if (isHome) {
-          html +=
-            '<g class="hex hex-home hex-zone--home' +
-            (isMine ? " is-mine" : " is-foreign") +
-            (isHomeActive ? " is-selected" : "") +
-            (done ? " is-done" : "") +
-            (spinning ? " is-spinning" : "") +
-            '" data-home="' +
-            zone.id +
-            '" data-owner="' +
-            zone.ownerId +
-            '" data-mine="' +
-            (isMine ? "1" : "0") +
-            '" style="--owner-color:' +
-            playerColor(owner) +
-            ";--spin-delay:" +
-            staggerMs +
-            'ms">' +
-            "<title>Smart Home</title>" +
-            '<polygon class="hex-lot" points="' +
-            hexPoints(cx, cy, size - 2) +
-            '"></polygon>' +
-            '<g class="hex-deco hex-deco--home"><rect class="deco-home" x="' +
-            (cx - size * 0.28) +
-            '" y="' +
-            (cy - size * 0.35) +
-            '" width="' +
-            size * 0.56 +
-            '" height="' +
-            size * 0.42 +
-            '"/></g>' +
-            '<g class="hex-icon" transform="translate(' +
-            (cx - 12) +
-            "," +
-            (cy - 14) +
-            ')">' +
-            Nexus.homeIconGroup("currentColor") +
-            "</g>" +
-            homeDevicePips(owner, cx, cy, !isMine) +
-            nightWindowLayer(cx, cy, size, zone, isMine, owner) +
-            "</g>";
-          return;
-        }
-
-        var barW = size * 1.05;
-        var barH = 8;
-        var barX = cx - barW / 2;
-        var barY = cy + size * 0.38;
-        var xCursor = barX;
-        var bands = "";
-        Nexus.PRODUCTION_DICE.forEach(function (die) {
-          var w = (die.weight / totalWeight) * barW;
-          bands +=
-            '<rect x="' +
-            xCursor +
-            '" y="' +
-            barY +
-            '" width="' +
-            w +
-            '" height="' +
-            barH +
-            '" fill="' +
-            die.color +
-            '" rx="2"></rect>';
-          xCursor += w;
-        });
-        var settle = zone.lastDieId ? dieSettleRatio(zone.lastDieId) : 0.5;
-        var needleX = barX + settle * barW;
-        html +=
-          '<g class="hex hex-owned ' +
-          zoneHexClass(zone) +
-          (done ? " is-done" : "") +
-          (spinning ? " is-spinning" : "") +
-          (isMine ? "" : " is-foreign") +
-          (ui && ui.inspectedZoneId === zone.id ? " is-selected" : "") +
-          (placePopId === zone.id ? " is-place-pop" : "") +
-          '" data-zone="' +
-          zone.id +
-          '" data-mine="' +
-          (isMine ? "1" : "0") +
-          '" style="--owner-color:' +
-          playerColor(owner) +
-          ";--spin-delay:" +
-          staggerMs +
-          "ms;--reveal-delay:" +
-          (zone.revealDelay || 0) +
-          'ms">' +
-          "<title>" +
-          typeDef.label +
-          "</title>" +
-          '<polygon class="hex-lot" points="' +
-          hexPoints(cx, cy, size - 2) +
-          '"></polygon>' +
-          buildingDeco(cx, cy, size, zone) +
-          nightWindowLayer(cx, cy, size, zone, isMine, owner) +
-          '<g class="hex-icon" transform="translate(' +
-          (cx - 12) +
-          "," +
-          (cy - 22) +
-          ')">' +
-          Nexus.iconGroup(typeDef.primary) +
-          "</g>" +
-          bands +
-          '<rect x="' +
-          barX +
-          '" y="' +
-          barY +
-          '" width="' +
-          barW +
-          '" height="' +
-          barH +
-          '" fill="none" stroke="rgba(7,16,24,0.45)" rx="2"></rect>' +
-          '<g transform="translate(' +
-          barX +
-          "," +
-          barY +
-          ')">' +
-          '<g class="gacha-needle" style="--settle-x:' +
-          (needleX - barX) +
-          "px;--bar-w:" +
-          barW +
-          "px;--spin-delay:" +
-          staggerMs +
-          'ms">' +
-          '<polygon points="-5,-6 5,-6 0,10" fill="#071018"></polygon></g></g>' +
-          "</g>";
-      } else {
-        var park = isParkLot(slot.q, slot.r);
-        html +=
-          '<g class="hex hex-empty' +
-          (park ? " is-park-lot" : "") +
-          (expandable ? " is-open" : "") +
-          (buyable ? " is-buyable is-coupon-pulse" : "") +
-          (isSelected ? " is-selected" : "") +
-          '" data-q="' +
-          slot.q +
-          '" data-r="' +
-          slot.r +
-          '">' +
-          '<polygon class="hex-lot" points="' +
-          hexPoints(cx, cy, size - 2) +
-          '"></polygon>' +
-          (park ? parkDeco(cx, cy, size) : "") +
-          (expandable
-            ? '<text class="hex-plus" x="' + cx + '" y="' + (cy + 8) + '">+</text>'
-            : "") +
-          "</g>";
-      }
+    var html = boardDefs();
+    html +=
+      '<ellipse class="island-shade" cx="' +
+      n(view.width / 2) +
+      '" cy="' +
+      n(view.height * 0.58) +
+      '" rx="' +
+      n(view.width * 0.48) +
+      '" ry="' +
+      n(view.height * 0.4) +
+      '" fill="url(#nx-island)"/>';
+    view.tiles.forEach(function (tile) {
+      html += tileMarkup(state, ui, view, tile, player, ctx);
     });
     svg.innerHTML = html;
 
-    var plane = document.querySelector(".city-plane");
-    if (plane) {
-      var isNight = document.documentElement.getAttribute("data-theme") === "dark";
-      plane.classList.toggle("is-night-board", isNight);
-      plane.classList.toggle(
-        "is-handoff-dim",
+    var frame = document.querySelector(".city-frame");
+    if (frame) {
+      frame.classList.toggle(
+        "is-veiled",
         state.turnPhase === "handoff" || state.turnPhase === "role_reveal"
       );
     }
     if (ui && ui.placePopZoneId) {
       ui.placePopZoneId = null;
+    }
+    if (ui && ui.yieldPops) {
+      ui.yieldPops = false;
     }
 
     document.getElementById("btn-end-round").disabled = !Nexus.canEndTurn(state);
@@ -1286,37 +2078,10 @@ window.Nexus = window.Nexus || {};
     }
 
     var hint = document.getElementById("table-hint");
-    var factoryCount = Nexus.playerFactoryZones(state, player.id).length;
-    var ownedCount = Nexus.playerZones(state, player.id).length;
-    if (state.turnPhase === "handoff") {
-      hint.textContent = "Gerät an " + player.name + " weitergeben …";
-    } else if (state.turnPhase === "produce" || state.turnPhase === "spinning") {
-      if (ownedCount === 0) {
-        hint.textContent = player.name + ": keine Felder — Produktion wird übersprungen";
-      } else if (factoryCount === 0) {
-        hint.textContent = player.name + ": Home produziert +1 aller Ressourcen …";
-      } else {
-        hint.textContent = player.name + ": Produktion läuft auf allen Zonen …";
-      }
-    } else if (state.turnPhase === "role_reveal") {
-      hint.textContent = "Wahlversprechen werden einzeln vorbereitet …";
-    } else if (state.turnPhase === "event") {
-      hint.textContent = player.name + ": ein Ereignis wartet";
-    } else if (state.turnPhase === "build") {
-      if ((player.freeZoneClaims || 0) > 0) {
-        hint.textContent =
-          player.name +
-          ": Startcoupon — Nachbarfeld wählen (+). Ohne Datenzentrum bringt Wohnen keine Bandbreite; Solar würfelt, Transformator kostet Geld.";
-      } else if (state.round <= 1 && Nexus.playerFactoryZones(state, player.id).length <= 1) {
-        hint.textContent =
-          player.name +
-          ": Erste Erweiterung — Energie (Solar vs. Transformator) oder Datenzentrum für Wohn-Bandbreite.";
-      } else {
-        hint.textContent = player.name + ": bauen, Karten ausspielen oder Zug beenden";
-      }
-    } else {
-      hint.textContent = "";
+    if (hint) {
+      hint.innerHTML = coachText(state, player);
     }
+    renderLegend();
   }
 
   function renderHome(state, ui) {
@@ -1636,19 +2401,10 @@ window.Nexus = window.Nexus || {};
       drawBtn.setAttribute("aria-label", drawBtn.title);
     }
 
-    var dock = document.querySelector(".dock");
     var dockHead = document.querySelector(".dock-head");
-    var goalPanel = document.getElementById("goal-panel");
-    var zoneInspect = document.getElementById("zone-inspect");
-    var standardsBar = document.getElementById("standards-bar");
+    var zoneInspectPanel = document.getElementById("zone-inspect");
     if (dockHead) {
-      dockHead.hidden = !zoneInspect || zoneInspect.hidden;
-    }
-    if (dock) {
-      dock.hidden =
-        (!goalPanel || goalPanel.hidden) &&
-        (!zoneInspect || zoneInspect.hidden) &&
-        (!standardsBar || standardsBar.hidden);
+      dockHead.hidden = !zoneInspectPanel || zoneInspectPanel.hidden;
     }
     bindCardFanOnce();
   }
@@ -1975,6 +2731,7 @@ window.Nexus = window.Nexus || {};
   Nexus.openModal = openModal;
   Nexus.closeModal = closeModal;
   Nexus.pushToast = pushToast;
+  Nexus.boardView = boardView;
   Nexus.chipsHtml = chipsHtml;
   Nexus.playerColor = playerColor;
 })(window.Nexus);
