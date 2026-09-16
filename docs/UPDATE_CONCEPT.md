@@ -24,6 +24,29 @@ Das **Projektkonzept** (`docs/concepts/projektkonzept.pdf`) und **DESIGN.md** si
 8. **Lehre vor Tiefe:** erster Zug (Startcoupon, DC-Gate, Solar-Würfel) braucht Onboarding-Beats, kein Tutorial-Modus-Framework.
 9. **Hot-Seat-Schild und öffentliche Ausrichtung bleiben hart.** Nacht-Look darf lokale Geräte nicht verraten.
 10. **Umsetzung erst nach Review-Gates in Abschnitt 8.** Diese Datei allein ändert nichts am Spiel.
+11. **Hot-Seat bleibt der Vertrag.** Gleiches-WLAN/Netz ist eine Design-Gabel (Abschnitt 3.5), kein kleines Feature — Default **A jetzt + C als späteres Gate**.
+
+---
+
+> ### Deine Aufgabe jetzt — nur Review, nicht bauen
+>
+> Bitte **nichts implementieren** und **`docs/DESIGN.md` nicht selbst umschreiben**. `prototype` bleibt Freeze 2.1.
+>
+> 1. **Ankreuz-Konvention** (direkt unter diesem Kasten) lesen.
+> 2. **Anhang B** durchgehen — Defaults sind `[x]`; Alternative ankreuzen, Default austragen.
+> 3. **Abschnitt 3.5** (lokales Netz / gleiches WLAN) — genau **eine** Zeile ankreuzen (Default **A+C**).
+> 4. **Abschnitt 9** — bei Fragen mit Extra-Kästchen optional `[ ] später / nach Hot-Seat`.
+> 5. Speichern/Kommentar reicht. **Danach:** Orchestrator kopiert akzeptierte Sätze nach `docs/DESIGN.md`. **Erst dann** darf Code auf `main`.
+>
+> Ankreuz-Felder: [Anhang B](#anhang-b--entscheidungs-defaults-eine-seite-zum-abzeichnen) · [§3.5 Netz](#35-lokales-netz--gleiches-wlan--review-block) · [§9](#9-offene-fragen-an-tom) · Hot-Seat-Kopplung auch bei Koalition (§3.1), Shield/Versprechen (§3.3), Infos (§4.2), Handoff/Reveal (§5.1), Nacht-Leak (§6.8).
+
+### Ankreuz-Konvention
+
+| Zeichen | Bedeutung |
+| --- | --- |
+| `[x]` | **Default** — gilt, bis du es austrägst und etwas anderes ankreuzt. |
+| `[ ]` | Alternative in **diesem** Zyklus (Hot-Seat, vanilla, `main`). |
+| `[ ] später / nach Hot-Seat` | **„Umsetzen, aber erst wenn wir von Hot-Seat weg sind.“** Nur bei Systemen, die an ein Gerät / Shield / Handoff hängen. Nicht bei Hygiene, First-Turn-Copy, Palette A, Metrik-Bugs. |
 
 ---
 
@@ -31,13 +54,11 @@ Das **Projektkonzept** (`docs/concepts/projektkonzept.pdf`) und **DESIGN.md** si
 
 ### 1.1 Wozu diese Datei
 
-Tom soll **vor** einem großen Implementierungsblock entscheiden können: was wir am Spielgefühl ändern, was wir visuell anstreben, was wir bewusst nicht anfassen, in welcher technischen Reihenfolge danach gearbeitet wird.
-
-Sie ist **Planung + Entscheidungsliste**, kein zweites Regelbuch.
+**Deine Aufgabe steht im Kasten oben.** Diese Datei ist Planung + Entscheidungsliste, kein zweites Regelbuch und kein Auftrag zum Coden.
 
 ### 1.2 Publikum
 
-- Tom (Review, Defaults ankreuzen / überschreiben)
+- Tom — **nur Review** (Kasten „Deine Aufgabe jetzt“, Anhang B / §3.5 / §9)
 - Agents, die danach einzelne Phasen umsetzen (Ownership wie in `docs/AGENT_PLAN.md` / `AGENTS.md`)
 - Nicht: Spieler-Handbuch. Dafür bleiben `docs/GAME.md` und UI-Texte zuständig.
 
@@ -57,7 +78,7 @@ Sie ist **Planung + Entscheidungsliste**, kein zweites Regelbuch.
 
 ### 1.4 Was „akzeptiert“ heißt
 
-- Tom markiert Defaults oder Alternativen in Abschnitt 3–6 und 8.
+- Tom tickt Anhang B, §3.5 und ggf. §9 (Kasten oben).
 - Orchestrator schreibt nur die akzeptierten Sätze nach `docs/DESIGN.md` (eigene Aufgabe).
 - Erst dann Code auf `main`. `prototype` unangetastet.
 
@@ -166,6 +187,12 @@ Jedes Thema: **dafür / dagegen / Alternative / Default.** DESIGN-Kern (geheime 
 - **Alternative:** Bei Gleichstand sichtbare Tie-Break-Regel (z. B. niedrigeres Risiko, dann weniger Zonen) — kleine DESIGN-Änderung, keine Koalition.
 - **Default: never.** Gleichstand später als Einzeiler in DESIGN, nicht als Deal.
 
+Ankreuzen (Koalition hängt am Hot-Seat — Deal auf einem Bildschirm leaked):
+
+- [x] nicht bauen (Default, DESIGN „fehlt“)
+- [ ] nur Gleichstand-Tie-Break (kein Deal)
+- [ ] später / nach Hot-Seat — Koalitions-UI, wenn jede Person ein eigenes Gerät hat
+
 #### Material-Transport über die Karte
 
 - **Dafür:** Smart-City-Logistik, Board bekommt Routen.
@@ -231,6 +258,11 @@ Jedes Thema: **dafür / dagegen / Alternative / Default.** DESIGN-Kern (geheime 
 - **Alternative:** nach Fehlversuch Shake + Toast „Proprietär blockiert“ (Lehre). 2p: `tradePartnerRatio`-Stufen senken oder nach erstem Trade nicht 40 %-Sprung.
 - **Default:** UI-Feedback ja; Regel-2p-Tuning ja (kleine roles.js-Änderung, DESIGN erwähnt Skalierung schon); keine neuen Trade-Formen.
 
+Ankreuzen nur die **gleichzeitige** Trade-UI (Hot-Seat-Kopplung); 2p-Skalierung / Shake sind Hygiene, kein „nach Hot-Seat“:
+
+- [x] 1:1-Modal auf einem Gerät behalten (Default)
+- [ ] später / nach Hot-Seat — Partner bestätigt auf dem eigenen Gerät
+
 #### Ereignisse
 
 - **Dafür mehr Stadtpolitik:** PDF-Liste (Steuern, Genehmigung, Inflation, Hacking).
@@ -264,6 +296,12 @@ Jedes Thema: **dafür / dagegen / Alternative / Default.** DESIGN-Kern (geheime 
 
 **Alignment öffentlich** (Turn-Chip „Umwelt · Offen“): GAME sagt das bewusst, Konzeptblatt auch („nur Titel sichtbar“). Behalten. Wer das als zu leaky sieht, ist eine **DESIGN-Frage an Tom** (Abschnitt 9).
 
+Ankreuzen nur für die **Hot-Seat-gekoppelten** Kernregeln (Produktion, DC-Gate, 2p-Skalierung, Sieg-% bleiben unberührt):
+
+- [x] Shield + geheime Versprechen-Details + Handoff-Ritual **jetzt** hart lassen (Default)
+- [ ] Alignment-Wort im Chip reduzieren (nur Farbe)
+- [ ] später / nach Hot-Seat — Shield/Handoff durch per-Client-Fog ersetzen; Versprechen-UI neu schneiden
+
 ### 3.4 Catch-up, Endgame, Kingmaking
 
 - **Ist:** Sofortsieg ab 100 % nach voller Runde; sonst höchste %. Kein Rubber-Band.
@@ -271,6 +309,52 @@ Jedes Thema: **dafür / dagegen / Alternative / Default.** DESIGN-Kern (geheime 
 - **Dagegen explizite Catch-up-Regel:** belohnt Falschen, bricht Versprechen-Treue.
 - **Alternative:** Events treffen Reiche härter (Überproduktion gibt’s schon); sichtbare %-Lücke nur privat (schon so).
 - **Default:** keine Catch-up-Regel. Endgame-Spannung über **sichtbaren Runden-Ticker + private %**, nicht über Almosen.
+
+### 3.5 Lokales Netz / gleiches WLAN — Review-Block
+
+Das ist eine **Design-Gabel**, kein Feature-Ticket. Heute: ein Gerät, `isHotSeatShield`, Reveal/Handoff, private lokale Geräte, Nacht-Leak-Regeln, Gerät-weitergeben-Chrome, geheime Versprechen in einem DOM. `AGENTS.md` / DESIGN: **kein Online-Multiplayer**, kein Backend, solange niemand fragt. Du fragst jetzt — also entscheiden, **nicht** stillschweigend WebRTC einziehen.
+
+Ursprungsidee (oder Erinnerung) war oft **vernetztes** Mehrspiel, nicht nur Hot-Seat. Sobald zwei Browser denselben State teilen, kippen Shield, Handoff, Public-vs-Privat, Handel-Modal, Koalition, sogar welche Dächer nachts leuchten.
+
+**Vanilla bleibt:** kein npm, kein Server im Schulnetz als Default. Jede Netz-Option muss ohne neues Backend auskommen oder explizit ein späteres Backend-Gate sein (das wäre schon über C hinaus).
+
+| | A Hot-Seat only (Vertrag) | B Nur Recherche | C LAN später planen | D Dünner Netz-Proto jetzt |
+| --- | --- | --- | --- | --- |
+| **Dafür** | Alles Gebaute (Shield, Reveal, Nacht) stimmt; Präsentation auf einem Beamer; kein Sync-Risiko | Klärt Machbarkeit für die Seminar-Doku, ohne Architektur zu zerlegen | Hält die alte Netz-Idee fest, **nachdem** Hot-Seat-Lehre sitzt; DESIGN kann ein „fehlt bis Gate“ bekommen | Frühes Gefühl für zwei Geräte; Show-Effekt „WLAN“ |
+| **Dagegen** | Wer getrennte Laptops wollte, bleibt bei Gerät-Weitergeben | Produziert Papier, kein Spiel; kann Erwartung wecken | Ohne C-Text vergessen wir das Gate; mit C-Text müssen Agents es nicht *bauen* | Sync, Cheating, Schul-WLAN, Leak, doppelte UI — sprengt den Zyklus |
+
+**Default: A jetzt + C als späteres Gate** (wer lieber nur Papier will: **B+C**). **D nicht empfohlen.**
+
+Ankreuzen — **genau eine** Linie:
+
+- [ ] **A** Hot-Seat only — Vertrag behalten, Netz-Idee **verwerfen**
+- [ ] **B** Nur Recherche dieses Zyklus — Machbarkeitsnotiz, **kein** Protokoll, kein Code
+- [x] **A+C** Hot-Seat **jetzt**; LAN/WLAN (gleiches WLAN) als **späteres Gate** nach Verlassen von Hot-Seat (Default)
+- [ ] **B+C** Recherche jetzt, Implementierung erst nach Hot-Seat
+- [ ] **D** Dünnen Lokalnetz-Prototyp **jetzt** starten — nicht empfohlen (siehe unten)
+
+**Warum D jetzt falsch wäre:** `state.js` ist ein einzelner autoritativer Store im Tab. Zweites Gerät braucht Transport, Host-Autorität, Disconnect, desync, Replay. Ohne Server: WebRTC auf Schul-WLAN (mDNS/ICE oft tot), oder ein Laptop-Host, den niemand wartet. Cheating = DevTools am Client; Info-Leak = falsche View statt Shield. UI müsste **gleichzeitig** Handoff (ein Gerät) und Live-Board (zwei Geräte) können. Night-Look, lokale Pips, Hand, % — heute ein `isHotSeatShield`-Schalter; morgen `viewerId`. Das ist Logic+UI+Docs parallel, nicht „ein Socket“.
+
+**Technische Skizze (nicht bauen):** gleiches WLAN, **kein** öffentliches Backend.
+
+- **Host-autoritativ:** nur der Host ruft `Nexus.*` auf `state.js` auf; Clients schicken Intents, bekommen Views. Regeln nicht auf jedem Client neu würfeln (Produktion-Dice).
+- **WebRTC DataChannel:** peer-to-peer, theoretisch ohne Server; in der Praxis STUN/Turn oder lokales `localhost`-Relay. Firewall/AP-Isolation in Schulen.
+- **BroadcastChannel / `localStorage`-Events:** nur **gleicher Browser, gleiches Profil** — das ist kein WLAN-Multiplayer.
+- **QR-Handoff:** State (oder Kurz-Save) als Code, Gerät wechseln — bleibt **sequentiell**, ersetzt Hot-Seat-Modal, ist kein Live-Board.
+- **Eigenes WS-Mini-Backend:** widerspricht „kein Backend bis gefragt“; nur wenn Tom später ein Gate „Server erlaubt“ tickt (nicht A–C).
+
+**Was am bestehenden Vertrag bricht** (muss vor D oder vor dem C-Implementierungs-Gate neu in DESIGN):
+
+- `isHotSeatShield` / Phasen `role_reveal` und `handoff` — Ersatz: per-client private View, kein Vollbild-Dim für alle
+- Geheime Versprechen-UI — nur auf dem Client der Person, nicht „Modal dann weitergeben“
+- Lokale vs Cloud-Geräte — fremde Clients dürfen lokale Pips/Nachtfenster nicht ableiten
+- Handel — Partner sitzt am **eigenen** Modal, nicht am selben
+- Koalition — auf getrennten Geräten plötzlich spielbar (deshalb §3.1 „später / nach Hot-Seat“)
+
+**Grafik / UI / Motion unter der Gabel:**
+
+- **Hot-Seat (A):** Handoff-Ritual ist Lehre und Privacy (Dim, „Ich bin …“, Board leer). Night-Look muss lokale Fenster verstecken. Chrome für Gerät-Weitergeben.
+- **Live shared Board (nach C/D):** Board bleibt sichtbar für alle (HexaUrbs-Stadt durchgehend); Fog nur auf HUD/Hand/Spuren/%. Place-Pop sieht der Nachbar live. Handoff-Modal stirbt oder wird zu „Du bist dran“-Toast auf **einem** Client. Reveal wird Split-Screen-unfähig — jede Person liest Versprechen allein vor Spielstart.
 
 ---
 
@@ -290,6 +374,12 @@ Priorität: Loops die **schon State haben**, aber nicht *fühlen*.
 - Cloud-Pips am fremden Home, lokale unsichtbar: gut. **Nachts** gleiche Regel.
 - Public-Player-Modal existiert — wenig entdeckt. Default: Turn-Chip-Klick behalten, einmalig Toast „Öffentliche Geräte ansehen“.
 - Nicht: verdeckte Zonen, Fog of War (Board ist geteilte Stadt).
+
+Ankreuzen (lokale Geräte / Public-View hängen am Hot-Seat-Schild):
+
+- [x] Cloud öffentlich, lokal privat, Public-Modal — **jetzt** so lassen (Default)
+- [ ] Public-Modal prominenter (Toast), Regeln unverändert
+- [ ] später / nach Hot-Seat — echte per-Client-Fog statt Shield; Live-Board für alle, HUD privat
 
 ### 4.3 Erste Züge unterrichten
 
@@ -318,7 +408,7 @@ Dagegen volles Tutorial-Kampagnen-Skript: Pflege + überspringbar + DE-Textmenge
 
 ### 4.5 Was wir nicht „noch einbauen“ nur weil es geht
 
-Online-Multiplayer, Persistenz, Accounts, Koalition, React, Test-Framework, npm — weiter **nicht**, solange niemand fragt (`AGENTS.md`).
+Persistenz, Accounts, Koalition (außer §3.1-Tick), React, Test-Framework, npm — weiter **nicht**, solange niemand fragt (`AGENTS.md`). Netz: **nicht stillschweigend** — nur nach Tick in [§3.5](#35-lokales-netz--gleiches-wlan--review-block).
 
 **HexaUrbs-Genre nicht importieren:** kein Sandbox-Modus mit unbegrenzten Tiles, kein Scoring-by-adjacency als Sieg, kein „Stadt in Minuten ohne Ressourcen“. NEXUS bleibt Hot-Seat-Brettspiel mit Wallet, Versprechen und Shield. Der Charme kommt daher, dass **dieselbe Expand-Aktion** (adjacent, schon in `buyZone`) visuell wie ein Stadtviertel wächst — nicht daher, dass Expand sich wie ein City-Builder-Pinsel anfühlt.
 
@@ -341,7 +431,7 @@ Prio **L** = Lehre (hoch) · **F** = Fun/Spectacle · **S** = schon da
 | Erwartungswert `~` | L | Text swap (`04`) | `.expect` | jetzt hartes TextContent, kein Motion |
 | Risiko-Meter | L | Card resize / width token | `.risk-meter::after` | **S** width 250ms; Farbe bei Sprung kurz `danger` |
 | Spur Image/Komfort/Umwelt/Sicherheit | L | Number pop + kurze Bar | `#score-tracks` | jetzt tot beim Ändern |
-| Versprechen-% | L | Digit / Ring | Goal-Pill | nur eigene, Shield aus |
+| Versprechen-% | L | Digit / Ring | Goal-Pill | nur eigene, Shield aus. Live-WLAN: % nur auf eigenem Client → [ ] später / nach Hot-Seat |
 | Produktion Hex | L+F | vorhandenes gacha + Pulse | SVG | **S**; Needle-Settle polish; Reduced Motion: sofort settle |
 | Home +1/+1/+1 | L | Digit + Mini-Pings | Home-Hex | kürzer (`HOME_HARVEST_MS` 280) |
 | Feld platzieren | L | Success small / scale 0.96→1 | neuer Hex | HexaUrbs-Steal: kurzer „Tile sitzt“-Pop; **kein** Confetti, kein Kamera-Orbit |
@@ -349,8 +439,8 @@ Prio **L** = Lehre (hoch) · **F** = Fun/Spectacle · **S** = schon da
 | Gerät fehlt / Upkeep fail | L | Shake + Toast | Wallet Bandbreite | Copy „Cloud offline“ **S** im Log |
 | Event-Karte | L | Modal (`06`) | `#event-modal` | **S**; Titel `texts reveal` (`18`) einmal |
 | Innovationskarte ziehen | F | Fan stagger | `.card-fan` | **S** hover; Draw = eine Karte `is-enter` |
-| Handoff | L | Modal + Board dim | `#handoff-modal` | Board-Inhalte schon geleert; Dim als Privacy-Cue |
-| Role Reveal | L | Modal + staged list | `#role-reveal-modal` | Unterziele stagger (`18`); nie im Hintergrund render |
+| Handoff | L | Modal + Board dim | `#handoff-modal` | Board-Inhalte schon geleert; Dim als Privacy-Cue. Live-WLAN: Ritual fällt weg → [ ] später / nach Hot-Seat |
+| Role Reveal | L | Modal + staged list | `#role-reveal-modal` | Unterziele stagger (`18`); nie im Hintergrund render. Getrennte Geräte: privates Solo-Reveal → [ ] später / nach Hot-Seat |
 | Tag/Nacht Theme | F+L | 400–500ms Farb-Lerp, kein Blur auf Theme | `data-theme` + Board-Klassen | nicht `filter: invert` |
 | Toast-Log | L | Banner stack (`32`) | `#toast-stack` | **S** |
 | Karten-Hover | F | Avatar group (`11`) | Hand | **S**; nicht auf Modal-Karten |
@@ -511,6 +601,12 @@ Konkret:
 - Shield: Stadt darf als Silhouette bleiben, **Zahlen, Pips lokal, Hand, Spuren, %** weg. Nachtlichter nicht als Leak-Kanal.
 - Touch: Hit-Area bleibt Hex-Polygon, nicht nur Mini-Dach.
 
+Ankreuzen (Nacht-Leak und Shield-Dim sind Hot-Seat-Kopplung; **Palette/Tag-Default nicht**):
+
+- [x] Nacht jetzt bauen, Fenster nur nach Public-Regeln, Shield dimmt das Board (Default)
+- [ ] Nacht-Look, aber Board bei Handoff nicht dimmen (riskanter Leak)
+- [ ] später / nach Hot-Seat — Board bleibt für alle beleuchtet; Fenster/Pips strikt `viewerId`, kein Vollbild-Handoff
+
 ### 6.9 Fonts / Deps
 
 Google Fonts im `index.html` sind schon Netz-Request, keine npm-Dep. Art-SVGs lokal. **Kein** neues Bildformat-Framework.
@@ -555,7 +651,7 @@ Alle drei wollen **einen lesbaren Stadtteil**, kein Spreadsheet. Parks/Wasser d�
 
 ### 8.1 Review-Gates (Tom)
 
-1. **Gate 0 — diese Datei:** Defaults in 3–6 und 8.3 ankreuzen. DESIGN unangetastet bis Orchestrator-Pass.
+1. **Gate 0 — diese Datei:** Kasten oben, **Anhang B**, **§3.5 Netz**, §9. DESIGN unangetastet bis Orchestrator-Pass.
 2. **Gate 1 — Hygiene + Lehre-Copy** (klein, reversibel). Smoke `Nexus.runSmokeCheck()`.
 3. **Gate 2 — Art-Pfad A + Nacht-Semantik.** Screenshot Tag/Nacht, Shield-Check, Colorblind-Stichprobe.
 4. **Gate 3 — Motion-Lehre** (Shake, Ticks, Place-Pop). Reduced-motion.
@@ -570,6 +666,7 @@ Alle drei wollen **einen lesbaren Stadtteil**, kein Spreadsheet. Parks/Wasser d�
 - `DESIGN.md` / `GAME.md` rewrite
 - `prototype`-Branch
 - npm, Tests-Framework, WebGL, Foto als Map, HexaUrbs-Engine/Sandbox
+- Netz-Multiplayer-Code (WebRTC/Server) — außer Tom tickt §3.5-**D** (nicht empfohlen); **A+C** = nur DESIGN-Gate-Satz später, kein Code jetzt
 - Koalition, Transport, Steuer-UI, Amortisierung, Public/Exclusive, Autonomie-Layer, Nachbar-Miete
 - Neue Geräte-IDs, neue Ressourcen, vierte Spur
 - Isometric CSS auf das Live-Grid
@@ -602,16 +699,30 @@ Sprites / geometrische Dächer, Fenster-Layer, Zoom-out-LOD (Icon statt Dach).
 
 Jeder Schritt einzeln commitbar, spielbar halten, Shield-Regression manuell (Reveal → Hintergrund leer).
 
+Kein **P-Netz** in dieser Reihenfolge (Default A+C). Erst nach DESIGN-Gate „Hot-Seat verlassen“.
+
 ---
 
 ## 9. Offene Fragen an Tom
 
+Nur **2, 2b und 16** plus die Extra-Kästchen **später / nach Hot-Seat** sind Gerät-Gabeln. **1, 3–5, 7–15** ohne dieses Kästchen = Hygiene/Art in diesem Zyklus. Koalitions-*Deal* steht in §3.1, nicht in Frage 6.
+
 1. **Default-Theme:** Tag als Standard nach Art-Pass — ja/nein? (heute Dark.)
+   - [x] ja, Tag nach Art-Pass
+   - [ ] nein, Dark/Nacht bleibt Default
 2. **Alignment öffentlich:** zu leaky für eure Playtests oder gewollt pädagogisch?
+   - [x] öffentlich lassen (Default, GAME)
+   - [ ] nur Farbe, nicht das Wort
+   - [ ] Alignment geheim (DESIGN-Änderung)
+   - [ ] später / nach Hot-Seat — Alignment-Leak neu bewerten, wenn jede Person ein eigenes Display hat
+2b. **Gerät-weitergeben-Chrome** (Handoff-Copy, Dim, „Ich bin …“):
+   - [x] Ritual **jetzt** behalten (Default, Lehre + Privacy)
+   - [ ] Copy kürzen, Dim lassen
+   - [ ] später / nach Hot-Seat — Chrome entfernen zugunsten Live-Board + „du bist dran“ nur lokal
 3. **Effizienz-Punkte:** HUD streichen, an Umwelt koppeln, oder als fünfte versteckte Metrik behalten (Peak-Load, grüne Karten)?
 4. **Traffic:** nur Skin, oder +1 Komfort/Image beim Bau (kleine DESIGN-Erweiterung)?
 5. **Art-Quelle für Pfad B:** geometrische SVG-Dächer aus Code, oder liefert jemand Illustrationen? Fotobash vom Referenzbild (Rechte)?
-6. **Gleichstand:** niedrigen Risiko-Tie-Break nachrüsten, oder 1. Platz teilen?
+6. **Gleichstand:** niedrigen Risiko-Tie-Break nachrüsten, oder 1. Platz teilen? (Koalitions-Deal = §3.1 inkl. später / nach Hot-Seat.)
 7. **Event-Pass:** in diesem Zyklus oder nach der Präsentation?
 8. **2p `tradePartnerRatio`:** Stufen aggressiv senken — ja?
 9. **Investor-Metrik:** Bestätigung, dass Throughput **nur Geld** zählen soll (Code weicht ab).
@@ -620,7 +731,8 @@ Jeder Schritt einzeln commitbar, spielbar halten, Shield-Regression manuell (Rev
 12. **Google Fonts:** offline-Fallback für Schul-Rechner ohne Netz — brauchen wir System-Stack-only?
 13. **HexaUrbs-Gewichtung:** reicht Look-Steal (Land-use, Parks, Tile-Pop), oder soll Pfad B explizit „so scanbar wie HexaUrbs-Screenshots“ heißen (mehr Art-Aufwand)?
 14. **HexaUrbs Nature/Water:** visuell ja, als baubare Zonen **nein** — bestätigt? (Default: Deko-only, DESIGN unverändert.)
-15. **HexaUrbs-Nacht:** deren Store ist Tag-first. NEXUS-Nacht trotzdem bauen, oder Tag-Stadt priorisieren und Nacht später?
+15. **HexaUrbs-Nacht:** deren Store ist Tag-first. NEXUS-Nacht trotzdem bauen, oder Tag-Stadt priorisieren und Nacht später? *(Leak-Regeln = §6.8, nicht diese Art-Priorität.)*
+16. **Lokales Netz / gleiches WLAN:** nicht hier duplizieren — **eine** Zeile in [§3.5](#35-lokales-netz--gleiches-wlan--review-block). Default dort **A+C**.
 
 ---
 
@@ -635,16 +747,70 @@ Jeder Schritt einzeln commitbar, spielbar halten, Shield-Regression manuell (Rev
 
 ## Anhang B — Entscheidungs-Defaults (eine Seite zum Abzeichnen)
 
-| # | Entscheidung | Default |
-| --- | --- | --- |
-| D1 | Koalition / Transport / Steuer-UI / Amortisierung / Exclusive / Autonomie-Layer / Nachbar-Miete | nicht bauen |
-| D2 | Grafik | A dann B, nicht C, kein WebGL, kein Foto-Board; HexaUrbs = Look/Lesen, nicht Engine/Genre |
-| D3 | Dark | Nachtstadt; Default nach A = Tag |
-| D4 | Motion | Lehre zuerst, Tokens, kein state-DOM |
-| D5 | Traffic | Skin + später optional Score-Hint |
-| D6 | Geräte/Karten | keine neuen IDs vor Hygiene |
-| D7 | Catch-up / Koalition-Ersatz | keine neue Siegregel |
-| D8 | First-turn | Copy+Pulse, keine Tutorial-Phase |
-| D9 | Kernregeln Versprechen/Shield/Produktion/DC-Gate/2p/Sieg-% | unverändert |
+Konvention: `[x]` Default · `[ ]` Alternative · `[ ] später / nach Hot-Seat` = **„Umsetzen, aber erst wenn wir von Hot-Seat weg sind.“** Defaults austragen, wenn du etwas anderes willst.
+
+**D1 — DESIGN-„fehlt“** (Transport, Steuer-UI, Amortisierung, Exclusive, Autonomie-Layer, Nachbar-Miete) — kein Hot-Seat-Kästchen:
+
+- [x] nicht bauen
+- [ ] einzelne Idee doch nachtragen (welche: ___ )
+
+**D1b — Koalition** (Hot-Seat-Gabel, §3.1):
+
+- [x] nicht bauen
+- [ ] nur Gleichstand-Tie-Break
+- [ ] später / nach Hot-Seat
+
+**D2 — Grafik** (kein Hot-Seat-Kästchen):
+
+- [x] A dann B, nicht C, kein WebGL, kein Foto-Board; HexaUrbs = Look/Lesen
+- [ ] nur A
+- [ ] A+C Hybrid trotz Risiko
+
+**D3 — Tag/Nacht-Palette** (kein Hot-Seat-Kästchen; Leak = D3b):
+
+- [x] Nachtstadt-Look; Default nach Art-Pass = Tag
+- [ ] Dark-Chrome bleibt Default
+
+**D3b — Nacht-Leak / Shield-Dim** (§6.8):
+
+- [x] Fenster nach Public-Regeln, Handoff dimmt (Default)
+- [ ] später / nach Hot-Seat — Live-Board beleuchtet, Fog nur HUD/`viewerId`
+
+**D4 — Motion Lehre** (Place-Pop, Ticks, Shake = dieses Zyklus). Handoff/Reveal-Ritual:
+
+- [x] Lehre zuerst, Tokens, kein state-DOM; Handoff-Dim **jetzt**
+- [ ] später / nach Hot-Seat — Handoff/Reveal durch Live-Turn-Toast ersetzen
+
+**D5 — Traffic** (kein Hot-Seat-Kästchen):
+
+- [x] Skin + später optional Score-Hint
+- [ ] nur Skin
+- [ ] Stub unverändert
+
+**D6 — Geräte/Karten:** keine neuen IDs vor Hygiene — [x] ja
+
+**D6b — lokale vs Cloud-Sichtbarkeit** (§4.2):
+
+- [x] Cloud öffentlich, lokal privat **jetzt**
+- [ ] später / nach Hot-Seat — per-Client-Fog
+
+**D7 — Catch-up:** keine neue Siegregel — [x] ja
+
+**D8 — First-turn Copy+Pulse** (kein Hot-Seat-Kästchen) — [x] ja, keine Tutorial-Phase
+
+**D9 — Kernregeln** Produktion, DC-Gate, 2p, Sieg-%: unverändert — [x] ja
+
+**D9b — Shield, geheime Versprechen-UI, Handoff** (§3.3):
+
+- [x] hart lassen **jetzt**
+- [ ] später / nach Hot-Seat — ersetzen durch per-Client-Views
+
+**D10 — Lokales Netz / gleiches WLAN** (§3.5, genau eine Zeile):
+
+- [ ] A — Hot-Seat only, Netz verwerfen
+- [ ] B — nur Recherche
+- [x] A+C — Hot-Seat jetzt, LAN/WLAN späteres Gate (Default)
+- [ ] B+C
+- [ ] D — Proto jetzt (nicht empfohlen)
 
 *Ende des Vorschlags.*
