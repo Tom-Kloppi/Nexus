@@ -15,4 +15,4 @@ Hot-seat Smart-City Brettspiel: reines HTML/CSS/JS, kein Framework/Build/npm.
 - Keine neuen Dependencies, kein Online-Backend, solange niemand fragt.
 - Post-Playtest-Vertrag: `docs/DESIGN.md` schlägt ältere Doku. Branch `prototype` = Freeze 2.1.
 
-Details/Ownership: `AGENTS.md`. Plan: `docs/AGENT_PLAN.md`. Ist-Regeln: `docs/GAME.md`.
+Ownership & Lesepfad: `AGENTS.md`. Workflow/Quellen: `docs/AGENT_WORKFLOW.md`. Plan: `docs/AGENT_PLAN.md`. Ist-Regeln: `docs/GAME.md`.

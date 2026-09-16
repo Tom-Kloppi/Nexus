@@ -1,0 +1,9 @@
+# NEXUS — extra AI context exclusions (see docs/AGENT_WORKFLOW.md)
+# Git already ignores via .gitignore; Cursor also respects .gitignore.
+# Use !prefix to re-include; parent-dir * blocks cannot be undone for children.
+
+# Binary concept PDFs (~2.8 MB) — README points to docs/DESIGN.md + docs/GAME.md instead
+docs/concepts/
+
+# Motion skill library (30+ files) — only for animation tasks; @-mention when needed
+.agents/skills/

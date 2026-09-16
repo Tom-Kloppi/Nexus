@@ -1,0 +1,6 @@
+# Exclude from codebase index only — files stay readable when @-mentioned or opened
+# https://cursor.com/docs/reference/ignore-file
+
+docs/UPDATE_CONCEPT.md
+docs/concepts/
+.agents/skills/
