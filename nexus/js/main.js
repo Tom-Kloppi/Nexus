@@ -15,11 +15,23 @@ window.Nexus = window.Nexus || {};
   };
   var harvestTimer = null;
   var prefs = {
-    theme: localStorage.getItem("nexus-theme") || "dark",
+    theme: localStorage.getItem("nexus-theme") || "light",
     uiScale: Number(localStorage.getItem("nexus-ui-scale") || "1")
   };
   if (prefs.uiScale < 0.8 || prefs.uiScale > 1.25 || Number.isNaN(prefs.uiScale)) {
     prefs.uiScale = 1;
+  }
+
+  function triggerControlShake(el) {
+    if (!el || !el.classList) {
+      return;
+    }
+    el.classList.remove("is-shaking");
+    void el.offsetWidth;
+    el.classList.add("is-shaking");
+    window.setTimeout(function () {
+      el.classList.remove("is-shaking");
+    }, 320);
   }
 
   function applyAppearance() {
@@ -29,6 +41,12 @@ window.Nexus = window.Nexus || {};
     Array.prototype.forEach.call(document.querySelectorAll(".js-theme-toggle"), function (toggle) {
       toggle.setAttribute("data-on", isLight ? "true" : "false");
       toggle.setAttribute("aria-checked", isLight ? "true" : "false");
+      toggle.setAttribute("aria-label", isLight ? "Tageslicht" : "Nachtstadt");
+    });
+    Array.prototype.forEach.call(document.querySelectorAll(".settings-row > span"), function (label) {
+      if (label.textContent === "Tageslicht" || label.textContent === "Nachtstadt") {
+        label.textContent = isLight ? "Tageslicht" : "Nachtstadt";
+      }
     });
     Array.prototype.forEach.call(document.querySelectorAll(".js-ui-scale"), function (slider) {
       slider.value = String(prefs.uiScale);
@@ -539,7 +557,8 @@ window.Nexus = window.Nexus || {};
     }
     var next = Nexus.executeTrade(state, pick.partnerId, pick.giveKey, pick.giveAmount || 1, pick.wantKey, pick.wantAmount || 1);
     if (next === state) {
-      Nexus.pushToast("Handel nicht möglich");
+      Nexus.pushToast("Handel blockiert — unterschiedliche Standards.");
+      triggerControlShake(document.getElementById("btn-trade-confirm"));
       return;
     }
     ui.tradeOpen = false;
@@ -558,10 +577,18 @@ window.Nexus = window.Nexus || {};
     var next = Nexus.upgradeSae(state);
     if (next !== state) {
       commit(next);
+    } else {
+      triggerControlShake(document.getElementById("btn-sae-upgrade"));
+      Nexus.pushToast("SAE braucht V2X oder Ladenetz auf einem Verkehrsfeld.");
     }
   });
 
   document.getElementById("btn-end-round").addEventListener("click", function () {
+    if (!Nexus.canEndTurn(state)) {
+      triggerControlShake(document.getElementById("btn-end-round"));
+      Nexus.pushToast("Startcoupon: erst ein Nachbarfeld platzieren.");
+      return;
+    }
     clearHarvestTimer();
     ui.expandSlot = null;
     ui.tradeOpen = false;
@@ -641,7 +668,11 @@ window.Nexus = window.Nexus || {};
     }
     var slot = ui.expandSlot;
     ui.expandSlot = null;
-    commit(Nexus.buyZone(state, slot.q, slot.r, type, null));
+    var next = Nexus.buyZone(state, slot.q, slot.r, type, null);
+    if (next !== state) {
+      ui.placePopZoneId = "zone-" + slot.q + "-" + slot.r;
+      commit(next);
+    }
   });
 
   document.getElementById("expand-variants").addEventListener("click", function (event) {
@@ -652,7 +683,11 @@ window.Nexus = window.Nexus || {};
     var slot = ui.expandSlot;
     var variant = button.getAttribute("data-zone-variant");
     ui.expandSlot = null;
-    commit(Nexus.buyZone(state, slot.q, slot.r, slot.type, variant));
+    var next = Nexus.buyZone(state, slot.q, slot.r, slot.type, variant);
+    if (next !== state) {
+      ui.placePopZoneId = "zone-" + slot.q + "-" + slot.r;
+      commit(next);
+    }
   });
 
   document.getElementById("btn-expand-cancel").addEventListener("click", function () {

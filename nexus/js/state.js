@@ -822,6 +822,9 @@ window.Nexus = window.Nexus || {};
         risk += variantDef.riskOnBuild;
       }
     }
+    if (zoneType === "traffic") {
+      scores = bumpScores(scores, { comfort: 1 });
+    }
     var zones = state.zones.concat([
       {
         id: "zone-" + q + "-" + r,
@@ -880,6 +883,7 @@ window.Nexus = window.Nexus || {};
       greenInnovationCards: 0,
       privacyShieldEvents: 0,
       cumulativeProduction: 0,
+      cumulativeMoneyProduction: 0,
       tradeVolume: 0,
       tradePartners: [],
       standardsChoice: "open",
@@ -1150,6 +1154,7 @@ window.Nexus = window.Nexus || {};
     var risk = player.risk || 0;
     var lastProduction = emptyResources();
     var cumulative = player.cumulativeProduction || 0;
+    var cumulativeMoney = player.cumulativeMoneyProduction || 0;
     var harvestIds = {};
     var revealDelayByZone = {};
     var boomDraws = 0;
@@ -1167,6 +1172,9 @@ window.Nexus = window.Nexus || {};
           resources[key] += amount;
           lastProduction[key] += amount;
           cumulative += amount;
+          if (key === "money") {
+            cumulativeMoney += amount;
+          }
         });
         return;
       }
@@ -1181,12 +1189,18 @@ window.Nexus = window.Nexus || {};
       lastProduction[outcome.yield.primary.resource] =
         (lastProduction[outcome.yield.primary.resource] || 0) + outcome.yield.primary.amount;
       cumulative += outcome.yield.primary.amount;
+      if (outcome.yield.primary.resource === "money") {
+        cumulativeMoney += outcome.yield.primary.amount;
+      }
       if (outcome.yield.secondary) {
         resources[outcome.yield.secondary.resource] =
           (resources[outcome.yield.secondary.resource] || 0) + outcome.yield.secondary.amount;
         lastProduction[outcome.yield.secondary.resource] =
           (lastProduction[outcome.yield.secondary.resource] || 0) + outcome.yield.secondary.amount;
         cumulative += outcome.yield.secondary.amount;
+        if (outcome.yield.secondary.resource === "money") {
+          cumulativeMoney += outcome.yield.secondary.amount;
+        }
       }
       if (outcome.yield.scoreHint) {
         scores = bumpScores(scores, outcome.yield.scoreHint);
@@ -1215,6 +1229,7 @@ window.Nexus = window.Nexus || {};
       risk: risk,
       lastProduction: lastProduction,
       cumulativeProduction: cumulative,
+      cumulativeMoneyProduction: cumulativeMoney,
       productionHistory: markProductionHistory(player, state, lastProduction)
     });
 

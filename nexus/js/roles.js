@@ -33,7 +33,11 @@ window.Nexus = window.Nexus || {};
       return 0;
     }
     var partners = (player.tradePartners || []).length;
-    return Math.round((partners / others) * 100);
+    var ratio = Math.round((partners / others) * 100);
+    if (others === 1) {
+      return Math.floor(ratio * 0.5);
+    }
+    return ratio;
   }
 
   function builtDeviceCount(player) {
@@ -91,7 +95,7 @@ window.Nexus = window.Nexus || {};
       case "totalResourceThroughput":
         return player.cumulativeProduction || 0;
       case "moneyThroughput":
-        return player.cumulativeProduction || 0;
+        return player.cumulativeMoneyProduction || 0;
       case "tradeVolume":
         return player.tradeVolume || 0;
       case "zoneControlCount":

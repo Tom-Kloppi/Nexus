@@ -110,10 +110,10 @@ Nexus.ZONE_VARIANTS = {
 };
 
 Nexus.ZONE_TYPE_COLORS = {
-  residential: Nexus.RESOURCE_COLORS.bandwidth,
-  energy: Nexus.RESOURCE_COLORS.energy,
-  datacenter: "#6e8b82",
-  traffic: Nexus.RESOURCE_COLORS.money
+  residential: "#7ec8d8",
+  energy: "#6a9fd4",
+  datacenter: "#8a9aaa",
+  traffic: "#5c5f66"
 };
 
 Nexus.PRODUCTION_DICE = [

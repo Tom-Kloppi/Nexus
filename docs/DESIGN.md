@@ -7,7 +7,15 @@
 ## Setting
 
 Spieler = Stadtteilmanager (Testgebiet). Geheimes **Wahlversprechen** statt alter Rollenziele. Wer am Ende laut eigenem Versprechen führt → Bürgermeister.  
-Hot-Seat, 2–3 Spieler, ein Gerät — bleibt.
+Hot-Seat, 2–3 Spieler, ein Gerät — bleibt. **LAN/WLAN-Multiplayer:** erst nach Verlassen von Hot-Seat (Gate), nicht in diesem Zyklus.
+
+## Präsentation / Board
+
+- **Default-Theme:** Tageslicht (`data-theme="light"` / `nexus-theme` Default `light`). Toggle = **Nachtstadt** (eigene Palette), kein invertiertes Chrome.
+- **Board:** Landnutzung lesbar (Typ vor Owner-Stroke); Parks/Wasser nur **Deko**, keine neuen Feldtypen. Kein WebGL, kein Foto-Board.
+- **Nacht:** Fenster/Lichter nur nach öffentlichen Regeln (kein Leak lokaler Geräte); Handoff/Reveal dimmt das Board.
+- **Investor-Metrik** `moneyThroughput` = kumuliertes **Geld**, nicht Gesamtproduktion.
+- **Verkehr:** Stub-Ertrag + Lesbarkeit; optional **+1 Komfort** beim Bau des Verkehrsfelds.
 
 ## Ressourcen (genau 3)
 

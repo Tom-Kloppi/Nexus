@@ -4,6 +4,7 @@ window.Nexus = window.Nexus || {};
   var C = Nexus.CONSTANTS;
   var lastResourceSnapshot = null;
   var lastPlayerId = null;
+  var lastScoreSnapshot = null;
 
   function formatNumber(value) {
     if (typeof value === "number" && value % 1 !== 0) {
@@ -242,6 +243,264 @@ window.Nexus = window.Nexus || {};
       points.push(cx + size * Math.cos(angle) + "," + (cy + size * Math.sin(angle)));
     }
     return points.join(" ");
+  }
+
+  function axialDistance(q, r) {
+    return (Math.abs(q) + Math.abs(r) + Math.abs(q + r)) / 2;
+  }
+
+  function isParkLot(q, r) {
+    return axialDistance(q, r) <= 1;
+  }
+
+  function zoneHexClass(zone) {
+    var cls = "hex-zone--" + zone.type;
+    if (zone.variant) {
+      cls += " hex-zone--" + zone.type + "-" + zone.variant;
+    }
+    return cls;
+  }
+
+  function playerHasDatacenter(state, playerId) {
+    var found = false;
+    state.zones.forEach(function (z) {
+      if (z.ownerId === playerId && z.type === "datacenter") {
+        found = true;
+      }
+    });
+    return found;
+  }
+
+  function cloudDeviceCount(player) {
+    var count = 0;
+    if (!player) {
+      return 0;
+    }
+    Nexus.DEVICES.forEach(function (device) {
+      if (player.devices[device.id] === "cloud") {
+        count += 1;
+      }
+    });
+    return count;
+  }
+
+  function zoneInspectYieldText(state, zone, viewerId) {
+    if (!zone) {
+      return "";
+    }
+    if (zone.type === "residential" && viewerId && !playerHasDatacenter(state, viewerId)) {
+      return "Erwartet: Bandbreite 0 — kein eigenes Datenzentrum";
+    }
+    if (zone.type === "energy" && zone.variant === "transformer") {
+      var per = Nexus.CONSTANTS.TRANSFORMER_MONEY_PER_ENERGY || 1;
+      return "Stabil: Energie · −" + per + " Geld pro Einheit beim Ernten";
+    }
+    if (zone.type === "energy" && zone.variant === "solar") {
+      return "Solar: Würfel-Energie (variabel) · Umwelt +1 beim Bau";
+    }
+    if (zone.type === "datacenter" && zone.variant === "insecure") {
+      return "Bandbreite + Risiko — Gate für Wohn-Bandbreite";
+    }
+    return formatZoneYield(zone);
+  }
+
+  function buildingDeco(cx, cy, size, zone) {
+    var w = size * 0.42;
+    var h = size * 0.28;
+    var x = cx - w / 2;
+    var y = cy - size * 0.22;
+    if (zone.type === "traffic") {
+      return (
+        '<g class="hex-deco hex-deco--traffic">' +
+        '<rect class="deco-road" x="' +
+        (cx - size * 0.55) +
+        '" y="' +
+        (cy + size * 0.02) +
+        '" width="' +
+        size * 1.1 +
+        '" height="' +
+        size * 0.32 +
+        '" rx="3"/>' +
+        '<line class="deco-lane" x1="' +
+        (cx - size * 0.35) +
+        '" y1="' +
+        (cy + size * 0.18) +
+        '" x2="' +
+        (cx + size * 0.35) +
+        '" y2="' +
+        (cy + size * 0.18) +
+        '"/>' +
+        '<circle class="deco-lamp" cx="' +
+        (cx + size * 0.38) +
+        '" cy="' +
+        (cy - size * 0.12) +
+        '" r="2.8"/>' +
+        "</g>"
+      );
+    }
+    if (zone.type === "energy" && zone.variant === "solar") {
+      return (
+        '<g class="hex-deco hex-deco--solar">' +
+        '<rect class="deco-pv" x="' +
+        x +
+        '" y="' +
+        y +
+        '" width="' +
+        w +
+        '" height="' +
+        h +
+        '"/>' +
+        '<rect class="deco-pv deco-pv--2" x="' +
+        (x + w * 0.08) +
+        '" y="' +
+        (y + h * 0.12) +
+        '" width="' +
+        w * 0.84 +
+        '" height="' +
+        h * 0.2 +
+        '"/>' +
+        "</g>"
+      );
+    }
+    if (zone.type === "energy" && zone.variant === "transformer") {
+      return (
+        '<g class="hex-deco hex-deco--transformer">' +
+        '<rect class="deco-block" x="' +
+        x +
+        '" y="' +
+        y +
+        '" width="' +
+        w +
+        '" height="' +
+        (h * 1.2) +
+        '"/>' +
+        '<rect class="deco-coil" x="' +
+        (cx - w * 0.12) +
+        '" y="' +
+        (y - h * 0.35) +
+        '" width="' +
+        w * 0.24 +
+        '" height="' +
+        h * 0.5 +
+        '"/>' +
+        "</g>"
+      );
+    }
+    if (zone.type === "datacenter") {
+      var secure = zone.variant === "secure";
+      return (
+        '<g class="hex-deco hex-deco--dc' +
+        (secure ? " is-secure" : " is-open") +
+        '">' +
+        '<rect class="deco-dc" x="' +
+        x +
+        '" y="' +
+        y +
+        '" width="' +
+        w +
+        '" height="' +
+        (h * 1.35) +
+        '"/>' +
+        (!secure
+          ? '<rect class="deco-cage" x="' + (x + w * 0.15) + '" y="' + (y + h * 0.2) + '" width="' + w * 0.7 + '" height="' + h * 0.55 + '"/>'
+          : "") +
+        "</g>"
+      );
+    }
+    if (zone.type === "residential") {
+      return (
+        '<g class="hex-deco hex-deco--res">' +
+        '<rect class="deco-roof deco-roof--a" x="' +
+        (cx - w * 0.55) +
+        '" y="' +
+        y +
+        '" width="' +
+        w * 0.5 +
+        '" height="' +
+        h +
+        '"/>' +
+        '<rect class="deco-roof deco-roof--b" x="' +
+        (cx + w * 0.05) +
+        '" y="' +
+        (y - h * 0.15) +
+        '" width="' +
+        w * 0.55 +
+        '" height="' +
+        (h * 1.1) +
+        '"/>' +
+        "</g>"
+      );
+    }
+    return "";
+  }
+
+  function nightWindowLayer(cx, cy, size, zone, isMine, owner) {
+    var windows = "";
+    var i;
+    var count = 0;
+    if (zone.type === "home") {
+      count = isMine ? 4 : Math.min(3, cloudDeviceCount(owner));
+    } else if (zone.type === "residential" && isMine) {
+      count = 5;
+    } else if (zone.type === "traffic") {
+      count = 2;
+    } else if (zone.type === "datacenter") {
+      count = zone.variant === "insecure" ? 4 : 1;
+    } else if (zone.type === "energy") {
+      count = zone.variant === "transformer" ? 2 : 0;
+    }
+    if (!count) {
+      return "";
+    }
+    var cols = Math.min(3, count);
+    var rows = Math.ceil(count / cols);
+    var gap = size * 0.08;
+    var ww = size * 0.1;
+    var wh = size * 0.08;
+    var startX = cx - ((cols - 1) * (ww + gap)) / 2;
+    var startY = cy - size * 0.05;
+    var placed = 0;
+    for (i = 0; i < count; i++) {
+      var col = i % cols;
+      var row = Math.floor(i / cols);
+      windows +=
+        '<rect class="hex-window" x="' +
+        (startX + col * (ww + gap)) +
+        '" y="' +
+        (startY + row * (wh + gap)) +
+        '" width="' +
+        ww +
+        '" height="' +
+        wh +
+        '"/>';
+      placed += 1;
+      if (placed >= count) {
+        break;
+      }
+    }
+    return '<g class="hex-windows">' + windows + "</g>";
+  }
+
+  function parkDeco(cx, cy, size) {
+    var trees = "";
+    var offsets = [
+      { dx: 0, dy: -4 },
+      { dx: -10, dy: 6 },
+      { dx: 12, dy: 8 },
+      { dx: -6, dy: -12 },
+      { dx: 8, dy: -8 }
+    ];
+    offsets.forEach(function (off) {
+      trees +=
+        '<circle class="deco-tree" cx="' +
+        (cx + off.dx) +
+        '" cy="' +
+        (cy + off.dy) +
+        '" r="' +
+        size * 0.14 +
+        '"/>';
+    });
+    return '<g class="hex-deco hex-deco--park">' + trees + "</g>";
   }
 
   function dieWeightTotal() {
@@ -493,6 +752,10 @@ window.Nexus = window.Nexus || {};
 
     if (tracks) {
       var scores = player.scores || {};
+      var scoreChanged = false;
+      if (!lastScoreSnapshot || lastPlayerId !== player.id) {
+        lastScoreSnapshot = {};
+      }
       tracks.hidden = false;
       tracks.innerHTML = scoreKeys()
         .map(function (key) {
@@ -500,15 +763,24 @@ window.Nexus = window.Nexus || {};
           if (value == null) {
             value = 0;
           }
+          if (lastScoreSnapshot[key] !== value) {
+            scoreChanged = true;
+          }
+          lastScoreSnapshot[key] = value;
           return (
             '<span class="score-track"><span>' +
             scoreLabel(key) +
-            '</span><strong>' +
+            '</span><strong class="t-digit-group">' +
             value +
             "</strong></span>"
           );
         })
         .join("");
+      if (scoreChanged) {
+        Array.prototype.forEach.call(tracks.querySelectorAll(".t-digit-group"), function (el) {
+          setDigitGroup(el, el.textContent, true);
+        });
+      }
     }
 
     var roleDef = progress.role;
@@ -700,7 +972,6 @@ window.Nexus = window.Nexus || {};
       setDigitGroup(document.getElementById("stat-round"), state.round > state.maxRounds ? state.maxRounds : state.round, false);
       document.querySelector(".day-max").textContent = "/ " + state.maxRounds;
       setDigitGroup(document.getElementById("stat-risk"), "–", false);
-      setDigitGroup(document.getElementById("stat-efficiency"), "–", false);
       lastResourceSnapshot = null;
       lastPlayerId = null;
       return;
@@ -718,10 +989,12 @@ window.Nexus = window.Nexus || {};
     });
     setDigitGroup(document.getElementById("stat-round"), state.round > state.maxRounds ? state.maxRounds : state.round, false);
     document.querySelector(".day-max").textContent = "/ " + state.maxRounds;
-    setDigitGroup(document.getElementById("stat-risk"), player.risk, false);
+    var riskChanged =
+      !lastResourceSnapshot || lastPlayerId !== player.id || lastResourceSnapshot.__risk !== player.risk;
+    setDigitGroup(document.getElementById("stat-risk"), player.risk, riskChanged);
     document.getElementById("risk-meter").style.setProperty("--risk", Math.min(20, player.risk));
-    setDigitGroup(document.getElementById("stat-efficiency"), Math.floor(player.efficiencyPoints || 0), false);
     lastResourceSnapshot = Object.assign({}, player.resources);
+    lastResourceSnapshot.__risk = player.risk;
     lastPlayerId = player.id;
   }
 
@@ -798,8 +1071,18 @@ window.Nexus = window.Nexus || {};
     });
 
     var player = Nexus.currentPlayer(state);
-    var html = "";
+    var html =
+      '<g class="board-water" aria-hidden="true"><ellipse class="water-ring" cx="' +
+      width / 2 +
+      '" cy="' +
+      height / 2 +
+      '" rx="' +
+      (width * 0.52) +
+      '" ry="' +
+      (height * 0.48) +
+      '"/></g>';
     var selected = ui && ui.expandSlot;
+    var placePopId = ui && ui.placePopZoneId;
     var totalWeight = dieWeightTotal();
     var spinningSet = {};
     var staggerByZone = {};
@@ -819,7 +1102,6 @@ window.Nexus = window.Nexus || {};
       if (zone) {
         var isHome = zone.type === "home";
         var typeDef = Nexus.ZONE_TYPES[zone.type];
-        var color = isHome ? Nexus.ZONE_TYPE_COLORS.home : Nexus.ZONE_TYPE_COLORS[zone.type];
         var owner = state.players.filter(function (p) {
           return p.id === zone.ownerId;
         })[0];
@@ -835,7 +1117,7 @@ window.Nexus = window.Nexus || {};
 
         if (isHome) {
           html +=
-            '<g class="hex hex-home' +
+            '<g class="hex hex-home hex-zone--home' +
             (isMine ? " is-mine" : " is-foreign") +
             (isHomeActive ? " is-selected" : "") +
             (done ? " is-done" : "") +
@@ -852,19 +1134,27 @@ window.Nexus = window.Nexus || {};
             staggerMs +
             'ms">' +
             "<title>Smart Home</title>" +
-            '<polygon points="' +
+            '<polygon class="hex-lot" points="' +
             hexPoints(cx, cy, size - 2) +
-            '" fill="' +
-            color +
-            '" opacity="0.88"></polygon>' +
+            '"></polygon>' +
+            '<g class="hex-deco hex-deco--home"><rect class="deco-home" x="' +
+            (cx - size * 0.28) +
+            '" y="' +
+            (cy - size * 0.35) +
+            '" width="' +
+            size * 0.56 +
+            '" height="' +
+            size * 0.42 +
+            '"/></g>' +
             '<g class="hex-icon" transform="translate(' +
             (cx - 12) +
             "," +
             (cy - 14) +
             ')">' +
-            Nexus.homeIconGroup("#1b140c") +
+            Nexus.homeIconGroup("currentColor") +
             "</g>" +
             homeDevicePips(owner, cx, cy, !isMine) +
+            nightWindowLayer(cx, cy, size, zone, isMine, owner) +
             "</g>";
           return;
         }
@@ -894,11 +1184,13 @@ window.Nexus = window.Nexus || {};
         var settle = zone.lastDieId ? dieSettleRatio(zone.lastDieId) : 0.5;
         var needleX = barX + settle * barW;
         html +=
-          '<g class="hex hex-owned' +
+          '<g class="hex hex-owned ' +
+          zoneHexClass(zone) +
           (done ? " is-done" : "") +
           (spinning ? " is-spinning" : "") +
           (isMine ? "" : " is-foreign") +
           (ui && ui.inspectedZoneId === zone.id ? " is-selected" : "") +
+          (placePopId === zone.id ? " is-place-pop" : "") +
           '" data-zone="' +
           zone.id +
           '" data-mine="' +
@@ -913,11 +1205,11 @@ window.Nexus = window.Nexus || {};
           "<title>" +
           typeDef.label +
           "</title>" +
-          '<polygon points="' +
+          '<polygon class="hex-lot" points="' +
           hexPoints(cx, cy, size - 2) +
-          '" fill="' +
-          color +
           '"></polygon>' +
+          buildingDeco(cx, cy, size, zone) +
+          nightWindowLayer(cx, cy, size, zone, isMine, owner) +
           '<g class="hex-icon" transform="translate(' +
           (cx - 12) +
           "," +
@@ -950,19 +1242,22 @@ window.Nexus = window.Nexus || {};
           '<polygon points="-5,-6 5,-6 0,10" fill="#071018"></polygon></g></g>' +
           "</g>";
       } else {
+        var park = isParkLot(slot.q, slot.r);
         html +=
           '<g class="hex hex-empty' +
+          (park ? " is-park-lot" : "") +
           (expandable ? " is-open" : "") +
-          (buyable ? " is-buyable" : "") +
+          (buyable ? " is-buyable is-coupon-pulse" : "") +
           (isSelected ? " is-selected" : "") +
           '" data-q="' +
           slot.q +
           '" data-r="' +
           slot.r +
           '">' +
-          '<polygon points="' +
+          '<polygon class="hex-lot" points="' +
           hexPoints(cx, cy, size - 2) +
           '"></polygon>' +
+          (park ? parkDeco(cx, cy, size) : "") +
           (expandable
             ? '<text class="hex-plus" x="' + cx + '" y="' + (cy + 8) + '">+</text>'
             : "") +
@@ -970,6 +1265,19 @@ window.Nexus = window.Nexus || {};
       }
     });
     svg.innerHTML = html;
+
+    var plane = document.querySelector(".city-plane");
+    if (plane) {
+      var isNight = document.documentElement.getAttribute("data-theme") === "dark";
+      plane.classList.toggle("is-night-board", isNight);
+      plane.classList.toggle(
+        "is-handoff-dim",
+        state.turnPhase === "handoff" || state.turnPhase === "role_reveal"
+      );
+    }
+    if (ui && ui.placePopZoneId) {
+      ui.placePopZoneId = null;
+    }
 
     document.getElementById("btn-end-round").disabled = !Nexus.canEndTurn(state);
     var tradeBtn = document.getElementById("btn-trade");
@@ -996,7 +1304,13 @@ window.Nexus = window.Nexus || {};
       hint.textContent = player.name + ": ein Ereignis wartet";
     } else if (state.turnPhase === "build") {
       if ((player.freeZoneClaims || 0) > 0) {
-        hint.textContent = player.name + ": Startcoupon — wähle ein Feld am Home (kostenlos)";
+        hint.textContent =
+          player.name +
+          ": Startcoupon — Nachbarfeld wählen (+). Ohne Datenzentrum bringt Wohnen keine Bandbreite; Solar würfelt, Transformator kostet Geld.";
+      } else if (state.round <= 1 && Nexus.playerFactoryZones(state, player.id).length <= 1) {
+        hint.textContent =
+          player.name +
+          ": Erste Erweiterung — Energie (Solar vs. Transformator) oder Datenzentrum für Wohn-Bandbreite.";
       } else {
         hint.textContent = player.name + ": bauen, Karten ausspielen oder Zug beenden";
       }
@@ -1060,7 +1374,11 @@ window.Nexus = window.Nexus || {};
             ? "Dein Feld"
             : owner.name + " · öffentlich sichtbar"
           : "";
-        document.getElementById("zone-inspect-yield").textContent = formatZoneYield(inspectedZone);
+        document.getElementById("zone-inspect-yield").textContent = zoneInspectYieldText(
+          state,
+          inspectedZone,
+          isMineZone ? player.id : null
+        );
         var die = inspectedZone.lastDieId
           ? Nexus.PRODUCTION_DICE.filter(function (item) {
               return item.id === inspectedZone.lastDieId;

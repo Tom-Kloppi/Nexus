@@ -1,12 +1,46 @@
-:root,
-[data-theme="dark"] {
+:root {
   --ui-scale: 1;
-  --ink: #e6e0d4;
-  --ink-dim: rgba(230, 224, 212, 0.58);
-  --night: #161410;
-  --night-2: #1f1b16;
-  --surface: #221e18;
-  --accent: #8a9180;
+  --board-sky: #b8d9f0;
+  --board-grass: #8cb86a;
+  --board-water: #5a9a8a;
+  --board-lamp: #ffd98a;
+  --board-window: #ffe9a8;
+  --lot-residential: #9fd9e8;
+  --lot-energy: #7eb0e8;
+  --lot-energy-solar: #6a9fd4;
+  --lot-energy-transformer: #c4a56a;
+  --lot-datacenter: #9aa8b8;
+  --lot-datacenter-insecure: #a8a0b0;
+  --lot-datacenter-secure: #7a8898;
+  --lot-traffic: #5a5e66;
+  --lot-home: #e8eef5;
+  --lot-park: #7ec87a;
+  --lot-empty: #9ed48a;
+}
+
+[data-theme="dark"] {
+  --ink: #e8edf5;
+  --ink-dim: rgba(232, 237, 245, 0.62);
+  --night: #12182a;
+  --night-2: #1a2238;
+  --surface: #1e2640;
+  --accent: #9aa8c8;
+  --board-sky: #1a2240;
+  --board-grass: #1a2830;
+  --board-water: #0f2830;
+  --board-lamp: #ffc870;
+  --board-window: #ffe4a0;
+  --lot-residential: #2a4858;
+  --lot-energy: #2a4060;
+  --lot-energy-solar: #2a4a68;
+  --lot-energy-transformer: #4a4030;
+  --lot-datacenter: #303848;
+  --lot-datacenter-insecure: #3a3548;
+  --lot-datacenter-secure: #283038;
+  --lot-traffic: #2a2e36;
+  --lot-home: #3a4458;
+  --lot-park: #1e3828;
+  --lot-empty: #1a3024;
   --cyan: var(--accent);
   --amber: #b89a6a;
   --cloud: #7d8b99;
@@ -34,12 +68,12 @@
 }
 
 [data-theme="light"] {
-  --ink: #3c3429;
-  --ink-dim: rgba(60, 52, 41, 0.58);
-  --night: #f3eee4;
-  --night-2: #e8e0d2;
-  --surface: #faf6ee;
-  --accent: #6a6358;
+  --ink: #2a3340;
+  --ink-dim: rgba(42, 51, 64, 0.62);
+  --night: #e8f4fc;
+  --night-2: #d4e8f8;
+  --surface: #f4fafc;
+  --accent: #5a7088;
   --cyan: var(--accent);
   --amber: #8f7348;
   --cloud: #5c6a76;
@@ -271,12 +305,41 @@ button {
   inset: 0;
   overflow: hidden;
   background:
-    radial-gradient(circle at 50% 42%, color-mix(in srgb, var(--accent) 14%, transparent), transparent 46%),
-    linear-gradient(165deg, var(--night-2) 0%, var(--night) 100%);
+    radial-gradient(circle at 50% 18%, color-mix(in srgb, #fff 35%, transparent), transparent 42%),
+    linear-gradient(180deg, var(--board-sky) 0%, color-mix(in srgb, var(--board-grass) 55%, var(--board-sky)) 72%, var(--board-grass) 100%);
+  transition: background var(--duration-slow) var(--ease-smooth-out);
   touch-action: none;
   cursor: grab;
   user-select: none;
   -webkit-user-select: none;
+}
+
+.city-plane.is-night-board {
+  background:
+    radial-gradient(circle at 70% 12%, color-mix(in srgb, #6a7ab8 25%, transparent), transparent 38%),
+    linear-gradient(185deg, var(--board-sky) 0%, #0e1424 55%, #0a1018 100%);
+}
+
+.city-plane.is-handoff-dim .map-viewport {
+  opacity: 0.22;
+  filter: saturate(0.35) brightness(0.55);
+  transition: opacity var(--duration-slow) var(--ease-smooth-out), filter var(--duration-slow) var(--ease-smooth-out);
+}
+
+.city-plane .map-viewport {
+  transition: opacity var(--duration-slow) var(--ease-smooth-out), filter var(--duration-slow) var(--ease-smooth-out);
+}
+
+.board-water .water-ring {
+  fill: color-mix(in srgb, var(--board-water) 72%, transparent);
+  stroke: color-mix(in srgb, var(--board-water) 90%, #fff 8%);
+  stroke-width: 3;
+  opacity: 0.85;
+}
+
+.city-plane.is-night-board .board-water .water-ring {
+  fill: color-mix(in srgb, var(--board-water) 88%, #000 30%);
+  opacity: 0.65;
 }
 
 .city-plane.is-dragging {
@@ -336,26 +399,34 @@ button {
   line-height: 1;
 }
 
-.hex-empty polygon {
-  fill: color-mix(in srgb, var(--ink) 10%, transparent);
-  stroke: color-mix(in srgb, var(--ink) 42%, transparent);
+.hex-lot {
+  transition: fill var(--duration-slow) var(--ease-smooth-out), stroke var(--duration-fast) var(--ease-smooth-out);
+}
+
+.hex-empty .hex-lot {
+  fill: var(--lot-empty);
+  stroke: color-mix(in srgb, var(--ink) 28%, transparent);
   stroke-width: 1.6;
   stroke-dasharray: 4 5;
-  transition: fill var(--duration-fast) var(--ease-smooth-out), stroke var(--duration-fast) var(--ease-smooth-out);
+}
+
+.hex-empty.is-park-lot .hex-lot {
+  fill: var(--lot-park);
+  stroke: color-mix(in srgb, #2d6b3a 35%, transparent);
 }
 
 .hex-empty.is-open {
   cursor: pointer;
 }
 
-.hex-empty.is-open polygon {
-  fill: color-mix(in srgb, var(--accent) 16%, transparent);
+.hex-empty.is-open .hex-lot {
+  fill: color-mix(in srgb, var(--lot-park) 70%, var(--accent) 20%);
   stroke: color-mix(in srgb, var(--accent) 55%, transparent);
 }
 
-.hex-empty.is-buyable polygon {
-  fill: rgba(123, 207, 74, 0.22);
-  stroke: var(--local);
+.hex-empty.is-buyable .hex-lot {
+  fill: color-mix(in srgb, var(--lot-park) 75%, #fff 15%);
+  stroke: #3d8f4a;
   stroke-width: 2.5;
   stroke-dasharray: none;
 }
@@ -364,12 +435,12 @@ button {
   fill: var(--local);
 }
 
-.hex-empty.is-open:hover polygon {
-  fill: color-mix(in srgb, var(--accent) 24%, transparent);
+.hex-empty.is-open:hover .hex-lot {
+  fill: color-mix(in srgb, var(--lot-park) 60%, var(--accent) 25%);
 }
 
-.hex-empty.is-selected polygon {
-  fill: rgba(240, 193, 75, 0.18);
+.hex-empty.is-selected .hex-lot {
+  fill: color-mix(in srgb, var(--lot-park) 55%, var(--amber) 25%);
   stroke: var(--amber);
 }
 
@@ -417,21 +488,57 @@ button {
   pointer-events: none;
 }
 
-.hex-owned polygon {
+.hex-owned .hex-lot {
   stroke: var(--owner-color, rgba(7, 16, 24, 0.55));
   stroke-width: 3.5;
-  transition: stroke var(--duration-fast) var(--ease-smooth-out), opacity var(--duration-fast) var(--ease-smooth-out);
+  transition: stroke var(--duration-fast) var(--ease-smooth-out), fill var(--duration-slow) var(--ease-smooth-out);
 }
 
-.hex-owned.is-foreign polygon {
-  opacity: 0.55;
+.hex-zone--residential .hex-lot {
+  fill: var(--lot-residential);
+}
+
+.hex-zone--energy-solar .hex-lot {
+  fill: var(--lot-energy-solar);
+}
+
+.hex-zone--energy-transformer .hex-lot {
+  fill: var(--lot-energy-transformer);
+}
+
+.hex-zone--energy .hex-lot {
+  fill: var(--lot-energy);
+}
+
+.hex-zone--datacenter-insecure .hex-lot {
+  fill: var(--lot-datacenter-insecure);
+}
+
+.hex-zone--datacenter-secure .hex-lot {
+  fill: var(--lot-datacenter-secure);
+}
+
+.hex-zone--datacenter .hex-lot {
+  fill: var(--lot-datacenter);
+}
+
+.hex-zone--traffic .hex-lot {
+  fill: var(--lot-traffic);
+}
+
+.hex-home .hex-lot {
+  fill: var(--lot-home);
+}
+
+.hex-owned.is-foreign .hex-lot {
+  opacity: 0.72;
 }
 
 .hex-owned.is-ready polygon {
   animation: tile-pulse 1.6s var(--ease-smooth-out) infinite;
 }
 
-.hex-owned.is-ready:hover polygon {
+.hex-owned.is-ready:hover .hex-lot {
   stroke: #fff;
   stroke-width: 3;
 }
@@ -440,8 +547,7 @@ button {
   opacity: 0.92;
 }
 
-.hex-home polygon {
-  fill: #8b9cb8;
+.hex-home .hex-lot {
   stroke: var(--owner-color, rgba(255, 255, 255, 0.35));
   stroke-width: 3;
 }
@@ -450,7 +556,7 @@ button {
   cursor: pointer;
 }
 
-.hex-owned.is-selected polygon {
+.hex-owned.is-selected .hex-lot {
   stroke: #fff;
   stroke-width: 3;
 }
@@ -459,9 +565,101 @@ button {
   cursor: pointer;
 }
 
-.hex-home.is-selected polygon {
+.hex-home.is-selected .hex-lot {
   stroke: #fff;
   stroke-width: 3;
+}
+
+.hex-deco .deco-roof--a {
+  fill: #f2f6fa;
+}
+
+.hex-deco .deco-roof--b {
+  fill: #7ec8d8;
+}
+
+.hex-deco .deco-pv {
+  fill: #4a78b8;
+}
+
+.hex-deco .deco-pv--2 {
+  fill: #3a6898;
+  opacity: 0.75;
+}
+
+.hex-deco .deco-block {
+  fill: #a89068;
+}
+
+.hex-deco .deco-coil {
+  fill: #8a7860;
+}
+
+.hex-deco .deco-dc {
+  fill: #c8d0dc;
+}
+
+.hex-deco .deco-cage {
+  fill: none;
+  stroke: #c06070;
+  stroke-width: 1.2;
+  stroke-dasharray: 3 2;
+}
+
+.hex-deco .deco-road {
+  fill: #4a4e56;
+}
+
+.hex-deco .deco-lane {
+  stroke: #e8e0c8;
+  stroke-width: 1.5;
+  stroke-dasharray: 6 5;
+}
+
+.hex-deco .deco-home {
+  fill: #f0f4fa;
+  stroke: #b8c4d4;
+  stroke-width: 1;
+}
+
+.deco-tree {
+  fill: #4a9a48;
+  opacity: 0.9;
+}
+
+.city-plane.is-night-board .deco-tree {
+  fill: #1e4828;
+}
+
+.hex-windows {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.city-plane.is-night-board .hex-windows {
+  opacity: 1;
+}
+
+.hex-window {
+  fill: var(--board-window);
+}
+
+.city-plane.is-night-board .hex-deco--traffic .deco-road {
+  fill: #2a2e34;
+}
+
+.city-plane.is-night-board .hex-zone--traffic::after {
+  content: none;
+}
+
+.deco-lamp {
+  fill: var(--board-lamp);
+  opacity: 0;
+}
+
+.city-plane.is-night-board .deco-lamp {
+  opacity: 1;
+  filter: drop-shadow(0 0 4px color-mix(in srgb, var(--board-lamp) 80%, transparent));
 }
 
 .home-device-pip {
