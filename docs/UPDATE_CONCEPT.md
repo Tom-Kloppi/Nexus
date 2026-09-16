@@ -2,7 +2,7 @@
 
 **Status:** Vorschlag zur Review. **Kein Vertrag.** Erst nach Toms Freigabe darf etwas davon `docs/DESIGN.md` oder Code ändern.  
 **Branch-Ziel:** `main` (Post-Playtest). Branch `prototype` bleibt Freeze NEXUS 2.1.  
-**Stand der Analyse:** Code `main` @ `8f74c77`, Konzept-PDFs in `docs/concepts/`, Referenzbild isometrische Tag-Stadt.
+**Stand der Analyse:** Code `main` @ `8f74c77`, Konzept-PDFs in `docs/concepts/`, Referenzbild isometrische Tag-Stadt. **Nachzug (Tom):** [HexaUrbs](https://store.steampowered.com/app/3563120/HexaUrbs/) (Steam, HidingDev Games) als visuelle/Game-Feel-Referenz — Look und Hex-Lesbarkeit, nicht Genre oder Engine. Details: Abschnitt 6.1a.
 
 ---
 
@@ -15,8 +15,8 @@ Das **Projektkonzept** (`docs/concepts/projektkonzept.pdf`) und **DESIGN.md** si
 **Stärkste Empfehlungen (Default, bis Tom widerspricht):**
 
 1. **Kein neues Framework, kein 3D-Engine, kein Backend.** Vanilla bleibt. Grafik über CSS/SVG (optional später Canvas-Licht), nicht WebGL.
-2. **Grafik-Pfad A zuerst** (Tag-Palette, Zonen-Landnutzung, Wasser/Parks als Board-Sprache), **Pfad B** (illustrierte Dächer) erst nach Art-Entscheidung. Pfad C nur wenn B nicht reicht.
-3. **Dark Mode = Nachtstadt**, nicht Invert. Default-Theme nach dem Art-Pass auf **Tag** drehen (`data-theme="light"`), Nacht bleibt Option.
+2. **Grafik-Pfad A zuerst** (Tag-Palette, Zonen-Landnutzung, Wasser/Parks als Board-Sprache), **Pfad B** (illustrierte Dächer) erst nach Art-Entscheidung. Pfad C nur wenn B nicht reicht. **Look-Nordstern:** HexaUrbs + Referenzfoto (helle Hex-Stadt, Parks, Dächer) — **nicht** HexaUrbs als Echtzeit-3D-Builder kopieren.
+3. **Dark Mode = Nachtstadt**, nicht Invert. Default-Theme nach dem Art-Pass auf **Tag** drehen (`data-theme="light"`), Nacht bleibt Option. HexaUrbs ist Tag-first; Nacht bleibt NEXUS-eigen (Hot-Seat).
 4. **Motion nur als Lehrer:** illegale Aktion shake, Ressourcen-Ticks, Spur-Änderung, Produktion-Pulse, Handoff/Reveal. Spectacle (Karten-Tilt, Partikel) nachrangig. Tokens aus `nexus/transitions.css` / Skills `transitions-dev` + `transitions-polish`. Regeln bleiben in `nexus/js/state.js`.
 5. **DESIGN-„fehlt“ bleibt fehlt** (Koalition, Transport-Layer, Umweltsteuer-UI, Amortisierung, Public/Exclusive, Autonomie-Layer, Nachbar-Miete). Höchstens Event-Karten-Themen, keine neuen Screens.
 6. **Verkehr nicht zum Mini-Game machen**, aber aus dem Stub holen (Ertrag + 1–2 Geräte-Hooks, damit Visionär/SAE lesbar ist).
@@ -50,6 +50,7 @@ Sie ist **Planung + Entscheidungsliste**, kein zweites Regelbuch.
 | `docs/AGENT_PLAN.md` | Parallel-Ownership, Phasen-Haken. Phase 1 done. | Nicht umgehen. Neue Arbeit = neue Phase *nach* Review, gleiche Datei-Grenzen. |
 | `docs/concepts/projektkonzept.pdf` | Playtest-Nachbau: Feldtypen, 3 Ressourcen, Spuren, Systemideen, Setting | Quelle für Abschnitt 2 und 7. Wo DESIGN „fehlt“ sagt, gewinnt DESIGN. |
 | `docs/concepts/nexuskonzeptblatt.pdf` | UI/Hot-Seat NEXUS **2.1** (fünf Ressourcen, creme/light) | UI-Referenz für Hot-Seat-Fluss, nicht für aktuelle Ressourcen. |
+| HexaUrbs (Steam `3563120`) | Externe Look-/Feel-Referenz (Tom, Nachzug) | Stehlen: Hex-Lesbarkeit, Land-use, Parks/Wasser, Tile-Drop-Charme. Nicht: 3D-Engine, Sandbox, fehlende Ressourcen, Steam-Produktion. |
 | `AGENTS.md` / `.cursor/rules/nexus.mdc` | Hard constraints | Jede Empfehlung hier respektiert: Logik nur `state.js`, UI nur `render.js`, keine neuen Deps, DE-UI, `?v=` später, kein Commit von Spielcode in diesem Auftrag. |
 
 **Konfliktregel bleibt:** DESIGN schlägt diese Datei, GAME und Bauchgefühl. Wenn ein Vorschlag DESIGN bricht, steht er ausdrücklich als **DESIGN-Änderung (braucht Tom)** — nicht als stilles „machen wir mit“.
@@ -299,7 +300,7 @@ Default-Beats (Copy + Motion, **keine** neue Phase in state außer ggf. Flag `ui
 1. Reveal: Versprechen, 3 Unterziele, „andere sehen nur die Ausrichtung“.
 2. Handoff: Gerät drehen, „Ich bin …“.
 3. Produktion Home: drei Resource-Ticks (+1).
-4. Coupon: Nachbarhex pulsiert, Modal Feldtyp; wenn Wohnen ohne DC → Warnung eine Zeile.
+4. Coupon: Nachbarhex pulsiert, Modal Feldtyp; wenn Wohnen ohne DC → Warnung eine Zeile. HexaUrbs-Steal: der **erste platzierte Hex soll sich wie Stadt anfühlen** (Dach/Park-Sprache), nicht wie ein leeres Eurogame-Plättchen — ohne Sandbox-Freiheit (Coupon bleibt ein Pflichtzug).
 5. Optional DC vs Solar als „klassische erste Wahl“ in Hint, nicht erzwungen.
 
 Dagegen volles Tutorial-Kampagnen-Skript: Pflege + überspringbar + DE-Textmenge. Alternative: ein Blatt „Schnellstart“ außerhalb des Spiels für die Präsentation.
@@ -318,6 +319,8 @@ Dagegen volles Tutorial-Kampagnen-Skript: Pflege + überspringbar + DE-Textmenge
 ### 4.5 Was wir nicht „noch einbauen“ nur weil es geht
 
 Online-Multiplayer, Persistenz, Accounts, Koalition, React, Test-Framework, npm — weiter **nicht**, solange niemand fragt (`AGENTS.md`).
+
+**HexaUrbs-Genre nicht importieren:** kein Sandbox-Modus mit unbegrenzten Tiles, kein Scoring-by-adjacency als Sieg, kein „Stadt in Minuten ohne Ressourcen“. NEXUS bleibt Hot-Seat-Brettspiel mit Wallet, Versprechen und Shield. Der Charme kommt daher, dass **dieselbe Expand-Aktion** (adjacent, schon in `buyZone`) visuell wie ein Stadtviertel wächst — nicht daher, dass Expand sich wie ein City-Builder-Pinsel anfühlt.
 
 ---
 
@@ -341,7 +344,7 @@ Prio **L** = Lehre (hoch) · **F** = Fun/Spectacle · **S** = schon da
 | Versprechen-% | L | Digit / Ring | Goal-Pill | nur eigene, Shield aus |
 | Produktion Hex | L+F | vorhandenes gacha + Pulse | SVG | **S**; Needle-Settle polish; Reduced Motion: sofort settle |
 | Home +1/+1/+1 | L | Digit + Mini-Pings | Home-Hex | kürzer (`HOME_HARVEST_MS` 280) |
-| Feld platzieren | L | Success small / scale 0.96→1 | neuer Hex | kein Confetti |
+| Feld platzieren | L | Success small / scale 0.96→1 | neuer Hex | HexaUrbs-Steal: kurzer „Tile sitzt“-Pop; **kein** Confetti, kein Kamera-Orbit |
 | Gerät bauen | L | Icon swap / pip appear | Home-Pips + Modal | Cloud-Pip sichtbar für andere erst nach Handoff |
 | Gerät fehlt / Upkeep fail | L | Shake + Toast | Wallet Bandbreite | Copy „Cloud offline“ **S** im Log |
 | Event-Karte | L | Modal (`06`) | `#event-modal` | **S**; Titel `texts reveal` (`18`) einmal |
@@ -361,7 +364,7 @@ Prio **L** = Lehre (hoch) · **F** = Fun/Spectacle · **S** = schon da
 2. Handoff-Dim, Reveal-Stagger, Event-Modal-Titel  
 3. Place-Pop, Pip-Appear, Nacht-Fenster  
 4. Win-Check, Card-Fan Enter  
-5. **Nicht:** Partikel, Bildschirm-Shake bei Boom, 3D-Tilt der Stadt
+5. **Nicht:** Partikel, Bildschirm-Shake bei Boom, 3D-Tilt der Stadt, HexaUrbs-Kamerafahrt / Mesh-Drop aus einer Engine
 
 ### 5.3 Reduced motion
 
@@ -381,9 +384,26 @@ Bereits global in `style.css` / `transitions.css`. Neue Board-Lichter: sofortige
 
 Referenzfoto: heller isometrischer Stadt-Sim (Sims / Cities: Skylines), **ein großer Hex-Distrikt**, Ringstraße, Wasser drumherum, Innenkern **Parks/Bäume**, Dächer **weiß / Türkis / Ocker / warmes Wohnen**, Tageslicht, weiche Schatten, kein UI-Chrome auf der Stadt.
 
-Das ist **Look-Ziel**, nicht 1:1-Karte. Spiel braucht weiter 37 logische Hexes, Owner-Ränder, Expand-`+`, Inspect. Die Stadt ist Skin + Lesesprache, nicht neues Grid.
+**HexaUrbs** (Steam, Casual/Indie hex-grid city builder, „coming soon“, HidingDev Games) trifft dasselbe Board-Ideal näher als Cities: Skylines: **eine lesbare Hex-Stadt aus Land-use-Kacheln** (House, Residential, Commercial, Nature/Parks, Industrial, Water), Taghell, spielerischer Sim-Charme, Adjazenz als Schönheit. Steam-Text: Stadt in Minuten, **ohne Ressourcenverwaltung**, Scoring- oder Sandbox-Modus, 3D.
 
-NEXUS-2.1-Konzeptblatt: creme, flache Hexes, Icons — gut für UI-Chrome, schlecht als „Stadt“. `main` Dark-Earth ist noch weiter vom Foto.
+Das ist **Look-Ziel**, nicht 1:1-Karte und nicht Genre-Ziel. Spiel braucht weiter 37 logische Hexes, Owner-Ränder, Expand-`+`, Inspect. Die Stadt ist Skin + Lesesprache, nicht neues Grid.
+
+NEXUS-2.1-Konzeptblatt: creme, flache Hexes, Icons — gut für UI-Chrome, schlecht als „Stadt“. `main` Dark-Earth ist noch weiter vom Foto **und** von HexaUrbs.
+
+### 6.1a HexaUrbs — stehlen vs. nicht kopieren
+
+Kurzrecherche (Steam Store `app/3563120`, nicht durchgespielt): relaxter minimalistischer **3D-Hex-City-Builder**, Singleplayer. Kacheln strategisch nebeneinander → „beautiful and thriving city“. Zwei Modi: Scoring (begrenzte Tiles, Meilensteine) und Sandbox (unbegrenzt). Wasser an Land → Strände/Flüsse/Seen. Tags u. a. 3D, hex grid, relaxing, city builder. Systemanforderungen nennen eine GPU — also Engine-Produkt, nicht Brett-HTML.
+
+| Stehlen (für NEXUS-Board) | Nicht kopieren |
+| --- | --- |
+| Sofort-Scan: Zone = Landnutzung, nicht Icon-auf-Pappe | Echtzeit-Builder / Sandbox-Pinsel |
+| Helle isometrische Dächer, Parks als eigene Sprache, Wasser als Rahmen | 3D-Engine, Kamerafahrt, Mesh-Dichte, Steam-Licht/Post |
+| Tile-Drop fühlt sich nach „Stadt wächst“ an (Place-Pop, adjacent Expand gibt’s schon) | „Keine Ressourcen“ — NEXUS *ist* Energie/Geld/Bandbreite + Versprechen |
+| Wenig Chrome **auf** der Stadt; Board darf der Star sein | HUD weglassen; Hot-Seat braucht Wallet/Ziele/Handoff |
+| Parks/Natur und Wasser als Lesbarkeit, nicht als Spreadsheet-Zellen | Water/Nature als eigene **Regel-Zonen** (DESIGN: 4 Typen + home; Deko bleibt Deko) |
+| Commercial/Industrial-Look als Inspiration für DC/Energie-Dächer | Deren Zonentypen oder Adjacency-Highscore als Sieg |
+
+**Default:** HexaUrbs justiert Pfad A/B (helle Land-use-Stadt, Parks, Wasser, Dächer). Es **rechtfertigt weder WebGL noch** eine vierte/fünfte Feldklasse „Park/Wasser zum Bauen“. NEXUS bleibt vanilla HTML/CSS/JS, Hot-Seat, DESIGN-Zonen.
 
 ### 6.2 Palette (Vorschlag)
 
@@ -408,7 +428,7 @@ Nicht: Generic Dark (`#161410` Pappe) und Generic Light (`#f3eee4` Papier) als e
 | Wasser (nur Art) | Ring außerhalb Radius 3 | Spiegel, keine Tokens | nicht bebaubar, kein State |
 | Kern-Park (nur Art) | Bäume auf ungebauten Innenhexes | Kronen-Silhouette | leere Hexes, keine Neutral-Regel |
 
-Owner: Stroke 3.5px bleibt (schon in CSS). Nicht ganze Fläche einfärben — sonst stirbt die Dach-Sprache.
+Owner: Stroke 3.5px bleibt (schon in CSS). Nicht ganze Fläche einfärben — sonst stirbt die Dach-Sprache. HexaUrbs-Lesen: **Typ vor Owner** (Dach sagt Wohnen/Energie/DC; Ring sagt wer). Umgekehrt bleibt NEXUS ein farbiges Risiko-Spiel statt einer Stadt.
 
 ### 6.4 UI-Chrome vs Board
 
@@ -418,6 +438,7 @@ Foto hat **kein** HUD. Spiel braucht welches. Trennung:
 - Chrome = frosted glass, Outfit/Fraunces dürfen bleiben (schon Google Fonts; kein npm)
 - Karten bleiben analoge Blätter (Konzeptblatt), nicht Mini-Gebäude
 - Zoom/Pan behalten (`main.js` Map-Gesten)
+- HexaUrbs: Stadt ist der Star, Chrome minimal — NEXUS darf das Board so behandeln, muss aber Hot-Seat-HUD behalten
 
 Default-Theme heute `dark` in `index.html` — nach Art-Pass **Tag als Default**, Nacht Toggle-Label **„Nacht“** statt „Hellmodus“ (der Label lügt schon semantisch: `js-theme-toggle` „Hellmodus“ bei Default Dark).
 
@@ -429,7 +450,7 @@ Default-Theme heute `dark` in `index.html` — nach Art-Pass **Tag als Default**
 | SVG Sprites (viewBox Gebäude) | Silhouetten, Parks, Wasser-Pfad ums Grid | Tausende Polygone wie im Screenshot | mittel (Dateigröße, Draw-Order) |
 | Isometric CSS (`rotateX` + `rotateZ`) | Fake-3D des **ganzen** Grids | Touch-Pan bricht; Text/Hit-Areas leiden | hoch, **nicht** Default |
 | Canvas 2D Overlay | Nacht-Licht, weiches Water | Muss mit SVG-Hit-Test synchron | mittel |
-| WebGL / Three.js / Tile-Engine | Foto-Nähe | Framework, Deps, Ownership-Bruch, Hot-Seat-Perf auf Schul-Tablet | **out** |
+| WebGL / Three.js / Tile-Engine | Foto-/HexaUrbs-Nähe | Framework, Deps, Ownership-Bruch, Hot-Seat-Perf auf Schul-Tablet; HexaUrbs *ist* dieses Lager | **out** |
 | Foto als Board-Background | sofort „wow“ | Hex-Hitboxes passen nicht, Varianten unsichtbar, Nacht unmöglich fair | verführerisch, **nein** als Spielfeld |
 
 **Default:** SVG-Hex-Grid behalten (Hit-Test, Expand, Harvest). Stadtcharakter durch **Fill, Overlay-Gruppen, Rand-Wasser, Park-Patterns**. Kein CSS-Isometric-Transform des Playfields.
@@ -442,13 +463,13 @@ Default-Theme heute `dark` in `index.html` — nach Art-Pass **Tag als Default**
 - Palette Tag, Zonenfarben land-use, gestrichelte Leere → Rasen, Drop-Shadow etwas klarer, HUD Glass an Tag/Nacht.
 - **Aufwand:** klein (eine UI-Datei + Tokens). **Risiko:** niedrig. **Foto-Nähe:** niedrig–mittel (liest als buntes Brett, nicht als Skylines).
 - **Dafür:** schnell, kein Art-Pipeline, Reduced-Motion easy, Ownership UI-Agent.
-- **Dagegen:** bleibt „Eurogame-Hex“, nicht das Referenzbild.
+- **Dagegen:** bleibt „Eurogame-Hex“, nicht Referenzfoto/HexaUrbs. Trotzdem der richtige erste Schritt (Palette + Land-use), weil HexaUrbs-Fidelity ohne Art-Sprites unehrlich wäre.
 
 #### B — Illustrierte Tiles + SVG-Stadt
 
 - Pro Typ/Variante 1 SVG-Sprite (Dach-Cluster), Park-Tiles für Leer, Wasser-Ring, Home-Gebäude. Repeat durch `use`/`<image>` oder inline Paths in `icons.js` / neue `nexus/js/data/art.js` (nur Markup, keine Regeln).
-- **Aufwand:** mittel–hoch (Art + Slice + Nacht-Variante oder CSS-Filter + Fenster-Layer). **Risiko:** mittel (unleserliche Mini-Dächer bei Zoom-out; muss Inspect/Icon-Fallback halten). **Foto-Nähe:** hoch, wenn die Sprites die Palette des Fotos zitieren.
-- **Dafür:** einziges Verfahren, das „Sims-Stadt“ ohne Engine erreichen kann. Varianten (Solar vs Trafo) endlich scanbar.
+- **Aufwand:** mittel–hoch (Art + Slice + Nacht-Variante oder CSS-Filter + Fenster-Layer). **Risiko:** mittel (unleserliche Mini-Dächer bei Zoom-out; muss Inspect/Icon-Fallback halten). **Foto-/HexaUrbs-Nähe:** hoch, wenn Sprites Land-use und Dächer zitieren (nicht Steam-Meshes klauen).
+- **Dafür:** einziges Verfahren, das HexaUrbs-Lesen ohne Engine erreichen kann. Varianten (Solar vs Trafo) endlich scanbar.
 - **Dagegen:** jemand muss Dächer zeichnen (oder bewusst geometrisch stilisieren, nicht photobashen — Lizenz).
 
 #### C — Hybrid Sprite-Board
@@ -463,9 +484,9 @@ Default-Theme heute `dark` in `index.html` — nach Art-Pass **Tag als Default**
 **A sofort nach Freigabe (Palette + Nacht-Semantik + Wasser/Park-Lesen), parallel Art-Entscheidung für B.**  
 **B als zweiter Gate**, sobald 4–5 Sprite-Silhouetten stehen (Home, Wohnen, Solar, Trafo, DC, Traffic, Park).  
 **C nicht** in diesem Zyklus.  
-Foto nicht als `background-image` unter Hexes legen.
+Foto nicht als `background-image` unter Hexes legen. HexaUrbs-Screenshots nicht als Tilesheet (Rechte + 3D-Look passt nicht auf flache Hit-Hexes).
 
-Stilisierte geometrische Dächer (CSS/SVG polygons, 3 Töne Licht/Schatten) können B *ohne* Bitmap nähern — bevorzugen, wenn keine Illustration geliefert wird.
+Stilisierte geometrische Dächer (CSS/SVG polygons, 3 Töne Licht/Schatten) können B *ohne* Bitmap nähern — bevorzugen, wenn keine Illustration geliefert wird. Das ist der ehrliche HexaUrbs-Kompromiss unter Vanilla.
 
 ### 6.7 Dark Mode = Nacht (nicht Invert)
 
@@ -524,9 +545,9 @@ IDs beibehalten. Konzeptblatt-Namen („Die Datenschützerin“) sind 2.1. Post-
 
 Koalition, Transport-Tokens, Steuer-Screen, Amortisations-Ledger, autonome Token auf Kanten, exclusive Bezirke, Online, KI-Gegner, 3D-Engine, englische UI, Regelbuch-PDF-Generator.
 
-### 7.5 Wo Konzept und Foto sich treffen
+### 7.5 Wo Konzept, Foto und HexaUrbs sich treffen
 
-Beide wollen **einen lesbaren Stadtteil**, kein Spreadsheet. Parks/Wasser dürfen ** paletten-pädagogisch** sein (Umweltversprechen „sieht“ Grün), ohne Umwelt-Punkte für dekorative Parks (sonst DESIGN-neue Ertragsquelle).
+Alle drei wollen **einen lesbaren Stadtteil**, kein Spreadsheet. Parks/Wasser dürfen ** paletten-pädagogisch** sein (Umweltversprechen „sieht“ Grün; HexaUrbs macht Nature/Water zu First-Class-Tiles). In NEXUS bleiben sie **Deko**, ohne Umwelt-Punkte für dekorative Parks (sonst DESIGN-neue Ertragsquelle). Der Seminar-Unterschied zu HexaUrbs: bei uns erklärt das Board eine **Abwägung** (Solar vs Trafo, unsicher vs sicher), nicht nur eine schöne Stadt.
 
 ---
 
@@ -548,7 +569,7 @@ Beide wollen **einen lesbaren Stadtteil**, kein Spreadsheet. Parks/Wasser dürfe
 - Spielcode in diesem Vorschlags-PR außer dieser Datei
 - `DESIGN.md` / `GAME.md` rewrite
 - `prototype`-Branch
-- npm, Tests-Framework, WebGL, Foto als Map
+- npm, Tests-Framework, WebGL, Foto als Map, HexaUrbs-Engine/Sandbox
 - Koalition, Transport, Steuer-UI, Amortisierung, Public/Exclusive, Autonomie-Layer, Nachbar-Miete
 - Neue Geräte-IDs, neue Ressourcen, vierte Spur
 - Isometric CSS auf das Live-Grid
@@ -595,8 +616,11 @@ Jeder Schritt einzeln commitbar, spielbar halten, Shield-Regression manuell (Rev
 8. **2p `tradePartnerRatio`:** Stufen aggressiv senken — ja?
 9. **Investor-Metrik:** Bestätigung, dass Throughput **nur Geld** zählen soll (Code weicht ab).
 10. **Präsentations-Demo:** Nacht-Wow wichtiger als Erstspieler-Lesbarkeit auf Beamer?
-11. **Konzeptblatt-Creme-UI** vs **Foto-Stadt:** Chrome creme lassen und nur Board zur Stadt machen, oder beides Richtung Sims?
+11. **Konzeptblatt-Creme-UI** vs **Foto-/HexaUrbs-Stadt:** Chrome creme lassen und nur Board zur Stadt machen, oder beides Richtung Sim-Look?
 12. **Google Fonts:** offline-Fallback für Schul-Rechner ohne Netz — brauchen wir System-Stack-only?
+13. **HexaUrbs-Gewichtung:** reicht Look-Steal (Land-use, Parks, Tile-Pop), oder soll Pfad B explizit „so scanbar wie HexaUrbs-Screenshots“ heißen (mehr Art-Aufwand)?
+14. **HexaUrbs Nature/Water:** visuell ja, als baubare Zonen **nein** — bestätigt? (Default: Deko-only, DESIGN unverändert.)
+15. **HexaUrbs-Nacht:** deren Store ist Tag-first. NEXUS-Nacht trotzdem bauen, oder Tag-Stadt priorisieren und Nacht später?
 
 ---
 
@@ -607,13 +631,14 @@ Jeder Schritt einzeln commitbar, spielbar halten, Shield-Regression manuell (Rev
 - UI: `nexus/js/render.js`, `nexus/js/main.js`, `nexus/js/icons.js`, `nexus/index.html`, `nexus/style.css`, `nexus/transitions.css`
 - Vertrag: `docs/DESIGN.md` · Ist: `docs/GAME.md` · Plan: `docs/AGENT_PLAN.md`
 - PDFs: `docs/concepts/projektkonzept.pdf`, `docs/concepts/nexuskonzeptblatt.pdf`
+- Look-Ref (extern): [HexaUrbs](https://store.steampowered.com/app/3563120/HexaUrbs/) — nicht im Repo, nicht klonen
 
 ## Anhang B — Entscheidungs-Defaults (eine Seite zum Abzeichnen)
 
 | # | Entscheidung | Default |
 | --- | --- | --- |
 | D1 | Koalition / Transport / Steuer-UI / Amortisierung / Exclusive / Autonomie-Layer / Nachbar-Miete | nicht bauen |
-| D2 | Grafik | A dann B, nicht C, kein WebGL, kein Foto-Board |
+| D2 | Grafik | A dann B, nicht C, kein WebGL, kein Foto-Board; HexaUrbs = Look/Lesen, nicht Engine/Genre |
 | D3 | Dark | Nachtstadt; Default nach A = Tag |
 | D4 | Motion | Lehre zuerst, Tokens, kein state-DOM |
 | D5 | Traffic | Skin + später optional Score-Hint |
