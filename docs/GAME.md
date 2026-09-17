@@ -43,7 +43,7 @@ Radius 3. Homes auf drei Ecken. Expand nur benachbart zum eigenen Netz.
 | Energie | Transformator | stabile Energie, kostet Geld pro Einheit |
 | Datenzentrum | Unsicher | günstig, erhöht Risiko |
 | Datenzentrum | Sicher | teurer, stärkt Sicherheit |
-| Verkehr | — | Stub, wenig Geld |
+| Verkehr | — | Stub, wenig Geld; +1 Komfort beim Bau. Grafik: Busbahnhof oder Parkplatz mit Ladestationen **auf** dem Feld. Straßen liegen auf den Kanten aller Felder, nicht als eigener Feldtyp. |
 | Smart Home | — | +1 aller drei Ressourcen, kein Würfel |
 
 Solar nutzt PRODUCTION_DICE (Ausfall…Boom). Boom → grüne Innovationskarte. Neu gebautes Feld produziert erst nächste Runde.

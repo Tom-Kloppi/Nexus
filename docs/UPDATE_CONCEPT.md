@@ -7,10 +7,13 @@
 | Gate | Inhalt | Stand |
 | --- | --- | --- |
 | 1 | Hygiene + First-turn-Copy | **shipped** — Geld-Throughput, privacy/efficiency auf Spuren, Coupon/DC-Hints |
-| 2 | Art-Pfad A + Stadt-Lesen + Layout | **shipped** — axonometrische SVG-Stadt (Prisma-Kacheln, Dächer, Parks, Wasser-Ring), CSS-Grid-Shell, Tag/Nachtstadt |
+| 2 | Art-Pfad A + Stadt-Lesen + Layout | **shipped, korrigiert** — steilere Aufsicht, Straßen auf Kanten, Verkehr = Busbahnhof/Parkplatz, metropolitan infrastructure |
 | 3 | Motion-Lehre | **shipped** — Shake, Place-Pop, Ticks, Handoff-Dim, Coach-Kachel |
+| 2b | Bau-Feedback + Kartentext | **shipped** — Expand zeigt Ertrag/Spuren/Warnungen; Handkarten clampen |
 | 4 | Pfad-B Bitmap-Sprites | **nicht in diesem Zyklus** — geometrische Stadt-Sprache statt WebGL/Fotos |
 | 5 | Event-Pass | **nicht in diesem Zyklus** |
+
+**Korrektur (Tom):** Verkehrskacheln sind **keine Straßen**. Straßen liegen auf den **Kanten** jedes Felds. `traffic` = Busbahnhof oder Parkplatz mit Ladestationen. Kamera steiler von oben; Art metropolitan, nicht dörflich.
 
 Rollback: Tag `nexus-main-pre-overhaul` / Branch `backup/main-pre-overhaul`.
 

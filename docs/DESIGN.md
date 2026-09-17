@@ -13,10 +13,10 @@ Hot-Seat, 2–3 Spieler, ein Gerät — bleibt. **LAN/WLAN-Multiplayer:** erst n
 
 - **Default-Theme:** Tageslicht (`data-theme="light"` / `nexus-theme` Default `light`). Toggle = **Nachtstadt** (eigene Palette), kein invertiertes Chrome.
 - **Layout:** App-Shell als CSS-Grid: Topbar, Board, Dock, Kartenfach. Chrome überlagert das Spielfeld nicht. Schmale Breite: Dock hinter „Ziele“, Board bleibt die Fläche.
-- **Board:** SVG-Stadt, **keine** flachen Eurogame-Plättchen. Bodenebene leicht gestaucht (Axonometrie), Kacheln als Prisma. Landnutzung lesbar (**Typ vor Owner-Ring**): Wohnen = Dachcluster, Solar = PV-Feld, Trafo = Block+Mast, DC unsicher/sicher, Verkehr = Straße. Parks/Wasser nur **Deko** (innerer Park, Wasser-Ring), keine neuen Feldtypen. Kein WebGL, kein Foto-Board.
+- **Board:** SVG-Stadt, **keine** flachen Eurogame-Plättchen. Aufsicht **etwas steiler von oben** (leichte Axonometrie bleibt). Kacheln als Prisma. Landnutzung lesbar (**Typ vor Owner-Ring**): Wohnen/Büro = Bürokomplexe, Solar = Solarfarm, Trafo = Umspannwerk, DC-Campus unsicher/sicher, Verkehr = Infrastruktur-Gebäude auf dem Grundstück (Busbahnhof oder Parkplatz mit Ladestationen). **Straßen sind keine Kacheln:** sie laufen auf den **Kanten** jedes Felds (Stadt-Raster um die Parzellen). Parks/Wasser nur **Deko**. Kein WebGL, kein Foto-Board.
 - **Nacht:** Fenster/Lichter nur nach öffentlichen Regeln (kein Leak lokaler Geräte); Handoff/Reveal dimmt das Board.
 - **Investor-Metrik** `moneyThroughput` = kumuliertes **Geld**, nicht Gesamtproduktion.
-- **Verkehr:** Stub-Ertrag + Lesbarkeit; **+1 Komfort** beim Bau des Verkehrsfelds.
+- **Verkehr:** Stub-Ertrag + Lesbarkeit; **+1 Komfort** beim Bau. Feld = Gebäude (nicht das Straßennetz). Volle Mobilitätslogik = später.
 
 ## Ressourcen (genau 3)
 
