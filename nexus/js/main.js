@@ -117,6 +117,9 @@ window.Nexus = window.Nexus || {};
       ui.homeOpen = false;
       ui.inspectedDevice = null;
     }
+    if (state.turnPhase !== "build") {
+      ui.tradeOpen = false;
+    }
     if (state.turnPhase !== "event") {
       ui.investorAwaitingResource = false;
     }
@@ -534,14 +537,72 @@ window.Nexus = window.Nexus || {};
     if (!pick.partnerId || !pick.giveKey || !pick.wantKey) {
       return;
     }
-    var next = Nexus.executeTrade(state, pick.partnerId, pick.giveKey, pick.giveAmount || 1, pick.wantKey, pick.wantAmount || 1);
+    var next = Nexus.proposeTrade(state, pick.partnerId, pick.giveKey, pick.giveAmount || 1, pick.wantKey, pick.wantAmount || 1);
     if (next === state) {
-      Nexus.pushToast("Handel blockiert — unterschiedliche Standards.");
+      Nexus.pushToast(tradeFailToast(state, pick));
       triggerControlShake(document.getElementById("btn-trade-confirm"));
       return;
     }
-    ui.tradeOpen = false;
     commit(next);
+  });
+
+  document.getElementById("btn-trade-interrupt").addEventListener("click", function () {
+    var pending = (state.tradeOffers || []).filter(function (item) {
+      return item.status === "pending" && item.fromId === Nexus.currentPlayer(state).id;
+    }).slice(-1)[0];
+    if (!pending) {
+      triggerControlShake(document.getElementById("btn-trade-interrupt"));
+      Nexus.pushToast("Zuerst ein Angebot senden.");
+      return;
+    }
+    ui.tradeOpen = false;
+    var next = Nexus.beginTradeInterrupt(state, pending.id);
+    if (next === state) {
+      triggerControlShake(document.getElementById("btn-trade-interrupt"));
+      return;
+    }
+    commit(next);
+  });
+
+  function tradeFailToast(state, pick) {
+    var offer = Nexus.getTradeOffer(state, pick.partnerId, pick.giveKey, pick.giveAmount || 1, pick.wantKey, pick.wantAmount || 1);
+    if (offer.reason === "mixed_standard") {
+      return "Unterschiedliche Standards — kein Handel.";
+    }
+    return "Angebot nicht möglich.";
+  }
+
+  ["trade-give-amount", "trade-want-amount"].forEach(function (id) {
+    var el = document.getElementById(id);
+    if (!el) {
+      return;
+    }
+    el.addEventListener("change", function () {
+      var value = Math.max(1, Math.min(9, Number(el.value) || 1));
+      el.value = String(value);
+      if (id === "trade-give-amount") {
+        ui.tradePick.giveAmount = value;
+      } else {
+        ui.tradePick.wantAmount = value;
+      }
+      Nexus.render(state, ui);
+    });
+  });
+
+  document.getElementById("btn-trade-accept").addEventListener("click", function () {
+    var id = document.getElementById("btn-trade-accept").getAttribute("data-offer");
+    if (!id) {
+      return;
+    }
+    commit(Nexus.respondTrade(state, id, true));
+  });
+
+  document.getElementById("btn-trade-decline").addEventListener("click", function () {
+    var id = document.getElementById("btn-trade-decline").getAttribute("data-offer");
+    if (!id) {
+      return;
+    }
+    commit(Nexus.respondTrade(state, id, false));
   });
 
   document.getElementById("btn-standard-open").addEventListener("click", function () {
@@ -681,6 +742,60 @@ window.Nexus = window.Nexus || {};
     ui.expandSlot = null;
     Nexus.closeModal(document.getElementById("expand-modal"));
     Nexus.render(state, ui);
+  });
+
+  document.getElementById("zone-inspect-actions").addEventListener("click", function (event) {
+    var up = event.target.closest("#btn-zone-upgrade");
+    if (up) {
+      if (!ui.inspectedZoneId) {
+        return;
+      }
+      var upgraded = Nexus.upgradeZone(state, ui.inspectedZoneId);
+      if (upgraded === state) {
+        triggerControlShake(up);
+        Nexus.pushToast("Ausbau nicht möglich.");
+        return;
+      }
+      commit(upgraded);
+      return;
+    }
+    var down = event.target.closest("#btn-zone-demolish");
+    if (down) {
+      if (!ui.inspectedZoneId) {
+        return;
+      }
+      var razed = Nexus.demolishZone(state, ui.inspectedZoneId);
+      if (razed === state) {
+        triggerControlShake(down);
+        Nexus.pushToast("Abriss würde das Netz trennen oder ist nicht erlaubt.");
+        return;
+      }
+      ui.inspectedZoneId = null;
+      commit(razed);
+    }
+  });
+
+  document.getElementById("home-upgrade-wrap").addEventListener("click", function (event) {
+    var btn = event.target.closest("#btn-home-upgrade");
+    if (!btn) {
+      return;
+    }
+    var homeZone = null;
+    state.zones.forEach(function (zone) {
+      if (zone.type === "home" && zone.ownerId === Nexus.currentPlayer(state).id) {
+        homeZone = zone;
+      }
+    });
+    if (!homeZone) {
+      return;
+    }
+    var next = Nexus.upgradeZone(state, homeZone.id);
+    if (next === state) {
+      triggerControlShake(btn);
+      Nexus.pushToast("Leitstand-Ausbau nicht möglich.");
+      return;
+    }
+    commit(next);
   });
 
   document.getElementById("device-list").addEventListener("click", function (event) {

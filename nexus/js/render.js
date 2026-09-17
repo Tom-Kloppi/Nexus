@@ -209,8 +209,9 @@ window.Nexus = window.Nexus || {};
     if (!zone || !zone.lastYield) {
       return "Noch nicht produziert";
     }
-    if (zone.type === "home" && zone.lastYield.homeBundle) {
-      return "+1 aller Ressourcen";
+    if (zone.type === "home" && zone.lastYield && zone.lastYield.homeBundle) {
+      var homeAmt = zone.lastYield.homeBundle.energy || 1;
+      return "+" + homeAmt + " aller Ressourcen";
     }
     var yieldData = zone.lastYield;
     if (!yieldData.primary) {
@@ -243,12 +244,12 @@ window.Nexus = window.Nexus || {};
      Gebäude auf dem Grundstück, kein Straßennetz. Reine Darstellung. */
 
   var VIEW = {
-    squash: 0.82,
+    squash: 0.78,
     thickness: 11,
-    waterDrop: 6,
+    waterDrop: 0,
     decoRings: 1,
-    depthX: 6,
-    depthY: -4,
+    depthX: 7,
+    depthY: -5,
     streetOuter: 0.99,
     streetInner: 0.82
   };
@@ -705,18 +706,18 @@ window.Nexus = window.Nexus || {};
     "datacenter-insecure": { key: "datacenter-insecure", label: "Datenzentrum · offen", swatch: "--lu-dcopen-top" },
     "datacenter-secure": { key: "datacenter-secure", label: "Datenzentrum · sicher", swatch: "--lu-dcsafe-top" },
     traffic: { key: "traffic", label: "Verkehrsinfrastruktur", swatch: "--lu-traffic-top" },
-    home: { key: "home", label: "Smart Home", swatch: "--lu-home-top" }
+    home: { key: "home", label: "Kontrollbüro", swatch: "--lu-home-top" }
   };
 
   /* Legende nach Materialfamilie: die Variante liest man am Bau, nicht am Boden */
   var LEGEND_ROWS = [
-    { label: "Wohnen / Büro", note: "Bürokomplexe", top: "--lu-res-top", side: "--lu-res-side", glyph: "house" },
+    { label: "Wohnen", note: "ein Wohnungsblock", top: "--lu-res-top", side: "--lu-res-side", glyph: "house" },
     { label: "Energie", note: "Solarfarm · Umspannwerk", top: "--lu-solar-top", side: "--lu-solar-side", glyph: "energy" },
-    { label: "Datenzentrum", note: "Campus offen · sicher", top: "--lu-dcopen-top", side: "--lu-dcopen-side", glyph: "data" },
+    { label: "Datenzentrum", note: "eine Halle, Ausbau sichtbar", top: "--lu-dcopen-top", side: "--lu-dcopen-side", glyph: "data" },
     { label: "Verkehr", note: "Busbahnhof · Parkplatz", top: "--lu-traffic-top", side: "--lu-traffic-side", glyph: "bus" },
-    { label: "Smart Home", note: "dein Startfeld", top: "--lu-home-top", side: "--lu-home-side", glyph: "home" },
+    { label: "Kontrollbüro", note: "Leitstand · Startfeld", top: "--lu-home-top", side: "--lu-home-side", glyph: "home" },
     { label: "Park & Wiese", note: "frei bebaubar", top: "--lu-grass-top", side: "--lu-grass-side", glyph: "tree" },
-    { label: "Wasser", note: "Distriktgrenze", top: "--lu-water-top", side: "--lu-water-side", glyph: "wave" }
+    { label: "Umland", note: "Felder · Hügel · Berge", top: "--lu-farm-top", side: "--lu-farm-side", glyph: "tree" }
   ];
 
   var LEGEND_GLYPHS = {
@@ -776,7 +777,181 @@ window.Nexus = window.Nexus || {};
     return zone.type;
   }
 
-  function streetRing(cx, cy, sx, sy, rand) {
+  function carSprite(x, y, ang, parked) {
+    return (
+      '<g class="' +
+      (parked ? "parked-car" : "car-body-wrap") +
+      '" transform="translate(' +
+      n(x) +
+      " " +
+      n(y) +
+      ") rotate(" +
+      n(ang || 0) +
+      ')">' +
+      '<rect class="car-body" x="-6.4" y="-2.3" width="12.8" height="4.6" rx="1.5"/>' +
+      '<rect class="car-glass" x="-1.8" y="-1.5" width="5.4" height="3" rx="0.7"/>' +
+      "</g>"
+    );
+  }
+
+  function hvacUnit(x, y) {
+    return (
+      '<g class="hvac">' +
+      '<rect class="steel-dark" x="' +
+      n(x) +
+      '" y="' +
+      n(y) +
+      '" width="7" height="5" rx="0.8"/>' +
+      '<rect class="steel" x="' +
+      n(x + 1) +
+      '" y="' +
+      n(y + 1.2) +
+      '" width="5" height="1.2"/>' +
+      "</g>"
+    );
+  }
+
+  function cameraPole(x, y) {
+    return (
+      '<g class="cam-gizmo">' +
+      '<path class="antenna" d="M' +
+      n(x) +
+      " " +
+      n(y) +
+      "v-7" +
+      '"/>' +
+      '<circle class="badge-disc" cx="' +
+      n(x) +
+      '" cy="' +
+      n(y - 8) +
+      '" r="2.2"/>' +
+      "</g>"
+    );
+  }
+
+  function dish(x, y) {
+    return (
+      '<g class="roof-dish">' +
+      '<path class="antenna" d="M' +
+      n(x) +
+      " " +
+      n(y) +
+      "v-8" +
+      '"/>' +
+      '<ellipse class="steel" cx="' +
+      n(x + 3) +
+      '" cy="' +
+      n(y - 8) +
+      '" rx="5" ry="2.2"/>' +
+      "</g>"
+    );
+  }
+
+  function curbBays(cx, cy, sx, sy, rand) {
+    var inner = hexVerts(cx, cy, sx * VIEW.streetInner, sy * VIEW.streetInner);
+    var out = "";
+    var i;
+    for (i = 0; i < 6; i++) {
+      if (rand() > 0.72) {
+        continue;
+      }
+      var a = inner[i];
+      var b = inner[(i + 1) % 6];
+      var mx = (a[0] + b[0]) / 2;
+      var my = (a[1] + b[1]) / 2;
+      var dx = b[0] - a[0];
+      var dy = b[1] - a[1];
+      var len = Math.sqrt(dx * dx + dy * dy) || 1;
+      var nx = (-dy / len) * 3.2;
+      var ny = (dx / len) * 3.2;
+      out +=
+        '<path class="stall-line" d="M' +
+        n(mx - dx * 0.12) +
+        " " +
+        n(my - dy * 0.12) +
+        "L" +
+        n(mx - dx * 0.12 + nx) +
+        " " +
+        n(my - dy * 0.12 + ny) +
+        "M" +
+        n(mx + dx * 0.12) +
+        " " +
+        n(my + dy * 0.12) +
+        "L" +
+        n(mx + dx * 0.12 + nx) +
+        " " +
+        n(my + dy * 0.12 + ny) +
+        '"/>';
+    }
+    return out;
+  }
+
+  function parkedAlongCurb(cx, cy, sx, sy, rand, extra) {
+    var inner = hexVerts(cx, cy, sx * VIEW.streetInner, sy * VIEW.streetInner);
+    var out = "";
+    var count = 1 + (extra ? 2 : 0);
+    var i;
+    for (i = 0; i < 6 && count > 0; i++) {
+      if (rand() > 0.55 && !extra) {
+        continue;
+      }
+      var a = inner[i];
+      var b = inner[(i + 1) % 6];
+      var t = 0.22 + rand() * 0.5;
+      var x = a[0] + (b[0] - a[0]) * t;
+      var y = a[1] + (b[1] - a[1]) * t;
+      var ang = (Math.atan2(b[1] - a[1], b[0] - a[0]) * 180) / Math.PI;
+      out += carSprite(x, y, ang, true);
+      count -= 1;
+    }
+    return out;
+  }
+
+  function cruiseCars(cx, cy, sx, sy, rand, count) {
+    var midScale = (VIEW.streetOuter + VIEW.streetInner) / 2;
+    var mid = hexVerts(cx, cy, sx * midScale, sy * midScale);
+    var d = pathFromVerts(mid, true);
+    var now = Date.now();
+    var out = "";
+    var i;
+    for (i = 0; i < count; i++) {
+      var dur = 16 + Math.floor(rand() * 10);
+      var delay = -((now / 1000 + rand() * dur) % dur);
+      out +=
+        '<g class="cruise-car" style="offset-path: path(\'' +
+        d +
+        "'); --cruise-dur:" +
+        dur +
+        "s; --cruise-delay:" +
+        delay.toFixed(2) +
+        's">' +
+        carSprite(0, 0, 0, false) +
+        "</g>";
+    }
+    return out;
+  }
+
+  function parcelGimmicks(cx, cy, sy, rand, level) {
+    var out = "";
+    if (rand() < 0.85) {
+      out += tree(cx - 26 + rand() * 8, cy + sy * 0.18, 0.55, rand() < 0.5);
+    }
+    if (rand() < 0.55 || level >= 1) {
+      out += tree(cx + 22, cy + sy * 0.08, 0.48, true);
+    }
+    if (rand() < 0.4) {
+      out +=
+        '<ellipse class="bush" cx="' +
+        n(cx - 8) +
+        '" cy="' +
+        n(cy + sy * 0.34) +
+        '" rx="4.4" ry="2.6"/>';
+    }
+    return out;
+  }
+
+  function streetRing(cx, cy, sx, sy, rand, opts) {
+    opts = opts || {};
     var outer = hexVerts(cx, cy, sx * VIEW.streetOuter, sy * VIEW.streetOuter);
     var inner = hexVerts(cx, cy, sx * VIEW.streetInner, sy * VIEW.streetInner);
     var midScale = (VIEW.streetOuter + VIEW.streetInner) / 2;
@@ -789,29 +964,15 @@ window.Nexus = window.Nexus || {};
     out += '<path class="street-dash" d="' + pathFromVerts(mid, true) + '"/>';
     var i;
     for (i = 0; i < 6; i++) {
-      if (rand() < 0.22) {
+      if (rand() < 0.2) {
         out += streetLamp(mid[i][0], mid[i][1], 11);
       }
     }
-    if (rand() < 0.55) {
-      var edge = Math.floor(rand() * 6);
-      var a = mid[edge];
-      var b = mid[(edge + 1) % 6];
-      var t = 0.28 + rand() * 0.44;
-      var x = a[0] + (b[0] - a[0]) * t;
-      var y = a[1] + (b[1] - a[1]) * t;
-      var ang = (Math.atan2(b[1] - a[1], b[0] - a[0]) * 180) / Math.PI;
-      out +=
-        '<g class="edge-car" transform="translate(' +
-        n(x) +
-        " " +
-        n(y) +
-        ") rotate(" +
-        n(ang) +
-        ')">' +
-        '<rect class="car-body" x="-7.5" y="-2.6" width="15" height="5.2" rx="1.8"/>' +
-        '<rect class="car-glass" x="-2.4" y="-1.8" width="6.4" height="3.6" rx="1"/>' +
-        "</g>";
+    out += curbBays(cx, cy, sx, sy, rand);
+    out += parkedAlongCurb(cx, cy, sx, sy, rand, !!opts.extraParking);
+    var movers = opts.busy ? 2 : rand() < 0.65 ? 1 : 0;
+    if (movers) {
+      out += cruiseCars(cx, cy, sx, sy, rand, movers);
     }
     return out;
   }
@@ -820,46 +981,67 @@ window.Nexus = window.Nexus || {};
     return tileRandom(q, r, 3)() < 0.5 ? "bus" : "parking";
   }
 
-  /* Bürokomplexe: dichte Stadt, flache Dächer, keine Fachwerkhäuser */
-  function artResidential(cx, cy, sy, rand) {
-    var walls = ["w-steel", "w-slate", "w-concrete", "w-sand"];
-    var roofs = ["r-slate", "r-flat", "r-copper"];
-    var lots = [
-      { x: cx - 22, y: cy + sy * 0.28, w: 18, h: 26 + rand() * 12 },
-      { x: cx - 2, y: cy + sy * 0.34, w: 16, h: 20 + rand() * 10 },
-      { x: cx + 16, y: cy + sy * 0.2, w: 14, h: 16 + rand() * 8 }
-    ];
-    lots.sort(function (a, b) {
-      return a.y - b.y;
+  function artResidential(cx, cy, sy, rand, level, gizmos) {
+    level = level || 0;
+    gizmos = gizmos || {};
+    var h = 30 + level * 8;
+    var w = 38;
+    var baseY = cy + sy * 0.2;
+    var out = building(cx - w * 0.55, baseY, w, h, {
+      cls: "w-steel r-slate",
+      roof: "flat",
+      depth: 1.2,
+      rand: rand,
+      windows: { cols: 5, rows: 3 + level, lit: 0.38 }
     });
-    var out = "";
-    lots.forEach(function (lot) {
-      var rows = lot.h > 24 ? 4 : lot.h > 18 ? 3 : 2;
-      out += building(lot.x, lot.y, lot.w, lot.h, {
-        cls: pick(rand, walls) + " " + pick(rand, roofs),
+    if (level >= 1) {
+      out += building(cx + 8, baseY - 2, 16, h - 8, {
+        cls: "w-concrete r-copper",
         roof: "flat",
+        depth: 0.9,
         rand: rand,
-        windows: { cols: lot.w > 16 ? 3 : 2, rows: rows, lit: 0.42 }
+        windows: { cols: 2, rows: 2 + level, lit: 0.4 }
       });
-    });
+    }
+    out += hvacUnit(cx - 10, baseY - h - 6);
+    if (level >= 2 || gizmos.camera) {
+      out += cameraPole(cx + 12, baseY - 4);
+      out += cameraPole(cx - 22, baseY - 2);
+    }
+    if (gizmos.lock || level >= 2) {
+      out +=
+        '<rect class="steel" x="' +
+        n(cx - 4) +
+        '" y="' +
+        n(baseY - 9) +
+        '" width="5" height="7" rx="1"/>';
+    }
+    out += parcelGimmicks(cx, cy, sy, rand, level);
     return out;
   }
 
-  function artSolar(cx, cy, sy, rand) {
-    var out = "";
-    var row;
-    var col;
-    for (row = 0; row < 3; row++) {
-      for (col = 0; col < 3; col++) {
-        out += pvArray(cx - 28 + col * 18, cy - sy * 0.18 + row * (sy * 0.28 + 4), 16);
-      }
-    }
-    out += building(cx + 14, cy + sy * 0.28, 16, 10, {
+  function artSolar(cx, cy, sy, rand, level) {
+    level = level || 0;
+    var baseY = cy + sy * 0.22;
+    var h = 14 + level * 4;
+    var out = building(cx - 8, baseY, 22, h, {
       cls: "w-concrete r-flat",
       roof: "flat",
       rand: rand,
-      windows: { cols: 2, rows: 1, lit: 0.3 }
+      windows: { cols: 3, rows: 1, lit: 0.3 }
     });
+    var rows = 1 + (level >= 1 ? 1 : 0);
+    var row;
+    var col;
+    for (row = 0; row < rows; row++) {
+      for (col = 0; col < 3; col++) {
+        out += pvArray(cx - 30 + col * 14, cy - sy * 0.12 + row * 12, 12);
+      }
+    }
+    if (level >= 2) {
+      out += pvArray(cx - 4, baseY - h - 2, 14);
+    }
+    out += parcelGimmicks(cx, cy, sy, rand, level);
     return out;
   }
 
@@ -892,112 +1074,80 @@ window.Nexus = window.Nexus || {};
     );
   }
 
-  function artTransformer(cx, cy, sy, rand) {
-    var baseY = cy + sy * 0.32;
-    var out = '<ellipse class="gravel" cx="' + n(cx) + '" cy="' + n(cy + 2) + '" rx="30" ry="' + n(sy * 0.55) + '"/>';
-    out += building(cx - 26, cy - sy * 0.08, 22, 12, {
+  function artTransformer(cx, cy, sy, rand, level) {
+    level = level || 0;
+    var baseY = cy + sy * 0.28;
+    var h = 16 + level * 5;
+    var out = '<ellipse class="gravel" cx="' + n(cx) + '" cy="' + n(cy + 2) + '" rx="28" ry="' + n(sy * 0.48) + '"/>';
+    out += building(cx - 22, baseY, 28, h, {
       cls: "w-concrete r-flat",
       roof: "flat",
+      depth: 1.1,
       rand: rand,
-      windows: { cols: 3, rows: 1, lit: 0.25 }
+      windows: { cols: 4, rows: 1 + (level > 0 ? 1 : 0), lit: 0.22 }
     });
-    out += transformerTank(cx - 8, baseY, 12, 14);
-    out += transformerTank(cx + 8, baseY + 2, 11, 12);
-    out += transformerTank(cx + 22, baseY - 1, 10, 11);
+    out += transformerTank(cx + 12, baseY + 4, 11, 11 + level * 2);
+    if (level >= 1) {
+      out += transformerTank(cx + 22, baseY + 6, 9, 10);
+    }
     out +=
       '<path class="gantry" d="M' +
-      n(cx - 16) +
+      n(cx - 10) +
       " " +
-      n(baseY - 18) +
+      n(baseY - h - 4) +
       "H" +
-      n(cx + 30) +
-      "M" +
-      n(cx - 14) +
-      " " +
-      n(baseY) +
-      "V" +
-      n(baseY - 22) +
-      "M" +
-      n(cx + 6) +
-      " " +
-      n(baseY) +
-      "V" +
-      n(baseY - 22) +
-      "M" +
-      n(cx + 26) +
-      " " +
-      n(baseY) +
-      "V" +
-      n(baseY - 22) +
+      n(cx + 24) +
       '"/>';
-    out +=
-      '<rect class="warn-stripe" x="' +
-      n(cx - 28) +
-      '" y="' +
-      n(baseY - 3) +
-      '" width="22" height="2.6"/>';
+    out += parcelGimmicks(cx, cy, sy, rand, level);
     return out;
   }
 
-  function artDatacenter(cx, cy, sy, rand, secure) {
-    var baseY = cy + sy * 0.34;
-    var out = "";
-    out += building(cx - 28, baseY, 32, 22, {
+  function artDatacenter(cx, cy, sy, rand, secure, level, gizmos) {
+    level = level || 0;
+    gizmos = gizmos || {};
+    var baseY = cy + sy * 0.26;
+    var h = 22 + level * 7;
+    var out = building(cx - 24, baseY, 40, h, {
       cls: secure ? "w-steel r-slate" : "w-slate r-flat",
-      roof: secure ? "flat" : "saw",
-      rand: rand,
-      windows: secure ? { cols: 4, rows: 2, lit: 0.22 } : { cols: 5, rows: 1, lit: 0.18 }
-    });
-    out += building(cx + 8, baseY - 2, 22, 16, {
-      cls: "w-concrete r-slate",
       roof: "flat",
+      depth: 1.25,
       rand: rand,
-      windows: { cols: 3, rows: 1, lit: 0.2 }
+      windows: { cols: 6, rows: 2 + level, lit: secure ? 0.2 : 0.16 }
     });
-    var i;
-    for (i = 0; i < 3; i++) {
-      out +=
-        '<rect class="steel-dark" x="' +
-        n(cx - 22 + i * 10) +
-        '" y="' +
-        n(baseY - 28) +
-        '" width="7" height="7" rx="1.2"/>';
+    if (level >= 1) {
+      out += building(cx + 10, baseY - 3, 18, h - 6, {
+        cls: "w-concrete r-slate",
+        roof: "flat",
+        depth: 0.85,
+        rand: rand,
+        windows: { cols: 3, rows: 1 + level, lit: 0.18 }
+      });
     }
-    if (secure) {
+    out += hvacUnit(cx - 8, baseY - h - 6);
+    out += hvacUnit(cx + 4, baseY - h - 5);
+    if (secure || gizmos.lock || level >= 1) {
       out +=
         '<circle class="badge-disc" cx="' +
-        n(cx - 10) +
+        n(cx - 8) +
         '" cy="' +
         n(baseY - 10) +
-        '" r="6"/>' +
+        '" r="5"/>' +
         '<path class="shield-badge" d="M' +
-        n(cx - 13.5) +
+        n(cx - 11) +
         " " +
-        n(baseY - 12.8) +
-        "l3.5 -1.6 3.5 1.6v3.2q0 3.2 -3.5 4.8 -3.5 -1.6 -3.5 -4.8z" +
+        n(baseY - 12) +
+        "l3 -1.4 3 1.4v2.8q0 2.8 -3 4.2 -3 -1.4 -3 -4.2z" +
         '"/>';
-      out +=
-        '<rect class="steel" x="' +
-        n(cx - 30) +
-        '" y="' +
-        n(baseY - 4) +
-        '" width="58" height="5" rx="1.6"/>';
-    } else {
-      out +=
-        '<path class="cage" d="M' +
-        n(cx - 32) +
-        " " +
-        n(baseY + 6) +
-        "v-8h62v8" +
-        '"/>';
+    }
+    if (!secure && level < 1) {
       out +=
         '<ellipse class="lamp-glow" cx="' +
-        n(cx + 18) +
+        n(cx + 14) +
         '" cy="' +
-        n(baseY - 22) +
-        '" rx="10" ry="7" fill="url(#nx-warn)"/>';
-      out += '<circle class="pip-warn" cx="' + n(cx + 18) + '" cy="' + n(baseY - 22) + '" r="2.4"/>';
+        n(baseY - 16) +
+        '" rx="8" ry="6" fill="url(#nx-warn)"/>';
     }
+    out += parcelGimmicks(cx, cy, sy, rand, level);
     return out;
   }
 
@@ -1022,32 +1172,37 @@ window.Nexus = window.Nexus || {};
     );
   }
 
-  function artBusDepot(cx, cy, sy, rand) {
-    var baseY = cy + sy * 0.3;
-    var out = "";
-    out += building(cx - 24, baseY - 4, 30, 16, {
+  function artBusDepot(cx, cy, sy, rand, level) {
+    level = level || 0;
+    var baseY = cy + sy * 0.24;
+    var h = 16 + level * 5;
+    var out = building(cx - 20, baseY, 32 + level * 4, h, {
       cls: "w-concrete r-flat",
       roof: "flat",
+      depth: 1.1,
       rand: rand,
-      windows: { cols: 4, rows: 1, lit: 0.35 }
+      windows: { cols: 4 + level, rows: 1, lit: 0.35 }
     });
     out +=
       '<path class="canopy" d="M' +
-      n(cx - 26) +
+      n(cx - 24) +
       " " +
-      n(baseY - 18) +
+      n(baseY - h - 2) +
       "H" +
-      n(cx + 28) +
-      "L" +
       n(cx + 24) +
+      "L" +
+      n(cx + 20) +
       " " +
-      n(baseY - 14) +
+      n(baseY - h + 3) +
       "H" +
-      n(cx - 22) +
+      n(cx - 20) +
       'Z"/>';
-    out += busVehicle(cx - 20, baseY - 2);
-    out += busVehicle(cx + 4, baseY + 6);
-    out += streetLamp(cx + 22, baseY - 8, 14);
+    out += busVehicle(cx - 18, baseY + 2);
+    if (level >= 1) {
+      out += busVehicle(cx + 2, baseY + 8);
+    }
+    out += streetLamp(cx + 20, baseY - 4, 14);
+    out += parcelGimmicks(cx, cy, sy, rand, level);
     return out;
   }
 
@@ -1066,86 +1221,103 @@ window.Nexus = window.Nexus || {};
     );
   }
 
-  function artParkingLot(cx, cy, sy, rand) {
-    var out = '<ellipse class="lot-pad" cx="' + n(cx) + '" cy="' + n(cy + 2) + '" rx="28" ry="' + n(sy * 0.52) + '"/>';
+  function artParkingLot(cx, cy, sy, rand, level) {
+    level = level || 0;
+    var out =
+      '<ellipse class="lot-pad" cx="' +
+      n(cx) +
+      '" cy="' +
+      n(cy + 2) +
+      '" rx="' +
+      n(26 + level * 3) +
+      '" ry="' +
+      n(sy * 0.46) +
+      '"/>';
     var i;
-    for (i = 0; i < 4; i++) {
+    for (i = 0; i < 3 + level; i++) {
       out +=
         '<path class="stall-line" d="M' +
-        n(cx - 22) +
+        n(cx - 20) +
         " " +
-        n(cy - sy * 0.22 + i * 9) +
+        n(cy - sy * 0.2 + i * 8) +
         "H" +
-        n(cx + 22) +
+        n(cx + 20) +
         '"/>';
     }
-    out += charger(cx - 18, cy - 4);
-    out += charger(cx - 6, cy + 6);
-    out += charger(cx + 8, cy - 2);
-    out += charger(cx + 18, cy + 8);
-    out += building(cx + 10, cy - sy * 0.18, 14, 9, {
+    out += charger(cx - 16, cy - 2);
+    out += charger(cx + 4, cy + 6);
+    if (level >= 1) {
+      out += charger(cx + 16, cy - 4);
+    }
+    out += building(cx + 8, cy - sy * 0.12, 16, 10 + level * 3, {
       cls: "w-concrete r-flat",
       roof: "flat",
       rand: rand,
-      windows: { cols: 1, rows: 1, lit: 0.5 }
+      windows: { cols: 2, rows: 1, lit: 0.5 }
     });
-    if (rand() < 0.85) {
-      out +=
-        '<g class="edge-car" transform="translate(' +
-        n(cx - 10) +
-        " " +
-        n(cy + 4) +
-        ')">' +
-        '<rect class="car-body" x="-7" y="-2.4" width="14" height="4.8" rx="1.6"/>' +
-        '<rect class="car-glass" x="-2" y="-1.6" width="6" height="3.2" rx="0.8"/>' +
-        "</g>";
+    out += carSprite(cx - 8, cy + 6, 8, true);
+    out += carSprite(cx + 6, cy + 12, -6, true);
+    if (level >= 2) {
+      out += carSprite(cx - 14, cy + 14, 4, true);
     }
+    out += parcelGimmicks(cx, cy, sy, rand, level);
     return out;
   }
 
-  function artTraffic(cx, cy, sy, rand, kind) {
+  function artTraffic(cx, cy, sy, rand, kind, level) {
     if (kind === "parking") {
-      return artParkingLot(cx, cy, sy, rand);
+      return artParkingLot(cx, cy, sy, rand, level);
     }
-    return artBusDepot(cx, cy, sy, rand);
+    return artBusDepot(cx, cy, sy, rand, level);
   }
 
-  function artHome(cx, cy, sy, rand) {
-    var baseY = cy + sy * 0.3;
-    var out = "";
-    out += building(cx - 18, baseY, 22, 22, {
-      cls: "w-sand r-slate",
+  function artHome(cx, cy, sy, rand, level) {
+    level = level || 0;
+    var baseY = cy + sy * 0.22;
+    var h = 28 + level * 7;
+    var out = building(cx - 18, baseY, 36, h, {
+      cls: "w-steel r-slate",
       roof: "flat",
+      depth: 1.2,
       rand: rand,
       door: true,
-      windows: { cols: 2, rows: 3, lit: 0.72 }
+      windows: { cols: 4, rows: 3 + level, lit: 0.7 }
     });
-    out += building(cx + 6, baseY - 2, 16, 16, {
-      cls: "w-steel r-copper",
-      roof: "flat",
-      rand: rand,
-      windows: { cols: 2, rows: 2, lit: 0.65 }
-    });
+    if (level >= 1) {
+      out += building(cx + 10, baseY - 2, 14, h - 8, {
+        cls: "w-sand r-copper",
+        roof: "flat",
+        depth: 0.9,
+        rand: rand,
+        windows: { cols: 2, rows: 2, lit: 0.65 }
+      });
+    }
+    out += dish(cx + 6, baseY - h);
     out +=
       '<path class="flag-pole" d="M' +
-      n(cx - 22) +
+      n(cx - 20) +
       " " +
       n(baseY - 2) +
-      "v-28" +
+      "v-22" +
       '"/>' +
       poly(
         pts([
-          [cx - 22, baseY - 30],
-          [cx - 10, baseY - 27],
-          [cx - 22, baseY - 23]
+          [cx - 20, baseY - 24],
+          [cx - 9, baseY - 21],
+          [cx - 20, baseY - 18]
         ]),
         "flag-cloth"
       );
-    out += '<path class="antenna" d="M' + n(cx + 14) + " " + n(baseY - 18) + "v-10" + '"/>';
+    if (level >= 2) {
+      out += cameraPole(cx - 16, baseY - 2);
+      out += hvacUnit(cx - 4, baseY - h - 6);
+    } else {
+      out += hvacUnit(cx - 6, baseY - h - 5);
+    }
+    out += parcelGimmicks(cx, cy, sy, rand, level);
     return out;
   }
 
-  /* Parks und Wiesen sind Deko — keine Punkte, nur Lesbarkeit und Ruhe */
   function artPark(cx, cy, sx, sy, rand) {
     var out = "";
     var pond = rand() < 0.45;
@@ -1157,7 +1329,6 @@ window.Nexus = window.Nexus || {};
         n(cy + sy * 0.26) +
         '" rx="21" ry="9"/>';
     } else {
-      /* Trampelpfad entlang der Hex-Diagonale statt Schlangenlinie */
       var x0 = cx - sx * 0.74;
       var y0 = cy + sy * 0.44;
       var x1 = cx + sx * 0.74;
@@ -1215,42 +1386,81 @@ window.Nexus = window.Nexus || {};
     return out;
   }
 
-  /* Wasser: kurze Kräusel-Striche statt Wellenlinien — ruhiger im Raster */
-  function artWater(cx, cy, sx, sy, rand) {
-    var rows = [-0.42, -0.1, 0.22, 0.5];
-    var out =
-      '<ellipse class="water-glint" cx="' +
-      n(cx - sx * 0.1) +
-      '" cy="' +
-      n(cy - sy * 0.24) +
-      '" rx="' +
-      n(sx * 0.4) +
-      '" ry="' +
-      n(sy * 0.17) +
-      '"/>';
-    rows.forEach(function (ry, row) {
-      var count = row === 0 || row === 3 ? 1 : 2;
-      var i;
-      for (i = 0; i < count; i++) {
-        if (rand() < 0.3) {
-          continue;
-        }
-        var len = 6 + rand() * 8;
-        var wx = cx - sx * 0.45 + rand() * (sx * 0.9 - len);
-        var wy = cy + sy * ry + rand() * 3;
-        out +=
-          '<line class="ripple" x1="' +
-          n(wx) +
-          '" y1="' +
-          n(wy) +
-          '" x2="' +
-          n(wx + len) +
-          '" y2="' +
-          n(wy) +
-          '"/>';
-      }
-    });
+  function artFarm(cx, cy, sx, sy, rand) {
+    var out = "";
+    var row;
+    for (row = 0; row < 4; row++) {
+      var y = cy - sy * 0.38 + row * (sy * 0.24);
+      out +=
+        '<path class="farm-furrow" d="M' +
+        n(cx - sx * 0.62) +
+        " " +
+        n(y) +
+        "Q" +
+        n(cx) +
+        " " +
+        n(y + 3) +
+        " " +
+        n(cx + sx * 0.62) +
+        " " +
+        n(y) +
+        '"/>';
+    }
+    if (rand() < 0.7) {
+      out +=
+        '<rect class="farm-barn" x="' +
+        n(cx + 8) +
+        '" y="' +
+        n(cy - 8) +
+        '" width="12" height="8" rx="1"/>';
+    }
+    if (rand() < 0.5) {
+      out += tree(cx - 22, cy + sy * 0.2, 0.55, true);
+    }
     return out;
+  }
+
+  function artHill(cx, cy, sx, sy, rand) {
+    var out =
+      '<ellipse class="hill-mound" cx="' +
+      n(cx) +
+      '" cy="' +
+      n(cy + sy * 0.08) +
+      '" rx="' +
+      n(sx * 0.55) +
+      '" ry="' +
+      n(sy * 0.32) +
+      '"/>';
+    if (rand() < 0.6) {
+      out += tree(cx - 10, cy + sy * 0.18, 0.7, rand() < 0.5);
+    }
+    if (rand() < 0.45) {
+      out += tree(cx + 16, cy + sy * 0.05, 0.5, true);
+    }
+    return out;
+  }
+
+  function artRidge(cx, cy, sx, sy, rand) {
+    var peak = cy - sy * 0.22 - rand() * 6;
+    return (
+      poly(
+        pts([
+          [cx - sx * 0.7, cy + sy * 0.35],
+          [cx - sx * 0.15, peak],
+          [cx + sx * 0.2, cy - sy * 0.02],
+          [cx + sx * 0.72, cy + sy * 0.32]
+        ]),
+        "ridge-face"
+      ) +
+      poly(
+        pts([
+          [cx - sx * 0.15, peak],
+          [cx + sx * 0.08, peak + 10],
+          [cx + sx * 0.2, cy - sy * 0.02]
+        ]),
+        "ridge-snow"
+      )
+    );
   }
 
   function playerHasDatacenter(state, playerId) {
@@ -1701,12 +1911,20 @@ window.Nexus = window.Nexus || {};
     var owned = Nexus.playerZones(state, player.id).length;
     var factories = Nexus.playerFactoryZones(state, player.id).length;
     document.getElementById("handoff-player").textContent = player.name + " ist dran";
-    document.getElementById("handoff-hint").textContent =
-      owned === 0
-        ? "Du besitzt noch keine Felder. Die Produktion wird übersprungen."
-        : factories === 0
-          ? "Nur dein Home produziert in dieser Runde (+1 aller Ressourcen). Danach kannst du den Startcoupon einlösen."
-          : "Nur du darfst dein Wahlversprechen und deine Ressourcen sehen. Wenn du bereit bist, startet die Produktion.";
+    if (state.tradeSession && state.tradeSession.phase === "to_partner") {
+      document.getElementById("handoff-hint").textContent =
+        "Ein Handelsangebot wartet. Versprechen und Geldbörsen der anderen Person bleiben verdeckt.";
+    } else if (state.tradeSession && state.tradeSession.phase === "to_owner") {
+      document.getElementById("handoff-hint").textContent =
+        "Das Angebot ist beantwortet. Gerät zurück — danach geht der Zug weiter.";
+    } else {
+      document.getElementById("handoff-hint").textContent =
+        owned === 0
+          ? "Du besitzt noch keine Felder. Die Produktion wird übersprungen."
+          : factories === 0
+            ? "Nur dein Kontrollbüro produziert in dieser Runde. Danach kannst du den Startcoupon einlösen."
+            : "Nur du darfst dein Wahlversprechen und deine Ressourcen sehen. Wenn du bereit bist, startet die Produktion.";
+    }
     document.getElementById("btn-handoff-ok").textContent = "Ich bin " + player.name;
     if (shell.hidden || !shell.classList.contains("is-open")) {
       openModal(shell);
@@ -1882,8 +2100,8 @@ window.Nexus = window.Nexus || {};
       '<stop offset="100%" stop-color="#ff6a4a" stop-opacity="0"/>' +
       "</radialGradient>" +
       '<radialGradient id="nx-island" cx="50%" cy="50%" r="50%">' +
-      '<stop offset="0%" stop-color="#0b1a12" stop-opacity="0.3"/>' +
-      '<stop offset="100%" stop-color="#0b1a12" stop-opacity="0"/>' +
+      '<stop offset="0%" stop-color="#3d4a28" stop-opacity="0.28"/>' +
+      '<stop offset="100%" stop-color="#3d4a28" stop-opacity="0"/>' +
       "</radialGradient>" +
       "</defs>"
     );
@@ -2006,11 +2224,19 @@ window.Nexus = window.Nexus || {};
     var use;
 
     if (isDeco) {
-      use = "water";
-      cy += VIEW.waterDrop;
-      thickness = 9;
-      classes.push("tile--water");
-      art = artWater(cx, cy, sx, sy, rand);
+      var decoRoll = tileRandom(tile.q, tile.r, 5)();
+      if (tile.dist >= view.playRadius + 1 && decoRoll < 0.34) {
+        use = "ridge";
+        art = artRidge(cx, cy, sx, sy, rand);
+      } else if (decoRoll < 0.62) {
+        use = "farm";
+        art = artFarm(cx, cy, sx, sy, rand);
+      } else {
+        use = "hill";
+        art = artHill(cx, cy, sx, sy, rand);
+      }
+      thickness = use === "ridge" ? 13 : 10;
+      classes.push("tile--" + use);
     } else if (zone) {
       use = landUseKey(zone);
       var owner = state.players.filter(function (p) {
@@ -2018,10 +2244,23 @@ window.Nexus = window.Nexus || {};
       })[0];
       var isMine = zone.ownerId === player.id;
       var isHome = zone.type === "home";
+      var level = (Nexus.zoneUpgradeLevel && Nexus.zoneUpgradeLevel(zone)) || zone.upgradeLevel || 0;
+      var gizmos = {};
+      if (owner) {
+        if (owner.devices.camera === "cloud" || (isMine && owner.devices.camera === "local")) {
+          gizmos.camera = true;
+        }
+        if (owner.devices.lock === "cloud" || (isMine && owner.devices.lock === "local")) {
+          gizmos.lock = true;
+        }
+      }
       classes.push("tile--" + use);
       classes.push("is-clickable");
       classes.push(isMine ? "is-mine" : "is-foreign");
       classes.push(isHome ? "hex-home" : "hex-owned");
+      if (level > 0) {
+        classes.push("is-upgraded");
+      }
       style += "--owner-color:" + playerColor(owner) + ";";
       attrs +=
         ' data-mine="' +
@@ -2043,6 +2282,7 @@ window.Nexus = window.Nexus || {};
       title =
         (Nexus.ZONE_TYPES[zone.type] || {}).label +
         (variantLabel ? " · " + variantLabel : "") +
+        (level ? " · Ausbau " + level : "") +
         (trafficKind === "bus"
           ? " · Busbahnhof"
           : trafficKind === "parking"
@@ -2063,20 +2303,20 @@ window.Nexus = window.Nexus || {};
         classes.push("is-place-pop");
       }
       if (isHome) {
-        art = artHome(cx, cy, sy, rand);
+        art = artHome(cx, cy, sy, rand, level);
         overlay += homeDevicePips(owner, cx, cy + sy * 0.46, !isMine);
       } else if (use === "residential") {
-        art = artResidential(cx, cy, sy, rand);
+        art = artResidential(cx, cy, sy, rand, level, gizmos);
       } else if (use === "energy-solar") {
-        art = artSolar(cx, cy, sy, rand);
+        art = artSolar(cx, cy, sy, rand, level);
       } else if (use === "energy-transformer") {
-        art = artTransformer(cx, cy, sy, rand);
+        art = artTransformer(cx, cy, sy, rand, level);
       } else if (use === "datacenter-secure") {
-        art = artDatacenter(cx, cy, sy, rand, true);
+        art = artDatacenter(cx, cy, sy, rand, true, level, gizmos);
       } else if (use === "datacenter-insecure") {
-        art = artDatacenter(cx, cy, sy, rand, false);
+        art = artDatacenter(cx, cy, sy, rand, false, level, gizmos);
       } else if (use === "traffic") {
-        art = artTraffic(cx, cy, sy, rand, trafficKind);
+        art = artTraffic(cx, cy, sy, rand, trafficKind, level);
       }
       if (ctx.spinning[zone.id]) {
         overlay += rollChip(cx, cy - sy * 0.75, zone, ctx.stagger[zone.id] || 0);
@@ -2096,8 +2336,19 @@ window.Nexus = window.Nexus || {};
         if (affordable) {
           classes.push("tile--affordable", "is-buyable", "is-coupon-pulse");
         }
+        if (
+          ctx.recommendSlot &&
+          ctx.recommendSlot.q === tile.q &&
+          ctx.recommendSlot.r === tile.r
+        ) {
+          classes.push("is-recommended");
+        }
         attrs += ' data-q="' + tile.q + '" data-r="' + tile.r + '"';
-        title = affordable ? "Freies Feld — bebaubar" : "Freies Feld";
+        title = affordable
+          ? ctx.recommendSlot && ctx.recommendSlot.q === tile.q && ctx.recommendSlot.r === tile.r
+            ? "Empfohlenes Feld — bebaubar"
+            : "Freies Feld — bebaubar"
+          : "Freies Feld";
         overlay +=
           '<g class="plus-pin">' +
           '<path class="antenna" d="M' +
@@ -2134,7 +2385,10 @@ window.Nexus = window.Nexus || {};
         poly(hexTopPts(cx, cy, sx * 0.9, sy * 0.9), "tile-owner-ring-inner");
     }
     if (!isDeco) {
-      inner += streetRing(cx, cy, sx, sy, tileRandom(tile.q, tile.r, 19));
+      inner += streetRing(cx, cy, sx, sy, tileRandom(tile.q, tile.r, 19), {
+        extraParking: !!(zone && zone.type === "traffic"),
+        busy: !!(zone && zone.type === "traffic")
+      });
     }
     inner += art + overlay;
     inner += poly(hexTopPts(cx, cy, sx, sy), "tile-hit");
@@ -2155,8 +2409,14 @@ window.Nexus = window.Nexus || {};
   function coachText(state, player) {
     var factoryCount = Nexus.playerFactoryZones(state, player.id).length;
     var ownedCount = Nexus.playerZones(state, player.id).length;
+    if (state.turnPhase === "handoff" && state.tradeSession) {
+      return "Gerät weitergeben — Handelsangebot, Bildschirm bleibt verdeckt.";
+    }
     if (state.turnPhase === "handoff") {
       return "Gerät an <b>" + player.name + "</b> weitergeben — Bildschirm bleibt verdeckt.";
+    }
+    if (state.turnPhase === "trade_respond") {
+      return player.name + ": Handelsangebot annehmen oder ablehnen.";
     }
     if (state.turnPhase === "role_reveal") {
       return "Wahlversprechen werden einzeln gezeigt — nur die Person am Gerät liest mit.";
@@ -2166,7 +2426,7 @@ window.Nexus = window.Nexus || {};
         return player.name + ": keine Felder — Produktion wird übersprungen.";
       }
       if (factoryCount === 0) {
-        return player.name + ": <b>Home</b> liefert +1 aller Ressourcen …";
+        return player.name + ": <b>Kontrollbüro</b> liefert Ressourcen …";
       }
       return player.name + ": Produktion läuft — Solarfarmen würfeln, Umspannwerke zahlen.";
     }
@@ -2174,15 +2434,19 @@ window.Nexus = window.Nexus || {};
       return player.name + ": ein Ereignis wartet.";
     }
     if (state.turnPhase === "build") {
+      var waiting = Nexus.pendingTradeOffersFor ? Nexus.pendingTradeOffersFor(state, player.id) : [];
+      if (waiting.length) {
+        return player.name + ": ein Handelsangebot wartet — annehmen oder ablehnen.";
+      }
       if ((player.freeZoneClaims || 0) > 0) {
         return (
-          "<b>Startcoupon:</b> ein Nachbarfeld (+) ist gratis. Wohnen bringt erst mit eigenem Datenzentrum Bandbreite."
+          "<b>Startcoupon:</b> ein Nachbarfeld (+) ist gratis. Das Startfeld ist dein Kontrollbüro. Wohnen bringt erst mit eigenem Datenzentrum Bandbreite."
         );
       }
       if (state.round <= 1 && factoryCount <= 1) {
         return "<b>Erste Erweiterung:</b> Solarfarm würfelt, Umspannwerk zahlt Geld pro Energie — Datenzentrum schaltet Wohn-Bandbreite frei.";
       }
-      return "Feld antippen für Details · eigenes Home öffnet die Geräte · dann Zug beenden.";
+      return "Feld antippen für Details · eigenes Kontrollbüro öffnet die Geräte · dann Zug beenden.";
     }
     return "";
   }
@@ -2192,10 +2456,10 @@ window.Nexus = window.Nexus || {};
     if (!list) {
       return;
     }
-    if (list.dataset.legendRev === "streets-1") {
+    if (list.dataset.legendRev === "farm-3d-1") {
       return;
     }
-    list.dataset.legendRev = "streets-1";
+    list.dataset.legendRev = "farm-3d-1";
     list.innerHTML = LEGEND_ROWS.map(function (row) {
       return (
         '<li title="' +
@@ -2237,11 +2501,13 @@ window.Nexus = window.Nexus || {};
     svg.setAttribute("height", String(view.height));
 
     var player = Nexus.currentPlayer(state);
+    var recSlot = Nexus.recommendExpandSlot ? Nexus.recommendExpandSlot(state) : null;
     var ctx = {
       spinning: {},
       stagger: {},
       placePopId: (ui && ui.placePopZoneId) || null,
-      showYield: !!(ui && ui.yieldPops)
+      showYield: !!(ui && ui.yieldPops),
+      recommendSlot: recSlot
     };
     (state.spinningOutcomes || []).forEach(function (outcome) {
       ctx.spinning[outcome.zoneId] = true;
@@ -2367,6 +2633,10 @@ window.Nexus = window.Nexus || {};
               ? " · Busbahnhof"
               : " · Parkplatz mit Ladestationen";
         }
+        var level = inspectedZone.upgradeLevel || 0;
+        if (level) {
+          typeLabel += " · Ausbau " + level;
+        }
         document.getElementById("zone-inspect-type").textContent = typeLabel;
         document.getElementById("zone-inspect-owner").textContent = owner
           ? isMineZone
@@ -2386,8 +2656,87 @@ window.Nexus = window.Nexus || {};
         document.getElementById("zone-inspect-die").textContent = die
           ? die.label + (die.modifier ? " (" + (die.modifier > 0 ? "+" : "") + die.modifier + ")" : "")
           : inspectedZone.type === "home"
-            ? "Home produziert ohne Würfel"
+            ? "Kontrollbüro produziert ohne Würfel"
             : "Noch kein Wurf in dieser Runde";
+        var actions = document.getElementById("zone-inspect-actions");
+        var impact = document.getElementById("zone-inspect-impact");
+        if (actions) {
+          actions.innerHTML = "";
+          if (isMineZone && state.turnPhase === "build") {
+            var up = Nexus.describeZoneUpgrade(state, inspectedZone.id);
+            var down = Nexus.describeDemolish(state, inspectedZone.id);
+            var html = "";
+            if (up.flags && up.flags.maxed) {
+              html += '<p class="pick-con">Maximal ausgebaut.</p>';
+            } else {
+              html +=
+                '<button type="button" class="btn" id="btn-zone-upgrade"' +
+                (up.allowed ? "" : ' disabled title="' + escapeAttr(upgradeReasonText(up.reason)) + '"') +
+                ">Ausbauen" +
+                (up.cost && Object.keys(up.cost).length ? " · " + Nexus.formatCost(up.cost) : "") +
+                "</button>";
+            }
+            html +=
+              '<button type="button" class="btn ghost" id="btn-zone-demolish"' +
+              (down.allowed ? "" : ' disabled title="' + escapeAttr(demolishReasonText(down.reason)) + '"') +
+              ">Abreißen" +
+              (down.refund && down.refund.money ? " · +" + down.refund.money + " Geld" : "") +
+              "</button>";
+            actions.innerHTML = html;
+          }
+        }
+        if (impact) {
+          var bits = [];
+          if (isMineZone && state.turnPhase === "build") {
+            var up2 = Nexus.describeZoneUpgrade(state, inspectedZone.id);
+            if (up2.production) {
+              if (up2.production.resource === "all") {
+                bits.push(
+                  '<span class="pick-pro">Ausbau: +' +
+                    up2.production.toAmount +
+                    " aller Ressourcen</span>"
+                );
+              } else {
+                var resN =
+                  (Nexus.RESOURCE_SHORT && Nexus.RESOURCE_SHORT[up2.production.resource]) ||
+                  up2.production.resource;
+                bits.push(
+                  '<span class="pick-pro">Ausbau: ' +
+                    up2.production.fromAmount +
+                    "→" +
+                    up2.production.toAmount +
+                    " " +
+                    resN +
+                    "</span>"
+                );
+              }
+              if (up2.flags.transformerUpkeep) {
+                bits.push('<span class="pick-con">mehr Energie kostet mehr Geld</span>');
+              }
+              if (up2.flags.residentialNeedsDc) {
+                bits.push('<span class="pick-con">ohne Datenzentrum: Bandbreite 0</span>');
+              }
+            }
+            var down2 = Nexus.describeDemolish(state, inspectedZone.id);
+            if (down2.refund && down2.refund.money) {
+              bits.push('<span class="pick-pro">Abriss +' + down2.refund.money + " Geld</span>");
+            }
+            if (down2.lostProduction) {
+              bits.push(
+                '<span class="pick-con">weg: ' +
+                  down2.lostProduction.amount +
+                  " " +
+                  ((Nexus.RESOURCE_SHORT && Nexus.RESOURCE_SHORT[down2.lostProduction.resource]) ||
+                    down2.lostProduction.resource) +
+                  "</span>"
+              );
+            }
+            if (down2.flags.disconnects) {
+              bits.push('<span class="pick-con">Netz würde reißen</span>');
+            }
+          }
+          impact.innerHTML = bits.join(" ");
+        }
       }
     }
 
@@ -2459,13 +2808,58 @@ window.Nexus = window.Nexus || {};
       var hint = document.getElementById("standards-hint");
       if (hint) {
         hint.textContent =
-          (player.standardsChoice === "proprietary" ? "Proprietär" : "Offen") +
-          " · Streak: " +
-          (player.standardStreak || 0) +
-          " Runden";
+          player.standardsChoice === "proprietary"
+            ? "Proprietär: Tausch nur mit anderem Proprietär, kein Rabatt. Offen dagegen = blockiert (Lock-in). Streak " +
+              (player.standardStreak || 0) +
+              "."
+            : "Offen: Tausch nur mit anderem Offen. Rabatt, wenn du Ware abgibst, die du nicht selbst kürzlich erzeugt hast. Gemischt = blockiert. Streak " +
+              (player.standardStreak || 0) +
+              ".";
       }
     }
 
+    var homeTitle = document.getElementById("home-modal-title");
+    if (homeTitle) {
+      homeTitle.textContent = "Geräte am Leitstand";
+    }
+    var homeKicker = document.querySelector("#home-modal .modal-kicker");
+    if (homeKicker) {
+      homeKicker.textContent = "Kontrollbüro";
+    }
+    var homeUpWrap = document.getElementById("home-upgrade-wrap");
+    if (homeUpWrap) {
+      var homeZone = null;
+      state.zones.forEach(function (zone) {
+        if (zone.type === "home" && zone.ownerId === player.id) {
+          homeZone = zone;
+        }
+      });
+      if (homeZone && state.turnPhase === "build") {
+        var homeUp = Nexus.describeZoneUpgrade(state, homeZone.id);
+        homeUpWrap.hidden = false;
+        homeUpWrap.innerHTML =
+          '<p class="setup-label">Leitstand Stufe ' +
+          (homeZone.upgradeLevel || 0) +
+          "/" +
+          ((Nexus.CONSTANTS && Nexus.CONSTANTS.ZONE_UPGRADE_MAX) || 2) +
+          "</p>" +
+          (homeUp.production
+            ? '<p class="expand-impact"><span class="pick-pro">+' +
+              homeUp.production.toAmount +
+              " aller Ressourcen / Runde</span>" +
+              (homeUp.cost && Object.keys(homeUp.cost).length
+                ? ' <span class="pick-con">kostet ' + Nexus.formatCost(homeUp.cost) + "</span>"
+                : "") +
+              "</p>"
+            : "") +
+          '<button type="button" class="btn" id="btn-home-upgrade"' +
+          (homeUp.allowed ? "" : ' disabled title="' + escapeAttr(upgradeReasonText(homeUp.reason)) + '"') +
+          ">Büro ausbauen</button>";
+      } else if (homeUpWrap) {
+        homeUpWrap.hidden = true;
+        homeUpWrap.innerHTML = "";
+      }
+    }
     var saePanel = document.getElementById("sae-panel");
     if (saePanel) {
       var canSae = !!(player.devices.v2x || player.devices.charging_network);
@@ -2707,6 +3101,60 @@ window.Nexus = window.Nexus || {};
     return bits.join("");
   }
 
+  function recommendReasonText(rec) {
+    if (!rec) {
+      return "";
+    }
+    if (rec.reasonKey === "low_energy") {
+      return "Empfohlen: dir fehlt Energie.";
+    }
+    if (rec.reasonKey === "low_money") {
+      return "Empfohlen: dir fehlt Geld.";
+    }
+    if (rec.reasonKey === "need_dc") {
+      return "Empfohlen: ohne Datenzentrum bleibt Wohn-Bandbreite 0.";
+    }
+    if (rec.reasonKey === "low_bandwidth") {
+      return "Empfohlen: dir fehlt Bandbreite.";
+    }
+    return "Empfohlen für dein Netz.";
+  }
+
+  function tradeReasonText(reason) {
+    var map = {
+      wrong_phase: "Handel nur in der Bauphase.",
+      bad_partner: "Ungültiger Handelspartner.",
+      mixed_standard: "Unterschiedliche Standards: kein Handel (Lock-in).",
+      no_standard: "Beide brauchen eine Standards-Wahl.",
+      bad_amount: "Menge muss größer als 0 sein.",
+      cannot_afford: "Nicht genug von der abzugebenden Ressource.",
+      partner_short: "Gegenüber hat nicht genug von der gewünschten Ressource."
+    };
+    return map[reason] || reason || "";
+  }
+
+  function upgradeReasonText(reason) {
+    var map = {
+      wrong_phase: "Ausbauen nur in der Bauphase.",
+      not_owner: "Nur eigene Felder.",
+      maxed: "Maximal ausgebaut.",
+      cannot_afford: "Nicht genug Ressourcen.",
+      missing_zone: "Feld fehlt."
+    };
+    return map[reason] || reason || "";
+  }
+
+  function demolishReasonText(reason) {
+    var map = {
+      wrong_phase: "Abriss nur in der Bauphase.",
+      not_owner: "Nur eigene Felder.",
+      is_home: "Das Kontrollbüro bleibt stehen.",
+      disconnects: "Würde andere Felder vom Netz abschneiden.",
+      missing_zone: "Feld fehlt."
+    };
+    return map[reason] || reason || "";
+  }
+
   function renderExpandModal(state, ui) {
     var shell = document.getElementById("expand-modal");
     var slot = ui && ui.expandSlot;
@@ -2735,6 +3183,7 @@ window.Nexus = window.Nexus || {};
     var variantRow = document.getElementById("expand-variants");
     var impactEl = document.getElementById("expand-impact");
 
+    var rec = Nexus.recommendExpandType ? Nexus.recommendExpandType(state) : null;
     if (pendingType && variants.length) {
       if (stepLabel) {
         var typeDef = Nexus.ZONE_TYPES[pendingType];
@@ -2745,13 +3194,17 @@ window.Nexus = window.Nexus || {};
       choices.innerHTML = "";
       if (variantRow) {
         variantRow.hidden = false;
+        variantRow.classList.toggle("pick-grid-2", variants.length >= 2);
         variantRow.innerHTML = variants
           .map(function (variant) {
             var id = variant.id || variant.key || variant;
             var label = variant.label || variant.shortLabel || id;
             var preview = Nexus.describeZoneBuild(state, pendingType, id);
+            var recVar = rec && rec.type === pendingType && rec.variant === id;
             return (
-              '<button type="button" class="tile-pick zone-pick zone-pick--impact" data-zone-variant="' +
+              '<button type="button" class="tile-pick zone-pick zone-pick--impact' +
+              (recVar ? " is-recommended" : "") +
+              '" data-zone-variant="' +
               id +
               '">' +
               pickHex(pendingType + "-" + id) +
@@ -2767,13 +3220,14 @@ window.Nexus = window.Nexus || {};
       if (impactEl) {
         impactEl.hidden = false;
         impactEl.innerHTML =
-          "<p>Vor- und Nachteile stehen auf den Kacheln — aus den bestehenden Regeln, nichts Neues.</p>";
+          "<p>Vor- und Nachteile stehen auf den Kacheln. Ausbau später macht das Gebäude größer und den Ertrag höher.</p>";
       }
     } else {
       if (stepLabel) {
-        stepLabel.textContent = "Feldtyp — Ertrag und Spuren vor dem Bauen";
+        stepLabel.textContent = "Feldtyp — 2×2, Ertrag vor dem Bauen";
       }
       choices.hidden = false;
+      choices.classList.add("pick-grid-2");
       if (variantRow) {
         variantRow.hidden = true;
         variantRow.innerHTML = "";
@@ -2782,8 +3236,11 @@ window.Nexus = window.Nexus || {};
         var offer = Nexus.getExpandOffer(state, slot.q, slot.r, key);
         var typeDef = Nexus.ZONE_TYPES[key];
         var preview = Nexus.describeZoneBuild(state, key);
+        var isRec = rec && rec.type === key;
         return (
-          '<button type="button" class="tile-pick zone-pick zone-pick--impact" data-zone-type="' +
+          '<button type="button" class="tile-pick zone-pick zone-pick--impact' +
+          (isRec ? " is-recommended" : "") +
+          '" data-zone-type="' +
           key +
           '"' +
           (offer.allowed ? "" : ' disabled title="' + escapeAttr(offer.reason || "Nicht bezahlbar") + '"') +
@@ -2791,6 +3248,7 @@ window.Nexus = window.Nexus || {};
           pickHex(key) +
           '<span class="pick-copy"><small>' +
           typeDef.shortLabel +
+          (isRec ? " · Tipp" : "") +
           "</small>" +
           pickImpactBits(preview) +
           "</span></button>"
@@ -2799,7 +3257,9 @@ window.Nexus = window.Nexus || {};
       if (impactEl) {
         impactEl.hidden = false;
         impactEl.innerHTML =
-          "<p>Straßen umringen jedes Feld. Verkehr ist ein Gebäude auf dem Grundstück (Busbahnhof oder Parkplatz), keine Straße.</p>";
+          "<p>" +
+          (rec ? recommendReasonText(rec) + " " : "") +
+          "Ein Gebäude pro Feld. Straßen umringen die Kanten.</p>";
       }
     }
     if (shell.hidden || !shell.classList.contains("is-open")) {
@@ -2942,23 +3402,41 @@ window.Nexus = window.Nexus || {};
     }
     var player = Nexus.currentPlayer(state);
     var pick = ui.tradePick || { partnerId: null, giveKey: null, giveAmount: 1, wantKey: null, wantAmount: 1 };
-    var hint = player.name + " tauscht Ressourcen (Standards beachten).";
-    if (pick.partnerId) {
-      var selected = state.players.filter(function (p) {
-        return p.id === pick.partnerId;
-      })[0];
-      if (selected) {
-        var compat = Nexus.getTradeOffer(
-          state,
-          selected.id,
-          pick.giveKey || tradeFallbackKey("energy"),
-          pick.giveAmount || 1,
-          pick.wantKey || tradeFallbackKey("money"),
-          pick.wantAmount || 1
+    pick.giveAmount = pick.giveAmount || 1;
+    pick.wantAmount = pick.wantAmount || 1;
+    var hint = "Angebot: Kurs und Menge. Der Partner nimmt an oder lehnt ab — sofort (Gerät übergeben) oder in seinem Zug.";
+    var offer = null;
+    if (pick.partnerId && pick.giveKey && pick.wantKey) {
+      offer = Nexus.getTradeOffer(
+        state,
+        pick.partnerId,
+        pick.giveKey,
+        pick.giveAmount,
+        pick.wantKey,
+        pick.wantAmount
+      );
+      if (!offer.allowed) {
+        hint = tradeReasonText(offer.reason);
+      } else {
+        var bits = [];
+        bits.push(
+          "Du gibst " +
+            offer.giveCost +
+            " " +
+            Nexus.RESOURCE_SHORT[pick.giveKey] +
+            " für " +
+            offer.wantGain +
+            " " +
+            Nexus.RESOURCE_SHORT[pick.wantKey] +
+            "."
         );
-        if (!compat.allowed) {
-          hint = compat.reason;
+        if (offer.flags && offer.flags.openDiscount) {
+          bits.push("Offen+Offen: Rabatt auf den Aufpreis.");
         }
+        if (offer.flags && offer.flags.premiumSurcharge && !(offer.flags.openDiscount)) {
+          bits.push("Nicht selbst erzeugt: doppelter Einsatz.");
+        }
+        hint = bits.join(" ");
       }
     }
     document.getElementById("trade-hint").textContent = hint;
@@ -2967,7 +3445,6 @@ window.Nexus = window.Nexus || {};
         return p.id !== player.id;
       })
       .map(function (p) {
-        var compat = Nexus.getTradeOffer(state, p.id, pick.giveKey || tradeFallbackKey("energy"), pick.giveAmount || 1, pick.wantKey || tradeFallbackKey("money"), pick.wantAmount || 1);
         var blocked = p.standardsChoice && player.standardsChoice && p.standardsChoice !== player.standardsChoice;
         return (
           '<button type="button" class="btn setup-choice' +
@@ -2976,12 +3453,13 @@ window.Nexus = window.Nexus || {};
           p.id +
           '">' +
           p.name +
-          (blocked ? " · ✕" : "") +
+          (p.standardsChoice === "open" ? " · offen" : " · proprietär") +
+          (blocked ? " · kein Tausch" : "") +
           "</button>"
         );
       })
       .join("");
-    function resourceButtons(prefix, selectedKey, dataAttr) {
+    function resourceButtons(selectedKey, dataAttr) {
       return Nexus.RESOURCE_KEYS.map(function (key) {
         var shortLabel =
           (Nexus.RESOURCE_SHORT && Nexus.RESOURCE_SHORT[key]) ||
@@ -3003,14 +3481,104 @@ window.Nexus = window.Nexus || {};
         );
       }).join("");
     }
-    document.getElementById("trade-give").innerHTML = resourceButtons("give", pick.giveKey, "give");
-    document.getElementById("trade-want").innerHTML = resourceButtons("want", pick.wantKey, "want");
+    document.getElementById("trade-give").innerHTML = resourceButtons(pick.giveKey, "give");
+    document.getElementById("trade-want").innerHTML = resourceButtons(pick.wantKey, "want");
+    var giveAmt = document.getElementById("trade-give-amount");
+    var wantAmt = document.getElementById("trade-want-amount");
+    if (giveAmt) {
+      giveAmt.value = String(pick.giveAmount);
+    }
+    if (wantAmt) {
+      wantAmt.value = String(pick.wantAmount);
+    }
+    var impact = document.getElementById("trade-impact");
+    if (impact) {
+      if (offer && offer.allowed) {
+        impact.innerHTML =
+          '<span class="pick-pro">bei Annahme: +' +
+          offer.wantGain +
+          " " +
+          Nexus.RESOURCE_SHORT[pick.wantKey] +
+          "</span> " +
+          '<span class="pick-con">−' +
+          offer.giveCost +
+          " " +
+          Nexus.RESOURCE_SHORT[pick.giveKey] +
+          "</span>";
+      } else {
+        impact.innerHTML = '<span class="pick-con">Noch kein gültiges Angebot</span>';
+      }
+    }
     var confirm = document.getElementById("btn-trade-confirm");
-    if (pick.partnerId && pick.giveKey && pick.wantKey) {
-      var offer = Nexus.getTradeOffer(state, pick.partnerId, pick.giveKey, pick.giveAmount || 1, pick.wantKey, pick.wantAmount || 1);
-      confirm.disabled = !offer.allowed;
-    } else {
-      confirm.disabled = true;
+    var interrupt = document.getElementById("btn-trade-interrupt");
+    var lastOffer = (state.tradeOffers || []).filter(function (item) {
+      return item.status === "pending" && item.fromId === player.id;
+    }).slice(-1)[0];
+    if (confirm) {
+      confirm.disabled = !(offer && offer.allowed);
+      confirm.textContent = "Angebot senden";
+    }
+    if (interrupt) {
+      interrupt.disabled = !lastOffer;
+      interrupt.hidden = false;
+    }
+    if (shell.hidden || !shell.classList.contains("is-open")) {
+      openModal(shell);
+    }
+  }
+
+  function renderTradeRespondModal(state, ui) {
+    var shell = document.getElementById("trade-respond-modal");
+    if (!shell) {
+      return;
+    }
+    var player = Nexus.currentPlayer(state);
+    var incoming = [];
+    if (player && Nexus.pendingTradeOffersFor) {
+      incoming = Nexus.pendingTradeOffersFor(state, player.id);
+    }
+    var shouldOpen =
+      (state.turnPhase === "trade_respond" && incoming.length) ||
+      (state.turnPhase === "build" && incoming.length && !(ui && ui.tradeOpen) && !(ui && ui.expandSlot));
+    if (!shouldOpen) {
+      if (!shell.hidden) {
+        closeModal(shell);
+      }
+      return;
+    }
+    var offer = incoming[0];
+    var from = state.players.filter(function (p) {
+      return p.id === offer.fromId;
+    })[0];
+    document.getElementById("trade-respond-title").textContent =
+      "Angebot von " + (from ? from.name : "Mitspieler");
+    document.getElementById("trade-respond-body").innerHTML =
+      "<p>Du erhältst <b>" +
+      offer.giveCost +
+      " " +
+      Nexus.RESOURCE_SHORT[offer.giveKey] +
+      "</b> und gibst <b>" +
+      offer.wantAmount +
+      " " +
+      Nexus.RESOURCE_SHORT[offer.wantKey] +
+      "</b>.</p>" +
+      '<p class="expand-impact"><span class="pick-pro">+' +
+      offer.giveCost +
+      " " +
+      Nexus.RESOURCE_SHORT[offer.giveKey] +
+      '</span> <span class="pick-con">−' +
+      offer.wantAmount +
+      " " +
+      Nexus.RESOURCE_SHORT[offer.wantKey] +
+      "</span></p>" +
+      "<p>Wahlversprechen bleiben verdeckt. Nur dieses Angebot ist sichtbar.</p>";
+    var accept = document.getElementById("btn-trade-accept");
+    var decline = document.getElementById("btn-trade-decline");
+    if (accept) {
+      accept.setAttribute("data-offer", offer.id);
+    }
+    if (decline) {
+      decline.setAttribute("data-offer", offer.id);
     }
     if (shell.hidden || !shell.classList.contains("is-open")) {
       openModal(shell);
@@ -3028,6 +3596,7 @@ window.Nexus = window.Nexus || {};
     renderHome(state, ui);
     renderExpandModal(state, ui);
     renderTradeModal(state, ui);
+    renderTradeRespondModal(state, ui);
     renderEventModal(state, ui);
     renderRoleRevealModal(state);
     renderHandoffModal(state);

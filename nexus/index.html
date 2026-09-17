@@ -18,8 +18,8 @@
       href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800&family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="transitions.css?v=39" />
-    <link rel="stylesheet" href="style.css?v=40" />
+    <link rel="stylesheet" href="transitions.css?v=41" />
+    <link rel="stylesheet" href="style.css?v=41" />
   </head>
   <body>
     <div class="modal-shell t-modal-backdrop" id="setup-screen">
@@ -199,6 +199,8 @@
               <p id="zone-inspect-owner" class="zone-inspect-meta"></p>
               <p id="zone-inspect-yield" class="zone-inspect-yield"></p>
               <p id="zone-inspect-die" class="zone-inspect-meta"></p>
+              <div id="zone-inspect-impact" class="expand-impact"></div>
+              <div id="zone-inspect-actions" class="zone-inspect-actions"></div>
             </div>
             <p class="dock-empty" id="inspect-empty">
               Tippe eine Kachel im Distrikt — Typ, Besitz und letzter Wurf erscheinen hier.
@@ -208,8 +210,8 @@
           <section class="dock-card standards-bar" id="standards-bar" hidden>
             <p class="dock-card-title">Standard (öffentlich)</p>
             <div class="pick-row">
-              <button type="button" class="btn setup-choice" id="btn-standard-open" data-standard="open">Offen</button>
-              <button type="button" class="btn setup-choice" id="btn-standard-proprietary" data-standard="proprietary">Proprietär</button>
+              <button type="button" class="btn setup-choice" id="btn-standard-open" data-standard="open">Offener Standard</button>
+              <button type="button" class="btn setup-choice" id="btn-standard-proprietary" data-standard="proprietary">Proprietärer Standard</button>
             </div>
             <p id="standards-hint" class="standards-hint"></p>
           </section>
@@ -254,16 +256,22 @@
 
     <div id="trade-modal" class="modal-shell t-modal-backdrop" hidden>
       <div class="modal-card t-modal piece" role="dialog" aria-modal="true">
-        <p class="modal-kicker">Handel</p>
+        <p class="modal-kicker">Handelsangebot</p>
         <p id="trade-hint" class="trade-hint"></p>
         <label class="setup-label">Partner</label>
         <div id="trade-partners" class="pick-row"></div>
-        <label class="setup-label">Du gibst</label>
+        <label class="setup-label">Du gibst · Ressource</label>
         <div id="trade-give" class="pick-row trade-resource-row"></div>
-        <label class="setup-label">Du erhältst</label>
+        <label class="setup-label" for="trade-give-amount">Menge, die du einsetzt</label>
+        <input id="trade-give-amount" class="trade-qty" type="number" min="1" max="9" value="1" />
+        <label class="setup-label">Du willst · Ressource</label>
         <div id="trade-want" class="pick-row trade-resource-row"></div>
+        <label class="setup-label" for="trade-want-amount">Menge, die du erhältst</label>
+        <input id="trade-want-amount" class="trade-qty" type="number" min="1" max="9" value="1" />
+        <div id="trade-impact" class="expand-impact"></div>
         <div class="trade-actions">
-          <button type="button" class="btn primary" id="btn-trade-confirm" disabled>Tausch bestätigen</button>
+          <button type="button" class="btn primary" id="btn-trade-confirm" disabled>Angebot senden</button>
+          <button type="button" class="btn" id="btn-trade-interrupt" disabled>Jetzt übergeben</button>
           <button type="button" class="btn ghost" id="btn-trade-cancel">Abbrechen</button>
         </div>
       </div>
@@ -271,9 +279,10 @@
 
     <div id="home-modal" class="modal-shell t-modal-backdrop" hidden>
       <div class="modal-card t-modal piece home-modal-card" role="dialog" aria-modal="true">
-        <p class="modal-kicker">Smart Home</p>
+        <p class="modal-kicker">Kontrollbüro</p>
         <h2 id="home-modal-title">Geräte</h2>
         <p id="build-flags" class="build-flags"></p>
+        <div id="home-upgrade-wrap" class="home-upgrade-wrap"></div>
         <div id="device-list" class="hotbar"></div>
         <div id="inspect-card" class="inspect sheet" hidden>
           <div class="inspect-top">
@@ -311,10 +320,22 @@
         <p class="modal-kicker">Neues Feld</p>
         <div id="expand-cost" class="cost-line"></div>
         <p id="expand-step-label" class="setup-label">Feldtyp</p>
-        <div id="expand-choices" class="pick-row pick-row--impact"></div>
-        <div id="expand-variants" class="pick-row pick-row--impact" hidden></div>
+        <div id="expand-choices" class="pick-row pick-row--impact pick-grid-2"></div>
+        <div id="expand-variants" class="pick-row pick-row--impact pick-grid-2" hidden></div>
         <div id="expand-impact" class="expand-impact"></div>
         <button type="button" class="btn ghost" id="btn-expand-cancel">Zurück</button>
+      </div>
+    </div>
+
+    <div id="trade-respond-modal" class="modal-shell t-modal-backdrop" hidden>
+      <div class="modal-card t-modal piece" role="dialog" aria-modal="true">
+        <p class="modal-kicker">Handelsangebot</p>
+        <h2 id="trade-respond-title">Angebot</h2>
+        <div id="trade-respond-body"></div>
+        <div class="trade-actions">
+          <button type="button" class="btn primary" id="btn-trade-accept">Annehmen</button>
+          <button type="button" class="btn ghost" id="btn-trade-decline">Ablehnen</button>
+        </div>
       </div>
     </div>
 
@@ -366,16 +387,16 @@
       </div>
     </div>
 
-    <script src="js/data/constants.js?v=38"></script>
-    <script src="js/data/tiles.js?v=38"></script>
-    <script src="js/data/devices.js?v=38"></script>
-    <script src="js/data/events.js?v=38"></script>
-    <script src="js/data/cards.js?v=38"></script>
-    <script src="js/data/roles.js?v=38"></script>
-    <script src="js/icons.js?v=38"></script>
-    <script src="js/roles.js?v=38"></script>
-    <script src="js/state.js?v=38"></script>
-    <script src="js/render.js?v=38"></script>
-    <script src="js/main.js?v=38"></script>
+    <script src="js/data/constants.js?v=41"></script>
+    <script src="js/data/tiles.js?v=41"></script>
+    <script src="js/data/devices.js?v=41"></script>
+    <script src="js/data/events.js?v=41"></script>
+    <script src="js/data/cards.js?v=41"></script>
+    <script src="js/data/roles.js?v=41"></script>
+    <script src="js/icons.js?v=41"></script>
+    <script src="js/roles.js?v=41"></script>
+    <script src="js/state.js?v=41"></script>
+    <script src="js/render.js?v=41"></script>
+    <script src="js/main.js?v=41"></script>
   </body>
 </html>

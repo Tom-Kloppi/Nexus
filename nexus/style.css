@@ -68,9 +68,15 @@
   --lu-park-top: #8ac95c;
   --lu-park-side: #5f9440;
   --lu-park-deep: #467033;
-  --lu-water-top: #6cc2dd;
-  --lu-water-side: #3e93b4;
-  --lu-water-deep: #2c7a97;
+  --lu-farm-top: #d4c46a;
+  --lu-farm-side: #9a8a3e;
+  --lu-farm-deep: #6f642c;
+  --lu-hill-top: #8fb36a;
+  --lu-hill-side: #5e7c45;
+  --lu-hill-deep: #445a32;
+  --lu-ridge-top: #c4b8a4;
+  --lu-ridge-side: #8a7d6a;
+  --lu-ridge-deep: #5e5548;
   --lu-res-top: #dfcfa8;
   --lu-res-side: #b39d74;
   --lu-res-deep: #8d7a58;
@@ -172,9 +178,15 @@
   --lu-park-top: #2b4832;
   --lu-park-side: #192b1f;
   --lu-park-deep: #111e16;
-  --lu-water-top: #16405c;
-  --lu-water-side: #0e2637;
-  --lu-water-deep: #091b28;
+  --lu-farm-top: #5a4e28;
+  --lu-farm-side: #3a3218;
+  --lu-farm-deep: #241e10;
+  --lu-hill-top: #2f4a32;
+  --lu-hill-side: #1c2e1f;
+  --lu-hill-deep: #121c14;
+  --lu-ridge-top: #4a433a;
+  --lu-ridge-side: #2e2924;
+  --lu-ridge-deep: #1c1916;
   --lu-res-top: #52473a;
   --lu-res-side: #322b23;
   --lu-res-deep: #231e18;
@@ -881,8 +893,12 @@ button {
 .tile--grass .tile-skirt { fill: var(--lu-grass-side); }
 .tile--park .tile-top { fill: var(--lu-park-top); }
 .tile--park .tile-skirt { fill: var(--lu-park-side); }
-.tile--water .tile-top { fill: var(--lu-water-top); }
-.tile--water .tile-skirt { fill: var(--lu-water-side); }
+.tile--farm .tile-top { fill: var(--lu-farm-top); }
+.tile--farm .tile-skirt { fill: var(--lu-farm-side); }
+.tile--hill .tile-top { fill: var(--lu-hill-top); }
+.tile--hill .tile-skirt { fill: var(--lu-hill-side); }
+.tile--ridge .tile-top { fill: var(--lu-ridge-top); }
+.tile--ridge .tile-skirt { fill: var(--lu-ridge-side); }
 .tile--residential .tile-top { fill: var(--lu-res-top); }
 .tile--residential .tile-skirt { fill: var(--lu-res-side); }
 .tile--energy-solar .tile-top { fill: var(--lu-solar-top); }
@@ -1074,6 +1090,34 @@ button {
   opacity: 0.7;
 }
 .lot-pad { fill: color-mix(in srgb, var(--asphalt) 80%, var(--lu-traffic-top)); }
+.farm-furrow {
+  fill: none;
+  stroke: color-mix(in srgb, var(--lu-farm-deep) 70%, #6a5a20);
+  stroke-width: 2.2;
+  opacity: 0.55;
+}
+.farm-barn { fill: color-mix(in srgb, var(--w-sand, #c4a574) 80%, #8a5a3a); }
+.hill-mound { fill: color-mix(in srgb, var(--lu-hill-top) 80%, #6a8a50); opacity: 0.9; }
+.ridge-face { fill: var(--lu-ridge-side); }
+.ridge-snow { fill: color-mix(in srgb, var(--lu-ridge-top) 40%, #f2f0ea 60%); }
+.cruise-car {
+  offset-rotate: auto;
+  animation: nx-cruise var(--cruise-dur, 16s) linear infinite;
+  animation-delay: var(--cruise-delay, 0s);
+}
+@keyframes nx-cruise {
+  from { offset-distance: 0%; }
+  to { offset-distance: 100%; }
+}
+.parked-car { opacity: 0.95; }
+.tile.is-recommended .tile-top {
+  stroke: var(--accent);
+  stroke-width: 2.6;
+  filter: drop-shadow(0 0 6px color-mix(in srgb, var(--accent) 70%, transparent));
+}
+.zone-pick.is-recommended {
+  box-shadow: 0 0 0 2px var(--accent), 0 0 14px color-mix(in srgb, var(--accent) 45%, transparent);
+}
 .gravel { fill: color-mix(in srgb, var(--lu-trafo-top) 70%, #8a8478); opacity: 0.85; }
 .gantry {
   fill: none;
@@ -2340,6 +2384,40 @@ button {
 
 .pick-row--impact {
   align-items: stretch;
+}
+
+.pick-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.45rem;
+  width: 100%;
+}
+
+.pick-grid-2 .zone-pick {
+  width: auto;
+  min-width: 0;
+}
+
+.trade-qty {
+  width: 4.5rem;
+  padding: 0.35rem 0.5rem;
+  border-radius: var(--radius-card);
+  border: 1px solid var(--line);
+  background: var(--surface-2);
+  color: var(--ink);
+  font: inherit;
+  font-weight: 700;
+}
+
+.zone-inspect-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.45rem;
+}
+
+.home-upgrade-wrap {
+  margin: 0.4rem 0 0.6rem;
 }
 
 .zone-pick:hover:not(:disabled) {
