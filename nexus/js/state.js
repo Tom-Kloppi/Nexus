@@ -854,6 +854,91 @@ window.Nexus = window.Nexus || {};
     return next;
   }
 
+  /* Darstellungshilfe: vorhandene Bau-/Ertragsregeln als Vorschau, keine neuen Regeln. */
+  function describeZoneBuild(state, zoneType, variant) {
+    var typeDef = ZONE_TYPES[zoneType];
+    var resolvedVariant = variant || defaultVariantFor(zoneType);
+    var variantDef = variantDefFor(zoneType, resolvedVariant);
+    var yieldDef = typeDef
+      ? resolveZoneYieldDef({ type: zoneType, variant: resolvedVariant })
+      : null;
+    var label = typeDef ? typeDef.label : zoneType;
+    if (variantDef && variantDef.label && variantDef.label !== typeDef.label) {
+      label += " · " + variantDef.label;
+    }
+    var onBuild = emptyScores();
+    var riskOnBuild = 0;
+    if (variantDef && variantDef.scoreHint) {
+      onBuild = bumpScores(onBuild, variantDef.scoreHint);
+    }
+    if (variantDef && variantDef.riskOnBuild) {
+      riskOnBuild = variantDef.riskOnBuild;
+    }
+    if (zoneType === "traffic") {
+      onBuild = bumpScores(onBuild, { comfort: 1 });
+    }
+    var production = null;
+    if (yieldDef && yieldDef.primary) {
+      production = {
+        resource: yieldDef.primary,
+        amount: yieldDef.primaryBase || 0,
+        dice: !!yieldDef.dice,
+        stable: !!yieldDef.stable,
+        moneyPerEnergy: yieldDef.stable ? C.TRANSFORMER_MONEY_PER_ENERGY || 1 : 0
+      };
+    }
+    var flags = {
+      residentialNeedsDc: false,
+      transformerUpkeep: false,
+      solarDice: false,
+      dcUnlocksBandwidth: false,
+      insecureRisk: false,
+      trafficInfrastructure: false,
+      producesNextRound: true
+    };
+    if (zoneType === "residential") {
+      var player = currentPlayer(state);
+      flags.residentialNeedsDc = !(player && playerHasZoneType(state, player.id, "datacenter"));
+    }
+    if (production && production.stable) {
+      flags.transformerUpkeep = true;
+    }
+    if (production && production.dice) {
+      flags.solarDice = true;
+    }
+    if (zoneType === "datacenter") {
+      flags.dcUnlocksBandwidth = true;
+      if (resolvedVariant === "insecure" && riskOnBuild) {
+        flags.insecureRisk = true;
+      }
+    }
+    if (zoneType === "traffic") {
+      flags.trafficInfrastructure = true;
+    }
+    var devices = (Nexus.DEVICES || [])
+      .filter(function (device) {
+        return device.requiresZoneType === zoneType;
+      })
+      .map(function (device) {
+        return {
+          id: device.id,
+          name: device.name,
+          shortName: device.shortName
+        };
+      });
+    return {
+      type: zoneType,
+      variant: resolvedVariant || null,
+      label: label,
+      cost: getExpandCost(state),
+      production: production,
+      onBuild: onBuild,
+      riskOnBuild: riskOnBuild,
+      flags: flags,
+      devices: devices
+    };
+  }
+
   /* ---------- Spielaufbau ---------- */
 
   function createEmptyPlayer(id, name, colorIndex, roleId) {
@@ -2065,6 +2150,7 @@ window.Nexus = window.Nexus || {};
   Nexus.canAfford = canAfford;
   Nexus.formatCost = formatCost;
   Nexus.formatEffects = formatEffects;
+  Nexus.describeZoneBuild = describeZoneBuild;
   Nexus.cloudUpkeepCost = cloudUpkeepCost;
 
   /* ponytail: console smoke only; expand if CI lands */
@@ -2114,6 +2200,14 @@ window.Nexus = window.Nexus || {};
       if (currentPlayer(state).scores.comfort < 1) {
         throw new Error("traffic comfort hint");
       }
+    }
+    var trafficPreview = describeZoneBuild(state, "traffic");
+    if (!trafficPreview.onBuild || trafficPreview.onBuild.comfort < 1) {
+      throw new Error("traffic preview comfort");
+    }
+    var solarPreview = describeZoneBuild(state, "energy", "solar");
+    if (!solarPreview.production || !solarPreview.production.dice) {
+      throw new Error("solar preview dice");
     }
     return "ok";
   };

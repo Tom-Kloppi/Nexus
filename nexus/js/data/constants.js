@@ -34,7 +34,7 @@ Nexus.ZONE_TYPE_KEYS = ["residential", "energy", "datacenter", "traffic"];
 Nexus.ZONE_TYPES = {
   residential: {
     id: "residential",
-    label: "Wohngebiet",
+    label: "Wohn- und Bürogebiet",
     shortLabel: "Wohnen",
     primary: "bandwidth",
     primaryBase: 2
@@ -55,7 +55,7 @@ Nexus.ZONE_TYPES = {
   },
   traffic: {
     id: "traffic",
-    label: "Verkehr",
+    label: "Verkehrsinfrastruktur",
     shortLabel: "Verkehr",
     primary: "money",
     primaryBase: 1
@@ -65,7 +65,7 @@ Nexus.ZONE_TYPES = {
 Nexus.ENERGY_VARIANTS = {
   solar: {
     id: "solar",
-    label: "Solar",
+    label: "Solarfarm",
     shortLabel: "Solar",
     primary: "energy",
     primaryBase: 3,
@@ -74,8 +74,8 @@ Nexus.ENERGY_VARIANTS = {
   },
   transformer: {
     id: "transformer",
-    label: "Transformer",
-    shortLabel: "Transf.",
+    label: "Umspannwerk",
+    shortLabel: "Umspann",
     primary: "energy",
     primaryBase: 2,
     dice: false,

@@ -86,9 +86,9 @@
   --lu-dcsafe-top: #aebbc8;
   --lu-dcsafe-side: #7e8e9c;
   --lu-dcsafe-deep: #5f6d7a;
-  --lu-traffic-top: #a7adb3;
-  --lu-traffic-side: #7a8087;
-  --lu-traffic-deep: #5d6268;
+  --lu-traffic-top: #c8c4ba;
+  --lu-traffic-side: #9a958a;
+  --lu-traffic-deep: #7a756c;
   --lu-home-top: #ecdfc2;
   --lu-home-side: #bfae89;
   --lu-home-deep: #968868;
@@ -190,9 +190,9 @@
   --lu-dcsafe-top: #323d4b;
   --lu-dcsafe-side: #1f262f;
   --lu-dcsafe-deep: #161c23;
-  --lu-traffic-top: #3a4149;
-  --lu-traffic-side: #23282e;
-  --lu-traffic-deep: #191d22;
+  --lu-traffic-top: #3f3c37;
+  --lu-traffic-side: #2a2824;
+  --lu-traffic-deep: #1c1b18;
   --lu-home-top: #564c3b;
   --lu-home-side: #342f24;
   --lu-home-deep: #26221a;
@@ -1049,6 +1049,38 @@ button {
 .steel-dark { fill: color-mix(in srgb, var(--w-steel) 68%, #0d1622); }
 .asphalt { fill: var(--asphalt); }
 .asphalt-dark { fill: color-mix(in srgb, var(--asphalt) 72%, #0a0f16); }
+.street-ring {
+  fill: var(--asphalt);
+  stroke: color-mix(in srgb, var(--asphalt) 55%, #1a1e24);
+  stroke-width: 0.6;
+}
+.street-dash {
+  fill: none;
+  stroke: var(--marking);
+  stroke-width: 1.15;
+  stroke-dasharray: 5 6;
+  stroke-linejoin: round;
+  opacity: 0.85;
+}
+.bus-body { fill: color-mix(in srgb, var(--amber) 55%, #3d4a58); }
+.bus-stripe { fill: var(--accent); }
+.canopy { fill: color-mix(in srgb, var(--w-steel) 70%, #ffffff); opacity: 0.92; }
+.charger-post { fill: color-mix(in srgb, var(--ok) 55%, var(--w-steel)); }
+.ok-glow { fill: var(--ok); }
+.stall-line {
+  fill: none;
+  stroke: var(--marking);
+  stroke-width: 0.9;
+  opacity: 0.7;
+}
+.lot-pad { fill: color-mix(in srgb, var(--asphalt) 80%, var(--lu-traffic-top)); }
+.gravel { fill: color-mix(in srgb, var(--lu-trafo-top) 70%, #8a8478); opacity: 0.85; }
+.gantry {
+  fill: none;
+  stroke: color-mix(in srgb, var(--w-steel) 40%, #1a1e24);
+  stroke-width: 1.6;
+  stroke-linecap: square;
+}
 .marking {
   fill: none;
   stroke: var(--marking);
@@ -1667,6 +1699,10 @@ button {
   font-weight: 700;
   line-height: 1.15;
   color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
 }
 
 .pile-empty {
@@ -1741,18 +1777,22 @@ button {
 }
 
 .card-fan.is-dense .play-card-name {
-  font-size: 0.64rem;
-  flex: 1 1 auto;
+  font-size: 0.58rem;
+  -webkit-line-clamp: 3;
+}
+
+.card-fan.is-dense .play-card-fx {
+  -webkit-line-clamp: 1;
 }
 
 /* Große Hand: Karten schmaler und ohne Fließtext, damit nichts aus dem Tray läuft */
 .play-card {
-  width: calc(clamp(4.4rem, 6.4rem - var(--fan-n, 1) * 0.2rem, 5.6rem) * var(--ui-scale));
-  height: calc(5.9rem * var(--ui-scale));
+  width: calc(clamp(4.6rem, 6.6rem - var(--fan-n, 1) * 0.18rem, 5.8rem) * var(--ui-scale));
+  height: calc(6.35rem * var(--ui-scale));
   display: flex;
   flex-direction: column;
-  gap: 0.1rem;
-  padding: 0.35rem 0.38rem;
+  gap: 0.08rem;
+  padding: 0.32rem 0.36rem 0.28rem;
   appearance: none;
   cursor: pointer;
   text-align: left;
@@ -1762,6 +1802,7 @@ button {
   border: 1px solid var(--panel-edge);
   box-shadow: 0 5px 12px rgba(10, 20, 30, 0.18);
   overflow: hidden;
+  min-width: 0;
 }
 
 .play-card:disabled {
@@ -1770,38 +1811,56 @@ button {
 }
 
 .play-card-cat {
-  font-size: 0.52rem;
+  font-size: 0.5rem;
   font-weight: 800;
   letter-spacing: 0.06em;
   text-transform: uppercase;
+  flex: 0 0 auto;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .play-card-name {
   margin: 0;
-  font-size: 0.68rem;
-  line-height: 1.12;
+  font-size: clamp(0.52rem, 0.7rem - var(--fan-n, 1) * 0.018rem, 0.66rem);
+  line-height: 1.15;
   color: var(--ink);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  hyphens: auto;
 }
 
 .play-card-text {
-  flex: 1;
+  flex: 1 1 auto;
   min-height: 0;
   overflow: hidden;
-  font-size: 0.58rem;
-  line-height: 1.22;
+  font-size: 0.54rem;
+  line-height: 1.2;
   color: var(--ink-dim);
   display: -webkit-box;
-  -webkit-line-clamp: 3;
+  -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  hyphens: auto;
 }
 
 .play-card-fx {
-  font-size: 0.56rem;
+  font-size: 0.52rem;
   font-weight: 800;
   color: var(--accent);
-  white-space: nowrap;
+  line-height: 1.15;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
   overflow: hidden;
-  text-overflow: ellipsis;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .play-card.cat-green { border-color: color-mix(in srgb, var(--local) 65%, transparent); }
@@ -2220,6 +2279,10 @@ button {
   cursor: not-allowed;
 }
 
+.modal-card.piece.expand-card {
+  width: min(560px, 100%);
+}
+
 .zone-pick {
   height: auto;
   min-height: 84px;
@@ -2235,6 +2298,53 @@ button {
   transition:
     border-color var(--duration-fast) var(--ease-smooth-out),
     transform var(--duration-fast) var(--ease-smooth-out);
+}
+
+.zone-pick--impact {
+  min-width: 148px;
+  max-width: 168px;
+  align-items: stretch;
+  padding: 0.45rem 0.4rem 0.5rem;
+  text-align: left;
+}
+
+.pick-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 0.12rem;
+  min-width: 0;
+}
+
+.pick-copy small {
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.pick-pro,
+.pick-con {
+  display: block;
+  font-size: 0.58rem;
+  font-weight: 650;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.pick-pro { color: var(--ok); }
+.pick-con { color: var(--danger); }
+
+.expand-impact {
+  margin: 0.55rem 0 0.35rem;
+  font-size: 0.74rem;
+  line-height: 1.35;
+  color: var(--ink-dim);
+}
+
+.expand-impact p {
+  margin: 0;
+}
+
+.pick-row--impact {
+  align-items: stretch;
 }
 
 .zone-pick:hover:not(:disabled) {
@@ -2287,6 +2397,8 @@ button {
   display: block;
   opacity: 0.72;
   font-size: 0.76rem;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .score-players {

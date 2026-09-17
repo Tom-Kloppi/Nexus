@@ -24,8 +24,8 @@ window.Nexus = window.Nexus || {};
   };
   var DEFAULT_ZONE_VARIANTS = {
     energy: [
-      { id: "solar", label: "Solar" },
-      { id: "transformer", label: "Transformator" }
+      { id: "solar", label: "Solarfarm" },
+      { id: "transformer", label: "Umspannwerk" }
     ],
     datacenter: [
       { id: "insecure", label: "Unsicher" },
@@ -238,17 +238,19 @@ window.Nexus = window.Nexus || {};
   }
 
   /* ==================== Stadt-Präsentation ====================
-     Projektion: Bodenebene vertikal gestaucht (Axonometrie-Anmutung),
-     Kacheln als Prisma mit Kantenhöhe, Gebäude als Körper mit fester
-     Tiefenrichtung nach rechts-oben. Reine Darstellung, keine Regeln. */
+     Steilere Aufsicht (Stadtplan von oben) mit leichter Prismenkante.
+     Straßen liegen auf den Kanten jedes Felds; Verkehrskacheln sind
+     Gebäude auf dem Grundstück, kein Straßennetz. Reine Darstellung. */
 
   var VIEW = {
-    squash: 0.6,
-    thickness: 17,
-    waterDrop: 8,
+    squash: 0.82,
+    thickness: 11,
+    waterDrop: 6,
     decoRings: 1,
-    depthX: 13,
-    depthY: -10
+    depthX: 6,
+    depthY: -4,
+    streetOuter: 0.99,
+    streetInner: 0.82
   };
 
   var viewCache = null;
@@ -379,6 +381,26 @@ window.Nexus = window.Nexus || {};
       [cx - sx, cy + sy / 2 + t],
       [cx - sx, cy - sy / 2 + t]
     ]);
+  }
+
+  function hexVerts(cx, cy, sx, sy) {
+    return [
+      [cx, cy - sy],
+      [cx + sx, cy - sy / 2],
+      [cx + sx, cy + sy / 2],
+      [cx, cy + sy],
+      [cx - sx, cy + sy / 2],
+      [cx - sx, cy - sy / 2]
+    ];
+  }
+
+  function pathFromVerts(verts, close) {
+    var d = verts
+      .map(function (p, i) {
+        return (i ? "L" : "M") + n(p[0]) + " " + n(p[1]);
+      })
+      .join("");
+    return close ? d + "Z" : d;
   }
 
   function tileRandom(q, r, salt) {
@@ -631,8 +653,8 @@ window.Nexus = window.Nexus || {};
   }
 
   function pvArray(x, groundY, w) {
-    var h = 13;
-    var lean = 9;
+    var h = 8;
+    var lean = 4;
     var top = pts([
       [x, groundY],
       [x + w, groundY],
@@ -682,27 +704,27 @@ window.Nexus = window.Nexus || {};
     "energy-transformer": { key: "energy-transformer", label: "Energie · Transformator", swatch: "--lu-trafo-top" },
     "datacenter-insecure": { key: "datacenter-insecure", label: "Datenzentrum · offen", swatch: "--lu-dcopen-top" },
     "datacenter-secure": { key: "datacenter-secure", label: "Datenzentrum · sicher", swatch: "--lu-dcsafe-top" },
-    traffic: { key: "traffic", label: "Verkehr", swatch: "--lu-traffic-top" },
+    traffic: { key: "traffic", label: "Verkehrsinfrastruktur", swatch: "--lu-traffic-top" },
     home: { key: "home", label: "Smart Home", swatch: "--lu-home-top" }
   };
 
   /* Legende nach Materialfamilie: die Variante liest man am Bau, nicht am Boden */
   var LEGEND_ROWS = [
-    { label: "Wohngebiet", note: "Häuser, Gärten", top: "--lu-res-top", side: "--lu-res-side", glyph: "house" },
-    { label: "Energie", note: "Solar · Transformator", top: "--lu-solar-top", side: "--lu-solar-side", glyph: "energy" },
-    { label: "Datenzentrum", note: "offen · sicher", top: "--lu-dcopen-top", side: "--lu-dcopen-side", glyph: "data" },
-    { label: "Verkehr", note: "Straße, Laternen", top: "--lu-traffic-top", side: "--lu-traffic-side", glyph: "road" },
+    { label: "Wohnen / Büro", note: "Bürokomplexe", top: "--lu-res-top", side: "--lu-res-side", glyph: "house" },
+    { label: "Energie", note: "Solarfarm · Umspannwerk", top: "--lu-solar-top", side: "--lu-solar-side", glyph: "energy" },
+    { label: "Datenzentrum", note: "Campus offen · sicher", top: "--lu-dcopen-top", side: "--lu-dcopen-side", glyph: "data" },
+    { label: "Verkehr", note: "Busbahnhof · Parkplatz", top: "--lu-traffic-top", side: "--lu-traffic-side", glyph: "bus" },
     { label: "Smart Home", note: "dein Startfeld", top: "--lu-home-top", side: "--lu-home-side", glyph: "home" },
     { label: "Park & Wiese", note: "frei bebaubar", top: "--lu-grass-top", side: "--lu-grass-side", glyph: "tree" },
     { label: "Wasser", note: "Distriktgrenze", top: "--lu-water-top", side: "--lu-water-side", glyph: "wave" }
   ];
 
   var LEGEND_GLYPHS = {
-    house: '<path d="M2 7 L7 3 L12 7 V12 H2 Z"/>',
+    house: '<path d="M3 12 V5 h8 v7 H3z M5 7 h2 v2 H5z M9 7 h2 v5"/>',
     energy: '<path d="M7 1 L3.5 7.5 H6.5 L5.5 13 L10.5 6 H7.5 L9 1 Z"/>',
     data: '<path d="M2.5 2.5h9v3h-9z M2.5 6.5h9v3h-9z M2.5 10.5h9v2.5h-9z"/>',
-    road: '<path d="M4 1 L2 13 H5.5 L6.3 1 Z M7.7 1 L8.5 13 H12 L10 1 Z"/>',
-    home: '<path d="M7 1.5 L12.5 6 H11 V12.5 H3 V6 H1.5 Z"/>',
+    bus: '<path d="M2 4.2 h10 v6.2 H2z M3.2 10.6 h1.8 v1.6 H3.2z M9 10.6 h1.8 v1.6 H9z M3.2 5.4 h3.2 v2 H3.2z M7.6 5.4 h3.2 v2 H7.6z"/>',
+    home: '<path d="M4 12 V6.5 h6 V12 H4z M6 8 h2 v2 H6z M7 3.2 L11 6.2 H3z"/>',
     tree: '<path d="M7 1 L11 8 H3 Z M6.2 8 h1.6 v5 h-1.6 z"/>',
     wave: '<path d="M1 5q3-2.2 6 0t6 0v2q-3 2.2-6 0t-6 0z"/>',
     shield: '<path d="M7 1 L12 3v4.2C12 10.3 9.9 12.4 7 13.2 4.1 12.4 2 10.3 2 7.2V3Z"/>',
@@ -715,7 +737,7 @@ window.Nexus = window.Nexus || {};
     residential: { top: "--lu-res-top", side: "--lu-res-side", glyph: "house" },
     energy: { top: "--lu-solar-top", side: "--lu-solar-side", glyph: "energy" },
     datacenter: { top: "--lu-dcopen-top", side: "--lu-dcopen-side", glyph: "data" },
-    traffic: { top: "--lu-traffic-top", side: "--lu-traffic-side", glyph: "road" },
+    traffic: { top: "--lu-traffic-top", side: "--lu-traffic-side", glyph: "bus" },
     "energy-solar": { top: "--lu-solar-top", side: "--lu-solar-side", glyph: "solar" },
     "energy-transformer": { top: "--lu-trafo-top", side: "--lu-trafo-side", glyph: "pylon" },
     "datacenter-insecure": { top: "--lu-dcopen-top", side: "--lu-dcopen-side", glyph: "data" },
@@ -754,316 +776,372 @@ window.Nexus = window.Nexus || {};
     return zone.type;
   }
 
-  /* Wohnhäuser: 2–3 Baukörper, Dachfarben aus der Palette */
-  function artResidential(cx, cy, sy, rand) {
-    var walls = ["w-cream", "w-sand", "w-clay", "w-mint"];
-    var roofs = ["r-terra", "r-sage", "r-slate", "r-tile", "r-copper"];
-    var lots = [
-      { x: cx - 34, y: cy + sy * 0.34, w: 27, h: 15 + rand() * 7 },
-      { x: cx + 2, y: cy + sy * 0.42, w: 24, h: 13 + rand() * 6 },
-      { x: cx - 13, y: cy - sy * 0.04, w: 25, h: 18 + rand() * 10 }
-    ];
-    if (rand() < 0.35) {
-      lots.splice(2, 1);
+  function streetRing(cx, cy, sx, sy, rand) {
+    var outer = hexVerts(cx, cy, sx * VIEW.streetOuter, sy * VIEW.streetOuter);
+    var inner = hexVerts(cx, cy, sx * VIEW.streetInner, sy * VIEW.streetInner);
+    var midScale = (VIEW.streetOuter + VIEW.streetInner) / 2;
+    var mid = hexVerts(cx, cy, sx * midScale, sy * midScale);
+    var out =
+      '<path class="street-ring" fill-rule="evenodd" d="' +
+      pathFromVerts(outer, true) +
+      pathFromVerts(inner, true) +
+      '"/>';
+    out += '<path class="street-dash" d="' + pathFromVerts(mid, true) + '"/>';
+    var i;
+    for (i = 0; i < 6; i++) {
+      if (rand() < 0.22) {
+        out += streetLamp(mid[i][0], mid[i][1], 11);
+      }
     }
+    if (rand() < 0.55) {
+      var edge = Math.floor(rand() * 6);
+      var a = mid[edge];
+      var b = mid[(edge + 1) % 6];
+      var t = 0.28 + rand() * 0.44;
+      var x = a[0] + (b[0] - a[0]) * t;
+      var y = a[1] + (b[1] - a[1]) * t;
+      var ang = (Math.atan2(b[1] - a[1], b[0] - a[0]) * 180) / Math.PI;
+      out +=
+        '<g class="edge-car" transform="translate(' +
+        n(x) +
+        " " +
+        n(y) +
+        ") rotate(" +
+        n(ang) +
+        ')">' +
+        '<rect class="car-body" x="-7.5" y="-2.6" width="15" height="5.2" rx="1.8"/>' +
+        '<rect class="car-glass" x="-2.4" y="-1.8" width="6.4" height="3.6" rx="1"/>' +
+        "</g>";
+    }
+    return out;
+  }
+
+  function trafficKindFor(q, r) {
+    return tileRandom(q, r, 3)() < 0.5 ? "bus" : "parking";
+  }
+
+  /* Bürokomplexe: dichte Stadt, flache Dächer, keine Fachwerkhäuser */
+  function artResidential(cx, cy, sy, rand) {
+    var walls = ["w-steel", "w-slate", "w-concrete", "w-sand"];
+    var roofs = ["r-slate", "r-flat", "r-copper"];
+    var lots = [
+      { x: cx - 22, y: cy + sy * 0.28, w: 18, h: 26 + rand() * 12 },
+      { x: cx - 2, y: cy + sy * 0.34, w: 16, h: 20 + rand() * 10 },
+      { x: cx + 16, y: cy + sy * 0.2, w: 14, h: 16 + rand() * 8 }
+    ];
     lots.sort(function (a, b) {
       return a.y - b.y;
     });
     var out = "";
-    lots.forEach(function (lot, index) {
-      var gable = rand() < 0.75;
+    lots.forEach(function (lot) {
+      var rows = lot.h > 24 ? 4 : lot.h > 18 ? 3 : 2;
       out += building(lot.x, lot.y, lot.w, lot.h, {
         cls: pick(rand, walls) + " " + pick(rand, roofs),
-        roof: gable ? "gable" : "flat",
-        roofH: 8 + rand() * 5,
+        roof: "flat",
         rand: rand,
-        door: index === lots.length - 1,
-        windows: { cols: 2, rows: lot.h > 22 ? 2 : 1, lit: 0.55 }
+        windows: { cols: lot.w > 16 ? 3 : 2, rows: rows, lit: 0.42 }
       });
     });
-    out += tree(cx + 30, cy + sy * 0.3, 0.85, rand() < 0.5);
-    if (rand() < 0.6) {
-      out += tree(cx - 42, cy + sy * 0.06, 0.62, true);
-    }
     return out;
   }
 
   function artSolar(cx, cy, sy, rand) {
     var out = "";
-    out += pvArray(cx - 40, cy + sy * 0.42, 30);
-    out += pvArray(cx - 4, cy + sy * 0.42, 30);
-    out += pvArray(cx - 22, cy + sy * 0.02, 30);
-    out += building(cx + 26, cy + sy * 0.12, 17, 12, {
+    var row;
+    var col;
+    for (row = 0; row < 3; row++) {
+      for (col = 0; col < 3; col++) {
+        out += pvArray(cx - 28 + col * 18, cy - sy * 0.18 + row * (sy * 0.28 + 4), 16);
+      }
+    }
+    out += building(cx + 14, cy + sy * 0.28, 16, 10, {
       cls: "w-concrete r-flat",
       roof: "flat",
       rand: rand,
-      windows: { cols: 1, rows: 1, lit: 0.4 }
+      windows: { cols: 2, rows: 1, lit: 0.3 }
     });
     return out;
   }
 
+  function transformerTank(x, y, w, h) {
+    return (
+      dropShadow(x + w / 2, y, w) +
+      '<rect class="steel" x="' +
+      n(x) +
+      '" y="' +
+      n(y - h) +
+      '" width="' +
+      n(w) +
+      '" height="' +
+      n(h) +
+      '" rx="2.4"/>' +
+      '<ellipse class="fc-top steel" cx="' +
+      n(x + w / 2) +
+      '" cy="' +
+      n(y - h) +
+      '" rx="' +
+      n(w / 2) +
+      '" ry="2.2"/>' +
+      '<rect class="steel-dark" x="' +
+      n(x + w * 0.12) +
+      '" y="' +
+      n(y - h * 0.55) +
+      '" width="' +
+      n(w * 0.76) +
+      '" height="3" rx="1"/>'
+    );
+  }
+
   function artTransformer(cx, cy, sy, rand) {
-    var baseY = cy + sy * 0.4;
-    var out = "";
-    /* Gittermast */
-    out +=
-      '<path class="antenna" d="M' +
-      n(cx + 22) +
-      " " +
-      n(baseY - 2) +
-      "L" +
-      n(cx + 29) +
-      " " +
-      n(baseY - 42) +
-      "M" +
-      n(cx + 40) +
-      " " +
-      n(baseY - 2) +
-      "L" +
-      n(cx + 33) +
-      " " +
-      n(baseY - 42) +
-      "M" +
-      n(cx + 24) +
-      " " +
-      n(baseY - 14) +
-      "L" +
-      n(cx + 38) +
-      " " +
-      n(baseY - 14) +
-      "M" +
-      n(cx + 26) +
-      " " +
-      n(baseY - 26) +
-      "L" +
-      n(cx + 36) +
-      " " +
-      n(baseY - 26) +
-      "M" +
-      n(cx + 22) +
-      " " +
-      n(baseY - 2) +
-      "L" +
-      n(cx + 38) +
-      " " +
-      n(baseY - 14) +
-      "M" +
-      n(cx + 40) +
-      " " +
-      n(baseY - 2) +
-      "L" +
-      n(cx + 24) +
-      " " +
-      n(baseY - 14) +
-      "M" +
-      n(cx + 24) +
-      " " +
-      n(baseY - 42) +
-      "L" +
-      n(cx + 38) +
-      " " +
-      n(baseY - 42) +
-      '"/>';
-    out += building(cx - 36, baseY, 40, 22, {
+    var baseY = cy + sy * 0.32;
+    var out = '<ellipse class="gravel" cx="' + n(cx) + '" cy="' + n(cy + 2) + '" rx="30" ry="' + n(sy * 0.55) + '"/>';
+    out += building(cx - 26, cy - sy * 0.08, 22, 12, {
       cls: "w-concrete r-flat",
       roof: "flat",
       rand: rand,
-      windows: { cols: 2, rows: 1, lit: 0.35 }
+      windows: { cols: 3, rows: 1, lit: 0.25 }
     });
+    out += transformerTank(cx - 8, baseY, 12, 14);
+    out += transformerTank(cx + 8, baseY + 2, 11, 12);
+    out += transformerTank(cx + 22, baseY - 1, 10, 11);
+    out +=
+      '<path class="gantry" d="M' +
+      n(cx - 16) +
+      " " +
+      n(baseY - 18) +
+      "H" +
+      n(cx + 30) +
+      "M" +
+      n(cx - 14) +
+      " " +
+      n(baseY) +
+      "V" +
+      n(baseY - 22) +
+      "M" +
+      n(cx + 6) +
+      " " +
+      n(baseY) +
+      "V" +
+      n(baseY - 22) +
+      "M" +
+      n(cx + 26) +
+      " " +
+      n(baseY) +
+      "V" +
+      n(baseY - 22) +
+      '"/>';
     out +=
       '<rect class="warn-stripe" x="' +
-      n(cx - 34) +
+      n(cx - 28) +
       '" y="' +
-      n(baseY - 6) +
-      '" width="36" height="3.2"/>';
-    /* Trafo-Zylinder */
-    out += dropShadow(cx + 6, baseY, 20);
-    out +=
-      '<rect class="steel" x="' +
-      n(cx - 2) +
-      '" y="' +
-      n(baseY - 17) +
-      '" width="11" height="17" rx="3"/>' +
-      '<ellipse class="fc-top steel" cx="' +
-      n(cx + 3.5) +
-      '" cy="' +
-      n(baseY - 17) +
-      '" rx="5.5" ry="2.4"/>' +
-      '<rect class="steel-dark" x="' +
-      n(cx + 10) +
-      '" y="' +
-      n(baseY - 13) +
-      '" width="8" height="13" rx="2.6"/>';
+      n(baseY - 3) +
+      '" width="22" height="2.6"/>';
     return out;
   }
 
   function artDatacenter(cx, cy, sy, rand, secure) {
-    var baseY = cy + sy * 0.4;
+    var baseY = cy + sy * 0.34;
     var out = "";
+    out += building(cx - 28, baseY, 32, 22, {
+      cls: secure ? "w-steel r-slate" : "w-slate r-flat",
+      roof: secure ? "flat" : "saw",
+      rand: rand,
+      windows: secure ? { cols: 4, rows: 2, lit: 0.22 } : { cols: 5, rows: 1, lit: 0.18 }
+    });
+    out += building(cx + 8, baseY - 2, 22, 16, {
+      cls: "w-concrete r-slate",
+      roof: "flat",
+      rand: rand,
+      windows: { cols: 3, rows: 1, lit: 0.2 }
+    });
     var i;
+    for (i = 0; i < 3; i++) {
+      out +=
+        '<rect class="steel-dark" x="' +
+        n(cx - 22 + i * 10) +
+        '" y="' +
+        n(baseY - 28) +
+        '" width="7" height="7" rx="1.2"/>';
+    }
     if (secure) {
-      out += building(cx - 24, baseY, 42, 32, {
-        cls: "w-steel r-slate",
-        roof: "flat",
-        rand: rand,
-        windows: { cols: 3, rows: 1, lit: 0.28 }
-      });
-      /* Kühlrippen auf dem Dach */
-      for (i = 0; i < 3; i++) {
-        out +=
-          '<rect class="steel-dark" x="' +
-          n(cx - 17 + i * 12) +
-          '" y="' +
-          n(baseY - 41) +
-          '" width="8" height="8" rx="1.5"/>';
-      }
-      /* Sicherheitsplakette */
       out +=
         '<circle class="badge-disc" cx="' +
-        n(cx + 2) +
+        n(cx - 10) +
         '" cy="' +
-        n(baseY - 16) +
-        '" r="7.5"/>' +
+        n(baseY - 10) +
+        '" r="6"/>' +
         '<path class="shield-badge" d="M' +
-        n(cx - 2.5) +
+        n(cx - 13.5) +
         " " +
-        n(baseY - 19.5) +
-        "l4.5 -2 4.5 2v4q0 4 -4.5 6 -4.5 -2 -4.5 -6z" +
+        n(baseY - 12.8) +
+        "l3.5 -1.6 3.5 1.6v3.2q0 3.2 -3.5 4.8 -3.5 -1.6 -3.5 -4.8z" +
         '"/>';
-      /* geschlossene Mauer davor */
       out +=
         '<rect class="steel" x="' +
         n(cx - 30) +
         '" y="' +
-        n(baseY - 6) +
-        '" width="56" height="6.5" rx="2"/>';
+        n(baseY - 4) +
+        '" width="58" height="5" rx="1.6"/>';
     } else {
-      out += building(cx - 26, baseY, 44, 19, {
-        cls: "w-slate r-flat",
-        roof: "saw",
-        rand: rand
-      });
-      /* Lüftungsschlitze statt Fenster */
-      out +=
-        '<path class="fc-line" d="M' +
-        n(cx - 22) +
-        " " +
-        n(baseY - 13) +
-        "h36M" +
-        n(cx - 22) +
-        " " +
-        n(baseY - 9) +
-        "h36M" +
-        n(cx - 22) +
-        " " +
-        n(baseY - 5) +
-        "h36" +
-        '"/>';
-      /* offener Zaun = ungesichert */
       out +=
         '<path class="cage" d="M' +
-        n(cx - 34) +
+        n(cx - 32) +
         " " +
-        n(baseY + 7) +
-        "v-9h62v9" +
+        n(baseY + 6) +
+        "v-8h62v8" +
         '"/>';
-      for (i = 0; i < 5; i++) {
-        out +=
-          '<path class="cage" d="M' +
-          n(cx - 34 + i * 15.5) +
-          " " +
-          n(baseY + 7) +
-          "v-9" +
-          '"/>';
-      }
       out +=
         '<ellipse class="lamp-glow" cx="' +
-        n(cx + 16) +
+        n(cx + 18) +
         '" cy="' +
-        n(baseY - 25) +
-        '" rx="12" ry="9" fill="url(#nx-warn)"/>';
-      out += '<path class="antenna" d="M' + n(cx + 16) + " " + n(baseY - 20) + "v-5" + '"/>';
-      out += '<circle class="pip-warn" cx="' + n(cx + 16) + '" cy="' + n(baseY - 26) + '" r="2.8"/>';
+        n(baseY - 22) +
+        '" rx="10" ry="7" fill="url(#nx-warn)"/>';
+      out += '<circle class="pip-warn" cx="' + n(cx + 18) + '" cy="' + n(baseY - 22) + '" r="2.4"/>';
     }
     return out;
   }
 
-  function artTraffic(cx, cy, sx, sy, rand) {
-    var half = 11;
+  function busVehicle(x, y) {
+    return (
+      dropShadow(x + 11, y + 4, 22) +
+      '<rect class="bus-body" x="' +
+      n(x) +
+      '" y="' +
+      n(y) +
+      '" width="22" height="8" rx="2"/>' +
+      '<rect class="bus-stripe" x="' +
+      n(x + 1) +
+      '" y="' +
+      n(y + 3.2) +
+      '" width="20" height="1.6"/>' +
+      '<rect class="car-glass" x="' +
+      n(x + 13) +
+      '" y="' +
+      n(y + 1.2) +
+      '" width="7" height="3.4" rx="0.8"/>'
+    );
+  }
+
+  function artBusDepot(cx, cy, sy, rand) {
+    var baseY = cy + sy * 0.3;
     var out = "";
-    out += poly(rectPts(cx - sx, cy - half - 3, sx * 2, 3), "kerb");
-    out += poly(rectPts(cx - sx, cy + half, sx * 2, 3), "kerb");
-    out += poly(rectPts(cx - sx, cy - half, sx * 2, half * 2), "asphalt");
+    out += building(cx - 24, baseY - 4, 30, 16, {
+      cls: "w-concrete r-flat",
+      roof: "flat",
+      rand: rand,
+      windows: { cols: 4, rows: 1, lit: 0.35 }
+    });
     out +=
-      '<path class="marking marking--dash" d="M' +
-      n(cx - sx + 4) +
+      '<path class="canopy" d="M' +
+      n(cx - 26) +
       " " +
-      n(cy) +
+      n(baseY - 18) +
       "H" +
-      n(cx + sx - 4) +
-      '"/>';
-    var i;
-    if (rand() < 0.45) {
-      /* Zebrastreifen als Quartiers-Detail, nicht auf jedem Feld */
-      for (i = 0; i < 4; i++) {
-        out += poly(rectPts(cx + 22 + i * 5, cy - half + 1.5, 2.4, half * 2 - 3), "marking-solid");
-      }
-    }
-    out += streetLamp(cx - 34, cy - half - 2, 20);
-    out += streetLamp(cx + 8, cy - half - 2, 20);
-    if (rand() < 0.8) {
-      var carX = cx - 26 + rand() * 20;
-      out += dropShadow(carX + 8, cy + half - 3, 18);
-      out +=
-        '<rect class="car-body" x="' +
-        n(carX) +
-        '" y="' +
-        n(cy + half - 11) +
-        '" width="17" height="6.5" rx="2.6"/>' +
-        '<rect class="car-glass" x="' +
-        n(carX + 4) +
-        '" y="' +
-        n(cy + half - 13.6) +
-        '" width="8.5" height="3.6" rx="1.4"/>';
-    }
-    out += tree(cx + 38, cy - half - 6, 0.5, true);
+      n(cx + 28) +
+      "L" +
+      n(cx + 24) +
+      " " +
+      n(baseY - 14) +
+      "H" +
+      n(cx - 22) +
+      'Z"/>';
+    out += busVehicle(cx - 20, baseY - 2);
+    out += busVehicle(cx + 4, baseY + 6);
+    out += streetLamp(cx + 22, baseY - 8, 14);
     return out;
+  }
+
+  function charger(x, y) {
+    return (
+      '<rect class="charger-post" x="' +
+      n(x) +
+      '" y="' +
+      n(y - 9) +
+      '" width="3.2" height="9" rx="0.8"/>' +
+      '<rect class="ok-glow" x="' +
+      n(x - 0.4) +
+      '" y="' +
+      n(y - 11.2) +
+      '" width="4" height="2.4" rx="0.6"/>'
+    );
+  }
+
+  function artParkingLot(cx, cy, sy, rand) {
+    var out = '<ellipse class="lot-pad" cx="' + n(cx) + '" cy="' + n(cy + 2) + '" rx="28" ry="' + n(sy * 0.52) + '"/>';
+    var i;
+    for (i = 0; i < 4; i++) {
+      out +=
+        '<path class="stall-line" d="M' +
+        n(cx - 22) +
+        " " +
+        n(cy - sy * 0.22 + i * 9) +
+        "H" +
+        n(cx + 22) +
+        '"/>';
+    }
+    out += charger(cx - 18, cy - 4);
+    out += charger(cx - 6, cy + 6);
+    out += charger(cx + 8, cy - 2);
+    out += charger(cx + 18, cy + 8);
+    out += building(cx + 10, cy - sy * 0.18, 14, 9, {
+      cls: "w-concrete r-flat",
+      roof: "flat",
+      rand: rand,
+      windows: { cols: 1, rows: 1, lit: 0.5 }
+    });
+    if (rand() < 0.85) {
+      out +=
+        '<g class="edge-car" transform="translate(' +
+        n(cx - 10) +
+        " " +
+        n(cy + 4) +
+        ')">' +
+        '<rect class="car-body" x="-7" y="-2.4" width="14" height="4.8" rx="1.6"/>' +
+        '<rect class="car-glass" x="-2" y="-1.6" width="6" height="3.2" rx="0.8"/>' +
+        "</g>";
+    }
+    return out;
+  }
+
+  function artTraffic(cx, cy, sy, rand, kind) {
+    if (kind === "parking") {
+      return artParkingLot(cx, cy, sy, rand);
+    }
+    return artBusDepot(cx, cy, sy, rand);
   }
 
   function artHome(cx, cy, sy, rand) {
-    var baseY = cy + sy * 0.36;
+    var baseY = cy + sy * 0.3;
     var out = "";
-    out += building(cx - 24, baseY, 34, 24, {
-      cls: "w-cream r-slate",
-      roof: "gable",
-      roofH: 13,
+    out += building(cx - 18, baseY, 22, 22, {
+      cls: "w-sand r-slate",
+      roof: "flat",
       rand: rand,
       door: true,
-      windows: { cols: 2, rows: 2, lit: 0.8 }
+      windows: { cols: 2, rows: 3, lit: 0.72 }
     });
-    out += building(cx + 12, baseY - 1, 18, 14, {
-      cls: "w-mint r-sage",
-      roof: "gable",
-      roofH: 7,
+    out += building(cx + 6, baseY - 2, 16, 16, {
+      cls: "w-steel r-copper",
+      roof: "flat",
       rand: rand,
-      windows: { cols: 1, rows: 1, lit: 0.7 }
+      windows: { cols: 2, rows: 2, lit: 0.65 }
     });
     out +=
       '<path class="flag-pole" d="M' +
-      n(cx - 30) +
+      n(cx - 22) +
       " " +
       n(baseY - 2) +
-      "v-40" +
+      "v-28" +
       '"/>' +
       poly(
         pts([
-          [cx - 30, baseY - 42],
-          [cx - 14, baseY - 38],
-          [cx - 30, baseY - 33]
+          [cx - 22, baseY - 30],
+          [cx - 10, baseY - 27],
+          [cx - 22, baseY - 23]
         ]),
         "flag-cloth"
       );
-    out += tree(cx + 34, baseY - 2, 0.7, true);
+    out += '<path class="antenna" d="M' + n(cx + 14) + " " + n(baseY - 18) + "v-10" + '"/>';
     return out;
   }
 
@@ -1210,10 +1288,13 @@ window.Nexus = window.Nexus || {};
       return "Stabil: Energie · −" + per + " Geld pro Einheit beim Ernten";
     }
     if (zone.type === "energy" && zone.variant === "solar") {
-      return "Solar: Würfel-Energie (variabel) · Umwelt +1 beim Bau";
+      return "Solarfarm: Würfel-Energie (variabel) · Umwelt +1 beim Bau";
     }
     if (zone.type === "datacenter" && zone.variant === "insecure") {
       return "Bandbreite + Risiko — Gate für Wohn-Bandbreite";
+    }
+    if (zone.type === "traffic") {
+      return "Stub: wenig Geld · +1 Komfort beim Bau. Straßen liegen auf den Kanten aller Felder.";
     }
     return formatZoneYield(zone);
   }
@@ -1949,9 +2030,24 @@ window.Nexus = window.Nexus || {};
         (isHome
           ? ' data-home="' + zone.id + '" data-owner="' + zone.ownerId + '"'
           : ' data-zone="' + zone.id + '"');
+      var variantLabel = "";
+      if (zone.variant) {
+        var vDef = zone.type === "energy"
+          ? Nexus.ENERGY_VARIANTS && Nexus.ENERGY_VARIANTS[zone.variant]
+          : zone.type === "datacenter"
+            ? Nexus.DATACENTER_VARIANTS && Nexus.DATACENTER_VARIANTS[zone.variant]
+            : null;
+        variantLabel = (vDef && vDef.label) || zone.variant;
+      }
+      var trafficKind = zone.type === "traffic" ? trafficKindFor(tile.q, tile.r) : null;
       title =
         (Nexus.ZONE_TYPES[zone.type] || {}).label +
-        (zone.variant ? " · " + zone.variant : "") +
+        (variantLabel ? " · " + variantLabel : "") +
+        (trafficKind === "bus"
+          ? " · Busbahnhof"
+          : trafficKind === "parking"
+            ? " · Parkplatz mit Ladestationen"
+            : "") +
         " · " +
         (owner ? owner.name : "");
       if (ctx.spinning[zone.id]) {
@@ -1980,7 +2076,7 @@ window.Nexus = window.Nexus || {};
       } else if (use === "datacenter-insecure") {
         art = artDatacenter(cx, cy, sy, rand, false);
       } else if (use === "traffic") {
-        art = artTraffic(cx, cy, sx, sy, rand);
+        art = artTraffic(cx, cy, sy, rand, trafficKind);
       }
       if (ctx.spinning[zone.id]) {
         overlay += rollChip(cx, cy - sy * 0.75, zone, ctx.stagger[zone.id] || 0);
@@ -2037,6 +2133,9 @@ window.Nexus = window.Nexus || {};
         poly(hexTopPts(cx, cy, sx * 0.965, sy * 0.965), "tile-owner-ring") +
         poly(hexTopPts(cx, cy, sx * 0.9, sy * 0.9), "tile-owner-ring-inner");
     }
+    if (!isDeco) {
+      inner += streetRing(cx, cy, sx, sy, tileRandom(tile.q, tile.r, 19));
+    }
     inner += art + overlay;
     inner += poly(hexTopPts(cx, cy, sx, sy), "tile-hit");
 
@@ -2069,7 +2168,7 @@ window.Nexus = window.Nexus || {};
       if (factoryCount === 0) {
         return player.name + ": <b>Home</b> liefert +1 aller Ressourcen …";
       }
-      return player.name + ": Produktion läuft — Solarfelder würfeln, Transformatoren zahlen.";
+      return player.name + ": Produktion läuft — Solarfarmen würfeln, Umspannwerke zahlen.";
     }
     if (state.turnPhase === "event") {
       return player.name + ": ein Ereignis wartet.";
@@ -2081,7 +2180,7 @@ window.Nexus = window.Nexus || {};
         );
       }
       if (state.round <= 1 && factoryCount <= 1) {
-        return "<b>Erste Erweiterung:</b> Solar würfelt, Transformator zahlt Geld pro Energie — Datenzentrum schaltet Wohn-Bandbreite frei.";
+        return "<b>Erste Erweiterung:</b> Solarfarm würfelt, Umspannwerk zahlt Geld pro Energie — Datenzentrum schaltet Wohn-Bandbreite frei.";
       }
       return "Feld antippen für Details · eigenes Home öffnet die Geräte · dann Zug beenden.";
     }
@@ -2090,9 +2189,13 @@ window.Nexus = window.Nexus || {};
 
   function renderLegend() {
     var list = document.querySelector("#board-legend .legend-list");
-    if (!list || list.childElementCount) {
+    if (!list) {
       return;
     }
+    if (list.dataset.legendRev === "streets-1") {
+      return;
+    }
+    list.dataset.legendRev = "streets-1";
     list.innerHTML = LEGEND_ROWS.map(function (row) {
       return (
         '<li title="' +
@@ -2245,8 +2348,26 @@ window.Nexus = window.Nexus || {};
           return p.id === inspectedZone.ownerId;
         })[0];
         var isMineZone = owner && player && owner.id === player.id;
-        document.getElementById("zone-inspect-type").textContent =
-          (Nexus.ZONE_TYPES[inspectedZone.type] || {}).label || inspectedZone.type;
+        var typeLabel = (Nexus.ZONE_TYPES[inspectedZone.type] || {}).label || inspectedZone.type;
+        if (inspectedZone.variant) {
+          var catalog =
+            inspectedZone.type === "energy"
+              ? Nexus.ENERGY_VARIANTS
+              : inspectedZone.type === "datacenter"
+                ? Nexus.DATACENTER_VARIANTS
+                : null;
+          var vLab = catalog && catalog[inspectedZone.variant] && catalog[inspectedZone.variant].label;
+          if (vLab) {
+            typeLabel += " · " + vLab;
+          }
+        }
+        if (inspectedZone.type === "traffic") {
+          typeLabel +=
+            trafficKindFor(inspectedZone.q, inspectedZone.r) === "bus"
+              ? " · Busbahnhof"
+              : " · Parkplatz mit Ladestationen";
+        }
+        document.getElementById("zone-inspect-type").textContent = typeLabel;
         document.getElementById("zone-inspect-owner").textContent = owner
           ? isMineZone
             ? "Dein Feld"
@@ -2524,6 +2645,68 @@ window.Nexus = window.Nexus || {};
     bindCardFanOnce();
   }
 
+  function escapeAttr(value) {
+    return String(value || "")
+      .replace(/&/g, "&amp;")
+      .replace(/"/g, "&quot;")
+      .replace(/</g, "&lt;");
+  }
+
+  function signedDelta(amount, label) {
+    var sign = amount > 0 ? "+" : "";
+    return sign + amount + " " + label;
+  }
+
+  function pickImpactBits(preview) {
+    var bits = [];
+    if (preview.production) {
+      var res =
+        (Nexus.RESOURCE_SHORT && Nexus.RESOURCE_SHORT[preview.production.resource]) ||
+        preview.production.resource;
+      if (preview.production.dice) {
+        bits.push(
+          '<span class="pick-pro">~' + preview.production.amount + " " + res + "/Runde (Würfel)</span>"
+        );
+      } else {
+        bits.push(
+          '<span class="pick-pro">+' + preview.production.amount + " " + res + "/Runde</span>"
+        );
+      }
+      if (preview.production.stable && preview.production.moneyPerEnergy) {
+        bits.push(
+          '<span class="pick-con">−' +
+            preview.production.moneyPerEnergy +
+            " Geld je Energie</span>"
+        );
+      }
+    }
+    var scores = preview.onBuild || {};
+    (Nexus.SCORE_KEYS || []).forEach(function (key) {
+      if (!scores[key]) {
+        return;
+      }
+      var label = (Nexus.SCORE_LABELS && Nexus.SCORE_LABELS[key]) || key;
+      var cls = scores[key] > 0 ? "pick-pro" : "pick-con";
+      bits.push('<span class="' + cls + '">' + signedDelta(scores[key], label) + "</span>");
+    });
+    if (preview.riskOnBuild) {
+      bits.push('<span class="pick-con">+' + preview.riskOnBuild + " Risiko</span>");
+    }
+    if (preview.flags && preview.flags.residentialNeedsDc) {
+      bits.push('<span class="pick-con">ohne Datenzentrum: Bandbreite 0</span>');
+    }
+    if (preview.flags && preview.flags.insecureRisk) {
+      bits.push('<span class="pick-con">ungesichert</span>');
+    }
+    if (preview.flags && preview.flags.dcUnlocksBandwidth) {
+      bits.push('<span class="pick-pro">schaltet Wohn-Bandbreite frei</span>');
+    }
+    if (preview.flags && preview.flags.trafficInfrastructure) {
+      bits.push('<span class="pick-pro">Busbahnhof oder Parkplatz</span>');
+    }
+    return bits.join("");
+  }
+
   function renderExpandModal(state, ui) {
     var shell = document.getElementById("expand-modal");
     var slot = ui && ui.expandSlot;
@@ -2550,6 +2733,7 @@ window.Nexus = window.Nexus || {};
     var stepLabel = document.getElementById("expand-step-label");
     var choices = document.getElementById("expand-choices");
     var variantRow = document.getElementById("expand-variants");
+    var impactEl = document.getElementById("expand-impact");
 
     if (pendingType && variants.length) {
       if (stepLabel) {
@@ -2565,21 +2749,29 @@ window.Nexus = window.Nexus || {};
           .map(function (variant) {
             var id = variant.id || variant.key || variant;
             var label = variant.label || variant.shortLabel || id;
+            var preview = Nexus.describeZoneBuild(state, pendingType, id);
             return (
-              '<button type="button" class="tile-pick zone-pick" data-zone-variant="' +
+              '<button type="button" class="tile-pick zone-pick zone-pick--impact" data-zone-variant="' +
               id +
               '">' +
               pickHex(pendingType + "-" + id) +
-              "<small>" +
+              '<span class="pick-copy"><small>' +
               label +
-              "</small></button>"
+              "</small>" +
+              pickImpactBits(preview) +
+              "</span></button>"
             );
           })
           .join("");
       }
+      if (impactEl) {
+        impactEl.hidden = false;
+        impactEl.innerHTML =
+          "<p>Vor- und Nachteile stehen auf den Kacheln — aus den bestehenden Regeln, nichts Neues.</p>";
+      }
     } else {
       if (stepLabel) {
-        stepLabel.textContent = "Feldtyp";
+        stepLabel.textContent = "Feldtyp — Ertrag und Spuren vor dem Bauen";
       }
       choices.hidden = false;
       if (variantRow) {
@@ -2589,18 +2781,26 @@ window.Nexus = window.Nexus || {};
       choices.innerHTML = Nexus.ZONE_TYPE_KEYS.map(function (key) {
         var offer = Nexus.getExpandOffer(state, slot.q, slot.r, key);
         var typeDef = Nexus.ZONE_TYPES[key];
+        var preview = Nexus.describeZoneBuild(state, key);
         return (
-          '<button type="button" class="tile-pick zone-pick" data-zone-type="' +
+          '<button type="button" class="tile-pick zone-pick zone-pick--impact" data-zone-type="' +
           key +
           '"' +
-          (offer.allowed ? "" : " disabled title=\"" + (offer.reason || "Nicht bezahlbar") + '"') +
+          (offer.allowed ? "" : ' disabled title="' + escapeAttr(offer.reason || "Nicht bezahlbar") + '"') +
           ">" +
           pickHex(key) +
-          "<small>" +
+          '<span class="pick-copy"><small>' +
           typeDef.shortLabel +
-          "</small></button>"
+          "</small>" +
+          pickImpactBits(preview) +
+          "</span></button>"
         );
       }).join("");
+      if (impactEl) {
+        impactEl.hidden = false;
+        impactEl.innerHTML =
+          "<p>Straßen umringen jedes Feld. Verkehr ist ein Gebäude auf dem Grundstück (Busbahnhof oder Parkplatz), keine Straße.</p>";
+      }
     }
     if (shell.hidden || !shell.classList.contains("is-open")) {
       openModal(shell);

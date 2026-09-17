@@ -18,8 +18,8 @@
       href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800&family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="transitions.css?v=37" />
-    <link rel="stylesheet" href="style.css?v=37" />
+    <link rel="stylesheet" href="transitions.css?v=38" />
+    <link rel="stylesheet" href="style.css?v=38" />
   </head>
   <body>
     <div class="modal-shell t-modal-backdrop" id="setup-screen">
@@ -307,12 +307,13 @@
     </div>
 
     <div id="expand-modal" class="modal-shell t-modal-backdrop" hidden>
-      <div class="modal-card t-modal piece" role="dialog" aria-modal="true">
+      <div class="modal-card t-modal piece expand-card" role="dialog" aria-modal="true">
         <p class="modal-kicker">Neues Feld</p>
         <div id="expand-cost" class="cost-line"></div>
         <p id="expand-step-label" class="setup-label">Feldtyp</p>
-        <div id="expand-choices" class="pick-row"></div>
-        <div id="expand-variants" class="pick-row" hidden></div>
+        <div id="expand-choices" class="pick-row pick-row--impact"></div>
+        <div id="expand-variants" class="pick-row pick-row--impact" hidden></div>
+        <div id="expand-impact" class="expand-impact"></div>
         <button type="button" class="btn ghost" id="btn-expand-cancel">Zurück</button>
       </div>
     </div>
@@ -365,16 +366,16 @@
       </div>
     </div>
 
-    <script src="js/data/constants.js?v=37"></script>
-    <script src="js/data/tiles.js?v=37"></script>
-    <script src="js/data/devices.js?v=37"></script>
-    <script src="js/data/events.js?v=37"></script>
-    <script src="js/data/cards.js?v=37"></script>
-    <script src="js/data/roles.js?v=37"></script>
-    <script src="js/icons.js?v=37"></script>
-    <script src="js/roles.js?v=37"></script>
-    <script src="js/state.js?v=37"></script>
-    <script src="js/render.js?v=37"></script>
-    <script src="js/main.js?v=37"></script>
+    <script src="js/data/constants.js?v=38"></script>
+    <script src="js/data/tiles.js?v=38"></script>
+    <script src="js/data/devices.js?v=38"></script>
+    <script src="js/data/events.js?v=38"></script>
+    <script src="js/data/cards.js?v=38"></script>
+    <script src="js/data/roles.js?v=38"></script>
+    <script src="js/icons.js?v=38"></script>
+    <script src="js/roles.js?v=38"></script>
+    <script src="js/state.js?v=38"></script>
+    <script src="js/render.js?v=38"></script>
+    <script src="js/main.js?v=38"></script>
   </body>
 </html>
