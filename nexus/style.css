@@ -839,10 +839,10 @@ button {
 }
 
 .pond {
-  fill: var(--lu-water-top);
-  stroke: color-mix(in srgb, var(--lu-water-side) 80%, #fff 10%);
+  fill: color-mix(in srgb, var(--lu-park-top) 55%, #7ec8d8 45%);
+  stroke: color-mix(in srgb, var(--lu-park-side) 50%, #fff 20%);
   stroke-width: 1.2;
-  opacity: 0.92;
+  opacity: 0.85;
 }
 
 .pip-warn {
