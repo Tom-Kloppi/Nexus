@@ -8,7 +8,7 @@ Diese Datei beschreibt, was das Spiel **im Code tun soll** laut [`DESIGN.md`](DE
 
 - 2 oder 3 Spieler, ein Gerät (Hot-Seat).
 - Spiellänge: Kurz 15 / Standard 20 / Lang 25 Runden.
-- Start: 3× Energie, Geld, Bandbreite; Smart Home in einer Hex-Ecke; Startcoupon (erstes Feld kostenlos, muss im ersten Zug).
+- Start: 3× Energie, Geld, Bandbreite; **Kontrollbüro** in einer Hex-Ecke; Startcoupon (erstes Feld kostenlos, muss im ersten Zug).
 - Sechs Wahlversprechen werden gemischt; nacheinander geheim anschauen, dann Spieler 1.
 
 ## Ziel
@@ -20,7 +20,7 @@ Kein Spurensummen-Rennen. Jedes Versprechen hat Unterziele (u. a. auf Image, Kom
 1. Zugübergabe (private Infos verdeckt)
 2. Produktion (eigene Fabriken + Home)
 3. Ereignis (gerade Runden)
-4. Bauphase: Felder, Geräte, Karten, Handel, Standard, SAE, Zugende
+4. Bauphase: Felder (bauen / ausbauen / abreißen), Geräte, Karten, **Handelsangebot**, Standard, SAE, Zugende
 
 Cloud-Upkeep in Bandbreite. Ohne Zahlung: Cloud-Effekte in der Auswertung aus.
 
@@ -44,9 +44,15 @@ Radius 3. Homes auf drei Ecken. Expand nur benachbart zum eigenen Netz.
 | Datenzentrum | Unsicher | günstig, erhöht Risiko |
 | Datenzentrum | Sicher | teurer, stärkt Sicherheit |
 | Verkehr | — | Stub, wenig Geld; +1 Komfort beim Bau. Grafik: Busbahnhof oder Parkplatz mit Ladestationen **auf** dem Feld. Straßen liegen auf den Kanten aller Felder, nicht als eigener Feldtyp. |
-| Smart Home | — | +1 aller drei Ressourcen, kein Würfel |
+| Kontrollbüro | — | +1 aller drei Ressourcen, kein Würfel; +1 je Ausbaustufe |
 
 Solar nutzt PRODUCTION_DICE (Ausfall…Boom). Boom → grüne Innovationskarte. Neu gebautes Feld produziert erst nächste Runde.
+
+**Ausbau:** jedes eigene Feld Stufe 0–2. Jede Stufe +1 auf den Primärertrag (Home auf alle drei). Kosten laut `ZONE_UPGRADE_*`. Sichtbar am 3D-Gebäude.
+
+**Abriss:** Nicht-Home, Geld-Rückzahlung, nur wenn das restliche eigene Netz am Home hängt.
+
+**Brett-Rand:** Felder / Hügel / Berge, kein Wasser-Catan. Ein Großbauwerk pro Kachel, Autos auf dem Kantennetz (fahren und parken).
 
 ## Geräte
 
@@ -54,7 +60,10 @@ Cloud vs. lokal (Kosten nur noch in den 3 Ressourcen). Lokal → Datenschutz-Sch
 
 ## Karten, Handel, Standards, SAE
 
-Wie bisher strukturell: Handlimit, Offen/Proprietär, 1:1-Handel, SAE 0–5 — Kosten/Effekte auf neue Ressourcen umgebogen.
+Handlimit und SAE 0–5 bleiben. Handel ist ein **Angebot** (Kurs + Menge), Annahme/Ablehnung im Partnerzug oder als Unterbrechung — kein Sofort-Tausch.
+
+**Offen:** mit anderem Offen handelbar; Rabatt `OPEN_STANDARD_DISCOUNT` auf den Aufpreis nicht selbst produzierter Ware; Tausch füllt `standardsBonusVolume`.  
+**Proprietär:** nur mit anderem Proprietär; kein Rabatt; gemischte Paare blockieren (Versuch gegen Proprietär → `blockedTradesCaused`).
 
 ## Wahlversprechen
 

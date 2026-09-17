@@ -13,7 +13,7 @@ Hot-Seat, 2–3 Spieler, ein Gerät — bleibt. **LAN/WLAN-Multiplayer:** erst n
 
 - **Default-Theme:** Tageslicht (`data-theme="light"` / `nexus-theme` Default `light`). Toggle = **Nachtstadt** (eigene Palette), kein invertiertes Chrome.
 - **Layout:** App-Shell als CSS-Grid: Topbar, Board, Dock, Kartenfach. Chrome überlagert das Spielfeld nicht. Schmale Breite: Dock hinter „Ziele“, Board bleibt die Fläche.
-- **Board:** SVG-Stadt, **keine** flachen Eurogame-Plättchen. Aufsicht **etwas steiler von oben** (leichte Axonometrie bleibt). Kacheln als Prisma. Landnutzung lesbar (**Typ vor Owner-Ring**): Wohnen/Büro = Bürokomplexe, Solar = Solarfarm, Trafo = Umspannwerk, DC-Campus unsicher/sicher, Verkehr = Infrastruktur-Gebäude auf dem Grundstück (Busbahnhof oder Parkplatz mit Ladestationen). **Straßen sind keine Kacheln:** sie laufen auf den **Kanten** jedes Felds (Stadt-Raster um die Parzellen). Parks/Wasser nur **Deko**. Kein WebGL, kein Foto-Board.
+- **Board:** SVG-Stadt, **keine** flachen Eurogame-Plättchen. Aufsicht **steiler von oben** (leichte Axonometrie, kein WebGL). Kacheln als Prisma. **Ein** großes 3D-Gebäude (oder ein Wohnungsblock aus wenigen verbundenen Boxen) pro Spielkachel — Google-Maps-3D-Lesart, keine vollgepflasterte Skyline. Startfeld = **Kontrollbüro / Leitstand**, kein Cottage. Kleine Gimmicks (Bäume, Dachtechnik, Randparken) auf jeder Parzelle. Landnutzung lesbar (**Typ vor Owner-Ring**): Wohnen = Wohnungsblock, Solar = Solarfarm mit Leitstand, Trafo = Umspannwerk, DC = eine Halle (Ausbau = extra Flügel), Verkehr = Busbahnhof oder Parkplatz mit Ladestationen. **Straßen sind keine Kacheln:** sie umringen die Hex-Kanten. Autos fahren auf diesem Kantennetz und parken am Straßenrand sowie auf Feld-Parkplätzen. Parks nur **Deko**. **Rand des Boards:** Felder, Hügel, Berge — **kein** Catan-Wasser. Kein WebGL, kein Foto-Board.
 - **Nacht:** Fenster/Lichter nur nach öffentlichen Regeln (kein Leak lokaler Geräte); Handoff/Reveal dimmt das Board.
 - **Investor-Metrik** `moneyThroughput` = kumuliertes **Geld**, nicht Gesamtproduktion.
 - **Verkehr:** Stub-Ertrag + Lesbarkeit; **+1 Komfort** beim Bau. Feld = Gebäude (nicht das Straßennetz). Volle Mobilitätslogik = später.
@@ -48,18 +48,34 @@ Sieg = `computeRoleProgress` gegen das Wahlversprechen (Unterziele auf diesen Sp
 | --- | --- |
 | `energy` | `solar`: Würfel-Produktion (bestehende PRODUCTION_DICE). `transformer`: stabile Produktion, kostet `money` pro Ertragseinheit (Konstante `TRANSFORMER_MONEY_PER_ENERGY`). Optional: Bau kann `environment` geben (Solar) oder kosten (Transformer). |
 | `datacenter` | `insecure` günstig / unsicher (+Risiko). `secure` teurer / sicher. **Ohne eigenes Datenzentrum:** Spieler hat keinen Zugriff auf Bandbreiten-Ertrag aus Wohnfeldern (Wallet-`bandwidth` aus Residential = 0 bis DC existiert). |
-| `residential` | Produziert Bandbreite (Basis). Smart-Home-Upgrades über Geräte (bestehendes Device-Menü, Kosten auf 3 Ressourcen umbiegen). Nachbar-Bonus: optional später; MVP = nur eigenes Feld. |
-| `traffic` | Stub: baubar, produziert wenig `money` oder `bandwidth`. Volle Mobilitätslogik = später. |
-| `home` | Startfeld; Basis +1 aller 3 Ressourcen / Runde (wie früher Home). |
+| `residential` | Produziert Bandbreite (Basis). Geräte (Kamera, Schloss, …) bleiben Gadgets im Device-Menü. **Feld-Ausbau** `upgradeLevel` 0–2 ist Monopoly-artig und sichtbar am 3D-Gebäude. Nachbar-Bonus: optional später; MVP = nur eigenes Feld. |
+| `traffic` | Stub: baubar, produziert wenig `money`. **+1 Komfort** beim Bau. Grafik: Busbahnhof oder Parkplatz mit Ladestationen **auf** dem Feld. |
+| `home` | Startfeld **Kontrollbüro**; Basis +1 aller 3 Ressourcen / Runde, plus +1 je `upgradeLevel`. |
 
-Beim Expand wählt der Spieler Typ; bei `energy`/`datacenter` zusätzlich die Variante.
+Beim Expand wählt der Spieler Typ; bei `energy`/`datacenter` zusätzlich die Variante. UI: Typwahl **2×2**. Optional: empfohlenes Feld/Typ leuchtet aus den **eigenen** Engpässen (Ressourcen / Versprechen) — kein Leak fremder Privatinfos.
+
+### Feld-Ausbau (alle Typen)
+
+Jedes eigene Feld hat `upgradeLevel` 0–2 (Konstante `ZONE_UPGRADE_MAX`). Kosten: `money` = `ZONE_UPGRADE_MONEY_BASE + level × ZONE_UPGRADE_MONEY_STEP`, ab Stufe 1 zusätzlich `energy`. **Ertrag:** `primaryBase + upgradeLevel` (Home: `HOME_BASE_YIELD + upgradeLevel` auf allen drei Ressourcen). Transformator-Aufwand skaliert mit der neuen Energiemenge. Geräte bleiben separat (Cloud öffentlich, lokal privat). Ausbau ist am Gebäude lesbar (Höhe, Flügel, Dachtechnik, Kameras) — keine parallele Tech-Tree.
+
+### Abriss
+
+Eigenes Nicht-Home-Feld darf gegen Geld abgerissen werden (`DEMOLISH_REFUND_MONEY + upgradeLevel × DEMOLISH_REFUND_PER_LEVEL`), **nur** wenn das restliche Netz des Spielers über Nachbarschaft zum Home verbunden bleibt. UI zeigt Rückzahlung vs. verlorenen Ertrag.
+
+### Handel = Angebot
+
+Kein Sofort-Tausch. Spieler A bietet **Kurs + Menge** (geben/wollen). Spieler B nimmt an oder lehnt ab — im eigenen Zug oder als Hot-Seat-Unterbrechung (Zugübergabe, dann zurück). Ressourcen wechseln erst bei Annahme. Hot-Seat: keine Rollen/Wallets der anderen Person zeigen.
+
+### Offen vs. proprietär (bestehende Semantik, klarer)
+
+Gleiche Wahl = handelbar. **Offen+Offen:** `OPEN_STANDARD_DISCOUNT` auf den Aufpreis, wenn die abgegebene Ressource nicht kürzlich selbst produziert wurde; erfolgreicher Tausch zählt `standardsBonusVolume`. **Proprietär+Proprietär:** handelbar, kein Rabatt. **Gemischt:** blockiert. Versuch gegen ein proprietäres Gegenüber erhöht dessen `blockedTradesCaused`. Streak zählt Runden auf derselben Wahl.
 
 ## Was bleibt aus 2.1
 
 - Hex Radius 3, Homes an Ecken, Adjacent-Expand
 - Hot-Seat / Role-Reveal / Handoff
 - Cloud vs lokal bei Geräten (lokaler Anteil → `security`)
-- Offen / Proprietär Standard + 1:1-Handel (Ressourcen = die 3 neuen)
+- Offen / Proprietär Standard + Handels**angebot** (Ressourcen = die 3 neuen; Annahme/Ablehnung, kein Sofort-Tausch)
 - Innovationskarten + Ereignisse (Effekte nur noch auf 3 Ressourcen + 4 Spuren + Risiko)
 - SAE-Level als Mobilitätszahl (Visionär/Verkehr); Kosten in `money`+`bandwidth`
 

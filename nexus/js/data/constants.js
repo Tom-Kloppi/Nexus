@@ -141,8 +141,8 @@ Nexus.HOME_POSITIONS = [
 
 Nexus.ZONE_TYPES.home = {
   id: "home",
-  label: "Smart Home",
-  shortLabel: "Home",
+  label: "Kontrollbüro",
+  shortLabel: "Leitstand",
   isHome: true
 };
 
@@ -175,5 +175,11 @@ Nexus.CONSTANTS = {
   TRADE_RECENT_ROUNDS: 2,
   OPEN_STANDARD_DISCOUNT: 1,
   SAE_MAX_LEVEL: 5,
-  SAE_NETWORK_BANDWIDTH_DISCOUNT: 1
+  SAE_NETWORK_BANDWIDTH_DISCOUNT: 1,
+  ZONE_UPGRADE_MAX: 2,
+  ZONE_UPGRADE_MONEY_BASE: 3,
+  ZONE_UPGRADE_MONEY_STEP: 2,
+  ZONE_UPGRADE_ENERGY: 1,
+  DEMOLISH_REFUND_MONEY: 1,
+  DEMOLISH_REFUND_PER_LEVEL: 1
 };
