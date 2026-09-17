@@ -257,12 +257,43 @@ window.Nexus = window.Nexus || {};
     });
   }
 
-  function homeBaseProduction() {
+  function zoneUpgradeLevel(zone) {
+    if (!zone) {
+      return 0;
+    }
+    var level = zone.upgradeLevel || 0;
+    var max = C.ZONE_UPGRADE_MAX || 2;
+    if (level < 0) {
+      return 0;
+    }
+    return level > max ? max : level;
+  }
+
+  function zonePrimaryBase(zone) {
+    var def = resolveZoneYieldDef(zone);
+    if (!def || !def.primary) {
+      return 0;
+    }
+    return (def.primaryBase || 0) + zoneUpgradeLevel(zone);
+  }
+
+  function homeBaseProduction(zone) {
     var yieldMap = emptyResources();
+    var amount = C.HOME_BASE_YIELD + zoneUpgradeLevel(zone);
     KEYS.forEach(function (key) {
-      yieldMap[key] = C.HOME_BASE_YIELD;
+      yieldMap[key] = amount;
     });
     return yieldMap;
+  }
+
+  function playerHomeZone(state, playerId) {
+    var found = null;
+    playerZones(state, playerId).forEach(function (zone) {
+      if (zone.type === "home") {
+        found = zone;
+      }
+    });
+    return found;
   }
 
   /* ---------- Geräte ---------- */
@@ -639,10 +670,11 @@ window.Nexus = window.Nexus || {};
     if (!def || !def.primary) {
       return null;
     }
+    var base = zonePrimaryBase(zone);
     var amount;
     var moneySpent = 0;
     if (zone.type === "energy" && def.stable) {
-      amount = def.primaryBase;
+      amount = base;
       moneySpent = amount * (C.TRANSFORMER_MONEY_PER_ENERGY || 1);
       if ((player.resources.money || 0) < moneySpent) {
         amount = 0;
@@ -650,10 +682,10 @@ window.Nexus = window.Nexus || {};
       }
     } else if (zone.type === "residential") {
       amount = playerHasZoneType(state, player.id, "datacenter")
-        ? yieldAmount(def.primaryBase, modifier)
+        ? yieldAmount(base, modifier)
         : 0;
     } else {
-      amount = yieldAmount(def.primaryBase, modifier);
+      amount = yieldAmount(base, modifier);
     }
     var result = {
       primary: { resource: def.primary, amount: amount },
@@ -678,8 +710,8 @@ window.Nexus = window.Nexus || {};
   }
 
   function expectedByResource(state) {
-    var expected = homeBaseProduction();
     var player = currentPlayer(state);
+    var expected = homeBaseProduction(player ? playerHomeZone(state, player.id) : null);
     if (!player) {
       return expected;
     }
@@ -689,15 +721,16 @@ window.Nexus = window.Nexus || {};
       if (!def || !def.primary) {
         return;
       }
+      var base = zonePrimaryBase(zone);
       if (zone.type === "residential" && !hasDc) {
         return;
       }
       if (zone.type === "energy" && def.stable) {
-        expected[def.primary] += def.primaryBase;
-        expected.money -= def.primaryBase * (C.TRANSFORMER_MONEY_PER_ENERGY || 1);
+        expected[def.primary] += base;
+        expected.money -= base * (C.TRANSFORMER_MONEY_PER_ENERGY || 1);
         return;
       }
-      expected[def.primary] += expectedYieldForBase(def.primaryBase);
+      expected[def.primary] += expectedYieldForBase(base);
       if (def.secondary) {
         expected[def.secondary] += expectedYieldForBase(def.secondaryBase);
       }
@@ -828,6 +861,7 @@ window.Nexus = window.Nexus || {};
         type: zoneType,
         variant: resolvedVariant,
         ownerId: player.id,
+        upgradeLevel: 0,
         harvested: true, /* erst ab nächster Runde produktiv */
         lastYield: null
       }
@@ -939,6 +973,276 @@ window.Nexus = window.Nexus || {};
     };
   }
 
+  function zoneUpgradeCost(level) {
+    var cost = {
+      money: (C.ZONE_UPGRADE_MONEY_BASE || 3) + level * (C.ZONE_UPGRADE_MONEY_STEP || 2)
+    };
+    if (level >= 1 && (C.ZONE_UPGRADE_ENERGY || 0) > 0) {
+      cost.energy = C.ZONE_UPGRADE_ENERGY;
+    }
+    return cost;
+  }
+
+  function describeZoneUpgrade(state, zoneId) {
+    var preview = {
+      allowed: false,
+      reason: "",
+      cost: {},
+      fromLevel: 0,
+      toLevel: 0,
+      production: null,
+      flags: {
+        homeAllResources: false,
+        transformerUpkeep: false,
+        residentialNeedsDc: false,
+        maxed: false
+      }
+    };
+    var player = currentPlayer(state);
+    var zone = (state.zones || []).filter(function (item) {
+      return item.id === zoneId;
+    })[0];
+    if (!player || !zone) {
+      preview.reason = "missing_zone";
+      return preview;
+    }
+    preview.fromLevel = zoneUpgradeLevel(zone);
+    preview.toLevel = preview.fromLevel + 1;
+    preview.flags.homeAllResources = zone.type === "home";
+    if (state.turnPhase !== "build") {
+      preview.reason = "wrong_phase";
+      return preview;
+    }
+    if (zone.ownerId !== player.id) {
+      preview.reason = "not_owner";
+      return preview;
+    }
+    if (preview.fromLevel >= (C.ZONE_UPGRADE_MAX || 2)) {
+      preview.flags.maxed = true;
+      preview.reason = "maxed";
+      return preview;
+    }
+    preview.cost = zoneUpgradeCost(preview.fromLevel);
+    if (zone.type === "home") {
+      var homeFrom = C.HOME_BASE_YIELD + preview.fromLevel;
+      preview.production = {
+        resource: "all",
+        fromAmount: homeFrom,
+        toAmount: homeFrom + 1
+      };
+    } else {
+      var def = resolveZoneYieldDef(zone);
+      if (def && def.primary) {
+        var fromBase = zonePrimaryBase(zone);
+        preview.production = {
+          resource: def.primary,
+          fromAmount: fromBase,
+          toAmount: fromBase + 1,
+          dice: !!def.dice,
+          stable: !!def.stable,
+          moneyPerEnergy: def.stable ? C.TRANSFORMER_MONEY_PER_ENERGY || 1 : 0
+        };
+        preview.flags.transformerUpkeep = !!def.stable;
+      }
+    }
+    if (zone.type === "residential") {
+      preview.flags.residentialNeedsDc = !playerHasZoneType(state, player.id, "datacenter");
+    }
+    if (!canAfford(player.resources, preview.cost)) {
+      preview.reason = "cannot_afford";
+      return preview;
+    }
+    preview.allowed = true;
+    return preview;
+  }
+
+  function upgradeZone(state, zoneId) {
+    var preview = describeZoneUpgrade(state, zoneId);
+    if (!preview.allowed) {
+      return state;
+    }
+    var player = currentPlayer(state);
+    var zones = state.zones.map(function (zone) {
+      if (zone.id !== zoneId) {
+        return zone;
+      }
+      return Object.assign({}, zone, { upgradeLevel: preview.toLevel });
+    });
+    var nextPlayer = Object.assign({}, player, {
+      resources: subtractCost(player.resources, preview.cost)
+    });
+    var next = replacePlayer(Object.assign({}, state, { zones: zones }), player.id, nextPlayer);
+    next.log = addLog(
+      next,
+      player.name,
+      "Feld ausgebaut auf Stufe " + preview.toLevel + " für " + formatCost(preview.cost) + "."
+    );
+    return next;
+  }
+
+  function playerNetworkConnectedWithout(state, playerId, omitZoneId) {
+    var remaining = playerZones(state, playerId).filter(function (zone) {
+      return zone.id !== omitZoneId;
+    });
+    var home = remaining.filter(function (zone) {
+      return zone.type === "home";
+    })[0];
+    if (!home) {
+      return false;
+    }
+    var seen = {};
+    var queue = [home];
+    seen[home.id] = true;
+    while (queue.length) {
+      var cur = queue.shift();
+      remaining.forEach(function (zone) {
+        if (!seen[zone.id] && Nexus.isAdjacent(cur, zone)) {
+          seen[zone.id] = true;
+          queue.push(zone);
+        }
+      });
+    }
+    return remaining.every(function (zone) {
+      return !!seen[zone.id];
+    });
+  }
+
+  function demolishRefund(zone) {
+    return {
+      money: (C.DEMOLISH_REFUND_MONEY || 1) + zoneUpgradeLevel(zone) * (C.DEMOLISH_REFUND_PER_LEVEL || 1)
+    };
+  }
+
+  function describeDemolish(state, zoneId) {
+    var preview = {
+      allowed: false,
+      reason: "",
+      refund: { money: 0 },
+      lostProduction: null,
+      flags: {
+        isHome: false,
+        disconnects: false,
+        losesComfort: false,
+        losesEnvironment: false,
+        residentialNeedsDc: false
+      }
+    };
+    var player = currentPlayer(state);
+    var zone = (state.zones || []).filter(function (item) {
+      return item.id === zoneId;
+    })[0];
+    if (!player || !zone) {
+      preview.reason = "missing_zone";
+      return preview;
+    }
+    preview.flags.isHome = zone.type === "home";
+    preview.refund = demolishRefund(zone);
+    if (zone.type !== "home") {
+      var def = resolveZoneYieldDef(zone);
+      if (def && def.primary) {
+        preview.lostProduction = {
+          resource: def.primary,
+          amount: zonePrimaryBase(zone),
+          dice: !!def.dice,
+          stable: !!def.stable
+        };
+      }
+      if (zone.type === "traffic") {
+        preview.flags.losesComfort = true;
+      }
+      if (zone.type === "energy" && zone.variant === "solar") {
+        preview.flags.losesEnvironment = true;
+      }
+      if (zone.type === "residential") {
+        preview.flags.residentialNeedsDc = true;
+      }
+    }
+    if (state.turnPhase !== "build") {
+      preview.reason = "wrong_phase";
+      return preview;
+    }
+    if (zone.ownerId !== player.id) {
+      preview.reason = "not_owner";
+      return preview;
+    }
+    if (zone.type === "home") {
+      preview.reason = "is_home";
+      return preview;
+    }
+    if (!playerNetworkConnectedWithout(state, player.id, zone.id)) {
+      preview.flags.disconnects = true;
+      preview.reason = "disconnects";
+      return preview;
+    }
+    preview.allowed = true;
+    return preview;
+  }
+
+  function demolishZone(state, zoneId) {
+    var preview = describeDemolish(state, zoneId);
+    if (!preview.allowed) {
+      return state;
+    }
+    var player = currentPlayer(state);
+    var zones = state.zones.filter(function (zone) {
+      return zone.id !== zoneId;
+    });
+    var resources = cloneResources(player.resources);
+    resources.money = (resources.money || 0) + (preview.refund.money || 0);
+    var nextPlayer = Object.assign({}, player, { resources: resources });
+    var next = replacePlayer(Object.assign({}, state, { zones: zones }), player.id, nextPlayer);
+    next.log = addLog(
+      next,
+      player.name,
+      "Feld abgerissen, +" + (preview.refund.money || 0) + " Geld."
+    );
+    return next;
+  }
+
+  function recommendExpandType(state) {
+    if (isHotSeatShield(state) || state.turnPhase !== "build") {
+      return null;
+    }
+    var player = currentPlayer(state);
+    if (!player) {
+      return null;
+    }
+    var expected = expectedByResource(state);
+    var lowest = KEYS[0];
+    KEYS.forEach(function (key) {
+      if ((expected[key] || 0) < (expected[lowest] || 0)) {
+        lowest = key;
+      }
+    });
+    var hasDc = playerHasZoneType(state, player.id, "datacenter");
+    if (lowest === "energy") {
+      return { type: "energy", variant: "solar", reasonKey: "low_energy", resource: "energy" };
+    }
+    if (lowest === "money") {
+      return { type: "traffic", variant: null, reasonKey: "low_money", resource: "money" };
+    }
+    if (!hasDc) {
+      return { type: "datacenter", variant: "secure", reasonKey: "need_dc", resource: "bandwidth" };
+    }
+    return { type: "residential", variant: null, reasonKey: "low_bandwidth", resource: "bandwidth" };
+  }
+
+  function recommendExpandSlot(state) {
+    if (!recommendExpandType(state)) {
+      return null;
+    }
+    var found = null;
+    Nexus.boardSlots().forEach(function (slot) {
+      if (found) {
+        return;
+      }
+      if (canAffordExpandSlot(state, slot.q, slot.r)) {
+        found = { q: slot.q, r: slot.r };
+      }
+    });
+    return found;
+  }
+
   /* ---------- Spielaufbau ---------- */
 
   function createEmptyPlayer(id, name, colorIndex, roleId) {
@@ -1014,6 +1318,7 @@ window.Nexus = window.Nexus || {};
         r: homePos.r,
         type: "home",
         ownerId: id,
+        upgradeLevel: 0,
         harvested: false,
         lastYield: null
       });
@@ -1034,6 +1339,8 @@ window.Nexus = window.Nexus || {};
       innovationDiscard: [],
       players: players,
       zones: zones,
+      tradeOffers: [],
+      tradeSession: null,
       finalScores: null,
       winnerId: null,
       log: [
@@ -1161,7 +1468,7 @@ window.Nexus = window.Nexus || {};
     var outcomes = [];
     var zones = state.zones.map(function (zone) {
       if (zone.type === "home" && zone.ownerId === player.id && !zone.harvested) {
-        var homeYield = homeBaseProduction();
+        var homeYield = homeBaseProduction(zone);
         outcomes.push({
           zoneId: zone.id,
           dieId: "home",
@@ -1175,7 +1482,7 @@ window.Nexus = window.Nexus || {};
         });
         return Object.assign({}, zone, {
           lastYield: {
-            primary: { resource: "energy", amount: C.HOME_BASE_YIELD },
+            primary: { resource: "energy", amount: homeYield.energy },
             homeBundle: homeYield
           },
           lastDieId: "home"
@@ -1696,6 +2003,20 @@ window.Nexus = window.Nexus || {};
       return state;
     }
     var player = currentPlayer(state);
+    var session = state.tradeSession;
+    if (session && session.phase === "to_partner") {
+      return Object.assign({}, state, {
+        turnPhase: "trade_respond",
+        log: addLog(state, player ? player.name : null, "prüft ein Handelsangebot.")
+      });
+    }
+    if (session && session.phase === "to_owner") {
+      return Object.assign({}, state, {
+        turnPhase: "build",
+        tradeSession: null,
+        log: addLog(state, player ? player.name : null, "setzt den Zug fort.")
+      });
+    }
     return Object.assign({}, state, {
       turnPhase: "produce",
       log: addLog(state, player ? player.name : null, "übernimmt.")
@@ -1825,118 +2146,301 @@ window.Nexus = window.Nexus || {};
   }
 
   function getTradeOffer(state, partnerId, giveKey, giveAmount, wantKey, wantAmount) {
-    var offer = { allowed: false, reason: "", giveCost: giveAmount, wantGain: wantAmount };
+    var offer = {
+      allowed: false,
+      reason: "",
+      giveCost: giveAmount,
+      wantGain: wantAmount,
+      flags: {
+        openDiscount: false,
+        proprietaryPair: false,
+        mixedBlocked: false,
+        premiumSurcharge: false,
+        sameStandard: false
+      }
+    };
     var player = currentPlayer(state);
     var partner = state.players.filter(function (p) {
       return p.id === partnerId;
     })[0];
     if (state.turnPhase !== "build") {
-      offer.reason = "Handel nur in der Bauphase.";
+      offer.reason = "wrong_phase";
       return offer;
     }
-    if (!partner || partner.id === player.id) {
-      offer.reason = "Ungültiger Handelspartner.";
+    if (!partner || !player || partner.id === player.id) {
+      offer.reason = "bad_partner";
       return offer;
     }
     var compatibility = canTradeWith(player, partner);
+    offer.flags.sameStandard = !!compatibility.allowed;
+    offer.flags.mixedBlocked = !compatibility.allowed;
+    offer.flags.proprietaryPair =
+      player.standardsChoice === "proprietary" && partner.standardsChoice === "proprietary";
     if (!compatibility.allowed) {
-      offer.reason = compatibility.reason;
+      offer.reason = compatibility.reason === "Unterschiedliche Standards blockieren den Handel."
+        ? "mixed_standard"
+        : "no_standard";
       return offer;
     }
     if (giveAmount <= 0 || wantAmount <= 0) {
-      offer.reason = "Menge muss größer als 0 sein.";
+      offer.reason = "bad_amount";
       return offer;
     }
     var givePremium = !hasRecentProduction(player, giveKey, state.round);
-    var wantPremium = !hasRecentProduction(partner, wantKey, state.round);
+    offer.flags.premiumSurcharge = givePremium;
     offer.giveCost = tradeGiveAmount(giveAmount, givePremium);
     offer.wantGain = wantAmount;
     if (player.standardsChoice === "open" && partner.standardsChoice === "open" && givePremium) {
       offer.giveCost = Math.max(wantAmount, offer.giveCost - C.OPEN_STANDARD_DISCOUNT);
+      offer.flags.openDiscount = offer.giveCost < tradeGiveAmount(giveAmount, true);
     }
     var spend = {};
     spend[giveKey] = offer.giveCost;
     if (!canAfford(player.resources, spend)) {
-      offer.reason = "Nicht genug " + Nexus.RESOURCE_SHORT[giveKey] + ".";
+      offer.reason = "cannot_afford";
       return offer;
     }
     if ((partner.resources[wantKey] || 0) < wantAmount) {
-      offer.reason = partner.name + " hat nicht genug " + Nexus.RESOURCE_SHORT[wantKey] + ".";
+      offer.reason = "partner_short";
       return offer;
     }
     offer.allowed = true;
     offer.giveKey = giveKey;
     offer.wantKey = wantKey;
+    offer.giveAmount = giveAmount;
+    offer.wantAmount = wantAmount;
+    offer.partnerName = partner.name;
     return offer;
   }
 
-  function executeTrade(state, partnerId, giveKey, giveAmount, wantKey, wantAmount) {
-    var offer = getTradeOffer(state, partnerId, giveKey, giveAmount, wantKey, wantAmount);
-    if (!offer.allowed) {
+  function nextTradeOfferId(state) {
+    var max = 0;
+    (state.tradeOffers || []).forEach(function (item) {
+      var num = parseInt(String(item.id || "").replace("trade-", ""), 10) || 0;
+      if (num > max) {
+        max = num;
+      }
+    });
+    return "trade-" + (max + 1);
+  }
+
+  function findTradeOffer(state, offerId) {
+    var found = null;
+    (state.tradeOffers || []).forEach(function (item) {
+      if (item.id === offerId) {
+        found = item;
+      }
+    });
+    return found;
+  }
+
+  function pendingTradeOffersFor(state, playerId) {
+    return (state.tradeOffers || []).filter(function (item) {
+      return item.status === "pending" && item.toId === playerId;
+    });
+  }
+
+  function proposeTrade(state, partnerId, giveKey, giveAmount, wantKey, wantAmount) {
+    var preview = getTradeOffer(state, partnerId, giveKey, giveAmount, wantKey, wantAmount);
+    if (!preview.allowed) {
       return state;
     }
     var player = currentPlayer(state);
-    var partner = state.players.filter(function (p) {
-      return p.id === partnerId;
-    })[0];
-    var playerResources = subtractCost(player.resources, (function () {
-      var spend = {};
-      spend[giveKey] = offer.giveCost;
-      return spend;
-    })());
-    playerResources[wantKey] = (playerResources[wantKey] || 0) + offer.wantGain;
-    var partnerResources = subtractCost(partner.resources, (function () {
-      var spend = {};
-      spend[wantKey] = wantAmount;
-      return spend;
-    })());
-    partnerResources[giveKey] = (partnerResources[giveKey] || 0) + offer.giveCost;
-
-    var playerPartners = (player.tradePartners || []).slice();
-    if (playerPartners.indexOf(partner.id) === -1) {
-      playerPartners.push(partner.id);
-    }
-    var partnerPartners = (partner.tradePartners || []).slice();
-    if (partnerPartners.indexOf(player.id) === -1) {
-      partnerPartners.push(player.id);
-    }
-
-    var bonusVolume = 0;
-    if (player.standardsChoice === "open" && partner.standardsChoice === "open") {
-      bonusVolume = offer.giveCost + wantAmount;
-    }
-
-    var nextPlayer = Object.assign({}, player, {
-      resources: playerResources,
-      tradeVolume: (player.tradeVolume || 0) + offer.giveCost + offer.wantGain,
-      tradePartners: playerPartners,
-      standardsBonusVolume: (player.standardsBonusVolume || 0) + bonusVolume
+    var entry = {
+      id: nextTradeOfferId(state),
+      fromId: player.id,
+      toId: partnerId,
+      giveKey: giveKey,
+      giveAmount: giveAmount,
+      wantKey: wantKey,
+      wantAmount: wantAmount,
+      giveCost: preview.giveCost,
+      wantGain: preview.wantGain,
+      flags: preview.flags,
+      status: "pending"
+    };
+    var next = Object.assign({}, state, {
+      tradeOffers: (state.tradeOffers || []).concat([entry])
     });
-    var nextPartner = Object.assign({}, partner, {
-      resources: partnerResources,
-      tradeVolume: (partner.tradeVolume || 0) + offer.giveCost + wantAmount,
-      tradePartners: partnerPartners,
-      standardsBonusVolume: (partner.standardsBonusVolume || 0) + bonusVolume
-    });
-
-    var next = replacePlayer(state, player.id, nextPlayer);
-    next = replacePlayer(next, partner.id, nextPartner);
     next.log = addLog(
       next,
       player.name,
-      "Handel mit " +
-        partner.name +
+      "Handelsangebot an " +
+        preview.partnerName +
         ": " +
-        offer.giveCost +
+        preview.giveCost +
         " " +
         Nexus.RESOURCE_SHORT[giveKey] +
-        " ↔ " +
+        " gegen " +
         wantAmount +
         " " +
         Nexus.RESOURCE_SHORT[wantKey] +
         "."
     );
     return next;
+  }
+
+  function beginTradeInterrupt(state, offerId) {
+    var player = currentPlayer(state);
+    var offer = findTradeOffer(state, offerId);
+    if (!player || !offer || offer.status !== "pending" || offer.fromId !== player.id) {
+      return state;
+    }
+    if (state.turnPhase !== "build") {
+      return state;
+    }
+    var toIndex = -1;
+    var fromIndex = state.currentPlayerIndex;
+    state.players.forEach(function (item, index) {
+      if (item.id === offer.toId) {
+        toIndex = index;
+      }
+    });
+    if (toIndex < 0) {
+      return state;
+    }
+    var next = Object.assign({}, state, {
+      currentPlayerIndex: toIndex,
+      turnPhase: "handoff",
+      tradeSession: {
+        offerId: offer.id,
+        fromIndex: fromIndex,
+        toIndex: toIndex,
+        phase: "to_partner"
+      }
+    });
+    next.log = addLog(next, player.name, "übergibt das Gerät für das Handelsangebot.");
+    return next;
+  }
+
+  function walletsAllowStoredOffer(state, offer) {
+    var from = state.players.filter(function (p) {
+      return p.id === offer.fromId;
+    })[0];
+    var to = state.players.filter(function (p) {
+      return p.id === offer.toId;
+    })[0];
+    if (!from || !to) {
+      return false;
+    }
+    var spendFrom = {};
+    spendFrom[offer.giveKey] = offer.giveCost;
+    var spendTo = {};
+    spendTo[offer.wantKey] = offer.wantAmount;
+    return canAfford(from.resources, spendFrom) && canAfford(to.resources, spendTo);
+  }
+
+  function settleStoredTrade(state, offer) {
+    var from = state.players.filter(function (p) {
+      return p.id === offer.fromId;
+    })[0];
+    var to = state.players.filter(function (p) {
+      return p.id === offer.toId;
+    })[0];
+    var fromResources = subtractCost(from.resources, (function () {
+      var spend = {};
+      spend[offer.giveKey] = offer.giveCost;
+      return spend;
+    })());
+    fromResources[offer.wantKey] = (fromResources[offer.wantKey] || 0) + offer.wantGain;
+    var toResources = subtractCost(to.resources, (function () {
+      var spend = {};
+      spend[offer.wantKey] = offer.wantAmount;
+      return spend;
+    })());
+    toResources[offer.giveKey] = (toResources[offer.giveKey] || 0) + offer.giveCost;
+
+    var fromPartners = (from.tradePartners || []).slice();
+    if (fromPartners.indexOf(to.id) === -1) {
+      fromPartners.push(to.id);
+    }
+    var toPartners = (to.tradePartners || []).slice();
+    if (toPartners.indexOf(from.id) === -1) {
+      toPartners.push(from.id);
+    }
+    var bonusVolume = 0;
+    if (from.standardsChoice === "open" && to.standardsChoice === "open") {
+      bonusVolume = offer.giveCost + offer.wantAmount;
+    }
+    var nextFrom = Object.assign({}, from, {
+      resources: fromResources,
+      tradeVolume: (from.tradeVolume || 0) + offer.giveCost + offer.wantGain,
+      tradePartners: fromPartners,
+      standardsBonusVolume: (from.standardsBonusVolume || 0) + bonusVolume
+    });
+    var nextTo = Object.assign({}, to, {
+      resources: toResources,
+      tradeVolume: (to.tradeVolume || 0) + offer.giveCost + offer.wantAmount,
+      tradePartners: toPartners,
+      standardsBonusVolume: (to.standardsBonusVolume || 0) + bonusVolume
+    });
+    var next = replacePlayer(state, from.id, nextFrom);
+    next = replacePlayer(next, to.id, nextTo);
+    next.log = addLog(
+      next,
+      to.name,
+      "nimmt Handel an: " +
+        offer.giveCost +
+        " " +
+        Nexus.RESOURCE_SHORT[offer.giveKey] +
+        " ↔ " +
+        offer.wantAmount +
+        " " +
+        Nexus.RESOURCE_SHORT[offer.wantKey] +
+        "."
+    );
+    return next;
+  }
+
+  function closeTradeResponse(state, offerId, status) {
+    var offers = (state.tradeOffers || []).map(function (item) {
+      if (item.id !== offerId) {
+        return item;
+      }
+      return Object.assign({}, item, { status: status });
+    });
+    var session = state.tradeSession;
+    if (session && session.offerId === offerId) {
+      return Object.assign({}, state, {
+        tradeOffers: offers,
+        currentPlayerIndex: session.fromIndex,
+        turnPhase: "handoff",
+        tradeSession: Object.assign({}, session, { phase: "to_owner" })
+      });
+    }
+    return Object.assign({}, state, { tradeOffers: offers });
+  }
+
+  function respondTrade(state, offerId, accept) {
+    var player = currentPlayer(state);
+    var offer = findTradeOffer(state, offerId);
+    if (!player || !offer || offer.status !== "pending") {
+      return state;
+    }
+    if (offer.toId !== player.id) {
+      return state;
+    }
+    var inInterrupt = state.turnPhase === "trade_respond";
+    var inOwnBuild = state.turnPhase === "build";
+    if (!inInterrupt && !inOwnBuild) {
+      return state;
+    }
+    if (!accept) {
+      var declined = closeTradeResponse(state, offerId, "declined");
+      declined.log = addLog(declined, player.name, "lehnt das Handelsangebot ab.");
+      return declined;
+    }
+    if (!walletsAllowStoredOffer(state, offer)) {
+      var failed = closeTradeResponse(state, offerId, "expired");
+      failed.log = addLog(failed, player.name, "Handel nicht mehr erfüllbar.");
+      return failed;
+    }
+    var settled = settleStoredTrade(state, offer);
+    return closeTradeResponse(settled, offerId, "accepted");
+  }
+
+  function executeTrade(state, partnerId, giveKey, giveAmount, wantKey, wantAmount) {
+    return proposeTrade(state, partnerId, giveKey, giveAmount, wantKey, wantAmount);
   }
 
   function setStandardsChoice(state, choice) {
@@ -2121,6 +2625,11 @@ window.Nexus = window.Nexus || {};
   Nexus.recordBlockedTradeAttempt = recordBlockedTradeAttempt;
   Nexus.getPublicPlayerView = getPublicPlayerView;
   Nexus.executeTrade = executeTrade;
+  Nexus.proposeTrade = proposeTrade;
+  Nexus.beginTradeInterrupt = beginTradeInterrupt;
+  Nexus.respondTrade = respondTrade;
+  Nexus.pendingTradeOffersFor = pendingTradeOffersFor;
+  Nexus.findTradeOffer = findTradeOffer;
   Nexus.canUpgradeSae = canUpgradeSae;
   Nexus.upgradeSae = upgradeSae;
   Nexus.getSaeUpgradeCost = getSaeUpgradeCost;
@@ -2151,6 +2660,13 @@ window.Nexus = window.Nexus || {};
   Nexus.formatCost = formatCost;
   Nexus.formatEffects = formatEffects;
   Nexus.describeZoneBuild = describeZoneBuild;
+  Nexus.describeZoneUpgrade = describeZoneUpgrade;
+  Nexus.upgradeZone = upgradeZone;
+  Nexus.describeDemolish = describeDemolish;
+  Nexus.demolishZone = demolishZone;
+  Nexus.recommendExpandType = recommendExpandType;
+  Nexus.recommendExpandSlot = recommendExpandSlot;
+  Nexus.zoneUpgradeLevel = zoneUpgradeLevel;
   Nexus.cloudUpkeepCost = cloudUpkeepCost;
 
   /* ponytail: console smoke only; expand if CI lands */
@@ -2208,6 +2724,65 @@ window.Nexus = window.Nexus || {};
     var solarPreview = describeZoneBuild(state, "energy", "solar");
     if (!solarPreview.production || !solarPreview.production.dice) {
       throw new Error("solar preview dice");
+    }
+    var solar = zoneAt(state, pick.q, pick.r);
+    state = Object.assign({}, state, {
+      players: state.players.map(function (p, idx) {
+        if (idx !== 0) {
+          return p;
+        }
+        var rich = cloneResources(p.resources);
+        rich.money = 20;
+        rich.energy = 20;
+        rich.bandwidth = 20;
+        return Object.assign({}, p, { resources: rich });
+      })
+    });
+    var upPreview = describeZoneUpgrade(state, solar.id);
+    if (!upPreview.allowed) {
+      throw new Error("upgrade preview " + upPreview.reason);
+    }
+    state = upgradeZone(state, solar.id);
+    var upgraded = zoneAt(state, pick.q, pick.r);
+    if (!upgraded || upgraded.upgradeLevel !== 1) {
+      throw new Error("upgradeLevel");
+    }
+    if (zonePrimaryBase(upgraded) !== 4) {
+      throw new Error("upgrade yield scale");
+    }
+    if (ZONE_TYPES.home.label.indexOf("Kontroll") === -1) {
+      throw new Error("home label");
+    }
+    var rec = recommendExpandType(state);
+    if (!rec || !rec.type) {
+      throw new Error("recommend");
+    }
+    if (pick2) {
+      var cut = describeDemolish(state, solar.id);
+      if (cut.allowed) {
+        throw new Error("demolish should disconnect");
+      }
+      var leaf = describeDemolish(state, zoneAt(state, pick2.q, pick2.r).id);
+      if (!leaf.allowed) {
+        throw new Error("demolish leaf " + leaf.reason);
+      }
+      var afterDemo = demolishZone(state, zoneAt(state, pick2.q, pick2.r).id);
+      if (afterDemo.zones.length !== state.zones.length - 1) {
+        throw new Error("demolish count");
+      }
+      state = afterDemo;
+    }
+    var partner = state.players[1];
+    var beforeMoney = partner.resources.money;
+    state = proposeTrade(state, partner.id, "energy", 1, "money", 1);
+    if (!(state.tradeOffers || []).length) {
+      throw new Error("proposeTrade");
+    }
+    var offerId = state.tradeOffers[0].id;
+    state = Object.assign({}, state, { currentPlayerIndex: 1 });
+    state = respondTrade(state, offerId, true);
+    if (currentPlayer(state).resources.money === beforeMoney) {
+      throw new Error("trade accept");
     }
     return "ok";
   };
