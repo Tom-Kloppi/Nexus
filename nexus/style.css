@@ -2315,14 +2315,6 @@ button {
   min-width: 0;
 }
 
-.zone-pick--impact small {
-  text-transform: none;
-  letter-spacing: 0;
-  font-size: 0.72rem;
-  font-weight: 800;
-  color: var(--ink);
-}
-
 .pick-pro,
 .pick-con {
   display: block;
@@ -2387,6 +2379,14 @@ button {
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: var(--ink-dim);
+}
+
+.zone-pick.zone-pick--impact small {
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: var(--ink);
 }
 
 .choice-stack .btn {
