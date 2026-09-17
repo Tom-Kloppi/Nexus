@@ -1,6 +1,6 @@
 # Agent-Plan — NEXUS Post-Playtest
 
-Ausführung gegen `docs/DESIGN.md`. Parallel nur mit Ownership unten.
+Ausführung gegen `docs/DESIGN.md`. Parallel nur mit Ownership unten. Agent-Setup (Ignore, Tools, Konflikte): [`docs/AGENT_WORKFLOW.md`](AGENT_WORKFLOW.md).
 
 ## Phase 0 — Done (Orchestrator)
 
