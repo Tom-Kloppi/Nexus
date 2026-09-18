@@ -18,7 +18,7 @@ Kein Spurensummen-Rennen. Jedes Versprechen hat Unterziele (u. a. auf Image, Kom
 ## Ablauf eines Zugs
 
 1. Zugübergabe (private Infos verdeckt)
-2. Produktion (eigene Fabriken + Home)
+2. Produktion automatisch zu Zugbeginn (eigene Fabriken + Home)
 3. Ereignis (gerade Runden)
 4. Bauphase: Felder (bauen / ausbauen / abreißen), Geräte, Karten, **Handelsangebot**, Standard, SAE, Zugende
 

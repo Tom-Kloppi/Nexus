@@ -8,7 +8,7 @@ Anleitung für Coding-Agents. Ausführlicher Workflow + Quellen: [`docs/AGENT_WO
 2. **Ziel-Design:** [`docs/DESIGN.md`](docs/DESIGN.md) — Vertrag Post-Playtest; bei Konflikt gewinnt DESIGN.
 3. **Ist-Regeln:** [`docs/GAME.md`](docs/GAME.md) — nur wenn Verhalten unklar.
 4. **Parallel-Plan:** [`docs/AGENT_PLAN.md`](docs/AGENT_PLAN.md) — Ownership, nicht umgehen.
-5. **Concept-Review (selten):** [`docs/UPDATE_CONCEPT.md`](docs/UPDATE_CONCEPT.md) — groß; gezielt @-mention, nicht blind einlesen.
+5. **Concept-Review (akzeptiert):** [`docs/UPDATE_CONCEPT.md`](docs/UPDATE_CONCEPT.md) — Begründung; Vertrag ist DESIGN. Nicht blind einlesen, nicht gegen Grafik-Nachzüge (Kanten-Straßen, Verkehr = Gebäude) ausspielen.
 6. Motion-Skills (`.agents/skills/`) nur bei Animations-Aufgaben.
 
 ## Was das ist
