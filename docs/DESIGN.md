@@ -2,21 +2,37 @@
 
 **Quelle:** `docs/concepts/projektkonzept.pdf` (Mechanik) + `docs/concepts/nexuskonzeptblatt.pdf` (UI/Hot-Seat).  
 **Freeze:** Branch `prototype` = spielbarer Stand vor diesem Redesign (NEXUS 2.1).  
-**Diese Datei ist Vertrag.** Code und `docs/GAME.md` folgen ihr. Abweichungen = Bug.
+**Diese Datei ist Vertrag.** Code und `docs/GAME.md` folgen ihr. Abweichungen = Bug.  
+**Concept-Review:** Tom hat die Defaults in `docs/UPDATE_CONCEPT.md` (Anhang B, §3.5, §9) akzeptiert. Akzeptierte Sätze stehen hier. Die Review-Datei bleibt Begründung — **kein** zweiter Vertrag.  
+**Grafik-Nachzug (schlägt ältere Konzept-Defaults):** Straßen auf **Kanten**; `traffic` = Busbahnhof/Parkplatz (**nicht** die Straße); SVG-extrudierte Blöcke, Acker-Rand, steile Kamera; Feld-Ausbau, Abriss nur wenn verbunden, Handel = Angebot.
 
 ## Setting
 
-Spieler = Stadtteilmanager (Testgebiet). Geheimes **Wahlversprechen** statt alter Rollenziele. Wer am Ende laut eigenem Versprechen führt → Bürgermeister.  
-Hot-Seat, 2–3 Spieler, ein Gerät — bleibt. **LAN/WLAN-Multiplayer:** erst nach Verlassen von Hot-Seat (Gate), nicht in diesem Zyklus.
+Spieler = Stadtteilmanager (Testgebiet). Geheimes **Wahlversprechen** statt alter Rollenziele. Wer am Ende laut eigenem Versprechen führt → Bürgermeister.
+
+**Hot-Seat bleibt der Vertrag:** 2–3 Spieler, ein Gerät. **LAN/WLAN-Multiplayer:** erst nach Verlassen von Hot-Seat (Gate), nicht in diesem Zyklus — kein Protokoll, kein WebRTC, kein Backend jetzt.
+
+### Harte Kernregeln (nicht aufweichen)
+
+- Geheimes Wahlversprechen; **Ausrichtung öffentlich** (Turn-Chip), Versprechen-Details privat.
+- Hot-Seat-Schild + Handoff-Ritual **jetzt** hart (`role_reveal` / `handoff`, Board dimmen). Nacht-Look darf lokale Geräte nicht verraten.
+- Produktion **automatisch zu Zugbeginn**.
+- Bandbreite aus Wohnen nur mit **eigenem** Datenzentrum.
+- 2-Spieler: Metrik-Skalierung in `roles.js` bleibt.
+- Sieg = `computeRoleProgress` (Sofort ≥ 100 % nach voller Runde, sonst höchste %). Keine Spurensumme, **keine Catch-up-Regel**.
+- Cloud-Geräte öffentlich, lokale privat.
+- Vanilla HTML/CSS/JS; kein neues Framework, keine 3D-Engine, kein Backend in diesem Zyklus.
 
 ## Präsentation / Board
 
 - **Default-Theme:** Tageslicht (`data-theme="light"` / `nexus-theme` Default `light`). Toggle = **Nachtstadt** (eigene Palette), kein invertiertes Chrome.
 - **Layout:** App-Shell als CSS-Grid: Topbar, Board, Dock, Kartenfach. Chrome überlagert das Spielfeld nicht. Schmale Breite: Dock hinter „Ziele“, Board bleibt die Fläche.
 - **Board:** SVG-Stadt, **keine** flachen Eurogame-Plättchen. Aufsicht **steiler von oben** (leichte Axonometrie, kein WebGL). Kacheln als Prisma. **Ein** großes 3D-Gebäude (oder ein Wohnungsblock aus wenigen verbundenen Boxen) pro Spielkachel — Google-Maps-3D-Lesart, keine vollgepflasterte Skyline. Startfeld = **Kontrollbüro / Leitstand**, kein Cottage. Kleine Gimmicks (Bäume, Dachtechnik, Randparken) auf jeder Parzelle. Landnutzung lesbar (**Typ vor Owner-Ring**): Wohnen = Wohnungsblock, Solar = Solarfarm mit Leitstand, Trafo = Umspannwerk, DC = eine Halle (Ausbau = extra Flügel), Verkehr = Busbahnhof oder Parkplatz mit Ladestationen. **Straßen sind keine Kacheln:** sie umringen die Hex-Kanten. Autos fahren auf diesem Kantennetz und parken am Straßenrand sowie auf Feld-Parkplätzen. Parks nur **Deko**. **Rand des Boards:** Felder, Hügel, Berge — **kein** Catan-Wasser. Kein WebGL, kein Foto-Board.
+- **Look-Nordstern:** HexaUrbs (Steam) — Look und Hex-Lesbarkeit, **nicht** Genre, nicht Engine, nicht Sandbox, nicht „ohne Ressourcen“. Grafik-Pfad: A (Land-use / Tag-Nacht) dann geometrische SVG-Stadt (B-Nähe ohne Bitmap); **nicht** Hybrid-C, nicht WebGL, nicht Foto-Board. Parks/Natur nur Deko — keine baubaren Park-/Wasser-Zonen, keine Umweltpunkte für Deko-Grün.
 - **Nacht:** Fenster/Lichter nur nach öffentlichen Regeln (kein Leak lokaler Geräte); Handoff/Reveal dimmt das Board.
+- **Motion = Lehre:** illegal shake, Ressourcen-/Spur-Ticks, Place-Pop, Produktion-Pulse, Handoff-Dim. Spectacle nachrangig. Tokens in `nexus/transitions.css`. Regeln nur in `state.js` (kein DOM, kein `setTimeout` als Regel). First-turn: Copy + Pulse (Coupon, DC-Gate, Solar-Würfel) — **keine** Tutorial-Phase / keine neue `turnPhase`.
 - **Investor-Metrik** `moneyThroughput` = kumuliertes **Geld**, nicht Gesamtproduktion.
-- **Verkehr:** Stub-Ertrag + Lesbarkeit; **+1 Komfort** beim Bau. Feld = Gebäude (nicht das Straßennetz). Volle Mobilitätslogik = später.
+- **Verkehr:** Stub-Ertrag + Lesbarkeit; **+1 Komfort** beim Bau. Feld = Gebäude (nicht das Straßennetz). Volle Mobilitätslogik = später. Älterer Konzept-Default „traffic = sichtbare Straße / Asphalt-Hex“ gilt **nicht**.
 
 ## Ressourcen (genau 3)
 
@@ -64,11 +80,15 @@ Eigenes Nicht-Home-Feld darf gegen Geld abgerissen werden (`DEMOLISH_REFUND_MONE
 
 ### Handel = Angebot
 
-Kein Sofort-Tausch. Spieler A bietet **Kurs + Menge** (geben/wollen). Spieler B nimmt an oder lehnt ab — im eigenen Zug oder als Hot-Seat-Unterbrechung (Zugübergabe, dann zurück). Ressourcen wechseln erst bei Annahme. Hot-Seat: keine Rollen/Wallets der anderen Person zeigen.
+Kein Sofort-Tausch. Spieler A bietet **Kurs + Menge** (geben/wollen), 1:1 auf **einem** Gerät. Spieler B nimmt an oder lehnt ab — im eigenen Zug oder als Hot-Seat-Unterbrechung (Zugübergabe, dann zurück). Ressourcen wechseln erst bei Annahme. Hot-Seat: keine Rollen/Wallets der anderen Person zeigen. Keine Multi-Resource-Deals, keine Partner-Bestätigung auf einem zweiten Gerät.
 
 ### Offen vs. proprietär (bestehende Semantik, klarer)
 
 Gleiche Wahl = handelbar. **Offen+Offen:** `OPEN_STANDARD_DISCOUNT` auf den Aufpreis, wenn die abgegebene Ressource nicht kürzlich selbst produziert wurde; erfolgreicher Tausch zählt `standardsBonusVolume`. **Proprietär+Proprietär:** handelbar, kein Rabatt. **Gemischt:** blockiert. Versuch gegen ein proprietäres Gegenüber erhöht dessen `blockedTradesCaused`. Streak zählt Runden auf derselben Wahl.
+
+### Geräte / Karten
+
+Keine neuen Geräte-IDs in diesem Zyklus; Loop über Feedback und Copy. Karten/Events: Effekte nur auf 3 Ressourcen + 4 Spuren + Risiko. `privacy` als Effect-Key ist tot (→ `security` / Risiko).
 
 ## Was bleibt aus 2.1
 
@@ -88,10 +108,16 @@ Gleiche Wahl = handelbar. **Offen+Offen:** `OPEN_STANDARD_DISCOUNT` auf den Aufp
 - Public-fields / exclusive districts
 - Autonomes Fahren als eigener Layer
 - Nachbarschafts-Smart-Home-Miete
+- LAN/WLAN-Multiplayer bis Gate nach Hot-Seat
+- Neue Geräte-IDs, neue Ressourcen, vierte Spur, neue Event-Engine
+- Catch-up / Rubber-Band
+- Tutorial-Engine / eigene Coach-`turnPhase`
+
+Event-Themen (Förderung, Engpass, Abgabe) höchstens später im **bestehenden** Effect-Schema — kein neuer Screen.
 
 ## Wahlversprechen (Rollen)
 
-Sechs IDs bleiben (`climate`, `privacy`, `investor`, `visionary`, `networker`, `controller`), Labels/Alignments werden zu Versprechen umbenannt. Unterziele mappen auf die 4 Spuren + vorhandene Metriken (Risiko, lokal %, SAE, Handel, Streaks). Konkrete Steps in `nexus/js/data/roles.js`.
+Sechs IDs bleiben (`climate`, `privacy`, `investor`, `visionary`, `networker`, `controller`), Labels/Alignments werden zu Versprechen umbenannt. **Ausrichtung öffentlich** (Partei-Farbe); Unterziele = Wahlprogramm, nur privat. Unterziele mappen auf die 4 Spuren + vorhandene Metriken (Risiko, lokal %, SAE, Handel, Streaks). Konkrete Steps in `nexus/js/data/roles.js`.
 
 ## Agent-Ownership (Parallel)
 

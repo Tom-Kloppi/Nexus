@@ -1,6 +1,6 @@
-# NEXUS — Update-Konzept (Vorschlag)
+# NEXUS — Update-Konzept (Review-Begründung)
 
-**Status:** Vorschlag plus Umsetzungsstand auf `cursor/visual-quality-oneshot-f09f`.
+**Status:** Tom hat die Review akzeptiert (Defaults Anhang B / §3.5 / §9). Akzeptierte Vertrags-Sätze stehen in `docs/DESIGN.md`. **Diese Datei ist kein Vertrag** — nur Begründung, Gap-Matrix, Ankreuz-Protokoll. Nicht gegen DESIGN oder gegen Toms Grafik-Nachzug ausspielen.
 
 ### Gates (dieser Branch)
 
@@ -13,14 +13,14 @@
 | 4 | Pfad-B Bitmap-Sprites | **nicht in diesem Zyklus** — geometrische Stadt-Sprache statt WebGL/Fotos |
 | 5 | Event-Pass | **nicht in diesem Zyklus** |
 
-**Korrektur (Tom):** Verkehrskacheln sind **keine Straßen**. Straßen liegen auf den **Kanten** jedes Felds. `traffic` = Busbahnhof oder Parkplatz mit Ladestationen. Kamera steiler von oben; Art metropolitan, nicht dörflich.
+**Korrektur (Tom, verbindlich in DESIGN):** Verkehrskacheln sind **keine Straßen**. Straßen liegen auf den **Kanten** jedes Felds. `traffic` = Busbahnhof oder Parkplatz mit Ladestationen. Kamera steiler von oben; Art metropolitan, nicht dörflich. Extrudierte SVG-Blöcke, Acker-Rand, Feld-Ausbau, Abriss-wenn-verbunden, Handel = Angebot.
+
+**Nicht mehr als Vertrag lesen:** §3.2 Default „Score-Hint + sichtbare Straße“, §6.3 `traffic` = Asphalt-Hex, Wasser-Catan als Board-Rand. DESIGN und der Grafik-Nachzug schlagen diese Sätze.
 
 Rollback: Tag `nexus-main-pre-overhaul` / Branch `backup/main-pre-overhaul`.
 
-
-**Status:** Vorschlag zur Review. **Kein Vertrag.** Erst nach Toms Freigabe darf etwas davon `docs/DESIGN.md` oder Code ändern.  
 **Branch-Ziel:** `main` (Post-Playtest). Branch `prototype` bleibt Freeze NEXUS 2.1.  
-**Stand der Analyse:** Code `main` @ `8f74c77`, Konzept-PDFs in `docs/concepts/`, Referenzbild isometrische Tag-Stadt. **Nachzug (Tom):** [HexaUrbs](https://store.steampowered.com/app/3563120/HexaUrbs/) (Steam, HidingDev Games) als visuelle/Game-Feel-Referenz — Look und Hex-Lesbarkeit, nicht Genre oder Engine. Details: Abschnitt 6.1a.
+**Stand der Analyse:** Code `main` @ `8f74c77` (Review-Zeitpunkt); Graphic-Oneshot danach auf `main`. Konzept-PDFs in `docs/concepts/`. **Nachzug (Tom):** [HexaUrbs](https://store.steampowered.com/app/3563120/HexaUrbs/) (Steam, HidingDev Games) als visuelle/Game-Feel-Referenz — Look und Hex-Lesbarkeit, nicht Genre oder Engine. Details: Abschnitt 6.1a.
 
 ---
 
@@ -46,17 +46,11 @@ Das **Projektkonzept** (`docs/concepts/projektkonzept.pdf`) und **DESIGN.md** si
 
 ---
 
-> ### Deine Aufgabe jetzt — nur Review, nicht bauen
+> ### Review erledigt
 >
-> Bitte **nichts implementieren** und **`docs/DESIGN.md` nicht selbst umschreiben**. `prototype` bleibt Freeze 2.1.
+> Tom hat die Defaults akzeptiert. Orchestrator hat die akzeptierten Sätze nach `docs/DESIGN.md` übernommen. `prototype` bleibt Freeze 2.1. Offene Fragen ohne Tick (Effizienz-HUD, Gleichstand-Tie-Break, Event-Pass, 2p-`tradePartnerRatio`-Härte, Art-Quelle Pfad B) bleiben **Review-only** — nicht still in DESIGN erfinden.
 >
-> 1. **Ankreuz-Konvention** (direkt unter diesem Kasten) lesen.
-> 2. **Anhang B** durchgehen — Defaults sind `[x]`; Alternative ankreuzen, Default austragen.
-> 3. **Abschnitt 3.5** (lokales Netz / gleiches WLAN) — genau **eine** Zeile ankreuzen (Default **A+C**).
-> 4. **Abschnitt 9** — bei Fragen mit Extra-Kästchen optional `[ ] später / nach Hot-Seat`.
-> 5. Speichern/Kommentar reicht. **Danach:** Orchestrator kopiert akzeptierte Sätze nach `docs/DESIGN.md`. **Erst dann** darf Code auf `main`.
->
-> Ankreuz-Felder: [Anhang B](#anhang-b--entscheidungs-defaults-eine-seite-zum-abzeichnen) · [§3.5 Netz](#35-lokales-netz--gleiches-wlan--review-block) · [§9](#9-offene-fragen-an-tom) · Hot-Seat-Kopplung auch bei Koalition (§3.1), Shield/Versprechen (§3.3), Infos (§4.2), Handoff/Reveal (§5.1), Nacht-Leak (§6.8).
+> Ankreuz-Protokoll (unverändert als Record): [Anhang B](#anhang-b--entscheidungs-defaults-eine-seite-zum-abzeichnen) · [§3.5 Netz](#35-lokales-netz--gleiches-wlan--review-block) · [§9](#9-offene-fragen-an-tom).
 
 ### Ankreuz-Konvention
 
@@ -72,11 +66,11 @@ Das **Projektkonzept** (`docs/concepts/projektkonzept.pdf`) und **DESIGN.md** si
 
 ### 1.1 Wozu diese Datei
 
-**Deine Aufgabe steht im Kasten oben.** Diese Datei ist Planung + Entscheidungsliste, kein zweites Regelbuch und kein Auftrag zum Coden.
+Diese Datei ist die **akzeptierte** Planung + Entscheidungsliste — kein zweites Regelbuch. Vertrag = `docs/DESIGN.md`.
 
 ### 1.2 Publikum
 
-- Tom — **nur Review** (Kasten „Deine Aufgabe jetzt“, Anhang B / §3.5 / §9)
+- Tom — Review ist erledigt (Protokoll Anhang B / §3.5 / §9)
 - Agents, die danach einzelne Phasen umsetzen (Ownership wie in `docs/AGENT_PLAN.md` / `AGENTS.md`)
 - Nicht: Spieler-Handbuch. Dafür bleiben `docs/GAME.md` und UI-Texte zuständig.
 
@@ -84,7 +78,7 @@ Das **Projektkonzept** (`docs/concepts/projektkonzept.pdf`) und **DESIGN.md** si
 
 | Datei | Rolle jetzt | Was diese Datei darf / nicht darf |
 | --- | --- | --- |
-| `docs/DESIGN.md` | **Vertrag.** Code und `GAME.md` folgen ihr. | Hier zitieren und Gaps benennen. **Nicht umschreiben.** Nach Akzeptanz: Orchestrator übernimmt ausgewählte Sätze in DESIGN. |
+| `docs/DESIGN.md` | **Vertrag.** Code und `GAME.md` folgen ihr. | Review-Begründung hier. Akzeptierte Sätze sind übernommen. Diese Datei nicht gegen DESIGN ausspielen. |
 | `docs/GAME.md` | Ist-Regeln, die der Code tun *soll* laut DESIGN | Nur lesen, wenn DESIGN unklar war. Nach Code-Änderungen später nachziehen, nicht hier. |
 | `docs/AGENT_PLAN.md` | Parallel-Ownership, Phasen-Haken. Phase 1 done. | Nicht umgehen. Neue Arbeit = neue Phase *nach* Review, gleiche Datei-Grenzen. |
 | `docs/concepts/projektkonzept.pdf` | Playtest-Nachbau: Feldtypen, 3 Ressourcen, Spuren, Systemideen, Setting | Quelle für Abschnitt 2 und 7. Wo DESIGN „fehlt“ sagt, gewinnt DESIGN. |
@@ -96,9 +90,9 @@ Das **Projektkonzept** (`docs/concepts/projektkonzept.pdf`) und **DESIGN.md** si
 
 ### 1.4 Was „akzeptiert“ heißt
 
-- Tom tickt Anhang B, §3.5 und ggf. §9 (Kasten oben).
-- Orchestrator schreibt nur die akzeptierten Sätze nach `docs/DESIGN.md` (eigene Aufgabe).
-- Erst dann Code auf `main`. `prototype` unangetastet.
+- Tom hat Anhang B, §3.5 und §9-Defaults akzeptiert.
+- Orchestrator hat die akzeptierten Sätze nach `docs/DESIGN.md` geschrieben.
+- `prototype` unangetastet. Offene Unticks bleiben hier, nicht im Vertrag.
 
 ---
 
