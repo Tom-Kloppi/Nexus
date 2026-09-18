@@ -8,7 +8,7 @@ Anleitung für Coding-Agents. Ausführlicher Workflow + Quellen: [`docs/AGENT_WO
 2. **Ziel-Design:** [`docs/DESIGN.md`](docs/DESIGN.md) — Vertrag Post-Playtest; bei Konflikt gewinnt DESIGN.
 3. **Ist-Regeln:** [`docs/GAME.md`](docs/GAME.md) — nur wenn Verhalten unklar.
 4. **Parallel-Plan:** [`docs/AGENT_PLAN.md`](docs/AGENT_PLAN.md) — Ownership, nicht umgehen.
-5. **Playtest-Briefing:** [`docs/PLAYTEST_AENDERUNGSLISTE.md`](docs/PLAYTEST_AENDERUNGSLISTE.md) — Interview-Stimme vom archivierten Prototyp; Teaser/Todo, kein zweiter Vertrag.
+5. **Playtest-Briefing:** [`docs/PLAYTEST_AENDERUNGSLISTE.md`](docs/PLAYTEST_AENDERUNGSLISTE.md) — Interview + Konzeptausbau (`docs/concepts/projektkonzept.pdf`); Teaser/Todo, kein zweiter Vertrag.
 6. **Concept-Review (selten):** [`docs/UPDATE_CONCEPT.md`](docs/UPDATE_CONCEPT.md) — groß; gezielt @-mention, nicht blind einlesen.
 7. Motion-Skills (`.agents/skills/`) nur bei Animations-Aufgaben.
 

@@ -21,7 +21,7 @@ Kein npm, kein Node, kein Test-Runner, kein MCP-Pflicht-Stack für dieses Repo.
 
 1. **AGENTS.md + schlanke Rules** — Repo-weite Anweisungen in `AGENTS.md`; Cursor-spezifische Hard Constraints in `.cursor/rules/*.mdc` (`alwaysApply: true` nur für das Nötigste). Regeln: kurz, verweisen auf Dateien statt Inhalte zu duplizieren ([Cursor Rules](https://cursor.com/docs/rules), [Agent best practices](https://cursor.com/blog/agent-best-practices)).
 2. **Ignore-Dateien** — `.cursorignore`: Agent/Tab/@ blockiert (PDFs, Skill-Bulk). `.cursorindexingignore`: nur Index, Datei bleibt per `@` lesbar ([Ignore files help](https://cursor.com/help/customization/ignore-files.md)). **`AGENTS.md` und `docs/DESIGN.md` bewusst nicht ignoriert.**
-3. **Lesepfad statt Dump** — Design-Vertrag → `docs/DESIGN.md`; Verhalten im Code unklar → `docs/GAME.md`; Parallel-Ownership → `docs/AGENT_PLAN.md`. Playtest-Briefing vom archivierten Prototyp (Interview-Stimme, Teaser/Todo) → `docs/PLAYTEST_AENDERUNGSLISTE.md` — **nicht** über DESIGN stellen. Große Review-Notiz `docs/UPDATE_CONCEPT.md` nur bei Concept-/Review-Aufgaben (@-mention).
+3. **Lesepfad statt Dump** — Design-Vertrag → `docs/DESIGN.md`; Verhalten im Code unklar → `docs/GAME.md`; Parallel-Ownership → `docs/AGENT_PLAN.md`. Playtest-Briefing (Interview + Konzeptausbau, Teaser/Todo) → `docs/PLAYTEST_AENDERUNGSLISTE.md` — **nicht** über DESIGN stellen. Große Review-Notiz `docs/UPDATE_CONCEPT.md` nur bei Concept-/Review-Aufgaben (@-mention).
 4. **Skills** — Motion unter `.agents/skills/` nur bei Animations-Tasks (siehe `AGENTS.md`); nicht in jeden Chat laden.
 5. **Kein Ponytail-Skill** — Im Repo keine `/ponytail`-Skill-Datei; nichts zu installieren.
 

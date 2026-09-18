@@ -10,7 +10,7 @@ Zwei oder drei Personen am **selben Gerät**. Jeder hat ein geheimes **Wahlversp
 
 - **`main`** — Post-Playtest-Redesign (3 Ressourcen, 4 Wertungsspuren, neue Feldtypen). Vertrag: [`docs/DESIGN.md`](docs/DESIGN.md).
 - **`prototype`** — eingefrorener NEXUS-2.1-Stand (5 Ressourcen, alte Zonen) zum Vergleichen.
-- Playtest-Interview → Änderungsliste (Prototyp-Stimme, Teaser/Todo): [`docs/PLAYTEST_AENDERUNGSLISTE.md`](docs/PLAYTEST_AENDERUNGSLISTE.md).
+- Playtest-Interview + Konzeptausbau → Änderungsliste (Prototyp-Stimme, Teaser/Todo): [`docs/PLAYTEST_AENDERUNGSLISTE.md`](docs/PLAYTEST_AENDERUNGSLISTE.md).
 
 ## Features (Zielbild)
 
