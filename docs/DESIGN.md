@@ -1,6 +1,7 @@
 # NEXUS — Ziel-Design (Post-Playtest)
 
-**Quelle:** `docs/concepts/projektkonzept.pdf` (Mechanik) + `docs/concepts/nexuskonzeptblatt.pdf` (UI/Hot-Seat).  
+**Quelle:** `docs/concepts/projektkonzept.pdf` (Mechanik, Konzeptausbau nach Playtest — Basis der neuen Versionen) + `docs/concepts/nexuskonzeptblatt.pdf` (UI/Hot-Seat).  
+**Playtest-Briefing (Prototyp-Stimme, Teaser/Todo):** [`docs/PLAYTEST_AENDERUNGSLISTE.md`](PLAYTEST_AENDERUNGSLISTE.md) — Interview + Konzeptausbau; bei Konflikt gewinnt **diese** Datei.  
 **Freeze:** Branch `prototype` = spielbarer Stand vor diesem Redesign (NEXUS 2.1).  
 **Diese Datei ist Vertrag.** Code und `docs/GAME.md` folgen ihr. Abweichungen = Bug.  
 **Concept-Review:** Tom hat die Defaults in `docs/UPDATE_CONCEPT.md` (Anhang B, §3.5, §9) akzeptiert. Akzeptierte Sätze stehen hier. Die Review-Datei bleibt Begründung — **kein** zweiter Vertrag.  
