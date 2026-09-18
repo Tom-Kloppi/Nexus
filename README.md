@@ -10,6 +10,7 @@ Zwei oder drei Personen am **selben Gerät**. Jeder hat ein geheimes **Wahlversp
 
 - **`main`** — Post-Playtest-Redesign (3 Ressourcen, 4 Wertungsspuren, neue Feldtypen). Vertrag: [`docs/DESIGN.md`](docs/DESIGN.md).
 - **`prototype`** — eingefrorener NEXUS-2.1-Stand (5 Ressourcen, alte Zonen) zum Vergleichen.
+- Playtest-Interview → Änderungsliste (Prototyp-Stimme, Teaser/Todo): [`docs/PLAYTEST_AENDERUNGSLISTE.md`](docs/PLAYTEST_AENDERUNGSLISTE.md).
 
 ## Features (Zielbild)
 
@@ -31,6 +32,7 @@ Reines HTML, CSS und JavaScript. `state.js` / `render.js` / `js/data/`. SVG-Boar
 nexus/                 Spielclient
 docs/DESIGN.md         Ziel-Vertrag (Post-Playtest)
 docs/GAME.md           Regeln = Code-Stand
+docs/PLAYTEST_AENDERUNGSLISTE.md  Interview-Briefing (Teaser/Todo)
 docs/AGENT_PLAN.md     Parallel-Ownership für Agents
 docs/concepts/         Konzept-PDFs
 AGENTS.md              Agent-Konventionen

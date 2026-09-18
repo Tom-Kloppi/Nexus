@@ -1,6 +1,7 @@
 # NEXUS — Ziel-Design (Post-Playtest)
 
 **Quelle:** `docs/concepts/projektkonzept.pdf` (Mechanik) + `docs/concepts/nexuskonzeptblatt.pdf` (UI/Hot-Seat).  
+**Playtest-Briefing (Prototyp-Stimme, Teaser/Todo):** [`docs/PLAYTEST_AENDERUNGSLISTE.md`](PLAYTEST_AENDERUNGSLISTE.md) — historisch vom Interview am Freeze; bei Konflikt gewinnt **diese** Datei.  
 **Freeze:** Branch `prototype` = spielbarer Stand vor diesem Redesign (NEXUS 2.1).  
 **Diese Datei ist Vertrag.** Code und `docs/GAME.md` folgen ihr. Abweichungen = Bug.
 
