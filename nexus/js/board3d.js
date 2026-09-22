@@ -774,7 +774,7 @@ window.Nexus = window.Nexus || {};
         u: Math.random(),
         speed: 0.22 + Math.random() * 0.2,
         hold: 0,
-        color: new THREE.Color().setHSL(0.02 + Math.random() * 0.12, 0.25, isNight() ? 0.38 : 0.62)
+        color: new THREE.Color().setHSL((i % 5) * 0.08, 0.55, isNight() ? 0.42 : 0.62)
       });
     }
     if (carMesh) {
@@ -1218,6 +1218,19 @@ window.Nexus = window.Nexus || {};
     applyLightsTheme();
     buildStaticCity();
     cam.polar = polarFromSlider(cam.pitchSlider);
+    canvas.addEventListener("contextmenu", function (event) {
+      event.preventDefault();
+    });
+    canvas.addEventListener("mousedown", function (event) {
+      if (event.button === 1 || event.button === 2) {
+        event.preventDefault();
+      }
+    });
+    canvas.addEventListener("auxclick", function (event) {
+      if (event.button === 1) {
+        event.preventDefault();
+      }
+    });
     lastTheme = document.documentElement.getAttribute("data-theme") || "light";
     resize();
     if (window.ResizeObserver) {
