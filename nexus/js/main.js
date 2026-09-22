@@ -984,6 +984,9 @@ window.Nexus = window.Nexus || {};
   });
 
   document.addEventListener("click", function (event) {
+    if (tutorial.active) {
+      return;
+    }
     var insideSettings = event.target.closest(".settings-wrap");
     if (!insideSettings) {
       closeSettingsPanels(null);

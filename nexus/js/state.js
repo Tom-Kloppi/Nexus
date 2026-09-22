@@ -2664,6 +2664,28 @@ window.Nexus = window.Nexus || {};
       patchAt(me, { pendingEvent: (Nexus.EVENTS || [])[0] || null });
       return next;
     }
+    if (scene === "trade_respond") {
+      next.turnPhase = "build";
+      next.roleRevealIndex = next.players.length;
+      if (next.players[other] && next.players[me]) {
+        next.tradeOffers = [
+          {
+            id: "tutorial-offer",
+            fromId: next.players[other].id,
+            toId: next.players[me].id,
+            giveKey: "energy",
+            giveAmount: 1,
+            wantKey: "money",
+            wantAmount: 1,
+            giveCost: 1,
+            wantGain: 1,
+            flags: {},
+            status: "pending"
+          }
+        ];
+      }
+      return next;
+    }
     if (scene === "gameover") {
       next.turnPhase = "build";
       next.roleRevealIndex = next.players.length;

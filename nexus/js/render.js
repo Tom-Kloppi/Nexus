@@ -1745,7 +1745,7 @@ window.Nexus = window.Nexus || {};
       .join("");
   }
 
-  function renderGoalPanel(state) {
+  function renderGoalPanel(state, ui) {
     var panel = document.getElementById("goal-panel");
     var pill = document.getElementById("goal-pill");
     var tracks = document.getElementById("score-tracks");
@@ -1777,7 +1777,8 @@ window.Nexus = window.Nexus || {};
     }
     panel.hidden = false;
     pill.hidden = false;
-    document.getElementById("goal-role-name").textContent = progress.role.name;
+    var redactGoals = !!(ui && ui.tutorialRedact);
+    document.getElementById("goal-role-name").textContent = redactGoals ? "Nur für dich" : progress.role.name;
     document.getElementById("goal-total").textContent = progress.totalPercent + "%";
     document.getElementById("stat-goal-total").textContent = progress.totalPercent;
     var ring = document.getElementById("goal-total-ring");
@@ -1830,6 +1831,10 @@ window.Nexus = window.Nexus || {};
     }
 
     var roleDef = progress.role;
+    if (redactGoals) {
+      document.getElementById("goal-list").innerHTML =
+        '<li class="goal-item"><p class="goal-meta">Unterziele stehen hier nur auf deinem Zug. In der Übung bleiben sie verdeckt.</p></li>';
+    } else {
     document.getElementById("goal-list").innerHTML = progress.subGoals
       .map(function (goal, index) {
         var subDef = roleDef.subGoals[index];
@@ -1858,6 +1863,7 @@ window.Nexus = window.Nexus || {};
         );
       })
       .join("");
+    }
   }
 
   function renderRoleRevealModal(state, ui) {
@@ -3350,7 +3356,7 @@ window.Nexus = window.Nexus || {};
     }
   }
 
-  function renderEndScreen(state) {
+  function renderEndScreen(state, ui) {
     var shell = document.getElementById("end-screen");
     var ended = state.turnPhase === "gameover";
     if (!ended) {
@@ -3388,11 +3394,14 @@ window.Nexus = window.Nexus || {};
         })[0];
         var role = Nexus.ROLES_BY_ID[player.roleId];
         var isWinner = entry.playerId === state.winnerId;
-        var goalsHtml = entry.subGoals
-          .map(function (goal) {
-            return "<span>" + goal.label + " <b>" + goal.currentPercent + "%</b></span>";
-          })
-          .join("");
+        var redactScores = !!(ui && ui.tutorialRedact);
+        var goalsHtml = redactScores
+          ? "<span>Unterziele in der Übung verdeckt</span>"
+          : entry.subGoals
+              .map(function (goal) {
+                return "<span>" + goal.label + " <b>" + goal.currentPercent + "%</b></span>";
+              })
+              .join("");
         return (
           '<div class="score-player' +
           (isWinner ? " is-winner" : "") +
@@ -3408,7 +3417,7 @@ window.Nexus = window.Nexus || {};
           entry.totalPercent +
           "%</span></div>" +
           '<p class="score-role-name">' +
-          (role ? role.name : "") +
+          (redactScores ? "Versprechen verdeckt" : role ? role.name : "") +
           "</p>" +
           '<div class="score-player-rows">' +
           goalsHtml +
@@ -3621,7 +3630,7 @@ window.Nexus = window.Nexus || {};
     }
     renderTurnRow(state);
     renderWallet(state);
-    renderGoalPanel(state);
+    renderGoalPanel(state, ui);
     renderDistrict(state, ui);
     renderHome(state, ui);
     renderExpandModal(state, ui);
@@ -3631,7 +3640,7 @@ window.Nexus = window.Nexus || {};
     renderRoleRevealModal(state, ui);
     renderHandoffModal(state);
     renderPublicPlayerModal(state, ui);
-    renderEndScreen(state);
+    renderEndScreen(state, ui);
   };
 
   function tutorialSheetMode() {
@@ -3774,12 +3783,13 @@ window.Nexus = window.Nexus || {};
       { top: margin, left: margin }
     ];
     var best = null;
-    var bestArea = Infinity;
+    var bestScore = Infinity;
     var i;
     for (i = 0; i < options.length; i++) {
+      var raw = options[i];
       var option = {
-        top: clamp(options[i].top, margin, Math.max(margin, vh - ch - margin)),
-        left: clamp(options[i].left, margin, Math.max(margin, vw - cw - margin))
+        top: clamp(raw.top, margin, Math.max(margin, vh - ch - margin)),
+        left: clamp(raw.left, margin, Math.max(margin, vw - cw - margin))
       };
       var box = {
         top: option.top,
@@ -3788,17 +3798,10 @@ window.Nexus = window.Nexus || {};
         bottom: option.top + ch
       };
       var area = tutorialOverlapArea(box, hole);
-      var inView =
-        option.top >= margin - 1 &&
-        option.left >= margin - 1 &&
-        option.top + ch <= vh - margin + 1 &&
-        option.left + cw <= vw - margin + 1;
-      if (inView && area <= 1) {
-        best = option;
-        break;
-      }
-      if (area < bestArea) {
-        bestArea = area;
+      var shift = Math.abs(option.top - raw.top) + Math.abs(option.left - raw.left);
+      var score = area + shift * 80;
+      if (score < bestScore) {
+        bestScore = score;
         best = option;
       }
     }
