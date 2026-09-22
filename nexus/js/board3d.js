@@ -768,6 +768,8 @@ window.Nexus = window.Nexus || {};
     carCabin = new THREE.InstancedMesh(geo.cabin, mats.cabin, CAR_COUNT);
     carMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     carCabin.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    carMesh.frustumCulled = false;
+    carCabin.frustumCulled = false;
     for (i = 0; i < CAR_COUNT; i++) {
       carMesh.setColorAt(i, cars[i].color);
     }
