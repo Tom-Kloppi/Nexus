@@ -2,12 +2,20 @@ window.Nexus = window.Nexus || {};
 
 (function () {
   var state = Nexus.createSetupState();
-  /* Anleitung ist UI-Zustand, keine Spielfase. practiceBase ist der verwerfbare Übungsdistrikt. */
+  /* Anleitung ist UI-Zustand, keine Spielfase.
+     mode "tour": Übungsdistrikt vom Setup oder aus der Hilfe.
+     mode "live": Hilfe über der laufenden Partie (Inhalt / Tippen).
+     resumeState: echte Partie, die nach der Übung wiederhergestellt wird. */
   var tutorial = {
     active: false,
     index: 0,
     practiceBase: null,
-    practiceKey: ""
+    practiceKey: "",
+    mode: "tour",
+    tocOpen: false,
+    pick: false,
+    resumeState: null,
+    resumeUi: null
   };
   var ui = {
     expandSlot: null,
@@ -1239,24 +1247,108 @@ window.Nexus = window.Nexus || {};
     }
   }
 
-  function placeCurrentTutorial() {
-    var step = tutorialStep();
-    if (!tutorial.active || !step || !Nexus.placeTutorial) {
+  function tutorialMeta() {
+    return {
+      tocOpen: tutorial.tocOpen,
+      pick: tutorial.pick,
+      live: tutorial.mode === "live",
+      skipSetup: tutorial.mode === "live" || !!tutorial.resumeState
+    };
+  }
+
+  function firstPlayableTutorialIndex() {
+    var steps = Nexus.TUTORIAL_STEPS || [];
+    var i;
+    for (i = 0; i < steps.length; i++) {
+      if (steps[i].scene !== "setup") {
+        return i;
+      }
+    }
+    return 0;
+  }
+
+  function snapshotUiForResume() {
+    return {
+      expandSlot: ui.expandSlot,
+      inspectedDevice: ui.inspectedDevice,
+      inspectedPlayerId: ui.inspectedPlayerId,
+      inspectedZoneId: ui.inspectedZoneId,
+      investorAwaitingResource: ui.investorAwaitingResource,
+      homeOpen: ui.homeOpen,
+      tradeOpen: ui.tradeOpen,
+      tradePick: {
+        partnerId: ui.tradePick.partnerId,
+        giveKey: ui.tradePick.giveKey,
+        giveAmount: ui.tradePick.giveAmount,
+        wantKey: ui.tradePick.wantKey,
+        wantAmount: ui.tradePick.wantAmount
+      },
+      map: {
+        scale: ui.map.scale,
+        tx: ui.map.tx,
+        ty: ui.map.ty,
+        userAdjusted: ui.map.userAdjusted
+      }
+    };
+  }
+
+  function restoreUiFromResume(snap) {
+    if (!snap) {
       return;
     }
-    Nexus.placeTutorial(step, tutorial.index, Nexus.TUTORIAL_STEPS.length);
+    ui.expandSlot = snap.expandSlot;
+    ui.inspectedDevice = snap.inspectedDevice;
+    ui.inspectedPlayerId = snap.inspectedPlayerId;
+    ui.inspectedZoneId = snap.inspectedZoneId;
+    ui.investorAwaitingResource = snap.investorAwaitingResource;
+    ui.homeOpen = snap.homeOpen;
+    ui.tradeOpen = snap.tradeOpen;
+    ui.tradePick = snap.tradePick || ui.tradePick;
+    if (snap.map) {
+      ui.map.scale = snap.map.scale;
+      ui.map.tx = snap.map.tx;
+      ui.map.ty = snap.map.ty;
+      ui.map.userAdjusted = snap.map.userAdjusted;
+    }
+  }
+
+  function placeCurrentTutorial() {
+    if (!tutorial.active || !Nexus.placeTutorial) {
+      return;
+    }
+    var step = tutorialStep();
+    if (!tutorial.tocOpen && !tutorial.pick && !step) {
+      return;
+    }
+    Nexus.placeTutorial(step, tutorial.index, Nexus.TUTORIAL_STEPS.length, tutorialMeta());
     var card = document.getElementById("tutorial-card");
-    if (card && document.activeElement !== card) {
+    if (card && document.activeElement !== card && !tutorial.pick) {
       card.focus({ preventScroll: true });
     }
   }
 
   function showTutorialStep() {
     var step = tutorialStep();
-    if (!step) {
+    if (!step && !tutorial.tocOpen && !tutorial.pick) {
       return;
     }
     document.body.classList.add("is-tutorial");
+    if (tutorial.mode === "live") {
+      ui.tutorialRedact = false;
+      if (tutorial.tocOpen || tutorial.pick) {
+        placeCurrentTutorial();
+        return;
+      }
+      if (step && tryRevealLiveChrome(step)) {
+        Nexus.render(state, ui);
+      }
+      requestAnimationFrame(placeCurrentTutorial);
+      return;
+    }
+    if (tutorial.tocOpen && !step) {
+      placeCurrentTutorial();
+      return;
+    }
     applyTutorialScene(step);
     if (step.scene === "setup") {
       placeCurrentTutorial();
@@ -1268,37 +1360,205 @@ window.Nexus = window.Nexus || {};
     });
   }
 
-  function startTutorial() {
-    tutorial.active = true;
-    tutorial.index = 0;
+  function tryRevealLiveChrome(step) {
+    var changed = false;
+    if (step.dock && isDockSheet() && !document.body.classList.contains("dock-open")) {
+      setDockOpen(true);
+      changed = true;
+    }
+    if (step.settings) {
+      openTutorialSettings(step.settings);
+      changed = true;
+    }
+    if (step.legend) {
+      var legend = document.getElementById("board-legend");
+      if (legend && !legend.open) {
+        legend.open = true;
+        changed = true;
+      }
+    }
+    return changed;
+  }
+
+  function liveTargetVisible(step) {
+    if (!step || !Nexus.resolveTutorialTarget) {
+      return false;
+    }
+    tryRevealLiveChrome(step);
+    var el = Nexus.resolveTutorialTarget(step);
+    return !!(el && Nexus.tutorialElVisible(el));
+  }
+
+  function enterPracticeFromHelp(index) {
+    if (!tutorial.resumeState) {
+      tutorial.resumeState = state;
+      tutorial.resumeUi = snapshotUiForResume();
+    }
+    tutorial.mode = "tour";
+    tutorial.pick = false;
+    tutorial.tocOpen = false;
+    tutorial.index = index;
     tutorial.practiceBase = null;
     tutorial.practiceKey = "";
     ui.tutorialRedact = true;
     showTutorialStep();
   }
 
+  function jumpToTutorial(index) {
+    var steps = Nexus.TUTORIAL_STEPS || [];
+    if (index < 0 || index >= steps.length) {
+      return;
+    }
+    var step = steps[index];
+    tutorial.tocOpen = false;
+    tutorial.pick = false;
+    tutorial.index = index;
+    if (tutorial.mode === "live") {
+      if (step.scene === "setup") {
+        return;
+      }
+      if (liveTargetVisible(step)) {
+        showTutorialStep();
+        return;
+      }
+      /* Thema ist in der laufenden Partie nicht offen: kurze Übung, Partie bleibt gespeichert. */
+      enterPracticeFromHelp(index);
+      return;
+    }
+    showTutorialStep();
+  }
+
+  function toggleTutorialToc() {
+    if (!tutorial.active || tutorial.pick) {
+      return;
+    }
+    tutorial.tocOpen = !tutorial.tocOpen;
+    placeCurrentTutorial();
+  }
+
+  function toggleTutorialPick() {
+    if (!tutorial.active || tutorial.mode !== "live") {
+      return;
+    }
+    tutorial.pick = !tutorial.pick;
+    tutorial.tocOpen = false;
+    placeCurrentTutorial();
+  }
+
+  function matchTutorialPick(event) {
+    var steps = Nexus.TUTORIAL_STEPS || [];
+    var best = -1;
+    var bestArea = Infinity;
+    var i;
+    for (i = 0; i < steps.length; i++) {
+      var step = steps[i];
+      if (step.scene === "setup") {
+        continue;
+      }
+      var el = Nexus.resolveTutorialTarget ? Nexus.resolveTutorialTarget(step) : null;
+      if (!el || !Nexus.tutorialElVisible(el)) {
+        continue;
+      }
+      if (!el.contains(event.target) && event.target !== el) {
+        continue;
+      }
+      var rect = el.getBoundingClientRect();
+      var area = Math.max(1, rect.width * rect.height);
+      if (area < bestArea) {
+        bestArea = area;
+        best = i;
+      }
+    }
+    return best;
+  }
+
+  function startTutorial() {
+    tutorial.active = true;
+    tutorial.mode = "tour";
+    tutorial.index = 0;
+    tutorial.practiceBase = null;
+    tutorial.practiceKey = "";
+    tutorial.tocOpen = false;
+    tutorial.pick = false;
+    tutorial.resumeState = null;
+    tutorial.resumeUi = null;
+    ui.tutorialRedact = true;
+    showTutorialStep();
+  }
+
+  function startInGameHelp() {
+    if (tutorial.active) {
+      return;
+    }
+    if (state.screen !== "game") {
+      return;
+    }
+    if (Nexus.isHotSeatShield(state)) {
+      Nexus.pushToast("Hilfe erst nach der Übergabe.");
+      return;
+    }
+    closeSettingsPanels(null);
+    tutorial.active = true;
+    tutorial.mode = "live";
+    tutorial.index = firstPlayableTutorialIndex();
+    tutorial.practiceBase = null;
+    tutorial.practiceKey = "";
+    tutorial.tocOpen = true;
+    tutorial.pick = false;
+    tutorial.resumeState = null;
+    tutorial.resumeUi = null;
+    ui.tutorialRedact = false;
+    showTutorialStep();
+  }
+
   function exitTutorial() {
-    /* Nur vom Setup gestartet: Übungsdistrikt verwerfen, keine laufende Partie anfassen. */
+    var resume = tutorial.resumeState;
+    var resumeUi = tutorial.resumeUi;
+    var wasLiveOnly = tutorial.mode === "live" && !resume;
     tutorial.active = false;
     tutorial.index = 0;
     tutorial.practiceBase = null;
     tutorial.practiceKey = "";
+    tutorial.mode = "tour";
+    tutorial.tocOpen = false;
+    tutorial.pick = false;
+    tutorial.resumeState = null;
+    tutorial.resumeUi = null;
     clearHarvestTimer();
-    resetTutorialUi();
     ui.tutorialRedact = false;
     dismissTutorialModals();
     closeSettingsPanels(null);
-    setDockOpen(false);
     if (Nexus.clearTutorial) {
       Nexus.clearTutorial();
     }
+    if (resume) {
+      /* Hilfe aus der Partie: Übungsansicht weg, echte Partie wiederherstellen. */
+      state = resume;
+      restoreUiFromResume(resumeUi);
+      Nexus.render(state, ui);
+      if (Nexus.syncDockScrollHint) {
+        Nexus.syncDockScrollHint();
+      }
+      requestAnimationFrame(function () {
+        fitMapToView(false);
+      });
+      return;
+    }
+    if (wasLiveOnly) {
+      /* Live-Hilfe ohne Übung: Partie und UI unverändert lassen. */
+      Nexus.render(state, ui);
+      return;
+    }
+    /* Tour vom Setup: Übungsdistrikt verwerfen. */
+    resetTutorialUi();
+    setDockOpen(false);
     state = Nexus.createSetupState();
     renderSetupScreen();
     Nexus.openModal(document.getElementById("setup-screen"));
   }
 
   function nextTutorial() {
-    if (!tutorial.active) {
+    if (!tutorial.active || tutorial.tocOpen || tutorial.pick) {
       return;
     }
     if (tutorial.index >= Nexus.TUTORIAL_STEPS.length - 1) {
@@ -1306,14 +1566,22 @@ window.Nexus = window.Nexus || {};
       return;
     }
     tutorial.index += 1;
+    if (tutorial.mode === "live") {
+      jumpToTutorial(tutorial.index);
+      return;
+    }
     showTutorialStep();
   }
 
   function prevTutorial() {
-    if (!tutorial.active || tutorial.index <= 0) {
+    if (!tutorial.active || tutorial.tocOpen || tutorial.pick || tutorial.index <= 0) {
       return;
     }
     tutorial.index -= 1;
+    if (tutorial.mode === "live") {
+      jumpToTutorial(tutorial.index);
+      return;
+    }
     showTutorialStep();
   }
 
@@ -1322,6 +1590,17 @@ window.Nexus = window.Nexus || {};
       return;
     }
     if (event.target && event.target.closest && event.target.closest("#tutorial-card")) {
+      return;
+    }
+    if (tutorial.pick) {
+      event.preventDefault();
+      event.stopPropagation();
+      if (event.type === "pointerdown") {
+        var hit = matchTutorialPick(event);
+        if (hit >= 0) {
+          jumpToTutorial(hit);
+        }
+      }
       return;
     }
     event.preventDefault();
@@ -1339,11 +1618,27 @@ window.Nexus = window.Nexus || {};
       }
       if (event.key === "Escape") {
         event.preventDefault();
+        if (tutorial.pick) {
+          tutorial.pick = false;
+          placeCurrentTutorial();
+          return;
+        }
+        if (tutorial.tocOpen && tutorial.mode === "tour" && !tutorial.resumeState) {
+          tutorial.tocOpen = false;
+          placeCurrentTutorial();
+          return;
+        }
         exitTutorial();
       } else if (event.key === "ArrowRight" || event.key === "Enter") {
+        if (tutorial.tocOpen || tutorial.pick) {
+          return;
+        }
         event.preventDefault();
         nextTutorial();
       } else if (event.key === "ArrowLeft") {
+        if (tutorial.tocOpen || tutorial.pick) {
+          return;
+        }
         event.preventDefault();
         prevTutorial();
       }
@@ -1352,9 +1647,23 @@ window.Nexus = window.Nexus || {};
   );
 
   document.getElementById("btn-tutorial").addEventListener("click", startTutorial);
+  document.getElementById("btn-help").addEventListener("click", startInGameHelp);
   document.getElementById("btn-tutorial-next").addEventListener("click", nextTutorial);
   document.getElementById("btn-tutorial-back").addEventListener("click", prevTutorial);
   document.getElementById("btn-tutorial-exit").addEventListener("click", exitTutorial);
+  document.getElementById("btn-tutorial-toc").addEventListener("click", toggleTutorialToc);
+  document.getElementById("btn-tutorial-pick").addEventListener("click", toggleTutorialPick);
+  document.getElementById("tutorial-toc-list").addEventListener("click", function (event) {
+    var btn = event.target.closest("[data-tutorial-index]");
+    if (!btn) {
+      return;
+    }
+    var index = Number(btn.getAttribute("data-tutorial-index"));
+    if (Number.isNaN(index)) {
+      return;
+    }
+    jumpToTutorial(index);
+  });
 
   applyAppearance();
   fillIcons();

@@ -3717,53 +3717,172 @@ window.Nexus = window.Nexus || {};
     return x * y;
   }
 
-  Nexus.placeTutorial = function (step, index, total) {
+  function fillTutorialToc(activeId, options) {
+    options = options || {};
+    var list = document.getElementById("tutorial-toc-list");
+    if (!list) {
+      return;
+    }
+    var steps = Nexus.TUTORIAL_STEPS || [];
+    var sections = Nexus.TUTORIAL_SECTIONS || [];
+    var skipSetup = !!options.skipSetup;
+    var html = "";
+    var s;
+    for (s = 0; s < sections.length; s++) {
+      var section = sections[s];
+      if (skipSetup && section.id === "setup") {
+        continue;
+      }
+      var items = "";
+      var i;
+      for (i = 0; i < steps.length; i++) {
+        var step = steps[i];
+        if ((step.section || "setup") !== section.id) {
+          continue;
+        }
+        if (skipSetup && step.scene === "setup") {
+          continue;
+        }
+        items +=
+          '<button type="button" class="tutorial-toc-item' +
+          (step.id === activeId ? " is-current" : "") +
+          '" data-tutorial-index="' +
+          i +
+          '"><span class="tutorial-toc-num">' +
+          (i + 1) +
+          "</span><span>" +
+          step.title +
+          "</span></button>";
+      }
+      if (!items) {
+        continue;
+      }
+      html +=
+        '<div class="tutorial-toc-section"><p class="tutorial-toc-heading">' +
+        section.title +
+        "</p>" +
+        items +
+        "</div>";
+    }
+    list.innerHTML = html;
+  }
+
+  Nexus.placeTutorial = function (step, index, total, meta) {
+    meta = meta || {};
     var root = document.getElementById("tutorial-root");
     var ring = document.getElementById("tutorial-ring");
     var card = document.getElementById("tutorial-card");
-    if (!root || !ring || !card || !step) {
+    var stepView = document.getElementById("tutorial-step-view");
+    var toc = document.getElementById("tutorial-toc");
+    if (!root || !ring || !card) {
       return null;
     }
     root.hidden = false;
     document.body.classList.add("is-tutorial");
-    document.getElementById("tutorial-kicker").textContent =
-      "Anleitung · " + (index + 1) + " / " + total;
-    document.getElementById("tutorial-title").textContent = step.title;
-    document.getElementById("tutorial-body").textContent = step.body;
+    if (meta.pick) {
+      document.body.classList.add("is-tutorial-pick");
+    } else {
+      document.body.classList.remove("is-tutorial-pick");
+    }
+
+    var tocOpen = !!meta.tocOpen;
+    var skipSetup = !!meta.skipSetup;
+    var live = !!meta.live;
+    var kicker = live ? "Hilfe" : "Anleitung";
+    if (meta.pick) {
+      kicker = "Hilfe · Tippen";
+    } else if (tocOpen) {
+      kicker = (live ? "Hilfe" : "Anleitung") + " · Inhalt";
+    } else if (step) {
+      kicker += " · " + (index + 1) + " / " + total;
+    }
+    document.getElementById("tutorial-kicker").textContent = kicker;
+
+    if (stepView) {
+      stepView.hidden = tocOpen || meta.pick;
+    }
+    if (toc) {
+      toc.hidden = !tocOpen;
+    }
+    if (tocOpen) {
+      fillTutorialToc(step ? step.id : "", { skipSetup: skipSetup });
+    }
+
+    if (step && !tocOpen && !meta.pick) {
+      document.getElementById("tutorial-title").textContent = step.title;
+      document.getElementById("tutorial-body").textContent = step.body;
+      card.setAttribute("data-step", step.id);
+    } else if (meta.pick) {
+      document.getElementById("tutorial-title").textContent = "Element tippen";
+      document.getElementById("tutorial-body").textContent =
+        "Tippe auf ein Bedienelement auf dem Tisch. Die kurze Erklärung erscheint hier. Inhalt springt zu einem Thema.";
+      if (stepView) {
+        stepView.hidden = false;
+      }
+      card.removeAttribute("data-step");
+    } else {
+      card.removeAttribute("data-step");
+    }
+
     var back = document.getElementById("btn-tutorial-back");
     var next = document.getElementById("btn-tutorial-next");
+    var tocBtn = document.getElementById("btn-tutorial-toc");
+    var pickBtn = document.getElementById("btn-tutorial-pick");
     if (back) {
-      back.disabled = index <= 0;
+      back.disabled = tocOpen || meta.pick || index <= 0;
+      back.hidden = tocOpen || meta.pick;
     }
     if (next) {
+      next.hidden = tocOpen || meta.pick;
       next.textContent = index >= total - 1 ? "Fertig" : "Weiter";
     }
-    card.setAttribute("data-step", step.id);
-
-    var target = resolveTutorialTarget(step);
-    if (target) {
-      scrollTutorialTarget(target);
+    if (tocBtn) {
+      tocBtn.setAttribute("aria-expanded", tocOpen ? "true" : "false");
+      tocBtn.textContent = tocOpen ? "Schritt" : "Inhalt";
+      tocBtn.hidden = !!meta.pick;
     }
-    var pad = 8;
-    var rect = target ? target.getBoundingClientRect() : null;
-    if (!rect || rect.width < 2 || rect.height < 2) {
-      ring.hidden = true;
+    if (pickBtn) {
+      pickBtn.hidden = !live;
+      pickBtn.textContent = meta.pick ? "Abbrechen" : "Tippen";
+      pickBtn.setAttribute("aria-pressed", meta.pick ? "true" : "false");
+    }
+
+    var target = null;
+    var rect = null;
+    if (!tocOpen && !meta.pick && step) {
+      target = resolveTutorialTarget(step);
+      if (target) {
+        scrollTutorialTarget(target);
+      }
+      var pad = 8;
+      rect = target ? target.getBoundingClientRect() : null;
+      if (!rect || rect.width < 2 || rect.height < 2) {
+        ring.hidden = true;
+        rect = null;
+      } else {
+        ring.hidden = false;
+        var top = Math.max(4, rect.top - pad);
+        var left = Math.max(4, rect.left - pad);
+        var right = Math.min(window.innerWidth - 4, rect.right + pad);
+        var bottom = Math.min(window.innerHeight - 4, rect.bottom + pad);
+        ring.style.top = top + "px";
+        ring.style.left = left + "px";
+        ring.style.width = Math.max(12, right - left) + "px";
+        ring.style.height = Math.max(12, bottom - top) + "px";
+        rect = { top: top, left: left, right: right, bottom: bottom, width: right - left, height: bottom - top };
+      }
     } else {
-      ring.hidden = false;
-      var top = Math.max(4, rect.top - pad);
-      var left = Math.max(4, rect.left - pad);
-      var right = Math.min(window.innerWidth - 4, rect.right + pad);
-      var bottom = Math.min(window.innerHeight - 4, rect.bottom + pad);
-      ring.style.top = top + "px";
-      ring.style.left = left + "px";
-      ring.style.width = Math.max(12, right - left) + "px";
-      ring.style.height = Math.max(12, bottom - top) + "px";
-      rect = { top: top, left: left, right: right, bottom: bottom, width: right - left, height: bottom - top };
+      ring.hidden = true;
     }
 
     var margin = 10;
     var vw = window.innerWidth;
     var vh = window.innerHeight;
+    if (tocOpen) {
+      card.classList.add("tutorial-card--toc");
+    } else {
+      card.classList.remove("tutorial-card--toc");
+    }
     card.style.top = margin + "px";
     card.style.left = margin + "px";
     var cw = card.offsetWidth;
@@ -3771,7 +3890,12 @@ window.Nexus = window.Nexus || {};
     function clamp(value, min, max) {
       return Math.max(min, Math.min(max, value));
     }
-    var hole = rect || { top: vh / 2, left: vw / 2, right: vw / 2, bottom: vh / 2, width: 0, height: 0 };
+    if (tocOpen || meta.pick || !rect) {
+      card.style.top = margin + "px";
+      card.style.left = clamp((vw - cw) / 2, margin, Math.max(margin, vw - cw - margin)) + "px";
+      return target;
+    }
+    var hole = rect;
     var cx = clamp(hole.left + hole.width / 2 - cw / 2, margin, Math.max(margin, vw - cw - margin));
     var cy = clamp(hole.top, margin, Math.max(margin, vh - ch - margin));
     var options = [
@@ -3810,12 +3934,20 @@ window.Nexus = window.Nexus || {};
     return target;
   };
 
+  Nexus.resolveTutorialTarget = resolveTutorialTarget;
+  Nexus.tutorialElVisible = tutorialElVisible;
+
   Nexus.clearTutorial = function () {
     var root = document.getElementById("tutorial-root");
     if (root) {
       root.hidden = true;
     }
     document.body.classList.remove("is-tutorial");
+    document.body.classList.remove("is-tutorial-pick");
+    var card = document.getElementById("tutorial-card");
+    if (card) {
+      card.classList.remove("tutorial-card--toc");
+    }
   };
 
   Nexus.openModal = openModal;

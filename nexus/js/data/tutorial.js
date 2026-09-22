@@ -1,16 +1,29 @@
 window.Nexus = window.Nexus || {};
 
-/* Schritttexte der Anleitung. Ablauf und Spotlight leben in main.js / render.js. */
+/* Schritttexte der Anleitung. Ablauf und Spotlight leben in main.js / render.js.
+   section: Gruppierung für das Inhaltsverzeichnis. */
+Nexus.TUTORIAL_SECTIONS = [
+  { id: "setup", title: "Start" },
+  { id: "hud", title: "Oberfläche" },
+  { id: "district", title: "Distrikt & Panel" },
+  { id: "actions", title: "Karten & Zug" },
+  { id: "build", title: "Bauen & Geräte" },
+  { id: "trade", title: "Handel & Ereignisse" },
+  { id: "hotseat", title: "Übergabe & Ende" }
+];
+
 Nexus.TUTORIAL_STEPS = [
   {
     id: "setup-welcome",
+    section: "setup",
     scene: "setup",
     target: "#setup-screen h2",
     title: "Neue Partie",
-    body: "Hier beginnt jede Partie. Die Stadtteilmanager teilen sich ein Gerät und geben es weiter. Weiter, Zurück und Beenden — oder Pfeil rechts, Enter, Pfeil links und Escape."
+    body: "Hier beginnt jede Partie. Die Stadtteilmanager teilen sich ein Gerät und geben es weiter. Weiter, Zurück und Beenden — oder Pfeil rechts, Enter, Pfeil links und Escape. Inhalt springt zu einem Thema."
   },
   {
     id: "setup-count",
+    section: "setup",
     scene: "setup",
     target: "#setup-player-count",
     title: "Spielerzahl",
@@ -18,6 +31,7 @@ Nexus.TUTORIAL_STEPS = [
   },
   {
     id: "setup-length",
+    section: "setup",
     scene: "setup",
     target: "#setup-length",
     title: "Spiellänge",
@@ -25,6 +39,7 @@ Nexus.TUTORIAL_STEPS = [
   },
   {
     id: "setup-privacy",
+    section: "setup",
     scene: "setup",
     target: "#setup-screen .setup-note",
     title: "Sichtbar und privat",
@@ -32,6 +47,7 @@ Nexus.TUTORIAL_STEPS = [
   },
   {
     id: "setup-gear",
+    section: "setup",
     scene: "setup",
     target: "#setup-screen .js-settings-btn",
     title: "Darstellung",
@@ -39,6 +55,7 @@ Nexus.TUTORIAL_STEPS = [
   },
   {
     id: "setup-theme",
+    section: "setup",
     scene: "setup",
     settings: "setup",
     target: "#setup-screen .js-theme-toggle",
@@ -47,6 +64,7 @@ Nexus.TUTORIAL_STEPS = [
   },
   {
     id: "setup-scale",
+    section: "setup",
     scene: "setup",
     settings: "setup",
     target: "#setup-screen .settings-scale",
@@ -55,6 +73,7 @@ Nexus.TUTORIAL_STEPS = [
   },
   {
     id: "setup-start",
+    section: "setup",
     scene: "setup",
     target: "#btn-start-game",
     title: "Partie starten",
@@ -62,6 +81,7 @@ Nexus.TUTORIAL_STEPS = [
   },
   {
     id: "hud-round",
+    section: "hud",
     scene: "build",
     target: ".brand",
     title: "Runde",
@@ -69,6 +89,7 @@ Nexus.TUTORIAL_STEPS = [
   },
   {
     id: "hud-turn",
+    section: "hud",
     scene: "build",
     target: "#turn-row",
     title: "Wer dran ist",
@@ -76,6 +97,7 @@ Nexus.TUTORIAL_STEPS = [
   },
   {
     id: "hud-wallet",
+    section: "hud",
     scene: "build",
     target: ".wallet",
     title: "Ressourcen",
@@ -83,6 +105,7 @@ Nexus.TUTORIAL_STEPS = [
   },
   {
     id: "hud-risk",
+    section: "hud",
     scene: "build",
     target: ".risk-pill",
     title: "Risiko",
@@ -90,6 +113,7 @@ Nexus.TUTORIAL_STEPS = [
   },
   {
     id: "hud-goal",
+    section: "hud",
     scene: "build",
     target: "#goal-pill",
     title: "Versprechen, kurz",
@@ -97,6 +121,7 @@ Nexus.TUTORIAL_STEPS = [
   },
   {
     id: "dock-toggle",
+    section: "district",
     scene: "build",
     target: "#dock",
     targetSheet: "#btn-dock-toggle",
@@ -105,6 +130,7 @@ Nexus.TUTORIAL_STEPS = [
   },
   {
     id: "dock-close",
+    section: "district",
     scene: "build",
     dock: true,
     target: "#dock",
@@ -114,6 +140,7 @@ Nexus.TUTORIAL_STEPS = [
   },
   {
     id: "map",
+    section: "district",
     scene: "build",
     target: "#map-viewport",
     title: "Distrikt",
@@ -121,6 +148,7 @@ Nexus.TUTORIAL_STEPS = [
   },
   {
     id: "map-controls",
+    section: "district",
     scene: "build",
     target: ".map-controls",
     title: "Zoom",
@@ -128,6 +156,7 @@ Nexus.TUTORIAL_STEPS = [
   },
   {
     id: "coach",
+    section: "district",
     scene: "build",
     target: "#table-hint",
     title: "Hinweiszeile",
@@ -135,6 +164,7 @@ Nexus.TUTORIAL_STEPS = [
   },
   {
     id: "home-tile",
+    section: "district",
     scene: "build",
     target: "#district-svg .hex-home[data-mine=\"1\"]",
     title: "Kontrollbüro",
@@ -142,6 +172,7 @@ Nexus.TUTORIAL_STEPS = [
   },
   {
     id: "expand-tile",
+    section: "district",
     scene: "build",
     target: "#district-svg .tile--open.is-buyable",
     fallback: "#district-svg .tile--open",
@@ -150,6 +181,7 @@ Nexus.TUTORIAL_STEPS = [
   },
   {
     id: "legend",
+    section: "district",
     scene: "build",
     dock: true,
     legend: true,
@@ -159,6 +191,7 @@ Nexus.TUTORIAL_STEPS = [
   },
   {
     id: "goals",
+    section: "district",
     scene: "build",
     dock: true,
     target: "#goal-panel",
@@ -167,6 +200,7 @@ Nexus.TUTORIAL_STEPS = [
   },
   {
     id: "tracks",
+    section: "district",
     scene: "build",
     dock: true,
     target: "#tracks-card",
@@ -175,6 +209,7 @@ Nexus.TUTORIAL_STEPS = [
   },
   {
     id: "zone",
+    section: "district",
     scene: "zone",
     dock: true,
     target: "#zone-inspect",
@@ -183,6 +218,7 @@ Nexus.TUTORIAL_STEPS = [
   },
   {
     id: "standards",
+    section: "actions",
     scene: "build",
     dock: true,
     target: "#standards-bar",
@@ -191,6 +227,7 @@ Nexus.TUTORIAL_STEPS = [
   },
   {
     id: "draw",
+    section: "actions",
     scene: "build",
     target: "#btn-draw-deck",
     title: "Nachziehen",
@@ -198,6 +235,7 @@ Nexus.TUTORIAL_STEPS = [
   },
   {
     id: "played",
+    section: "actions",
     scene: "build",
     target: "#played-pile",
     title: "Ausgespielt",
@@ -205,6 +243,7 @@ Nexus.TUTORIAL_STEPS = [
   },
   {
     id: "hand",
+    section: "actions",
     scene: "build",
     target: "#hand-fan",
     title: "Hand",
@@ -212,6 +251,7 @@ Nexus.TUTORIAL_STEPS = [
   },
   {
     id: "hand-card",
+    section: "actions",
     scene: "cards",
     target: "#hand-fan .play-card",
     fallback: "#hand-fan",
@@ -220,6 +260,7 @@ Nexus.TUTORIAL_STEPS = [
   },
   {
     id: "trade-btn",
+    section: "actions",
     scene: "build",
     target: "#btn-trade",
     title: "Handeln",
@@ -227,6 +268,7 @@ Nexus.TUTORIAL_STEPS = [
   },
   {
     id: "end-btn",
+    section: "actions",
     scene: "build",
     target: "#btn-end-round",
     title: "Zug beenden",
@@ -234,6 +276,7 @@ Nexus.TUTORIAL_STEPS = [
   },
   {
     id: "expand-types",
+    section: "build",
     scene: "expand",
     target: "#expand-choices",
     title: "Feldtyp",
@@ -241,6 +284,7 @@ Nexus.TUTORIAL_STEPS = [
   },
   {
     id: "expand-variant",
+    section: "build",
     scene: "expand-variant",
     target: "#expand-variants",
     title: "Variante",
@@ -248,6 +292,7 @@ Nexus.TUTORIAL_STEPS = [
   },
   {
     id: "devices",
+    section: "build",
     scene: "home",
     target: "#device-list",
     title: "Geräte",
@@ -255,6 +300,7 @@ Nexus.TUTORIAL_STEPS = [
   },
   {
     id: "home-upgrade",
+    section: "build",
     scene: "home",
     target: "#btn-home-upgrade",
     fallback: "#home-upgrade-wrap",
@@ -263,6 +309,7 @@ Nexus.TUTORIAL_STEPS = [
   },
   {
     id: "device-modes",
+    section: "build",
     scene: "home-device",
     target: "#inspect-card",
     title: "Cloud oder lokal",
@@ -270,6 +317,7 @@ Nexus.TUTORIAL_STEPS = [
   },
   {
     id: "sae",
+    section: "build",
     scene: "sae",
     target: "#sae-panel",
     title: "SAE-Stufe",
@@ -277,6 +325,7 @@ Nexus.TUTORIAL_STEPS = [
   },
   {
     id: "trade-modal",
+    section: "trade",
     scene: "trade",
     target: "#trade-modal .trade-actions",
     fallback: "#trade-modal .modal-card",
@@ -285,6 +334,7 @@ Nexus.TUTORIAL_STEPS = [
   },
   {
     id: "trade-respond",
+    section: "trade",
     scene: "trade_respond",
     target: "#trade-respond-modal .trade-actions",
     fallback: "#trade-respond-modal .modal-card",
@@ -293,6 +343,7 @@ Nexus.TUTORIAL_STEPS = [
   },
   {
     id: "event",
+    section: "trade",
     scene: "event",
     target: "#event-choices",
     fallback: "#event-modal .modal-card",
@@ -301,6 +352,7 @@ Nexus.TUTORIAL_STEPS = [
   },
   {
     id: "role-reveal",
+    section: "hotseat",
     scene: "role_reveal",
     target: "#btn-role-reveal-ok",
     fallback: "#role-reveal-modal .modal-card",
@@ -309,6 +361,7 @@ Nexus.TUTORIAL_STEPS = [
   },
   {
     id: "handoff",
+    section: "hotseat",
     scene: "handoff",
     target: "#btn-handoff-ok",
     fallback: "#handoff-modal .modal-card",
@@ -317,6 +370,7 @@ Nexus.TUTORIAL_STEPS = [
   },
   {
     id: "public-player",
+    section: "hotseat",
     scene: "public",
     target: "#public-player-devices",
     fallback: "#public-player-modal .modal-card",
@@ -325,6 +379,7 @@ Nexus.TUTORIAL_STEPS = [
   },
   {
     id: "end-screen",
+    section: "hotseat",
     scene: "gameover",
     target: "#btn-restart",
     fallback: "#end-screen .modal-card",
@@ -333,13 +388,15 @@ Nexus.TUTORIAL_STEPS = [
   },
   {
     id: "hud-gear",
+    section: "hud",
     scene: "build",
     target: "#app .settings-wrap--hud .js-settings-btn",
     title: "Darstellung im Spiel",
-    body: "Dieselbe Wahl wie am Start, ohne die Partie zu verlassen. Das Zahnrad sitzt oben rechts neben den Zielen."
+    body: "Dieselbe Wahl wie am Start, ohne die Partie zu verlassen. Das Zahnrad sitzt oben rechts neben den Zielen. Hilfe öffnet die Anleitung erneut."
   },
   {
     id: "hud-settings",
+    section: "hud",
     scene: "build",
     settings: "hud",
     target: "#app .settings-wrap--hud .settings-panel",
