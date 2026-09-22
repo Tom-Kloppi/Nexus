@@ -1347,6 +1347,20 @@ window.Nexus = window.Nexus || {};
     },
     canvas: function () {
       return canvas;
+    },
+    debugSnapshot: function () {
+      return {
+        cars: cars.map(function (c) {
+          return { from: c.from, to: c.to, u: Math.round(c.u * 1000) / 1000, hold: c.hold };
+        }),
+        graphNodes: graph.keys.length,
+        lights: lights.length,
+        lamps: lamps.length,
+        night: isNight(),
+        yaw: cam.seatYaw + cam.userYaw,
+        polar: cam.polar,
+        distance: cam.distance
+      };
     }
   };
 
