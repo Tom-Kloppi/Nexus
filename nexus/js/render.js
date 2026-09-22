@@ -3891,7 +3891,8 @@ window.Nexus = window.Nexus || {};
       return Math.max(min, Math.min(max, value));
     }
     if (tocOpen || meta.pick || !rect) {
-      card.style.top = margin + "px";
+      /* Inhalt und Tippen: Karte unten, damit die Topbar und der Tisch frei tippbar bleiben. */
+      card.style.top = clamp(vh - ch - margin, margin, Math.max(margin, vh - ch - margin)) + "px";
       card.style.left = clamp((vw - cw) / 2, margin, Math.max(margin, vw - cw - margin)) + "px";
       return target;
     }

@@ -1447,6 +1447,12 @@ window.Nexus = window.Nexus || {};
 
   function matchTutorialPick(event) {
     var steps = Nexus.TUTORIAL_STEPS || [];
+    var stack = [];
+    if (document.elementsFromPoint && event.clientX != null && event.clientY != null) {
+      stack = document.elementsFromPoint(event.clientX, event.clientY) || [];
+    } else if (event.target) {
+      stack = [event.target];
+    }
     var best = -1;
     var bestArea = Infinity;
     var i;
@@ -1459,7 +1465,22 @@ window.Nexus = window.Nexus || {};
       if (!el || !Nexus.tutorialElVisible(el)) {
         continue;
       }
-      if (!el.contains(event.target) && event.target !== el) {
+      var hit = false;
+      var s;
+      for (s = 0; s < stack.length; s++) {
+        var node = stack[s];
+        if (!node || node.nodeType !== 1) {
+          continue;
+        }
+        if (node.closest && node.closest("#tutorial-card")) {
+          continue;
+        }
+        if (el === node || el.contains(node)) {
+          hit = true;
+          break;
+        }
+      }
+      if (!hit) {
         continue;
       }
       var rect = el.getBoundingClientRect();
