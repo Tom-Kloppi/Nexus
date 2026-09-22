@@ -184,8 +184,8 @@ window.Nexus = window.Nexus || {};
     geo.sphere = new THREE.SphereGeometry(1, 10, 8);
     geo.cone = new THREE.ConeGeometry(1, 1, 6);
     geo.plane = new THREE.PlaneGeometry(1, 1);
-    geo.car = new THREE.BoxGeometry(1.15, 0.36, 0.52);
-    geo.cabin = new THREE.BoxGeometry(0.52, 0.26, 0.46);
+    geo.car = new THREE.BoxGeometry(1.85, 0.48, 0.85);
+    geo.cabin = new THREE.BoxGeometry(0.7, 0.34, 0.78);
   }
 
   function buildMaterials() {
@@ -238,11 +238,12 @@ window.Nexus = window.Nexus || {};
     mats.owner1 = lambert(Nexus.PLAYER_COLORS[1]);
     mats.owner2 = lambert(Nexus.PLAYER_COLORS[2]);
     mats.hit = basic("#ffffff", { transparent: true, opacity: 0, depthWrite: false });
-    mats.car = lambert(night ? "#6a7380" : "#c5ccd4");
+    mats.car = lambert("#f4f0ea");
     mats.cabin = lambert(css("--glass", "#8bb0c9"), {
       emissive: "#9ec4dc",
-      emissiveIntensity: night ? 0.3 : 0.02
+      emissiveIntensity: night ? 0.45 : 0.06
     });
+    mats.carAccent = lambert(night ? "#c2503f" : "#c04b6e");
     mats.select = lambert("#ffffff", {
       emissive: css("--accent", "#2f7fb5"),
       emissiveIntensity: 0.55,
@@ -371,6 +372,23 @@ window.Nexus = window.Nexus || {};
     return zone.type;
   }
 
+  function addOwnerRing(group, mat) {
+    var i;
+    var r = HEX * 0.8;
+    for (i = 0; i < 6; i++) {
+      var a = ((Math.PI / 180) * (60 * i - 30));
+      var b = ((Math.PI / 180) * (60 * (i + 1) - 30));
+      var x0 = r * Math.cos(a);
+      var z0 = r * Math.sin(a);
+      var x1 = r * Math.cos(b);
+      var z1 = r * Math.sin(b);
+      var dx = x1 - x0;
+      var dz = z1 - z0;
+      var len = Math.hypot(dx, dz);
+      addBox(group, mat, 0.28, 0.22, len * 0.96, (x0 + x1) / 2, TILE_H + 0.02, (z0 + z1) / 2, Math.atan2(dx, dz));
+    }
+  }
+
   function ownerMat(index) {
     return mats["owner" + (index % 3)] || mats.owner0;
   }
@@ -443,7 +461,7 @@ window.Nexus = window.Nexus || {};
   }
 
   function artResidential(group, level, gizmos, q, r) {
-    var h = 6.4 + level * 2.6;
+      var h = 8.2 + level * 3.4;
     addBox(group, mats.concrete, 6.4, 1.35, 5.4, 0, TILE_H, 0.1, 0);
     addBox(group, facadeMat(q, r), 3.6, h, 3.2, 0, TILE_H + 1.35, 0.15, 0);
     addBox(group, mats.roof, 3.7, 0.18, 3.3, 0, TILE_H + 1.35 + h, 0.15, 0);
@@ -459,7 +477,7 @@ window.Nexus = window.Nexus || {};
   }
 
   function artHome(group, level, gizmos, q, r) {
-    var h = 7.8 + level * 2.2;
+    var h = 9.2 + level * 2.8;
     addBox(group, facadeMat(q, r), 4.6, h, 4.2, 0, TILE_H, 0, 0);
     addBox(group, mats.roof, 4.8, 0.2, 4.4, 0, TILE_H + h, 0, 0);
     addBox(group, mats.housing, 0.7, 1.1, 0.12, 0, TILE_H, 2.16, 0);
@@ -554,7 +572,7 @@ window.Nexus = window.Nexus || {};
   }
 
   function artParking(group, level, gizmos) {
-    addCyl(group, mats.lot, 3.5, 3.5, 0.1, 0, TILE_H, 0, 12);
+    addCyl(group, mats.lot, 2.6, 2.6, 0.08, 0, TILE_H, 0, 12);
     addBox(group, mats.concrete, 1.8, 1.4 + level * 0.35, 1.6, -1.6, TILE_H, -0.6, 0);
     charger(group, 1.6, -1.2);
     charger(group, 2.2, 0.2);
@@ -706,11 +724,11 @@ window.Nexus = window.Nexus || {};
       var ox = 0.55;
       var oz = 0.55;
       g.position.set(n.x + ox, 0, n.z + oz);
-      addCyl(g, mats.lampPole, 0.07, 0.09, 2.55, 0, TILE_H, 0, 8);
-      addBox(g, mats.housing, 0.28, 0.7, 0.22, 0, TILE_H + 2.35, 0, 0);
-      var red = addSphere(g, mats.red.clone(), 0.09, 0, TILE_H + 2.88, 0.12);
-      var yel = addSphere(g, mats.yellow.clone(), 0.09, 0, TILE_H + 2.68, 0.12);
-      var gre = addSphere(g, mats.green.clone(), 0.09, 0, TILE_H + 2.48, 0.12);
+      addCyl(g, mats.lampPole, 0.08, 0.1, 3.1, 0, TILE_H, 0, 8);
+      addBox(g, mats.housing, 0.38, 0.95, 0.28, 0, TILE_H + 2.85, 0, 0);
+      var red = addSphere(g, mats.red.clone(), 0.13, 0, TILE_H + 3.55, 0.16);
+      var yel = addSphere(g, mats.yellow.clone(), 0.13, 0, TILE_H + 3.28, 0.16);
+      var gre = addSphere(g, mats.green.clone(), 0.13, 0, TILE_H + 3.02, 0.16);
       roots.roads.add(g);
       lights.push({ node: n.key, red: red, yel: yel, gre: gre, phase: i * 1.37 });
       placed += 1;
@@ -838,12 +856,12 @@ window.Nexus = window.Nexus || {};
       var x = a.x + (b.x - a.x) * car.u;
       var z = a.z + (b.z - a.z) * car.u;
       var ang = Math.atan2(b.x - a.x, b.z - a.z);
-      dummy.position.set(x, ROAD_Y + 0.28, z);
+    dummy.position.set(x, ROAD_Y + 0.38, z);
       dummy.rotation.set(0, ang, 0);
       dummy.scale.set(1, 1, 1);
       dummy.updateMatrix();
       carMesh.setMatrixAt(i, dummy.matrix);
-      dummy.position.y = ROAD_Y + 0.52;
+      dummy.position.y = ROAD_Y + 0.68;
       dummy.position.x += Math.sin(ang) * 0.12;
       dummy.position.z += Math.cos(ang) * 0.12;
       dummy.updateMatrix();
@@ -955,11 +973,7 @@ window.Nexus = window.Nexus || {};
           return p.id === zone.ownerId;
         })[0];
         if (owner) {
-          var ring = new THREE.Mesh(geo.cyl6, ownerMat(owner.colorIndex || 0));
-          ring.scale.set(HEX * 0.82, 0.16, HEX * 0.82);
-          ring.position.y = TILE_H + 0.02;
-          ring.rotation.y = Math.PI / 6;
-          group.add(ring);
+          addOwnerRing(group, ownerMat(owner.colorIndex || 0));
         }
         var selected =
           (ui && ui.inspectedZoneId === zone.id) ||
