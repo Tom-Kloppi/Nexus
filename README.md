@@ -24,7 +24,7 @@ Ausführlich: [`docs/GAME.md`](docs/GAME.md). Für Agents: [`AGENTS.md`](AGENTS.
 
 ## Tech
 
-Reines HTML, CSS und JavaScript. `state.js` / `render.js` / `js/data/`. SVG-Board. Kein npm, kein Bundler, kein Backend.
+HTML, CSS und JavaScript. Regeln in `state.js`, HUD in `render.js`, Distrikt in `board3d.js` (Three.js vendored unter `nexus/vendor/`). Kein npm, kein Bundler, kein Backend.
 
 ## Repo-Karte
 

@@ -5,14 +5,14 @@ alwaysApply: true
 
 # NEXUS
 
-Hot-seat Smart-City Brettspiel: reines HTML/CSS/JS, kein Framework/Build/npm.
+Hot-seat Smart-City Brettspiel: HTML/CSS/JS, kein Framework/Build. Three.js nur vendored für das Distrikt-Board.
 
 **Hard constraints**
 
-- Logik nur in `nexus/js/state.js` (kein DOM). UI nur in `render.js` (keine Regeln).
+- Logik nur in `nexus/js/state.js` (kein DOM, kein Three). HUD in `render.js` (keine Regeln). Board-WebGL in `board3d.js` (keine Regeln, keine App-Shell).
 - Nach JS/CSS-Änderungen `?v=` in `nexus/index.html` hochzählen.
 - Commit/Push nur auf ausdrückliche Anweisung.
-- Keine neuen Dependencies, kein Online-Backend, solange niemand fragt.
+- Kein npm/Bundler nötig; keine Online-Backends. Neue UI-Libraries nur nach DESIGN (Board: vendored Three.js ist erlaubt).
 - Post-Playtest-Vertrag: `docs/DESIGN.md` schlägt ältere Doku. Branch `prototype` = Freeze 2.1.
 
 Ownership & Lesepfad: `AGENTS.md`. Workflow/Quellen: `docs/AGENT_WORKFLOW.md`. Plan: `docs/AGENT_PLAN.md`. Ist-Regeln: `docs/GAME.md`.

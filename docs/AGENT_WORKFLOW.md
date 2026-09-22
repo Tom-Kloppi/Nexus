@@ -30,7 +30,8 @@ Kein npm, kein Node, kein Test-Runner, kein MCP-Pflicht-Stack für dieses Repo.
 | Aufgabe | Zuerst lesen |
 | --- | --- |
 | Regel / Zug / Bau / Karten | `nexus/js/state.js` (exportiert `Nexus.*` am Dateiende) |
-| DOM / Board / HUD | `nexus/js/render.js` → `Nexus.render` |
+| DOM / HUD | `nexus/js/render.js` → `Nexus.render` |
+| Distrikt-WebGL | `nexus/js/board3d.js` → `Nexus.Board3D` |
 | Klicks / `commit()` | `nexus/js/main.js` |
 | Wahlversprechen / Fortschritt | `nexus/js/roles.js` → `computeRoleProgress` |
 | Konstanten / Geräte / Karten | `nexus/js/data/*.js` |
@@ -54,6 +55,6 @@ Architektur: `main.js` → `state.js` → `render.js` (siehe `AGENTS.md`).
 
 ## Checkliste vor Commit (Agents)
 
-- [ ] Hard Constraints in `nexus.mdc` verletzt? (state/render-Trennung, kein npm, `?v=`)
+- [ ] Hard Constraints in `nexus.mdc` verletzt? (state/render-Trennung, Board-3D nur vendored, `?v=`)
 - [ ] Nur erlaubte Dateien laut Auftrag / Ownership?
 - [ ] Bei JS/CSS: `?v=` in `index.html` (Spiel-Agent); bei reiner Doku: entfällt

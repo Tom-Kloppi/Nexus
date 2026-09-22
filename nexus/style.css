@@ -719,21 +719,28 @@ button {
 
 .map-viewport {
   position: absolute;
-  left: 0;
-  top: 0;
-  width: max-content;
-  height: max-content;
-  transform-origin: 0 0;
-  will-change: transform;
+  inset: 0;
+  width: auto;
+  height: auto;
+  transform: none;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
-.map-board {
-  position: relative;
-}
-
-#district-svg {
+#district-canvas {
   display: block;
-  overflow: visible;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+}
+
+.city-plane {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.city-plane.is-orbiting {
+  cursor: grab;
 }
 
 /* Board-Schleier: Handoff / Reveal dimmen die Stadt (kein Leak) */

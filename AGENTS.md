@@ -21,29 +21,30 @@ Hot-seat Smart-City-Brettspiel (2–3 Spieler, ein Gerät), vanilla HTML/CSS/JS.
 | Datei | Darf | Darf nicht |
 | --- | --- | --- |
 | `nexus/js/state.js` | Spiellogik | DOM |
-| `nexus/js/render.js` | DOM/SVG | Regeln |
+| `nexus/js/render.js` | DOM/HUD | Regeln |
+| `nexus/js/board3d.js` | Distrikt-WebGL | Regeln, App-Shell-Layout |
 | `nexus/js/main.js` | Events, `commit()` | Lange Regelblöcke |
 | `nexus/js/roles.js` | Versprechen, `computeRoleProgress` | Geräte bauen |
 | `nexus/js/data/*.js` | Konstanten, Daten | Ablauf steuern |
 | `docs/DESIGN.md` | Nur explizite Design-Änderung | Nebenbei umschreiben |
 | `AGENTS.md`, `.cursor/rules/**`, `.cursorignore` | Agent-Doku / Constraints | Spielregeln erfinden |
 
-`window.Nexus`-Namespace; Script-Reihenfolge in `nexus/index.html` nicht brechen.
+`window.Nexus`-Namespace; Script-Reihenfolge in `nexus/index.html` nicht brechen (`vendor/three.min.js` vor `board3d.js`).
 
 ## Architektur (eine Zeile)
 
-`main.js` → Regel in `state.js` → `Nexus.render(state, ui)` in `render.js`. Details + Smoke: [`docs/AGENT_WORKFLOW.md`](docs/AGENT_WORKFLOW.md#code-einstieg-pointers-nicht-vollständige-dateien).
+`main.js` → Regel in `state.js` → `Nexus.render(state, ui)` in `render.js` (Distrikt: `Nexus.Board3D.sync`). Details + Smoke: [`docs/AGENT_WORKFLOW.md`](docs/AGENT_WORKFLOW.md#code-einstieg-pointers-nicht-vollständige-dateien).
 
 ## Konventionen
 
 - UI-Sprache: Deutsch.
-- Prefs: `localStorage` `nexus-theme`, `nexus-ui-scale`.
+- Prefs: `localStorage` `nexus-theme`, `nexus-ui-scale`, `nexus-cam-pitch`.
 - Nach JS/CSS: `?v=` in `nexus/index.html` erhöhen.
 - Gewinner / Ressourcen / Zonen: siehe `docs/DESIGN.md` (nicht hier duplizieren).
 
 ## Nicht bauen ohne explizite Anfrage
 
-React/Vue, Bundler, npm, Test-Frameworks, Online-Multiplayer, Accounts, Persistenz; offene Design-Lücken (Koalition, Transport, …) → DESIGN „fehlt“.
+React/Vue, Bundler, npm, Test-Frameworks, Online-Multiplayer, Accounts, Persistenz. Three.js nur vendored unter `nexus/vendor/` für das Distrikt-Board (siehe DESIGN). Offene Design-Lücken (Koalition, Transport, …) → DESIGN „fehlt“.
 
 ## Fallen (Hot-Seat)
 

@@ -277,6 +277,9 @@ window.Nexus = window.Nexus || {};
 
   Nexus.setCameraPitch = function (pitch) {
     applyCameraPitch(pitch);
+    if (Nexus.Board3D && Nexus.Board3D.setPitch) {
+      Nexus.Board3D.setPitch(pitch);
+    }
   };
 
   Nexus.getCameraPitch = function () {
@@ -2799,67 +2802,10 @@ window.Nexus = window.Nexus || {};
   }
 
   function renderDistrict(state, ui) {
-    var svg = document.getElementById("district-svg");
-    var board = document.getElementById("map-board");
-    var view = boardView();
-    var angle = seatAngle(state, view);
-    var frame = orbitFrame(view);
-    syncOrbitFocus(view, angle, frame);
-    if (board) {
-      board.style.width = frame.side + "px";
-      board.style.height = frame.side + "px";
+    if (Nexus.Board3D && Nexus.Board3D.sync) {
+      Nexus.Board3D.sync(state, ui);
     }
-    svg.setAttribute("viewBox", "0 0 " + frame.side + " " + frame.side);
-    svg.setAttribute("width", String(frame.side));
-    svg.setAttribute("height", String(frame.side));
-
     var player = Nexus.currentPlayer(state);
-    var recSlot = Nexus.recommendExpandSlot ? Nexus.recommendExpandSlot(state) : null;
-    var ctx = {
-      spinning: {},
-      stagger: {},
-      placePopId: (ui && ui.placePopZoneId) || null,
-      showYield: !!(ui && ui.yieldPops),
-      recommendSlot: recSlot
-    };
-    (state.spinningOutcomes || []).forEach(function (outcome) {
-      ctx.spinning[outcome.zoneId] = true;
-      ctx.stagger[outcome.zoneId] = (outcome.staggerIndex || 0) * C.HARVEST_STAGGER_MS;
-    });
-
-    var ordered = view.tiles.slice().sort(function (a, b) {
-      var ay = projectPoint(a.x, a.y, angle, view.originX, view.originY, frame.ox, frame.oy).y;
-      var by = projectPoint(b.x, b.y, angle, view.originX, view.originY, frame.ox, frame.oy).y;
-      return ay - by || a.q - b.q;
-    });
-    var html = boardDefs();
-    html +=
-      '<g class="city-orbit" transform="translate(' +
-      n(frame.ox) +
-      " " +
-      n(frame.oy) +
-      ") rotate(" +
-      n(angle) +
-      " " +
-      n(view.originX) +
-      " " +
-      n(view.originY) +
-      ')">';
-    html +=
-      '<ellipse class="island-shade" cx="' +
-      n(view.originX) +
-      '" cy="' +
-      n(view.originY + view.sy) +
-      '" rx="' +
-      n(view.sx * (view.playRadius + 1.6)) +
-      '" ry="' +
-      n(view.sy * (view.playRadius + 1.4)) +
-      '" fill="url(#nx-island)"/>';
-    ordered.forEach(function (tile) {
-      html += tileMarkup(state, ui, view, tile, player, ctx);
-    });
-    html += "</g>";
-    svg.innerHTML = html;
     var seatNote = document.getElementById("cam-seat");
     if (seatNote && player) {
       seatNote.textContent = player.name + " · Leitstand unten";
@@ -3942,7 +3888,23 @@ window.Nexus = window.Nexus || {};
   Nexus.openModal = openModal;
   Nexus.closeModal = closeModal;
   Nexus.pushToast = pushToast;
-  Nexus.boardView = boardView;
   Nexus.chipsHtml = chipsHtml;
   Nexus.playerColor = playerColor;
+  if (!Nexus.setCameraPitch) {
+    Nexus.setCameraPitch = function (pitch) {
+      if (Nexus.Board3D) {
+        Nexus.Board3D.setPitch(pitch);
+      }
+    };
+  }
+  if (!Nexus.getCameraPitch) {
+    Nexus.getCameraPitch = function () {
+      return 58;
+    };
+  }
+  if (!Nexus.boardView) {
+    Nexus.boardView = function () {
+      return { focus: { x: 0, y: 0, w: 1, h: 1 } };
+    };
+  }
 })(window.Nexus);

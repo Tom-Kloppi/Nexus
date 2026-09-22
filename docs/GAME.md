@@ -52,7 +52,7 @@ Solar nutzt PRODUCTION_DICE (Ausfall…Boom). Boom → grüne Innovationskarte. 
 
 **Abriss:** Nicht-Home, Geld-Rückzahlung, nur wenn das restliche eigene Netz am Home hängt.
 
-**Brett-Rand:** Felder / Hügel / Berge, kein Wasser-Catan. Ein Großbauwerk pro Kachel, Autos auf dem Kantennetz (fahren und parken).
+**Brett-Rand:** Gewerbe / Hügel / Berge, kein Wasser-Catan. Ein Großbauwerk pro Kachel, Autos auf dem **geteilten Kantennetz** (von Feld zu Feld, nicht im Kreis um eine Parzelle). Ampeln an Kreuzungen sind Präsentation.
 
 ## Geräte
 

@@ -90,6 +90,9 @@ window.Nexus = window.Nexus || {};
     if (Nexus.setCameraPitch) {
       Nexus.setCameraPitch(prefs.camPitch);
     }
+    if (Nexus.Board3D && Nexus.Board3D.setTheme) {
+      Nexus.Board3D.setTheme();
+    }
     localStorage.setItem("nexus-theme", prefs.theme);
     localStorage.setItem("nexus-ui-scale", String(prefs.uiScale));
     localStorage.setItem("nexus-cam-pitch", String(prefs.camPitch));
@@ -140,7 +143,9 @@ window.Nexus = window.Nexus || {};
       prev &&
       prev.currentPlayerIndex !== state.currentPlayerIndex
     ) {
-      ui.map.userAdjusted = false;
+      if (Nexus.Board3D) {
+        Nexus.Board3D.onSeatChange(!!ui.map.userAdjusted);
+      }
     }
     toastNewLogs(prev, state);
     Nexus.render(state, ui);
@@ -190,52 +195,19 @@ window.Nexus = window.Nexus || {};
     }, Nexus.harvestAnimationMs(state));
   }
 
-  /* Das Board hat eine eigene Grid-Zelle — hier nur Luft für Kartensteuerung
-     und Coach-Zeile, keine Overlay-Messung mehr. */
-  function mapSafeRect() {
-    var plane = document.querySelector(".city-plane");
-    if (!plane) {
-      return { x: 0, y: 0, w: 1, h: 1 };
-    }
-    var pad = { top: 12, right: 12, bottom: 50, left: 12 };
-    return {
-      x: pad.left,
-      y: pad.top,
-      w: Math.max(120, plane.clientWidth - pad.left - pad.right),
-      h: Math.max(120, plane.clientHeight - pad.top - pad.bottom)
-    };
-  }
-
-  function boardFocus() {
-    return Nexus.boardView().focus;
-  }
-
   function applyMapTransform() {
-    var viewport = document.getElementById("map-viewport");
-    if (!viewport) {
-      return;
+    if (Nexus.Board3D) {
+      Nexus.Board3D.fit(false);
     }
-    clampMapPan();
-    viewport.style.transformOrigin = "0 0";
-    viewport.style.transform =
-      "translate(" + ui.map.tx + "px," + ui.map.ty + "px) scale(" + ui.map.scale + ")";
   }
 
   function zoomAt(clientX, clientY, factor) {
-    var plane = document.querySelector(".city-plane");
-    if (!plane) {
+    if (!Nexus.Board3D) {
       return;
     }
-    var rect = plane.getBoundingClientRect();
-    var px = clientX - rect.left;
-    var py = clientY - rect.top;
-    var worldX = (px - ui.map.tx) / ui.map.scale;
-    var worldY = (py - ui.map.ty) / ui.map.scale;
-    ui.map.scale = clampMapScale(ui.map.scale * factor);
-    ui.map.tx = px - worldX * ui.map.scale;
-    ui.map.ty = py - worldY * ui.map.scale;
-    ui.map.userAdjusted = ui.map.scale > minMapScale() + 0.002;
-    applyMapTransform();
+    Nexus.Board3D.zoomAt(clientX, clientY, factor);
+    ui.map.userAdjusted = true;
+    Nexus.Board3D.setUserAdjusted(true);
   }
 
   function zoomTowardCenter(factor) {
@@ -247,60 +219,15 @@ window.Nexus = window.Nexus || {};
     zoomAt(rect.left + rect.width / 2, rect.top + rect.height / 2, factor);
   }
 
-  function centerOnFocus(scale) {
-    var safe = mapSafeRect();
-    var focus = boardFocus();
-    ui.map.tx = safe.x + safe.w / 2 - (focus.x + focus.w / 2) * scale;
-    ui.map.ty = safe.y + safe.h / 2 - (focus.y + focus.h / 2) * scale;
-  }
-
   function fitMapToView(force) {
+    if (!Nexus.Board3D) {
+      return;
+    }
     if (ui.map.userAdjusted && !force) {
-      applyMapTransform();
+      Nexus.Board3D.fit(false);
       return;
     }
-    var plane = document.querySelector(".city-plane");
-    if (!plane || !plane.clientWidth) {
-      applyMapTransform();
-      return;
-    }
-    ui.map.scale = clampMapScale(minMapScale());
-    centerOnFocus(ui.map.scale);
-    applyMapTransform();
-  }
-
-  function minMapScale() {
-    var plane = document.querySelector(".city-plane");
-    if (!plane || !plane.clientWidth) {
-      return Nexus.CONSTANTS.MAP_MIN_SCALE;
-    }
-    var safe = mapSafeRect();
-    var focus = boardFocus();
-    var pad = Nexus.CONSTANTS.MAP_FIT_PADDING || 0.96;
-    return Math.min(safe.w / focus.w, safe.h / focus.h) * pad;
-  }
-
-  function clampMapScale(scale) {
-    return Math.min(Nexus.CONSTANTS.MAP_MAX_SCALE, Math.max(minMapScale(), scale));
-  }
-
-  function clampMapPan() {
-    var plane = document.querySelector(".city-plane");
-    if (!plane || !plane.clientWidth) {
-      return;
-    }
-    var scale = ui.map.scale;
-    if (scale <= minMapScale() + 0.002) {
-      centerOnFocus(scale);
-      ui.map.userAdjusted = false;
-      return;
-    }
-    var safe = mapSafeRect();
-    var focus = boardFocus();
-    var midX = safe.x + safe.w / 2;
-    var midY = safe.y + safe.h / 2;
-    ui.map.tx = Math.min(midX - focus.x * scale, Math.max(midX - (focus.x + focus.w) * scale, ui.map.tx));
-    ui.map.ty = Math.min(midY - focus.y * scale, Math.max(midY - (focus.y + focus.h) * scale, ui.map.ty));
+    Nexus.Board3D.fit(true);
   }
 
   function setupMapControls() {
@@ -308,6 +235,34 @@ window.Nexus = window.Nexus || {};
     if (!plane) {
       return;
     }
+
+    plane.addEventListener(
+      "contextmenu",
+      function (event) {
+        event.preventDefault();
+      },
+      true
+    );
+
+    plane.addEventListener(
+      "auxclick",
+      function (event) {
+        if (event.button === 1) {
+          event.preventDefault();
+        }
+      },
+      true
+    );
+
+    plane.addEventListener(
+      "mousedown",
+      function (event) {
+        if (event.button === 1 || event.button === 2) {
+          event.preventDefault();
+        }
+      },
+      true
+    );
 
     plane.addEventListener(
       "wheel",
@@ -329,17 +284,22 @@ window.Nexus = window.Nexus || {};
       if (event.target.closest(".map-controls")) {
         return;
       }
-      if (event.button !== 0 && event.pointerType !== "touch") {
+      if (event.button !== 0 && event.button !== 1 && event.button !== 2) {
         return;
+      }
+      if (event.button === 1 || event.button === 2) {
+        event.preventDefault();
       }
       ui.map.dragging = true;
       ui.map.panning = false;
+      ui.map.orbiting = event.button === 1 || event.button === 2;
       ui.map.moved = false;
       ui.map.pointerId = event.pointerId;
       ui.map.lastX = event.clientX;
       ui.map.lastY = event.clientY;
       ui.map.startX = event.clientX;
       ui.map.startY = event.clientY;
+      ui.map.button = event.button;
       if (window.getSelection) {
         window.getSelection().removeAllRanges();
       }
@@ -350,17 +310,11 @@ window.Nexus = window.Nexus || {};
         return;
       }
       var dist = Math.hypot(event.clientX - ui.map.startX, event.clientY - ui.map.startY);
-      if (!ui.map.panning) {
+      if (!ui.map.panning && !ui.map.didOrbit) {
         if (dist < 8) {
           return;
         }
-        if (ui.map.scale <= minMapScale() + 0.002) {
-          return;
-        }
-        ui.map.panning = true;
         ui.map.moved = true;
-        ui.map.userAdjusted = true;
-        plane.classList.add("is-dragging");
         try {
           plane.setPointerCapture(event.pointerId);
         } catch (err) {
@@ -368,13 +322,30 @@ window.Nexus = window.Nexus || {};
         }
         ui.map.lastX = event.clientX;
         ui.map.lastY = event.clientY;
+        if (ui.map.orbiting) {
+          ui.map.didOrbit = true;
+          plane.classList.add("is-orbiting");
+        } else {
+          ui.map.panning = true;
+          ui.map.userAdjusted = true;
+          if (Nexus.Board3D) {
+            Nexus.Board3D.setUserAdjusted(true);
+          }
+          plane.classList.add("is-dragging");
+        }
         return;
       }
-      ui.map.tx += event.clientX - ui.map.lastX;
-      ui.map.ty += event.clientY - ui.map.lastY;
+      var dx = event.clientX - ui.map.lastX;
+      var dy = event.clientY - ui.map.lastY;
       ui.map.lastX = event.clientX;
       ui.map.lastY = event.clientY;
-      applyMapTransform();
+      if (ui.map.orbiting || ui.map.didOrbit) {
+        if (Nexus.Board3D) {
+          Nexus.Board3D.orbit(dx, dy);
+        }
+      } else if (Nexus.Board3D) {
+        Nexus.Board3D.pan(dx, dy);
+      }
     });
 
     function endDrag(event) {
@@ -383,8 +354,11 @@ window.Nexus = window.Nexus || {};
       }
       ui.map.dragging = false;
       ui.map.panning = false;
+      ui.map.orbiting = false;
+      ui.map.didOrbit = false;
       ui.map.pointerId = null;
       plane.classList.remove("is-dragging");
+      plane.classList.remove("is-orbiting");
       try {
         plane.releasePointerCapture(event.pointerId);
       } catch (err) {
@@ -411,6 +385,9 @@ window.Nexus = window.Nexus || {};
 
     document.getElementById("btn-map-reset").addEventListener("click", function () {
       ui.map.userAdjusted = false;
+      if (Nexus.Board3D) {
+        Nexus.Board3D.setUserAdjusted(false);
+      }
       fitMapToView(true);
     });
   }
@@ -470,6 +447,9 @@ window.Nexus = window.Nexus || {};
       map: { scale: 1, tx: 0, ty: 0, dragging: false, panning: false, moved: false, lastX: 0, lastY: 0, startX: 0, startY: 0, pointerId: null, userAdjusted: false }
     };
     Nexus.closeModal(document.getElementById("setup-screen"));
+    if (Nexus.Board3D) {
+      Nexus.Board3D.setUserAdjusted(false);
+    }
     commit(Nexus.startGame(setupChoice.count, setupChoice.lengthId));
   }
 
@@ -655,31 +635,36 @@ window.Nexus = window.Nexus || {};
     commit(Nexus.endTurn(state), { skipAutoHarvest: true });
   });
 
-  document.getElementById("district-svg").addEventListener("click", function (event) {
+  document.getElementById("map-viewport").addEventListener("click", function (event) {
     if (ui.map.moved) {
       ui.map.moved = false;
       return;
     }
+    if (!Nexus.Board3D || !Nexus.Board3D.pick) {
+      return;
+    }
+    var hit = Nexus.Board3D.pick(event.clientX, event.clientY);
+    if (!hit) {
+      return;
+    }
 
-    var home = event.target.closest(".hex-home");
-    if (home) {
+    if (hit.kind === "home") {
       ui.expandSlot = null;
       ui.inspectedZoneId = null;
       ui.inspectedDevice = null;
-      if (home.getAttribute("data-mine") === "1") {
+      if (hit.mine) {
         ui.homeOpen = true;
         ui.inspectedPlayerId = null;
       } else {
         ui.homeOpen = false;
-        ui.inspectedPlayerId = home.getAttribute("data-owner");
+        ui.inspectedPlayerId = hit.ownerId;
       }
       Nexus.render(state, ui);
       return;
     }
 
-    var owned = event.target.closest(".hex-owned[data-zone]");
-    if (owned) {
-      ui.inspectedZoneId = owned.getAttribute("data-zone");
+    if (hit.kind === "owned" && hit.zoneId) {
+      ui.inspectedZoneId = hit.zoneId;
       ui.homeOpen = false;
       ui.expandSlot = null;
       ui.inspectedDevice = null;
@@ -690,13 +675,12 @@ window.Nexus = window.Nexus || {};
       return;
     }
 
-    var empty = event.target.closest(".hex-empty.is-open");
-    if (!empty || state.turnPhase !== "build") {
+    if (hit.kind !== "empty" || !hit.open || state.turnPhase !== "build") {
       return;
     }
     ui.expandSlot = {
-      q: Number(empty.getAttribute("data-q")),
-      r: Number(empty.getAttribute("data-r")),
+      q: Number(hit.q),
+      r: Number(hit.r),
       type: null
     };
     ui.inspectedDevice = null;
@@ -1087,4 +1071,56 @@ window.Nexus = window.Nexus || {};
   renderSetupScreen();
   setupMapControls();
   Nexus.openModal(document.getElementById("setup-screen"));
+
+  if (/\bqa=1\b/.test(location.search || "")) {
+    Nexus.__qa = {
+      getState: function () {
+        return state;
+      },
+      getUi: function () {
+        return ui;
+      },
+      commit: commit,
+      fillCity: function () {
+        var next = state;
+        var existing = {};
+        (next.zones || []).forEach(function (zone) {
+          existing[zone.q + "," + zone.r] = true;
+        });
+        var types = [
+          ["residential", null],
+          ["energy", "solar"],
+          ["energy", "transformer"],
+          ["datacenter", "secure"],
+          ["datacenter", "insecure"],
+          ["traffic", null]
+        ];
+        var extra = (next.zones || []).slice();
+        Nexus.boardSlots().forEach(function (slot, index) {
+          if (existing[slot.key]) {
+            return;
+          }
+          var spec = types[index % types.length];
+          var owner = next.players[index % next.players.length];
+          extra.push({
+            id: "zone-" + slot.q + "-" + slot.r,
+            q: slot.q,
+            r: slot.r,
+            type: spec[0],
+            variant: spec[1],
+            ownerId: owner.id,
+            upgradeLevel: index % 3,
+            harvested: true,
+            lastYield: null
+          });
+        });
+        next = Object.assign({}, next, {
+          zones: extra,
+          screen: "game",
+          turnPhase: "build"
+        });
+        commit(next, { skipAutoHarvest: true });
+      }
+    };
+  }
 })();
