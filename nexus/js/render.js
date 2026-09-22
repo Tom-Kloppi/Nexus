@@ -239,22 +239,49 @@ window.Nexus = window.Nexus || {};
   }
 
   /* ==================== Stadt-Präsentation ====================
-     Steilere Aufsicht (Stadtplan von oben) mit leichter Prismenkante.
-     Straßen liegen auf den Kanten jedes Felds; Verkehrskacheln sind
-     Gebäude auf dem Grundstück, kein Straßennetz. Reine Darstellung. */
+     Aufsicht mit einstellbarem Winkel (nexus-cam-pitch, 0 = steil,
+     100 = flach). Pro Zug dreht sich das Brett, sodass der Leitstand
+     des aktiven Spielers unten liegt. Straßen auf den Kanten;
+     Verkehr ist ein Gebäude. Reine Darstellung, keine Regel. */
 
   var VIEW = {
-    squash: 0.78,
-    thickness: 11,
+    squash: 0.64,
+    thickness: 12,
     waterDrop: 0,
     decoRings: 1,
-    depthX: 7,
-    depthY: -5,
+    depthX: 9,
+    depthY: -6,
     streetOuter: 0.99,
     streetInner: 0.82
   };
 
+  var cameraPitch = 58;
   var viewCache = null;
+
+  function applyCameraPitch(pitch) {
+    var t = Number(pitch);
+    if (!Number.isFinite(t)) {
+      t = 58;
+    }
+    t = Math.max(0, Math.min(100, t));
+    var u = t / 100;
+    VIEW.squash = 0.9 - u * 0.46;
+    VIEW.depthX = 5 + u * 9;
+    VIEW.depthY = -(3 + u * 7);
+    VIEW.thickness = 8 + Math.round(u * 8);
+    cameraPitch = t;
+    viewCache = null;
+  }
+
+  applyCameraPitch(58);
+
+  Nexus.setCameraPitch = function (pitch) {
+    applyCameraPitch(pitch);
+  };
+
+  Nexus.getCameraPitch = function () {
+    return cameraPitch;
+  };
 
   function axialDistance(q, r) {
     return (Math.abs(q) + Math.abs(r) + Math.abs(q + r)) / 2;
@@ -268,9 +295,10 @@ window.Nexus = window.Nexus || {};
     var playRadius = C.HEX_RADIUS;
     var sx = (size * Math.sqrt(3)) / 2;
     var sy = size * VIEW.squash;
-    var padTop = sy + 68;
-    var padBottom = sy + VIEW.thickness + 28;
-    var padSide = sx + 18;
+    var towerClear = 96 + Math.abs(VIEW.depthY) * 3;
+    var padTop = sy + towerClear;
+    var padBottom = sy + VIEW.thickness + 42;
+    var padSide = sx + 28;
     var minX = Infinity;
     var maxX = -Infinity;
     var minY = Infinity;
@@ -317,15 +345,17 @@ window.Nexus = window.Nexus || {};
       sy: sy,
       thickness: VIEW.thickness,
       playRadius: playRadius,
+      originX: ox,
+      originY: oy,
       width: Math.ceil(maxX - minX + padSide * 2),
       height: Math.ceil(maxY - minY + padTop + padBottom),
       tiles: tiles,
       /* Sichtfenster: Spielfeld, Deko-Ring darf angeschnitten werden */
       focus: {
         x: fx0 - sx - 4,
-        y: fy0 - sy - 34,
+        y: fy0 - sy - towerClear,
         w: fx1 - fx0 + sx * 2 + 8,
-        h: fy1 - fy0 + sy * 2 + 50
+        h: fy1 - fy0 + sy * 2 + towerClear + 24
       }
     };
     return viewCache;
@@ -711,13 +741,13 @@ window.Nexus = window.Nexus || {};
 
   /* Legende nach Materialfamilie: die Variante liest man am Bau, nicht am Boden */
   var LEGEND_ROWS = [
-    { label: "Wohnen", note: "ein Wohnungsblock", top: "--lu-res-top", side: "--lu-res-side", glyph: "house" },
-    { label: "Energie", note: "Solarfarm · Umspannwerk", top: "--lu-solar-top", side: "--lu-solar-side", glyph: "energy" },
-    { label: "Datenzentrum", note: "eine Halle, Ausbau sichtbar", top: "--lu-dcopen-top", side: "--lu-dcopen-side", glyph: "data" },
-    { label: "Verkehr", note: "Busbahnhof · Parkplatz", top: "--lu-traffic-top", side: "--lu-traffic-side", glyph: "bus" },
+    { label: "Wohnen", note: "Hochhaus · Ausbau = Höhe", top: "--lu-res-top", side: "--lu-res-side", glyph: "house" },
+    { label: "Energie", note: "Solardach · Umspannwerk", top: "--lu-solar-top", side: "--lu-solar-side", glyph: "energy" },
+    { label: "Datenzentrum", note: "Halle, Flügel, Kühltürme", top: "--lu-dcopen-top", side: "--lu-dcopen-side", glyph: "data" },
+    { label: "Verkehr", note: "Busbahnhof · Parkhaus", top: "--lu-traffic-top", side: "--lu-traffic-side", glyph: "bus" },
     { label: "Kontrollbüro", note: "Leitstand · Startfeld", top: "--lu-home-top", side: "--lu-home-side", glyph: "home" },
-    { label: "Park & Wiese", note: "frei bebaubar", top: "--lu-grass-top", side: "--lu-grass-side", glyph: "tree" },
-    { label: "Umland", note: "Felder · Hügel · Berge", top: "--lu-farm-top", side: "--lu-farm-side", glyph: "tree" }
+    { label: "Baulücke", note: "frei · Asphalt, kein Acker", top: "--lu-grass-top", side: "--lu-grass-side", glyph: "tree" },
+    { label: "Stadtrand", note: "Gewerbe · Hügel · Berge", top: "--lu-farm-top", side: "--lu-farm-side", glyph: "tree" }
   ];
 
   var LEGEND_GLYPHS = {
@@ -847,6 +877,159 @@ window.Nexus = window.Nexus || {};
     );
   }
 
+  function penthouse(x, y, w, h) {
+    return building(x, y, w || 12, h || 7, {
+      cls: "w-concrete r-slate",
+      roof: "flat",
+      depth: 0.65,
+      shadow: false,
+      parapet: false,
+      windows: { cols: 2, rows: 1, lit: 0.12 }
+    });
+  }
+
+  function mast(x, y, h) {
+    var height = h || 16;
+    return (
+      '<g class="roof-mast">' +
+      '<path class="antenna" d="M' +
+      n(x) +
+      " " +
+      n(y) +
+      "v" +
+      n(-height) +
+      '"/>' +
+      '<path class="antenna" d="M' +
+      n(x - 4) +
+      " " +
+      n(y - height + 4) +
+      "H" +
+      n(x + 4) +
+      '"/>' +
+      '<circle class="mast-tip" cx="' +
+      n(x) +
+      '" cy="' +
+      n(y - height) +
+      '" r="1.6"/>' +
+      "</g>"
+    );
+  }
+
+  function finRow(ax, ay, w) {
+    var out = "";
+    var i;
+    for (i = 0; i < 3; i++) {
+      out +=
+        '<rect class="facade-fin" x="' +
+        n(ax + 2) +
+        '" y="' +
+        n(ay - 14 - i * 5) +
+        '" width="' +
+        n((w || 24) - 4) +
+        '" height="1.3"/>';
+    }
+    return out;
+  }
+
+  function roofNode(x, y) {
+    return (
+      '<g class="roof-node">' +
+      '<rect class="steel-dark" x="' +
+      n(x) +
+      '" y="' +
+      n(y - 5) +
+      '" width="8" height="5" rx="1"/>' +
+      '<circle class="mast-tip" cx="' +
+      n(x + 4) +
+      '" cy="' +
+      n(y - 6.2) +
+      '" r="1.5"/>' +
+      "</g>"
+    );
+  }
+
+  function batteryCabinet(x, y) {
+    return (
+      '<g class="battery-cab">' +
+      dropShadow(x + 5, y, 12) +
+      '<rect class="steel" x="' +
+      n(x) +
+      '" y="' +
+      n(y - 12) +
+      '" width="10" height="12" rx="1.2"/>' +
+      '<rect class="steel-dark" x="' +
+      n(x + 1.4) +
+      '" y="' +
+      n(y - 8) +
+      '" width="7.2" height="2.2"/>' +
+      '<rect class="steel-dark" x="' +
+      n(x + 1.4) +
+      '" y="' +
+      n(y - 4.4) +
+      '" width="7.2" height="2.2"/>' +
+      "</g>"
+    );
+  }
+
+  function coolingStack(x, y) {
+    return (
+      '<g class="cool-stack">' +
+      '<rect class="steel-dark" x="' +
+      n(x) +
+      '" y="' +
+      n(y - 14) +
+      '" width="7" height="14" rx="2"/>' +
+      '<ellipse class="steel" cx="' +
+      n(x + 3.5) +
+      '" cy="' +
+      n(y - 14) +
+      '" rx="3.5" ry="1.6"/>' +
+      "</g>"
+    );
+  }
+
+  function lockPlate(x, y) {
+    return '<rect class="steel" x="' + n(x) + '" y="' + n(y) + '" width="5" height="7" rx="1"/>';
+  }
+
+  /* Kleine Modelle nur am passenden Feldtyp. Cloud immer, Lokal nur beim Besitzer. */
+  function deviceDressing(kind, gizmos, anchor) {
+    gizmos = gizmos || {};
+    anchor = anchor || {};
+    var out = "";
+    if (kind === "residential" || kind === "home" || kind === "datacenter") {
+      if (gizmos.camera) {
+        out += cameraPole(anchor.camX, anchor.camY);
+      }
+      if (gizmos.lock) {
+        out += lockPlate(anchor.lockX, anchor.lockY);
+      }
+    }
+    if (kind === "residential") {
+      if (gizmos.shutters) {
+        out += finRow(anchor.finX, anchor.finY, anchor.finW || 24);
+      }
+      if (gizmos.hems) {
+        out += roofNode(anchor.nodeX, anchor.nodeY);
+      }
+    }
+    if (kind === "home" && gizmos.hub) {
+      out += mast(anchor.hubX, anchor.hubY, 18);
+    }
+    if (kind === "energy" && gizmos.storage_battery) {
+      out += batteryCabinet(anchor.batX, anchor.batY);
+    }
+    if (kind === "traffic") {
+      if (gizmos.v2x) {
+        out += dish(anchor.dishX, anchor.dishY);
+      }
+      if (gizmos.charger || gizmos.charging_network) {
+        out += charger(anchor.chgX, anchor.chgY);
+      }
+    }
+    return out;
+  }
+
   function curbBays(cx, cy, sx, sy, rand) {
     var inner = hexVerts(cx, cy, sx * VIEW.streetInner, sy * VIEW.streetInner);
     var out = "";
@@ -931,23 +1114,11 @@ window.Nexus = window.Nexus || {};
     return out;
   }
 
-  function parcelGimmicks(cx, cy, sy, rand, level) {
-    var out = "";
-    if (rand() < 0.85) {
-      out += tree(cx - 26 + rand() * 8, cy + sy * 0.18, 0.55, rand() < 0.5);
+  function parcelGimmicks(cx, cy, sy, rand) {
+    if (rand() > 0.22) {
+      return "";
     }
-    if (rand() < 0.55 || level >= 1) {
-      out += tree(cx + 22, cy + sy * 0.08, 0.48, true);
-    }
-    if (rand() < 0.4) {
-      out +=
-        '<ellipse class="bush" cx="' +
-        n(cx - 8) +
-        '" cy="' +
-        n(cy + sy * 0.34) +
-        '" rx="4.4" ry="2.6"/>';
-    }
-    return out;
+    return tree(cx + 26, cy + sy * 0.46, 0.38, true);
   }
 
   function streetRing(cx, cy, sx, sy, rand, opts) {
@@ -983,65 +1154,81 @@ window.Nexus = window.Nexus || {};
 
   function artResidential(cx, cy, sy, rand, level, gizmos) {
     level = level || 0;
-    gizmos = gizmos || {};
-    var h = 30 + level * 8;
-    var w = 38;
-    var baseY = cy + sy * 0.2;
-    var out = building(cx - w * 0.55, baseY, w, h, {
+    var baseY = cy + sy * 0.16;
+    var podiumH = 15;
+    var towerH = 42 + level * 16;
+    var out = building(cx - 23, baseY, 46, podiumH, {
+      cls: "w-concrete r-slate",
+      roof: "flat",
+      depth: 1.4,
+      rand: rand,
+      parapet: false,
+      windows: { cols: 5, rows: 1, lit: 0.2 }
+    });
+    out += building(cx - 14, baseY - podiumH + 3, 28, towerH, {
       cls: "w-steel r-slate",
       roof: "flat",
-      depth: 1.2,
+      depth: 1.15,
+      shadow: false,
       rand: rand,
-      windows: { cols: 5, rows: 3 + level, lit: 0.38 }
+      windows: { cols: 3, rows: 4 + level, lit: 0.26 }
     });
+    out += hvacUnit(cx - 8, baseY - podiumH - towerH);
     if (level >= 1) {
-      out += building(cx + 8, baseY - 2, 16, h - 8, {
-        cls: "w-concrete r-copper",
-        roof: "flat",
-        depth: 0.9,
-        rand: rand,
-        windows: { cols: 2, rows: 2 + level, lit: 0.4 }
-      });
+      out += penthouse(cx - 8, baseY - podiumH - towerH + 3, 16, 10);
+      out += hvacUnit(cx + 6, baseY - podiumH - towerH - 4);
     }
-    out += hvacUnit(cx - 10, baseY - h - 6);
-    if (level >= 2 || gizmos.camera) {
-      out += cameraPole(cx + 12, baseY - 4);
-      out += cameraPole(cx - 22, baseY - 2);
+    if (level >= 2) {
+      out += penthouse(cx - 3, baseY - podiumH - towerH - 8, 11, 9);
+      out += mast(cx + 2, baseY - podiumH - towerH - 14, 20);
     }
-    if (gizmos.lock || level >= 2) {
-      out +=
-        '<rect class="steel" x="' +
-        n(cx - 4) +
-        '" y="' +
-        n(baseY - 9) +
-        '" width="5" height="7" rx="1"/>';
-    }
-    out += parcelGimmicks(cx, cy, sy, rand, level);
+    out += deviceDressing("residential", gizmos, {
+      camX: cx + 18,
+      camY: baseY - 1,
+      lockX: cx - 3,
+      lockY: baseY - 10,
+      finX: cx - 14,
+      finY: baseY - podiumH + 2,
+      finW: 28,
+      nodeX: cx - 12,
+      nodeY: baseY - podiumH - towerH + 2
+    });
+    out += parcelGimmicks(cx, cy, sy, rand);
     return out;
   }
 
-  function artSolar(cx, cy, sy, rand, level) {
+  function artSolar(cx, cy, sy, rand, level, gizmos) {
     level = level || 0;
-    var baseY = cy + sy * 0.22;
-    var h = 14 + level * 4;
-    var out = building(cx - 8, baseY, 22, h, {
-      cls: "w-concrete r-flat",
+    var baseY = cy + sy * 0.18;
+    var h = 20 + level * 7;
+    var out =
+      '<ellipse class="lot-pad" cx="' +
+      n(cx) +
+      '" cy="' +
+      n(cy + 3) +
+      '" rx="32" ry="' +
+      n(sy * 0.4) +
+      '"/>';
+    out += building(cx - 8, baseY, 26, h, {
+      cls: "w-steel r-slate",
       roof: "flat",
+      depth: 1.1,
       rand: rand,
-      windows: { cols: 3, rows: 1, lit: 0.3 }
+      windows: { cols: 3, rows: 2, lit: 0.18 }
     });
-    var rows = 1 + (level >= 1 ? 1 : 0);
+    var rows = 2 + (level >= 1 ? 1 : 0);
     var row;
     var col;
     for (row = 0; row < rows; row++) {
       for (col = 0; col < 3; col++) {
-        out += pvArray(cx - 30 + col * 14, cy - sy * 0.12 + row * 12, 12);
+        out += pvArray(cx - 34 + col * 16, cy - sy * 0.34 + row * 11, 14);
       }
     }
     if (level >= 2) {
-      out += pvArray(cx - 4, baseY - h - 2, 14);
+      out += pvArray(cx - 6, baseY - h - 1, 16);
+      out += mast(cx + 12, baseY - h, 14);
     }
-    out += parcelGimmicks(cx, cy, sy, rand, level);
+    out += deviceDressing("energy", gizmos, { batX: cx + 20, batY: baseY + 1 });
     return out;
   }
 
@@ -1074,31 +1261,35 @@ window.Nexus = window.Nexus || {};
     );
   }
 
-  function artTransformer(cx, cy, sy, rand, level) {
+  function artTransformer(cx, cy, sy, rand, level, gizmos) {
     level = level || 0;
-    var baseY = cy + sy * 0.28;
-    var h = 16 + level * 5;
-    var out = '<ellipse class="gravel" cx="' + n(cx) + '" cy="' + n(cy + 2) + '" rx="28" ry="' + n(sy * 0.48) + '"/>';
-    out += building(cx - 22, baseY, 28, h, {
-      cls: "w-concrete r-flat",
+    var baseY = cy + sy * 0.24;
+    var h = 18 + level * 8;
+    var out = '<ellipse class="gravel" cx="' + n(cx) + '" cy="' + n(cy + 2) + '" rx="30" ry="' + n(sy * 0.46) + '"/>';
+    out += building(cx - 24, baseY, 30, h, {
+      cls: "w-concrete r-slate",
       roof: "flat",
-      depth: 1.1,
+      depth: 1.15,
       rand: rand,
-      windows: { cols: 4, rows: 1 + (level > 0 ? 1 : 0), lit: 0.22 }
+      windows: { cols: 4, rows: 1 + (level > 0 ? 1 : 0), lit: 0.16 }
     });
-    out += transformerTank(cx + 12, baseY + 4, 11, 11 + level * 2);
+    out += transformerTank(cx + 10, baseY + 2, 12, 12 + level * 3);
     if (level >= 1) {
-      out += transformerTank(cx + 22, baseY + 6, 9, 10);
+      out += transformerTank(cx + 22, baseY + 5, 9, 11);
+    }
+    if (level >= 2) {
+      out += transformerTank(cx + 4, baseY - h + 2, 8, 10);
+      out += mast(cx - 8, baseY - h, 16);
     }
     out +=
       '<path class="gantry" d="M' +
-      n(cx - 10) +
+      n(cx - 12) +
       " " +
-      n(baseY - h - 4) +
+      n(baseY - h - 6 - level * 3) +
       "H" +
-      n(cx + 24) +
+      n(cx + 26) +
       '"/>';
-    out += parcelGimmicks(cx, cy, sy, rand, level);
+    out += deviceDressing("energy", gizmos, { batX: cx - 28, batY: baseY + 2 });
     return out;
   }
 
@@ -1125,7 +1316,12 @@ window.Nexus = window.Nexus || {};
     }
     out += hvacUnit(cx - 8, baseY - h - 6);
     out += hvacUnit(cx + 4, baseY - h - 5);
-    if (secure || gizmos.lock || level >= 1) {
+    if (level >= 2) {
+      out += coolingStack(cx - 16, baseY - h + 2);
+      out += coolingStack(cx + 14, baseY - h + 4);
+      out += dish(cx + 2, baseY - h - 2);
+    }
+    if (secure || level >= 1) {
       out +=
         '<circle class="badge-disc" cx="' +
         n(cx - 8) +
@@ -1147,7 +1343,12 @@ window.Nexus = window.Nexus || {};
         n(baseY - 16) +
         '" rx="8" ry="6" fill="url(#nx-warn)"/>';
     }
-    out += parcelGimmicks(cx, cy, sy, rand, level);
+    out += deviceDressing("datacenter", gizmos, {
+      camX: cx + 20,
+      camY: baseY - 2,
+      lockX: cx - 2,
+      lockY: baseY - 10
+    });
     return out;
   }
 
@@ -1172,10 +1373,10 @@ window.Nexus = window.Nexus || {};
     );
   }
 
-  function artBusDepot(cx, cy, sy, rand, level) {
+  function artBusDepot(cx, cy, sy, rand, level, gizmos) {
     level = level || 0;
-    var baseY = cy + sy * 0.24;
-    var h = 16 + level * 5;
+    var baseY = cy + sy * 0.22;
+    var h = 18 + level * 6;
     var out = building(cx - 20, baseY, 32 + level * 4, h, {
       cls: "w-concrete r-flat",
       roof: "flat",
@@ -1201,8 +1402,17 @@ window.Nexus = window.Nexus || {};
     if (level >= 1) {
       out += busVehicle(cx + 2, baseY + 8);
     }
-    out += streetLamp(cx + 20, baseY - 4, 14);
-    out += parcelGimmicks(cx, cy, sy, rand, level);
+    if (level >= 2) {
+      out += busVehicle(cx - 6, baseY + 14);
+      out += mast(cx + 8, baseY - h, 12);
+    }
+    out += streetLamp(cx + 22, baseY - 4, 16);
+    out += deviceDressing("traffic", gizmos, {
+      dishX: cx + 14,
+      dishY: baseY - h,
+      chgX: cx + 24,
+      chgY: baseY + 6
+    });
     return out;
   }
 
@@ -1221,7 +1431,7 @@ window.Nexus = window.Nexus || {};
     );
   }
 
-  function artParkingLot(cx, cy, sy, rand, level) {
+  function artParkingLot(cx, cy, sy, rand, level, gizmos) {
     level = level || 0;
     var out =
       '<ellipse class="lot-pad" cx="' +
@@ -1249,78 +1459,100 @@ window.Nexus = window.Nexus || {};
     if (level >= 1) {
       out += charger(cx + 16, cy - 4);
     }
-    out += building(cx + 8, cy - sy * 0.12, 16, 10 + level * 3, {
-      cls: "w-concrete r-flat",
+    out += building(cx + 8, cy - sy * 0.12, 16, 12 + level * 6, {
+      cls: "w-concrete r-slate",
       roof: "flat",
+      depth: 0.9,
       rand: rand,
-      windows: { cols: 2, rows: 1, lit: 0.5 }
+      windows: { cols: 2, rows: 1 + (level > 0 ? 1 : 0), lit: 0.35 }
     });
     out += carSprite(cx - 8, cy + 6, 8, true);
     out += carSprite(cx + 6, cy + 12, -6, true);
     if (level >= 2) {
       out += carSprite(cx - 14, cy + 14, 4, true);
+      out += mast(cx + 14, cy - sy * 0.12 - 12 - level * 6, 12);
     }
-    out += parcelGimmicks(cx, cy, sy, rand, level);
+    out += deviceDressing("traffic", gizmos, {
+      dishX: cx - 22,
+      dishY: cy - 4,
+      chgX: cx + 22,
+      chgY: cy + 2
+    });
     return out;
   }
 
-  function artTraffic(cx, cy, sy, rand, kind, level) {
+  function artTraffic(cx, cy, sy, rand, kind, level, gizmos) {
     if (kind === "parking") {
-      return artParkingLot(cx, cy, sy, rand, level);
+      return artParkingLot(cx, cy, sy, rand, level, gizmos);
     }
-    return artBusDepot(cx, cy, sy, rand, level);
+    return artBusDepot(cx, cy, sy, rand, level, gizmos);
   }
 
-  function artHome(cx, cy, sy, rand, level) {
+  function artHome(cx, cy, sy, rand, level, gizmos) {
     level = level || 0;
-    var baseY = cy + sy * 0.22;
-    var h = 28 + level * 7;
-    var out = building(cx - 18, baseY, 36, h, {
+    var baseY = cy + sy * 0.18;
+    var h = 48 + level * 14;
+    var out = building(cx - 20, baseY, 40, h, {
       cls: "w-steel r-slate",
       roof: "flat",
-      depth: 1.2,
+      depth: 1.25,
       rand: rand,
       door: true,
-      windows: { cols: 4, rows: 3 + level, lit: 0.7 }
+      windows: { cols: 4, rows: 4 + level, lit: 0.55 }
     });
     if (level >= 1) {
-      out += building(cx + 10, baseY - 2, 14, h - 8, {
-        cls: "w-sand r-copper",
+      out += building(cx + 12, baseY - 1, 14, h - 16, {
+        cls: "w-concrete r-slate",
         roof: "flat",
-        depth: 0.9,
+        depth: 0.85,
+        shadow: false,
         rand: rand,
-        windows: { cols: 2, rows: 2, lit: 0.65 }
+        windows: { cols: 2, rows: 3, lit: 0.4 }
       });
     }
-    out += dish(cx + 6, baseY - h);
+    out += dish(cx + 4, baseY - h);
+    if (level >= 2) {
+      out += penthouse(cx - 6, baseY - h + 2, 14, 8);
+      out += mast(cx + 8, baseY - h - 4, 16);
+    }
     out +=
       '<path class="flag-pole" d="M' +
-      n(cx - 20) +
+      n(cx - 22) +
       " " +
       n(baseY - 2) +
-      "v-22" +
+      "v-28" +
       '"/>' +
       poly(
         pts([
-          [cx - 20, baseY - 24],
-          [cx - 9, baseY - 21],
-          [cx - 20, baseY - 18]
+          [cx - 22, baseY - 30],
+          [cx - 10, baseY - 26],
+          [cx - 22, baseY - 22]
         ]),
         "flag-cloth"
       );
-    if (level >= 2) {
-      out += cameraPole(cx - 16, baseY - 2);
-      out += hvacUnit(cx - 4, baseY - h - 6);
-    } else {
-      out += hvacUnit(cx - 6, baseY - h - 5);
-    }
-    out += parcelGimmicks(cx, cy, sy, rand, level);
+    out += hvacUnit(cx - 8, baseY - h - 4);
+    out += deviceDressing("home", gizmos, {
+      camX: cx - 16,
+      camY: baseY - 2,
+      lockX: cx + 2,
+      lockY: baseY - 10,
+      hubX: cx + 16,
+      hubY: baseY - h
+    });
     return out;
   }
 
   function artPark(cx, cy, sx, sy, rand) {
-    var out = "";
-    var pond = rand() < 0.45;
+    var out = building(cx + 8, cy + sy * 0.05, 16, 11, {
+      cls: "w-concrete r-slate",
+      roof: "flat",
+      depth: 0.7,
+      shadow: false,
+      parapet: false,
+      rand: rand,
+      windows: { cols: 2, rows: 1, lit: 0.12 }
+    });
+    var pond = rand() < 0.35;
     if (pond) {
       out +=
         '<ellipse class="pond" cx="' +
@@ -1363,59 +1595,54 @@ window.Nexus = window.Nexus || {};
   }
 
   function artMeadow(cx, cy, sy, rand) {
-    var out = "";
-    if (rand() < 0.45) {
-      out += tree(cx - 16 + rand() * 30, cy + sy * 0.28, 0.6, rand() < 0.5);
-    }
-    if (rand() < 0.6) {
+    var out =
+      '<ellipse class="lot-pad" cx="' +
+      n(cx) +
+      '" cy="' +
+      n(cy + 2) +
+      '" rx="28" ry="' +
+      n(sy * 0.4) +
+      '"/>';
+    out +=
+      '<path class="stall-line" d="M' + n(cx - 18) + " " + n(cy - 4) + "H" + n(cx + 18) + '"/>';
+    out +=
+      '<path class="stall-line" d="M' + n(cx - 18) + " " + n(cy + 8) + "H" + n(cx + 18) + '"/>';
+    if (rand() < 0.42) {
       out +=
-        '<ellipse class="bush" cx="' +
-        n(cx - 28 + rand() * 56) +
-        '" cy="' +
-        n(cy + sy * 0.1 + rand() * sy * 0.3) +
-        '" rx="5.4" ry="3.2"/>';
-    }
-    if (rand() < 0.3) {
-      out +=
-        '<ellipse class="rock" cx="' +
-        n(cx - 22 + rand() * 44) +
-        '" cy="' +
-        n(cy - sy * 0.18) +
-        '" rx="4" ry="2.2"/>';
+        '<path class="crane" d="M' +
+        n(cx - 10) +
+        " " +
+        n(cy + 6) +
+        "v-30h18M" +
+        n(cx + 8) +
+        " " +
+        n(cy - 24) +
+        'v9"/>';
+    } else if (rand() < 0.7) {
+      out += building(cx - 8, cy + sy * 0.12, 16, 12, {
+        cls: "w-concrete r-slate",
+        roof: "flat",
+        depth: 0.7,
+        shadow: false,
+        parapet: false,
+        rand: rand,
+        windows: { cols: 2, rows: 1, lit: 0.06 }
+      });
     }
     return out;
   }
 
   function artFarm(cx, cy, sx, sy, rand) {
-    var out = "";
-    var row;
-    for (row = 0; row < 4; row++) {
-      var y = cy - sy * 0.38 + row * (sy * 0.24);
-      out +=
-        '<path class="farm-furrow" d="M' +
-        n(cx - sx * 0.62) +
-        " " +
-        n(y) +
-        "Q" +
-        n(cx) +
-        " " +
-        n(y + 3) +
-        " " +
-        n(cx + sx * 0.62) +
-        " " +
-        n(y) +
-        '"/>';
-    }
-    if (rand() < 0.7) {
-      out +=
-        '<rect class="farm-barn" x="' +
-        n(cx + 8) +
-        '" y="' +
-        n(cy - 8) +
-        '" width="12" height="8" rx="1"/>';
-    }
-    if (rand() < 0.5) {
-      out += tree(cx - 22, cy + sy * 0.2, 0.55, true);
+    var h = 14 + (rand() < 0.5 ? 8 : 0);
+    var out = building(cx - 18, cy + sy * 0.16, 36, h, {
+      cls: "w-concrete r-slate",
+      roof: "saw",
+      depth: 1.05,
+      rand: rand,
+      windows: { cols: 4, rows: 1, lit: 0.08 }
+    });
+    if (rand() < 0.55) {
+      out += carSprite(cx + 20, cy + sy * 0.32, 16, true);
     }
     return out;
   }
@@ -1431,11 +1658,11 @@ window.Nexus = window.Nexus || {};
       '" ry="' +
       n(sy * 0.32) +
       '"/>';
-    if (rand() < 0.6) {
-      out += tree(cx - 10, cy + sy * 0.18, 0.7, rand() < 0.5);
+    if (rand() < 0.28) {
+      out += tree(cx - 12, cy + sy * 0.2, 0.55, rand() < 0.5);
     }
     if (rand() < 0.45) {
-      out += tree(cx + 16, cy + sy * 0.05, 0.5, true);
+      out += mast(cx + 14, cy - sy * 0.05, 18);
     }
     return out;
   }
@@ -2246,13 +2473,13 @@ window.Nexus = window.Nexus || {};
       var isHome = zone.type === "home";
       var level = (Nexus.zoneUpgradeLevel && Nexus.zoneUpgradeLevel(zone)) || zone.upgradeLevel || 0;
       var gizmos = {};
-      if (owner) {
-        if (owner.devices.camera === "cloud" || (isMine && owner.devices.camera === "local")) {
-          gizmos.camera = true;
-        }
-        if (owner.devices.lock === "cloud" || (isMine && owner.devices.lock === "local")) {
-          gizmos.lock = true;
-        }
+      if (owner && owner.devices) {
+        Nexus.DEVICES.forEach(function (device) {
+          var mode = owner.devices[device.id];
+          if (mode === "cloud" || (isMine && mode === "local")) {
+            gizmos[device.id] = true;
+          }
+        });
       }
       classes.push("tile--" + use);
       classes.push("is-clickable");
@@ -2303,20 +2530,20 @@ window.Nexus = window.Nexus || {};
         classes.push("is-place-pop");
       }
       if (isHome) {
-        art = artHome(cx, cy, sy, rand, level);
+        art = artHome(cx, cy, sy, rand, level, gizmos);
         overlay += homeDevicePips(owner, cx, cy + sy * 0.46, !isMine);
       } else if (use === "residential") {
         art = artResidential(cx, cy, sy, rand, level, gizmos);
       } else if (use === "energy-solar") {
-        art = artSolar(cx, cy, sy, rand, level);
+        art = artSolar(cx, cy, sy, rand, level, gizmos);
       } else if (use === "energy-transformer") {
-        art = artTransformer(cx, cy, sy, rand, level);
+        art = artTransformer(cx, cy, sy, rand, level, gizmos);
       } else if (use === "datacenter-secure") {
         art = artDatacenter(cx, cy, sy, rand, true, level, gizmos);
       } else if (use === "datacenter-insecure") {
         art = artDatacenter(cx, cy, sy, rand, false, level, gizmos);
       } else if (use === "traffic") {
-        art = artTraffic(cx, cy, sy, rand, trafficKind, level);
+        art = artTraffic(cx, cy, sy, rand, trafficKind, level, gizmos);
       }
       if (ctx.spinning[zone.id]) {
         overlay += rollChip(cx, cy - sy * 0.75, zone, ctx.stagger[zone.id] || 0);
@@ -2456,10 +2683,10 @@ window.Nexus = window.Nexus || {};
     if (!list) {
       return;
     }
-    if (list.dataset.legendRev === "farm-3d-1") {
+    if (list.dataset.legendRev === "city-3d-1") {
       return;
     }
-    list.dataset.legendRev = "farm-3d-1";
+    list.dataset.legendRev = "city-3d-1";
     list.innerHTML = LEGEND_ROWS.map(function (row) {
       return (
         '<li title="' +
@@ -2488,17 +2715,103 @@ window.Nexus = window.Nexus || {};
     }
   }
 
+  /* SVG-Drehung ist im Uhrzeigersinn. Winkel, der den Leitstand nach unten legt. */
+  function seatAngle(state, view) {
+    if (!state || !state.players || !state.zones) {
+      return 0;
+    }
+    var player = Nexus.currentPlayer(state);
+    if (!player) {
+      return 0;
+    }
+    var home = null;
+    state.zones.forEach(function (zone) {
+      if (zone.type === "home" && zone.ownerId === player.id) {
+        home = zone;
+      }
+    });
+    if (!home) {
+      return 0;
+    }
+    var tile = null;
+    view.tiles.forEach(function (item) {
+      if (item.q === home.q && item.r === home.r) {
+        tile = item;
+      }
+    });
+    if (!tile) {
+      return 0;
+    }
+    return (Math.atan2(tile.x - view.originX, tile.y - view.originY) * 180) / Math.PI;
+  }
+
+  function orbitFrame(view) {
+    var maxR = 0;
+    view.tiles.forEach(function (tile) {
+      var dx = Math.abs(tile.x - view.originX) + view.sx + 10;
+      var dy = Math.abs(tile.y - view.originY) + view.sy + 120;
+      maxR = Math.max(maxR, Math.hypot(dx, dy));
+    });
+    var side = Math.ceil(maxR * 2 + 20);
+    return {
+      side: side,
+      ox: side / 2 - view.originX,
+      oy: side / 2 - view.originY
+    };
+  }
+
+  function projectPoint(x, y, angleDeg, cx, cy, ox, oy) {
+    var a = (angleDeg * Math.PI) / 180;
+    var cos = Math.cos(a);
+    var sin = Math.sin(a);
+    var dx = x - cx;
+    var dy = y - cy;
+    return {
+      x: ox + cx + cos * dx - sin * dy,
+      y: oy + cy + sin * dx + cos * dy
+    };
+  }
+
+  function syncOrbitFocus(view, angle, frame) {
+    var minX = Infinity;
+    var minY = Infinity;
+    var maxX = -Infinity;
+    var maxY = -Infinity;
+    view.tiles.forEach(function (tile) {
+      if (tile.dist > view.playRadius) {
+        return;
+      }
+      var p = projectPoint(tile.x, tile.y, angle, view.originX, view.originY, frame.ox, frame.oy);
+      minX = Math.min(minX, p.x - view.sx);
+      maxX = Math.max(maxX, p.x + view.sx);
+      minY = Math.min(minY, p.y - view.sy - 88);
+      maxY = Math.max(maxY, p.y + view.sy + view.thickness + 8);
+    });
+    if (!Number.isFinite(minX)) {
+      return;
+    }
+    view.focus = {
+      x: minX,
+      y: minY,
+      w: Math.max(40, maxX - minX),
+      h: Math.max(40, maxY - minY)
+    };
+  }
+
   function renderDistrict(state, ui) {
     var svg = document.getElementById("district-svg");
     var board = document.getElementById("map-board");
     var view = boardView();
+    var angle = seatAngle(state, view);
+    var frame = orbitFrame(view);
+    syncOrbitFocus(view, angle, frame);
     if (board) {
-      board.style.width = view.width + "px";
-      board.style.height = view.height + "px";
+      board.style.width = frame.side + "px";
+      board.style.height = frame.side + "px";
     }
-    svg.setAttribute("viewBox", "0 0 " + view.width + " " + view.height);
-    svg.setAttribute("width", String(view.width));
-    svg.setAttribute("height", String(view.height));
+    svg.setAttribute("viewBox", "0 0 " + frame.side + " " + frame.side);
+    svg.setAttribute("width", String(frame.side));
+    svg.setAttribute("height", String(frame.side));
 
     var player = Nexus.currentPlayer(state);
     var recSlot = Nexus.recommendExpandSlot ? Nexus.recommendExpandSlot(state) : null;
@@ -2514,21 +2827,43 @@ window.Nexus = window.Nexus || {};
       ctx.stagger[outcome.zoneId] = (outcome.staggerIndex || 0) * C.HARVEST_STAGGER_MS;
     });
 
+    var ordered = view.tiles.slice().sort(function (a, b) {
+      var ay = projectPoint(a.x, a.y, angle, view.originX, view.originY, frame.ox, frame.oy).y;
+      var by = projectPoint(b.x, b.y, angle, view.originX, view.originY, frame.ox, frame.oy).y;
+      return ay - by || a.q - b.q;
+    });
     var html = boardDefs();
     html +=
+      '<g class="city-orbit" transform="translate(' +
+      n(frame.ox) +
+      " " +
+      n(frame.oy) +
+      ") rotate(" +
+      n(angle) +
+      " " +
+      n(view.originX) +
+      " " +
+      n(view.originY) +
+      ')">';
+    html +=
       '<ellipse class="island-shade" cx="' +
-      n(view.width / 2) +
+      n(view.originX) +
       '" cy="' +
-      n(view.height * 0.58) +
+      n(view.originY + view.sy) +
       '" rx="' +
-      n(view.width * 0.48) +
+      n(view.sx * (view.playRadius + 1.6)) +
       '" ry="' +
-      n(view.height * 0.4) +
+      n(view.sy * (view.playRadius + 1.4)) +
       '" fill="url(#nx-island)"/>';
-    view.tiles.forEach(function (tile) {
+    ordered.forEach(function (tile) {
       html += tileMarkup(state, ui, view, tile, player, ctx);
     });
+    html += "</g>";
     svg.innerHTML = html;
+    var seatNote = document.getElementById("cam-seat");
+    if (seatNote && player) {
+      seatNote.textContent = player.name + " · Leitstand unten";
+    }
 
     var frame = document.querySelector(".city-frame");
     if (frame) {

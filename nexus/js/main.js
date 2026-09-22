@@ -16,11 +16,16 @@ window.Nexus = window.Nexus || {};
   var harvestTimer = null;
   var prefs = {
     theme: localStorage.getItem("nexus-theme") || "light",
-    uiScale: Number(localStorage.getItem("nexus-ui-scale") || "1")
+    uiScale: Number(localStorage.getItem("nexus-ui-scale") || "1"),
+    camPitch: Number(localStorage.getItem("nexus-cam-pitch") || "58")
   };
   if (prefs.uiScale < 0.8 || prefs.uiScale > 1.25 || Number.isNaN(prefs.uiScale)) {
     prefs.uiScale = 1;
   }
+  if (!Number.isFinite(prefs.camPitch)) {
+    prefs.camPitch = 58;
+  }
+  prefs.camPitch = Math.max(0, Math.min(100, prefs.camPitch));
 
   /* Klick auf einen gesperrten Knopf: wackeln und den Grund nennen, nicht schweigen */
   document.addEventListener(
@@ -79,8 +84,15 @@ window.Nexus = window.Nexus || {};
     Array.prototype.forEach.call(document.querySelectorAll(".js-ui-scale"), function (slider) {
       slider.value = String(prefs.uiScale);
     });
+    Array.prototype.forEach.call(document.querySelectorAll(".js-cam-pitch"), function (slider) {
+      slider.value = String(prefs.camPitch);
+    });
+    if (Nexus.setCameraPitch) {
+      Nexus.setCameraPitch(prefs.camPitch);
+    }
     localStorage.setItem("nexus-theme", prefs.theme);
     localStorage.setItem("nexus-ui-scale", String(prefs.uiScale));
+    localStorage.setItem("nexus-cam-pitch", String(prefs.camPitch));
   }
 
   function toastNewLogs(prev, next) {
@@ -122,6 +134,13 @@ window.Nexus = window.Nexus || {};
     }
     if (state.turnPhase !== "event") {
       ui.investorAwaitingResource = false;
+    }
+    if (
+      state.screen === "game" &&
+      prev &&
+      prev.currentPlayerIndex !== state.currentPlayerIndex
+    ) {
+      ui.map.userAdjusted = false;
     }
     toastNewLogs(prev, state);
     Nexus.render(state, ui);
@@ -923,6 +942,18 @@ window.Nexus = window.Nexus || {};
     refreshMapAfterChrome();
   }
 
+  function setCamPitch(value) {
+    prefs.camPitch = Math.max(0, Math.min(100, Number(value)));
+    if (!Number.isFinite(prefs.camPitch)) {
+      prefs.camPitch = 58;
+    }
+    applyAppearance();
+    if (state.screen === "game") {
+      Nexus.render(state, ui);
+      fitMapToView(true);
+    }
+  }
+
   function closeSettingsPanels(exceptWrap) {
     Array.prototype.forEach.call(document.querySelectorAll(".settings-wrap"), function (wrap) {
       var panel = wrap.querySelector(".settings-panel");
@@ -956,6 +987,12 @@ window.Nexus = window.Nexus || {};
   Array.prototype.forEach.call(document.querySelectorAll(".js-ui-scale"), function (slider) {
     slider.addEventListener("input", function () {
       setUiScale(this.value);
+    });
+  });
+
+  Array.prototype.forEach.call(document.querySelectorAll(".js-cam-pitch"), function (slider) {
+    slider.addEventListener("input", function () {
+      setCamPitch(this.value);
     });
   });
 

@@ -62,24 +62,24 @@
   --haze: rgba(255, 252, 235, 0.45);
 
   /* Landnutzung: Deckfläche / Seitenwand / Kante */
-  --lu-grass-top: #9fd06a;
-  --lu-grass-side: #6f9d46;
-  --lu-grass-deep: #52783a;
+  --lu-grass-top: #c8cfd6;
+  --lu-grass-side: #96a0aa;
+  --lu-grass-deep: #6c7680;
   --lu-park-top: #8ac95c;
   --lu-park-side: #5f9440;
   --lu-park-deep: #467033;
-  --lu-farm-top: #d4c46a;
-  --lu-farm-side: #9a8a3e;
-  --lu-farm-deep: #6f642c;
-  --lu-hill-top: #8fb36a;
-  --lu-hill-side: #5e7c45;
-  --lu-hill-deep: #445a32;
+  --lu-farm-top: #c4beb4;
+  --lu-farm-side: #8f897e;
+  --lu-farm-deep: #6a655c;
+  --lu-hill-top: #b7c0b4;
+  --lu-hill-side: #7e8a7c;
+  --lu-hill-deep: #5a6558;
   --lu-ridge-top: #c4b8a4;
   --lu-ridge-side: #8a7d6a;
   --lu-ridge-deep: #5e5548;
-  --lu-res-top: #dfcfa8;
-  --lu-res-side: #b39d74;
-  --lu-res-deep: #8d7a58;
+  --lu-res-top: #d5dbe2;
+  --lu-res-side: #a8b2be;
+  --lu-res-deep: #7e8a98;
   --lu-solar-top: #d2ccb7;
   --lu-solar-side: #a29a84;
   --lu-solar-deep: #817969;
@@ -95,9 +95,9 @@
   --lu-traffic-top: #c8c4ba;
   --lu-traffic-side: #9a958a;
   --lu-traffic-deep: #7a756c;
-  --lu-home-top: #ecdfc2;
-  --lu-home-side: #bfae89;
-  --lu-home-deep: #968868;
+  --lu-home-top: #d7e0ea;
+  --lu-home-side: #a9b6c6;
+  --lu-home-deep: #7d8c9e;
 
   /* Baumaterial */
   --w-cream: #fbf4e6;
@@ -124,8 +124,8 @@
   --window-lit: #ffd88a;
   --lamp: #ffd98a;
   --lamp-glow: rgba(255, 214, 130, 0);
-  --tile-seam: rgba(30, 48, 30, 0.13);
-  --tile-shadow: rgba(36, 58, 44, 0.17);
+  --tile-seam: rgba(30, 36, 42, 0.16);
+  --tile-shadow: rgba(24, 32, 40, 0.2);
   --night-dim: 0;
 }
 
@@ -172,24 +172,24 @@
   --star-opacity: 1;
   --haze: rgba(70, 92, 150, 0.35);
 
-  --lu-grass-top: #31503a;
-  --lu-grass-side: #1d3023;
-  --lu-grass-deep: #14211a;
+  --lu-grass-top: #3a424c;
+  --lu-grass-side: #2a313a;
+  --lu-grass-deep: #1a2028;
   --lu-park-top: #2b4832;
   --lu-park-side: #192b1f;
   --lu-park-deep: #111e16;
-  --lu-farm-top: #5a4e28;
-  --lu-farm-side: #3a3218;
-  --lu-farm-deep: #241e10;
-  --lu-hill-top: #2f4a32;
-  --lu-hill-side: #1c2e1f;
-  --lu-hill-deep: #121c14;
+  --lu-farm-top: #3e3a34;
+  --lu-farm-side: #2c2924;
+  --lu-farm-deep: #1c1a16;
+  --lu-hill-top: #3a403c;
+  --lu-hill-side: #262b28;
+  --lu-hill-deep: #171b19;
   --lu-ridge-top: #4a433a;
   --lu-ridge-side: #2e2924;
   --lu-ridge-deep: #1c1916;
-  --lu-res-top: #52473a;
-  --lu-res-side: #322b23;
-  --lu-res-deep: #231e18;
+  --lu-res-top: #3c4652;
+  --lu-res-side: #262e38;
+  --lu-res-deep: #1a2028;
   --lu-solar-top: #4c4433;
   --lu-solar-side: #2f2b21;
   --lu-solar-deep: #211e18;
@@ -205,9 +205,9 @@
   --lu-traffic-top: #3f3c37;
   --lu-traffic-side: #2a2824;
   --lu-traffic-deep: #1c1b18;
-  --lu-home-top: #564c3b;
-  --lu-home-side: #342f24;
-  --lu-home-deep: #26221a;
+  --lu-home-top: #3d4858;
+  --lu-home-side: #28303c;
+  --lu-home-deep: #1b222c;
 
   --w-cream: #4a4a52;
   --w-sand: #474149;
@@ -944,15 +944,18 @@ button {
   opacity: 0.66;
 }
 
-/* Grasflächen leicht variieren, damit die Wiese nicht wie ein Teppich wirkt */
-.tile--grass.g-2 .tile-top,
+.tile--grass.g-2 .tile-top {
+  fill: color-mix(in srgb, var(--lu-grass-top) 88%, #ffffff);
+}
 .tile--park.g-2 .tile-top {
-  fill: color-mix(in srgb, var(--lu-grass-top) 86%, #f2e08c);
+  fill: color-mix(in srgb, var(--lu-park-top) 88%, #ffffff);
 }
 
-.tile--grass.g-3 .tile-top,
+.tile--grass.g-3 .tile-top {
+  fill: color-mix(in srgb, var(--lu-grass-top) 86%, #8d98a4);
+}
 .tile--park.g-3 .tile-top {
-  fill: color-mix(in srgb, var(--lu-grass-top) 84%, #2c6b3a);
+  fill: color-mix(in srgb, var(--lu-park-top) 84%, #2c6b3a);
 }
 
 .tile.is-foreign {
@@ -1090,6 +1093,22 @@ button {
   opacity: 0.7;
 }
 .lot-pad { fill: color-mix(in srgb, var(--asphalt) 80%, var(--lu-traffic-top)); }
+.facade-fin { fill: color-mix(in srgb, #0d1622 28%, var(--w-steel)); }
+.mast-tip { fill: var(--w-steel); }
+.crane {
+  fill: none;
+  stroke: var(--w-steel);
+  stroke-width: 1.5;
+  stroke-linecap: square;
+}
+.cam-note {
+  margin: 0.15rem 0 0;
+  max-width: 4.6rem;
+  font: 600 10px/1.25 Outfit, sans-serif;
+  letter-spacing: 0.01em;
+  text-align: center;
+  color: color-mix(in srgb, var(--ink, #243040) 70%, transparent);
+}
 .farm-furrow {
   fill: none;
   stroke: color-mix(in srgb, var(--lu-farm-deep) 70%, #6a5a20);
