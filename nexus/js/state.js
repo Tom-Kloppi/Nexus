@@ -2610,8 +2610,92 @@ window.Nexus = window.Nexus || {};
     );
   }
 
+  /* Ansicht für die Anleitung: klont den Übungsstand, damit die echte Oberfläche
+     (Phasen, Beispielkarte, öffentliches Cloud-Gerät) sichtbar wird.
+     Keine neue turnPhase, keine Wertung, keine Regeländerung.
+     Das konkrete Wahlversprechen wird hier nicht ausgelesen; die Endkarte
+     nutzt den normalen Spielende-Pfad, damit die echte Wertung erscheint. */
+  function cloneTutorialPlayer(player) {
+    return Object.assign({}, player, {
+      resources: Object.assign({}, player.resources),
+      scores: Object.assign({}, player.scores),
+      devices: Object.assign({}, player.devices),
+      handCards: (player.handCards || []).slice(),
+      playedCards: (player.playedCards || []).slice(),
+      roundModifiers: Object.assign({}, player.roundModifiers || {}),
+      pendingEvent: null
+    });
+  }
+
+  function tutorialView(state, scene) {
+    var next = Object.assign({}, state, {
+      tutorialPractice: true,
+      players: (state.players || []).map(cloneTutorialPlayer),
+      zones: (state.zones || []).slice(),
+      innovationDeck: (state.innovationDeck || []).slice(),
+      tradeOffers: [],
+      tradeSession: null,
+      spinningOutcomes: null,
+      finalScores: null,
+      winnerId: null,
+      winReason: null
+    });
+    var me = next.currentPlayerIndex || 0;
+    var other = me === 0 ? 1 : 0;
+
+    function patchAt(index, partial) {
+      if (!next.players[index]) {
+        return;
+      }
+      next.players[index] = Object.assign({}, next.players[index], partial);
+    }
+
+    if (scene === "role_reveal") {
+      next.turnPhase = "role_reveal";
+      next.roleRevealIndex = 0;
+      return next;
+    }
+    if (scene === "handoff") {
+      next.turnPhase = "handoff";
+      return next;
+    }
+    if (scene === "event") {
+      next.turnPhase = "event";
+      patchAt(me, { pendingEvent: (Nexus.EVENTS || [])[0] || null });
+      return next;
+    }
+    if (scene === "gameover") {
+      next.turnPhase = "build";
+      next.roleRevealIndex = next.players.length;
+      return finalizeGame(next, next.players[me].id, "rounds");
+    }
+
+    next.turnPhase = "build";
+    next.roleRevealIndex = next.players.length;
+
+    if (scene === "cards" && next.innovationDeck.length) {
+      patchAt(me, { handCards: [next.innovationDeck[0]], drewInnovationThisTurn: false });
+      next.innovationDeck = next.innovationDeck.slice(1);
+    }
+    if (scene === "public" && next.players[other]) {
+      patchAt(other, {
+        devices: Object.assign({}, next.players[other].devices, {
+          camera: "cloud",
+          lock: "local"
+        })
+      });
+    }
+    if (scene === "sae" && next.players[me]) {
+      patchAt(me, {
+        devices: Object.assign({}, next.players[me].devices, { v2x: "cloud" })
+      });
+    }
+    return next;
+  }
+
   Nexus.createSetupState = createSetupState;
   Nexus.startGame = startGame;
+  Nexus.tutorialView = tutorialView;
   Nexus.acknowledgeRoleReveal = acknowledgeRoleReveal;
   Nexus.acknowledgeHandoff = acknowledgeHandoff;
   Nexus.isHotSeatShield = isHotSeatShield;

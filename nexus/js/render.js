@@ -1529,10 +1529,16 @@ window.Nexus = window.Nexus || {};
     return (before + width / 2) / total;
   }
 
+  function bumpModalToken(shell) {
+    shell._nxCloseToken = (shell._nxCloseToken || 0) + 1;
+    return shell._nxCloseToken;
+  }
+
   function openModal(shell) {
     if (!shell) {
       return;
     }
+    bumpModalToken(shell);
     shell.hidden = false;
     var card = shell.querySelector(".t-modal");
     shell.classList.remove("is-closing");
@@ -1554,6 +1560,7 @@ window.Nexus = window.Nexus || {};
       }
       return;
     }
+    var token = bumpModalToken(shell);
     var card = shell.querySelector(".t-modal");
     shell.classList.remove("is-open");
     shell.classList.add("is-closing");
@@ -1565,6 +1572,9 @@ window.Nexus = window.Nexus || {};
       parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--modal-close-dur")) ||
       150;
     setTimeout(function () {
+      if (shell._nxCloseToken !== token) {
+        return;
+      }
       shell.classList.remove("is-closing");
       if (card) {
         card.classList.remove("is-closing");
@@ -1574,6 +1584,19 @@ window.Nexus = window.Nexus || {};
         done();
       }
     }, ms);
+  }
+
+  function hideModalNow(shell) {
+    if (!shell) {
+      return;
+    }
+    bumpModalToken(shell);
+    var card = shell.querySelector(".t-modal");
+    shell.classList.remove("is-open", "is-closing");
+    if (card) {
+      card.classList.remove("is-open", "is-closing");
+    }
+    shell.hidden = true;
   }
 
   var toastBanners = [];
@@ -1837,7 +1860,7 @@ window.Nexus = window.Nexus || {};
       .join("");
   }
 
-  function renderRoleRevealModal(state) {
+  function renderRoleRevealModal(state, ui) {
     var shell = document.getElementById("role-reveal-modal");
     if (!shell) {
       return;
@@ -1854,7 +1877,7 @@ window.Nexus = window.Nexus || {};
       return;
     }
     var role = Nexus.ROLES_BY_ID[player.roleId];
-    var progress = Nexus.computeRoleProgress(state, player);
+    var progress = role ? Nexus.computeRoleProgress(state, player) : null;
     document.getElementById("role-reveal-player").textContent = player.name;
     document.getElementById("role-reveal-hint").textContent =
       state.roleRevealIndex < state.players.length - 1
@@ -1863,30 +1886,37 @@ window.Nexus = window.Nexus || {};
     var okBtn = document.getElementById("btn-role-reveal-ok");
     okBtn.textContent =
       state.roleRevealIndex < state.players.length - 1 ? "Verstanden – weiter" : "Spiel beginnen";
-    document.getElementById("role-reveal-body").innerHTML =
-      '<p class="role-alignment-pill">' +
-      role.alignment +
-      " · " +
-      role.name +
-      "</p>" +
-      '<p class="role-reveal-label">Wahlversprechen</p>' +
-      progress.subGoals
-        .map(function (goal, index) {
-          var subDef = role.subGoals[index];
-          return (
-            '<div class="role-reveal-goal">' +
-            "<strong>" +
-            goal.label +
-            "</strong>" +
-            "<span>max. " +
-            goal.maxContribution +
-            "% · " +
-            Nexus.nextStepHint(subDef, goal.metricValue, state.players.length) +
-            "</span>" +
-            "</div>"
-          );
-        })
-        .join("");
+    /* Anleitung am gemeinsamen Tisch: Struktur zeigen, Unterziele nicht auslesen. */
+    if (ui && ui.tutorialRedact) {
+      document.getElementById("role-reveal-body").innerHTML =
+        '<p class="role-reveal-label">Wahlversprechen</p>' +
+        "<p>Nur die Person am Gerät liest ihre Unterziele. In dieser Übung bleiben sie verdeckt, damit niemand mitliest.</p>";
+    } else if (role && progress) {
+      document.getElementById("role-reveal-body").innerHTML =
+        '<p class="role-alignment-pill">' +
+        role.alignment +
+        " · " +
+        role.name +
+        "</p>" +
+        '<p class="role-reveal-label">Wahlversprechen</p>' +
+        progress.subGoals
+          .map(function (goal, index) {
+            var subDef = role.subGoals[index];
+            return (
+              '<div class="role-reveal-goal">' +
+              "<strong>" +
+              goal.label +
+              "</strong>" +
+              "<span>max. " +
+              goal.maxContribution +
+              "% · " +
+              Nexus.nextStepHint(subDef, goal.metricValue, state.players.length) +
+              "</span>" +
+              "</div>"
+            );
+          })
+          .join("");
+    }
     if (shell.hidden || !shell.classList.contains("is-open")) {
       openModal(shell);
     }
@@ -3598,14 +3628,196 @@ window.Nexus = window.Nexus || {};
     renderTradeModal(state, ui);
     renderTradeRespondModal(state, ui);
     renderEventModal(state, ui);
-    renderRoleRevealModal(state);
+    renderRoleRevealModal(state, ui);
     renderHandoffModal(state);
     renderPublicPlayerModal(state, ui);
     renderEndScreen(state);
   };
 
+  function tutorialSheetMode() {
+    return window.matchMedia("(max-width: 880px), (max-height: 560px)").matches;
+  }
+
+  function tutorialElVisible(el) {
+    var node = el;
+    while (node && node !== document.documentElement) {
+      if (node.nodeType === 1 && node.hasAttribute("hidden")) {
+        return false;
+      }
+      if (node.nodeType === 1) {
+        var style = window.getComputedStyle(node);
+        if (style.display === "none" || style.visibility === "hidden") {
+          return false;
+        }
+      }
+      node = node.parentElement;
+    }
+    var rect = el.getBoundingClientRect();
+    return rect.width > 2 && rect.height > 2;
+  }
+
+  function resolveTutorialTarget(step) {
+    var selectors = [];
+    if (tutorialSheetMode() && step.targetSheet) {
+      selectors.push(step.targetSheet);
+    }
+    if (step.target) {
+      selectors.push(step.target);
+    }
+    if (step.fallback) {
+      selectors.push(step.fallback);
+    }
+    var i;
+    var fallbackEl = null;
+    for (i = 0; i < selectors.length; i++) {
+      var el = document.querySelector(selectors[i]);
+      if (!el) {
+        continue;
+      }
+      if (!fallbackEl) {
+        fallbackEl = el;
+      }
+      if (tutorialElVisible(el)) {
+        return el;
+      }
+    }
+    return fallbackEl;
+  }
+
+  function scrollTutorialTarget(el) {
+    var parent = el.parentElement;
+    while (parent && parent !== document.body) {
+      var style = window.getComputedStyle(parent);
+      var canScroll = /(auto|scroll)/.test(style.overflowY) && parent.scrollHeight > parent.clientHeight + 4;
+      if (canScroll) {
+        var parentRect = parent.getBoundingClientRect();
+        var rect = el.getBoundingClientRect();
+        if (rect.top < parentRect.top + 8) {
+          parent.scrollTop += rect.top - parentRect.top - 8;
+        } else if (rect.bottom > parentRect.bottom - 8) {
+          parent.scrollTop += rect.bottom - parentRect.bottom + 8;
+        }
+      }
+      parent = parent.parentElement;
+    }
+  }
+
+  function tutorialOverlapArea(a, b) {
+    var x = Math.max(0, Math.min(a.right, b.right) - Math.max(a.left, b.left));
+    var y = Math.max(0, Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top));
+    return x * y;
+  }
+
+  Nexus.placeTutorial = function (step, index, total) {
+    var root = document.getElementById("tutorial-root");
+    var ring = document.getElementById("tutorial-ring");
+    var card = document.getElementById("tutorial-card");
+    if (!root || !ring || !card || !step) {
+      return null;
+    }
+    root.hidden = false;
+    document.body.classList.add("is-tutorial");
+    document.getElementById("tutorial-kicker").textContent =
+      "Anleitung · " + (index + 1) + " / " + total;
+    document.getElementById("tutorial-title").textContent = step.title;
+    document.getElementById("tutorial-body").textContent = step.body;
+    var back = document.getElementById("btn-tutorial-back");
+    var next = document.getElementById("btn-tutorial-next");
+    if (back) {
+      back.disabled = index <= 0;
+    }
+    if (next) {
+      next.textContent = index >= total - 1 ? "Fertig" : "Weiter";
+    }
+    card.setAttribute("data-step", step.id);
+
+    var target = resolveTutorialTarget(step);
+    if (target) {
+      scrollTutorialTarget(target);
+    }
+    var pad = 8;
+    var rect = target ? target.getBoundingClientRect() : null;
+    if (!rect || rect.width < 2 || rect.height < 2) {
+      ring.hidden = true;
+    } else {
+      ring.hidden = false;
+      var top = Math.max(4, rect.top - pad);
+      var left = Math.max(4, rect.left - pad);
+      var right = Math.min(window.innerWidth - 4, rect.right + pad);
+      var bottom = Math.min(window.innerHeight - 4, rect.bottom + pad);
+      ring.style.top = top + "px";
+      ring.style.left = left + "px";
+      ring.style.width = Math.max(12, right - left) + "px";
+      ring.style.height = Math.max(12, bottom - top) + "px";
+      rect = { top: top, left: left, right: right, bottom: bottom, width: right - left, height: bottom - top };
+    }
+
+    var margin = 10;
+    var vw = window.innerWidth;
+    var vh = window.innerHeight;
+    card.style.top = margin + "px";
+    card.style.left = margin + "px";
+    var cw = card.offsetWidth;
+    var ch = card.offsetHeight;
+    function clamp(value, min, max) {
+      return Math.max(min, Math.min(max, value));
+    }
+    var hole = rect || { top: vh / 2, left: vw / 2, right: vw / 2, bottom: vh / 2, width: 0, height: 0 };
+    var cx = clamp(hole.left + hole.width / 2 - cw / 2, margin, Math.max(margin, vw - cw - margin));
+    var cy = clamp(hole.top, margin, Math.max(margin, vh - ch - margin));
+    var options = [
+      { top: hole.bottom + margin, left: cx },
+      { top: hole.top - ch - margin, left: cx },
+      { top: cy, left: hole.right + margin },
+      { top: cy, left: hole.left - cw - margin },
+      { top: vh - ch - margin, left: margin },
+      { top: margin, left: margin }
+    ];
+    var best = null;
+    var bestArea = Infinity;
+    var i;
+    for (i = 0; i < options.length; i++) {
+      var option = {
+        top: clamp(options[i].top, margin, Math.max(margin, vh - ch - margin)),
+        left: clamp(options[i].left, margin, Math.max(margin, vw - cw - margin))
+      };
+      var box = {
+        top: option.top,
+        left: option.left,
+        right: option.left + cw,
+        bottom: option.top + ch
+      };
+      var area = tutorialOverlapArea(box, hole);
+      var inView =
+        option.top >= margin - 1 &&
+        option.left >= margin - 1 &&
+        option.top + ch <= vh - margin + 1 &&
+        option.left + cw <= vw - margin + 1;
+      if (inView && area <= 1) {
+        best = option;
+        break;
+      }
+      if (area < bestArea) {
+        bestArea = area;
+        best = option;
+      }
+    }
+    card.style.top = best.top + "px";
+    card.style.left = best.left + "px";
+    return target;
+  };
+
+  Nexus.clearTutorial = function () {
+    var root = document.getElementById("tutorial-root");
+    if (root) {
+      root.hidden = true;
+    }
+    document.body.classList.remove("is-tutorial");
+  };
+
   Nexus.openModal = openModal;
   Nexus.closeModal = closeModal;
+  Nexus.hideModalNow = hideModalNow;
   Nexus.pushToast = pushToast;
   Nexus.boardView = boardView;
   Nexus.chipsHtml = chipsHtml;

@@ -2,6 +2,13 @@ window.Nexus = window.Nexus || {};
 
 (function () {
   var state = Nexus.createSetupState();
+  /* Anleitung ist UI-Zustand, keine Spielfase. practiceBase ist der verwerfbare Übungsdistrikt. */
+  var tutorial = {
+    active: false,
+    index: 0,
+    practiceBase: null,
+    practiceKey: ""
+  };
   var ui = {
     expandSlot: null,
     inspectedDevice: null,
@@ -26,7 +33,7 @@ window.Nexus = window.Nexus || {};
   document.addEventListener(
     "pointerdown",
     function (event) {
-      if (!document.elementsFromPoint) {
+      if (tutorial.active || !document.elementsFromPoint) {
         return;
       }
       var stack = document.elementsFromPoint(event.clientX, event.clientY);
@@ -104,6 +111,10 @@ window.Nexus = window.Nexus || {};
 
   function commit(next, options) {
     options = options || {};
+    /* Während der Anleitung keine echten Züge buchen. Szenen setzt showTutorialStep direkt. */
+    if (tutorial.active && !options.allowDuringTutorial) {
+      return;
+    }
     var prev = state;
     state = next;
     if (state.turnPhase !== "build") {
@@ -906,6 +917,9 @@ window.Nexus = window.Nexus || {};
       Nexus.render(state, ui);
       fitMapToView(false);
     }
+    if (tutorial.active) {
+      requestAnimationFrame(placeCurrentTutorial);
+    }
   });
 
   function refreshMapAfterChrome() {
@@ -1044,6 +1058,300 @@ window.Nexus = window.Nexus || {};
       syncDockScrollHint();
     });
   }
+
+  var TUTORIAL_MODALS = [
+    "trade-modal",
+    "home-modal",
+    "expand-modal",
+    "trade-respond-modal",
+    "event-modal",
+    "role-reveal-modal",
+    "handoff-modal",
+    "public-player-modal",
+    "end-screen"
+  ];
+
+  function dismissTutorialModals() {
+    TUTORIAL_MODALS.forEach(function (id) {
+      if (Nexus.hideModalNow) {
+        Nexus.hideModalNow(document.getElementById(id));
+      }
+    });
+  }
+
+  function tutorialStep() {
+    return (Nexus.TUTORIAL_STEPS || [])[tutorial.index] || null;
+  }
+
+  function resetTutorialUi() {
+    ui.expandSlot = null;
+    ui.inspectedDevice = null;
+    ui.inspectedPlayerId = null;
+    ui.inspectedZoneId = null;
+    ui.homeOpen = false;
+    ui.tradeOpen = false;
+    ui.investorAwaitingResource = false;
+    ui.tutorialRedact = !!tutorial.active;
+    ui.tradePick = { partnerId: null, giveKey: "energy", giveAmount: 1, wantKey: "money", wantAmount: 1 };
+  }
+
+  function openTutorialSettings(which) {
+    closeSettingsPanels(null);
+    var sel = which === "hud" ? "#app .settings-wrap--hud .settings-panel" : "#setup-screen .settings-panel";
+    var panel = document.querySelector(sel);
+    if (panel) {
+      panel.hidden = false;
+    }
+  }
+
+  function tutorialWantsDock(step) {
+    if (!step || !isDockSheet()) {
+      return false;
+    }
+    var sel = step.targetSheet || step.target || "";
+    if (sel.indexOf("btn-dock-toggle") !== -1) {
+      return false;
+    }
+    if (step.dock) {
+      return true;
+    }
+    return /goal-panel|tracks-card|zone-inspect|standards-bar|board-legend|btn-dock-close/.test(sel);
+  }
+
+  function ensurePracticeBase() {
+    var key = setupChoice.count + ":" + setupChoice.lengthId;
+    if (!tutorial.practiceBase || tutorial.practiceKey !== key) {
+      tutorial.practiceBase = Nexus.startGame(setupChoice.count, setupChoice.lengthId);
+      tutorial.practiceKey = key;
+      ui.map.userAdjusted = false;
+    }
+    return tutorial.practiceBase;
+  }
+
+  function firstExpandSlot(view) {
+    var rec = Nexus.recommendExpandSlot(view);
+    if (rec) {
+      return rec;
+    }
+    var found = null;
+    Nexus.boardSlots().forEach(function (slot) {
+      if (found) {
+        return;
+      }
+      if (Nexus.isExpandableSlot(view, slot.q, slot.r)) {
+        found = slot;
+      }
+    });
+    return found;
+  }
+
+  function applyTutorialScene(step) {
+    resetTutorialUi();
+    if (!step || step.scene === "setup") {
+      dismissTutorialModals();
+      Nexus.openModal(document.getElementById("setup-screen"));
+      if (step && step.settings) {
+        openTutorialSettings(step.settings);
+      } else {
+        closeSettingsPanels(null);
+      }
+      setDockOpen(false);
+      return;
+    }
+    ensurePracticeBase();
+    if (Nexus.hideModalNow) {
+      Nexus.hideModalNow(document.getElementById("setup-screen"));
+    }
+    dismissTutorialModals();
+    state = Nexus.tutorialView(tutorial.practiceBase, step.scene);
+    var player = Nexus.currentPlayer(state);
+    if (step.scene === "zone" && player) {
+      var home = null;
+      state.zones.forEach(function (zone) {
+        if (!home && zone.type === "home" && zone.ownerId === player.id) {
+          home = zone;
+        }
+      });
+      if (home) {
+        ui.inspectedZoneId = home.id;
+      }
+    }
+    if (step.scene === "expand" || step.scene === "expand-variant") {
+      var slot = firstExpandSlot(state);
+      if (slot) {
+        ui.expandSlot = { q: slot.q, r: slot.r };
+        if (step.scene === "expand-variant") {
+          ui.expandSlot.type = "energy";
+        }
+      }
+    }
+    if (step.scene === "home" || step.scene === "home-device" || step.scene === "sae") {
+      ui.homeOpen = true;
+    }
+    if (step.scene === "home-device") {
+      ui.inspectedDevice = "thermostat";
+    }
+    if (step.scene === "trade" && player) {
+      var partner = null;
+      state.players.forEach(function (candidate) {
+        if (!partner && candidate.id !== player.id) {
+          partner = candidate;
+        }
+      });
+      ui.tradeOpen = true;
+      ui.tradePick = {
+        partnerId: partner ? partner.id : null,
+        giveKey: "energy",
+        giveAmount: 1,
+        wantKey: "money",
+        wantAmount: 1
+      };
+    }
+    if (step.scene === "public" && player) {
+      var other = null;
+      state.players.forEach(function (candidate) {
+        if (!other && candidate.id !== player.id) {
+          other = candidate;
+        }
+      });
+      ui.inspectedPlayerId = other ? other.id : null;
+    }
+    if (step.legend) {
+      var legend = document.getElementById("board-legend");
+      if (legend) {
+        legend.open = true;
+      }
+    }
+    if (isDockSheet()) {
+      setDockOpen(tutorialWantsDock(step));
+    }
+    if (step.settings) {
+      openTutorialSettings(step.settings);
+    } else {
+      closeSettingsPanels(null);
+    }
+    Nexus.render(state, ui);
+    if (Nexus.syncDockScrollHint) {
+      Nexus.syncDockScrollHint();
+    }
+  }
+
+  function placeCurrentTutorial() {
+    var step = tutorialStep();
+    if (!tutorial.active || !step || !Nexus.placeTutorial) {
+      return;
+    }
+    Nexus.placeTutorial(step, tutorial.index, Nexus.TUTORIAL_STEPS.length);
+    var card = document.getElementById("tutorial-card");
+    if (card && document.activeElement !== card) {
+      card.focus({ preventScroll: true });
+    }
+  }
+
+  function showTutorialStep() {
+    var step = tutorialStep();
+    if (!step) {
+      return;
+    }
+    document.body.classList.add("is-tutorial");
+    applyTutorialScene(step);
+    if (step.scene === "setup") {
+      placeCurrentTutorial();
+      return;
+    }
+    requestAnimationFrame(function () {
+      fitMapToView(false);
+      requestAnimationFrame(placeCurrentTutorial);
+    });
+  }
+
+  function startTutorial() {
+    tutorial.active = true;
+    tutorial.index = 0;
+    tutorial.practiceBase = null;
+    tutorial.practiceKey = "";
+    ui.tutorialRedact = true;
+    showTutorialStep();
+  }
+
+  function exitTutorial() {
+    /* Nur vom Setup gestartet: Übungsdistrikt verwerfen, keine laufende Partie anfassen. */
+    tutorial.active = false;
+    tutorial.index = 0;
+    tutorial.practiceBase = null;
+    tutorial.practiceKey = "";
+    clearHarvestTimer();
+    resetTutorialUi();
+    ui.tutorialRedact = false;
+    dismissTutorialModals();
+    closeSettingsPanels(null);
+    setDockOpen(false);
+    if (Nexus.clearTutorial) {
+      Nexus.clearTutorial();
+    }
+    state = Nexus.createSetupState();
+    renderSetupScreen();
+    Nexus.openModal(document.getElementById("setup-screen"));
+  }
+
+  function nextTutorial() {
+    if (!tutorial.active) {
+      return;
+    }
+    if (tutorial.index >= Nexus.TUTORIAL_STEPS.length - 1) {
+      exitTutorial();
+      return;
+    }
+    tutorial.index += 1;
+    showTutorialStep();
+  }
+
+  function prevTutorial() {
+    if (!tutorial.active || tutorial.index <= 0) {
+      return;
+    }
+    tutorial.index -= 1;
+    showTutorialStep();
+  }
+
+  function swallowTutorialPointer(event) {
+    if (!tutorial.active) {
+      return;
+    }
+    if (event.target && event.target.closest && event.target.closest("#tutorial-card")) {
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+  }
+
+  document.addEventListener("pointerdown", swallowTutorialPointer, true);
+  document.addEventListener("click", swallowTutorialPointer, true);
+
+  document.addEventListener(
+    "keydown",
+    function (event) {
+      if (!tutorial.active) {
+        return;
+      }
+      if (event.key === "Escape") {
+        event.preventDefault();
+        exitTutorial();
+      } else if (event.key === "ArrowRight" || event.key === "Enter") {
+        event.preventDefault();
+        nextTutorial();
+      } else if (event.key === "ArrowLeft") {
+        event.preventDefault();
+        prevTutorial();
+      }
+    },
+    true
+  );
+
+  document.getElementById("btn-tutorial").addEventListener("click", startTutorial);
+  document.getElementById("btn-tutorial-next").addEventListener("click", nextTutorial);
+  document.getElementById("btn-tutorial-back").addEventListener("click", prevTutorial);
+  document.getElementById("btn-tutorial-exit").addEventListener("click", exitTutorial);
 
   applyAppearance();
   fillIcons();
