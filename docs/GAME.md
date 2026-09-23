@@ -6,7 +6,7 @@ Diese Datei beschreibt, was das Spiel **im Code tun soll** laut [`DESIGN.md`](DE
 
 ## Setup
 
-- 2 oder 3 Spieler, ein Gerät (Hot-Seat).
+- 2 bis 6 Spieler, ein Gerät (Hot-Seat). Ab 4 Spielern Hex-Radius 4 statt 3; Homes auf den Ecken, nicht überlappend.
 - Spiellänge: Kurz 15 / Standard 20 / Lang 25 Runden.
 - Start: 3× Energie, Geld, Bandbreite; **Kontrollbüro** in einer Hex-Ecke; Startcoupon (erstes Feld kostenlos, muss im ersten Zug).
 - Sechs Wahlversprechen werden gemischt; nacheinander geheim anschauen, dann Spieler 1.
@@ -34,7 +34,7 @@ Image, Komfort, Umwelt, Sicherheit (`player.scores`). Öffentlich nur soweit die
 
 ## Hex-Distrikt
 
-Radius 3. Homes auf drei Ecken. Expand nur benachbart zum eigenen Netz.
+Radius 3 (2–3 Spieler) bzw. 4 (4–6 Spieler). Homes auf den Hex-Ecken (`homePositionsForCount`). Expand nur benachbart zum eigenen Netz.
 
 | Feld | Variante | Ertrag / Regel |
 | --- | --- | --- |
@@ -56,7 +56,7 @@ Solar nutzt PRODUCTION_DICE (Ausfall…Boom). Boom → grüne Innovationskarte. 
 
 ## Geräte
 
-Cloud vs. lokal (Kosten nur noch in den 3 Ressourcen). Lokal → Datenschutz-Schild-Logik bleibt. Upkeep in Bandbreite.
+Cloud vs. lokal (Kosten nur noch in den 3 Ressourcen). Lokal → Risiko runter / lokal-%. Upkeep in Bandbreite. **Sichtbarkeit:** jedes gebaute Gerät ist auf dem Brett und in der öffentlichen Spieleransicht sichtbar.
 
 ## Karten, Handel, Standards, SAE
 
@@ -67,9 +67,9 @@ Handlimit und SAE 0–5 bleiben. Handel ist ein **Angebot** (Kurs + Menge), Anna
 
 ## Wahlversprechen
 
-IDs: climate, privacy, investor, visionary, networker, controller — Labels politisch/Versprechen. Unterziele in `data/roles.js`.
+IDs: climate, privacy, investor, visionary, networker, controller — Labels/Cast in `data/roles.js` und `docs/CAST_22_9.md`.
 
 ## Öffentlich vs. privat
 
-Öffentlich: Name, Ausrichtung, Standard, SAE, Zonenzahl, Cloud-Geräte.  
-Privat: Ressourcen, Spuren, Hand, Versprechen-Details, lokale Geräte, Risiko.
+Öffentlich: Name, Ausrichtung, Standard, SAE, Zonenzahl, **alle** gebauten Geräte (Cloud und lokal), Feld-Ausbau.  
+Privat: Ressourcen, Spuren, Hand, Versprechen-Details, Risiko. Nacht/Handoff leakt Rolle und Wallet nicht.

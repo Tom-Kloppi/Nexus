@@ -2098,6 +2098,8 @@ window.Nexus = window.Nexus || {};
       role.alignment +
       " · " +
       role.name +
+      (role.character ? " · " + role.character : "") +
+      (role.party && role.party !== "—" ? " (" + role.party + ")" : "") +
       "</p>" +
       '<p class="role-reveal-label">Wahlversprechen</p>' +
       progress.subGoals
@@ -2197,7 +2199,7 @@ window.Nexus = window.Nexus || {};
       "/5";
     var grid = document.getElementById("public-player-devices");
     if (!view.devices.length) {
-      grid.innerHTML = '<p class="hand-empty">Keine Cloud-Geräte sichtbar.</p>';
+      grid.innerHTML = '<p class="hand-empty">Keine Geräte sichtbar.</p>';
     } else {
       grid.innerHTML = view.devices
         .map(function (device) {
@@ -2209,7 +2211,9 @@ window.Nexus = window.Nexus || {};
             "<strong>" +
             device.shortName +
             "</strong>" +
-            "<small>Cloud</small>" +
+            "<small>" +
+            (device.mode === "local" ? "Lokal" : "Cloud") +
+            "</small>" +
             "</div>"
           );
         })
@@ -2259,18 +2263,16 @@ window.Nexus = window.Nexus || {};
     lastPlayerId = player.id;
   }
 
-  /* Öffentliche Cloud-Geräte als Sockel-Chips, lokale nur für die Besitzerin */
-  function homeDevicePips(owner, cx, baseY, publicOnly) {
+  /* Öffentliche Geräte als Sockel-Chips (Cloud und lokal). */
+  function homeDevicePips(owner, cx, baseY) {
     if (!owner) {
       return "";
     }
     var built = [];
+    var gadgets = Nexus.boardGadgetsFor ? Nexus.boardGadgetsFor(owner) : owner.devices || {};
     Nexus.DEVICES.forEach(function (device) {
-      var mode = owner.devices[device.id];
+      var mode = gadgets[device.id];
       if (!mode) {
-        return;
-      }
-      if (publicOnly && mode !== "cloud") {
         return;
       }
       built.push({ name: device.shortName, mode: mode });
@@ -2475,15 +2477,7 @@ window.Nexus = window.Nexus || {};
       var isMine = zone.ownerId === player.id;
       var isHome = zone.type === "home";
       var level = (Nexus.zoneUpgradeLevel && Nexus.zoneUpgradeLevel(zone)) || zone.upgradeLevel || 0;
-      var gizmos = {};
-      if (owner && owner.devices) {
-        Nexus.DEVICES.forEach(function (device) {
-          var mode = owner.devices[device.id];
-          if (mode === "cloud" || (isMine && mode === "local")) {
-            gizmos[device.id] = true;
-          }
-        });
-      }
+      var gizmos = Nexus.boardGadgetsFor ? Nexus.boardGadgetsFor(owner) : {};
       classes.push("tile--" + use);
       classes.push("is-clickable");
       classes.push(isMine ? "is-mine" : "is-foreign");
@@ -2534,7 +2528,7 @@ window.Nexus = window.Nexus || {};
       }
       if (isHome) {
         art = artHome(cx, cy, sy, rand, level, gizmos);
-        overlay += homeDevicePips(owner, cx, cy + sy * 0.46, !isMine);
+        overlay += homeDevicePips(owner, cx, cy + sy * 0.46);
       } else if (use === "residential") {
         art = artResidential(cx, cy, sy, rand, level, gizmos);
       } else if (use === "energy-solar") {

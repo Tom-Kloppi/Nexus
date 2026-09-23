@@ -460,7 +460,10 @@ window.Nexus = window.Nexus || {};
     if (!btn) {
       return;
     }
-    setupChoice.count = Number(btn.getAttribute("data-count"));
+    setupChoice.count = Math.max(
+      Nexus.CONSTANTS.MIN_PLAYERS,
+      Math.min(Nexus.CONSTANTS.MAX_PLAYERS, Number(btn.getAttribute("data-count")))
+    );
     renderSetupScreen();
   });
 

@@ -760,7 +760,11 @@ window.Nexus = window.Nexus || {};
     if (!inside) {
       return false;
     }
-    var reservedHome = Nexus.HOME_POSITIONS.some(function (pos) {
+    var homeSlots =
+      Nexus.homePositionsForCount && state.players
+        ? Nexus.homePositionsForCount(state.players.length)
+        : Nexus.HOME_POSITIONS;
+    var reservedHome = homeSlots.some(function (pos) {
       return pos.q === q && pos.r === r;
     });
     if (reservedHome) {
@@ -1298,7 +1302,9 @@ window.Nexus = window.Nexus || {};
   }
 
   function startGame(playerCount, gameLengthId) {
-    playerCount = Math.max(C.MIN_PLAYERS, Math.min(C.MAX_PLAYERS, Number(playerCount) || C.MAX_PLAYERS));
+    playerCount = Math.max(C.MIN_PLAYERS, Math.min(C.MAX_PLAYERS, Number(playerCount) || 3));
+    C.HEX_RADIUS = Nexus.hexRadiusForPlayerCount(playerCount);
+    Nexus.HOME_POSITIONS = Nexus.homePositionsForCount(playerCount);
     var gameLength =
       Nexus.GAME_LENGTHS.filter(function (g) {
         return g.id === gameLengthId;
@@ -1307,11 +1313,12 @@ window.Nexus = window.Nexus || {};
     var roleIds = Nexus.assignRoles(playerCount);
     var players = [];
     var zones = [];
+    var homes = Nexus.HOME_POSITIONS;
     var i;
     for (i = 0; i < playerCount; i++) {
       var id = "p" + (i + 1);
       players.push(createEmptyPlayer(id, "Spieler " + (i + 1), i, roleIds[i]));
-      var homePos = Nexus.HOME_POSITIONS[i];
+      var homePos = homes[i];
       zones.push({
         id: "home-" + id,
         q: homePos.q,
@@ -1329,6 +1336,7 @@ window.Nexus = window.Nexus || {};
       round: 1,
       maxRounds: gameLength.rounds || C.MAX_ROUNDS,
       gameLengthLabel: gameLength.label,
+      hexRadius: C.HEX_RADIUS,
       currentPlayerIndex: 0,
       turnPhase: "role_reveal",
       roleRevealIndex: 0,
@@ -1376,6 +1384,7 @@ window.Nexus = window.Nexus || {};
   }
 
   function isHotSeatShield(state) {
+    /* Reveal/Handoff: Rolle, Wallet, Versprechen-Details verdeckt. Geräte auf dem Brett sind öffentlich. */
     return state.turnPhase === "role_reveal" || state.turnPhase === "handoff";
   }
 
@@ -2114,9 +2123,10 @@ window.Nexus = window.Nexus || {};
     }
     var role = Nexus.ROLES_BY_ID[player.roleId];
     var devices = [];
+    var gadgets = boardGadgetsFor(player);
     Nexus.DEVICES.forEach(function (device) {
-      var mode = player.devices[device.id];
-      if (mode === "cloud") {
+      var mode = gadgets[device.id];
+      if (mode) {
         devices.push({
           id: device.id,
           name: device.name,
@@ -2610,6 +2620,21 @@ window.Nexus = window.Nexus || {};
     );
   }
 
+  /* Alle gebauten Gadgets sind auf dem Brett öffentlich (Cloud und lokal). Nacht/Handoff leakt trotzdem keine Rolle/Wallet. */
+  function boardGadgetsFor(owner) {
+    var out = {};
+    if (!owner || !owner.devices) {
+      return out;
+    }
+    Nexus.DEVICES.forEach(function (device) {
+      var mode = owner.devices[device.id];
+      if (mode) {
+        out[device.id] = mode;
+      }
+    });
+    return out;
+  }
+
   Nexus.createSetupState = createSetupState;
   Nexus.startGame = startGame;
   Nexus.acknowledgeRoleReveal = acknowledgeRoleReveal;
@@ -2624,6 +2649,7 @@ window.Nexus = window.Nexus || {};
   Nexus.getTradeOffer = getTradeOffer;
   Nexus.recordBlockedTradeAttempt = recordBlockedTradeAttempt;
   Nexus.getPublicPlayerView = getPublicPlayerView;
+  Nexus.boardGadgetsFor = boardGadgetsFor;
   Nexus.executeTrade = executeTrade;
   Nexus.proposeTrade = proposeTrade;
   Nexus.beginTradeInterrupt = beginTradeInterrupt;
@@ -2784,6 +2810,56 @@ window.Nexus = window.Nexus || {};
     if (currentPlayer(state).resources.money === beforeMoney) {
       throw new Error("trade accept");
     }
+    var withDev = Object.assign({}, state, {
+      players: state.players.map(function (p, idx) {
+        if (idx !== 0) {
+          return p;
+        }
+        var devices = Object.assign({}, p.devices);
+        devices.camera = "local";
+        devices.lock = "cloud";
+        return Object.assign({}, p, { devices: devices });
+      })
+    });
+    var giz = boardGadgetsFor(withDev.players[0]);
+    if (giz.camera !== "local" || giz.lock !== "cloud") {
+      throw new Error("boardGadgetsFor public local");
+    }
+    var pub = getPublicPlayerView(withDev, withDev.players[0].id);
+    if (!pub || pub.devices.length < 2) {
+      throw new Error("public view gadgets");
+    }
+    if (C.MAX_PLAYERS !== 6 || Nexus.ALL_ROLE_IDS.length !== 6) {
+      throw new Error("six player cast");
+    }
+    function axialDist(q, r) {
+      return (Math.abs(q) + Math.abs(r) + Math.abs(q + r)) / 2;
+    }
+    function assertHomes(count) {
+      var s = startGame(count, "short");
+      var expectR = count > 3 ? 4 : 3;
+      if (C.HEX_RADIUS !== expectR || s.hexRadius !== expectR) {
+        throw new Error("hexRadius " + count);
+      }
+      if (s.players.length !== count || s.zones.length !== count) {
+        throw new Error("home count " + count);
+      }
+      var seen = {};
+      s.zones.forEach(function (zone) {
+        if (zone.type !== "home") {
+          throw new Error("non-home setup");
+        }
+        if (axialDist(zone.q, zone.r) !== expectR) {
+          throw new Error("home ring " + count + " " + zone.q + "," + zone.r);
+        }
+        var key = zone.q + "," + zone.r;
+        if (seen[key]) {
+          throw new Error("dup home " + key);
+        }
+        seen[key] = true;
+      });
+    }
+    [2, 3, 4, 5, 6].forEach(assertHomes);
     return "ok";
   };
 })(window.Nexus);
