@@ -18,8 +18,8 @@
       href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800&family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="transitions.css?v=52" />
-    <link rel="stylesheet" href="style.css?v=52" />
+    <link rel="stylesheet" href="transitions.css?v=53" />
+    <link rel="stylesheet" href="style.css?v=53" />
   </head>
   <body>
     <div class="modal-shell t-modal-backdrop" id="setup-screen">
@@ -78,7 +78,10 @@
           <button type="button" class="btn setup-choice" data-length="long">Lang · 25</button>
         </div>
 
-        <button type="button" class="btn primary setup-start" id="btn-start-game">Partie starten</button>
+        <div class="setup-actions">
+          <button type="button" class="btn" id="btn-tutorial">Anleitung</button>
+          <button type="button" class="btn primary setup-start" id="btn-start-game">Partie starten</button>
+        </div>
       </div>
     </div>
 
@@ -118,6 +121,7 @@
               <span class="dock-toggle-glyph" aria-hidden="true"></span>
               <span class="dock-toggle-text">Ziele</span>
             </button>
+            <button type="button" class="btn icon-btn" id="btn-help" title="Hilfe" aria-label="Hilfe">?</button>
             <div class="settings-wrap settings-wrap--hud">
               <button type="button" class="btn icon-btn js-settings-btn" title="Darstellung" aria-label="Darstellung">⚙</button>
               <div class="settings-panel" hidden>
@@ -406,6 +410,28 @@
       </div>
     </div>
 
+    <div id="tutorial-root" class="tutorial-root" hidden>
+      <div id="tutorial-ring" class="tutorial-ring" hidden></div>
+      <div id="tutorial-card" class="tutorial-card" role="dialog" aria-labelledby="tutorial-title" tabindex="-1">
+        <p class="tutorial-kicker" id="tutorial-kicker">Anleitung</p>
+        <div id="tutorial-step-view">
+          <h2 id="tutorial-title"></h2>
+          <p id="tutorial-body"></p>
+        </div>
+        <div id="tutorial-toc" class="tutorial-toc" hidden>
+          <p class="tutorial-toc-lead">Zum Thema springen</p>
+          <div id="tutorial-toc-list" class="tutorial-toc-list"></div>
+        </div>
+        <div class="tutorial-nav">
+          <button type="button" class="btn ghost" id="btn-tutorial-exit">Beenden</button>
+          <button type="button" class="btn" id="btn-tutorial-toc" aria-expanded="false">Inhalt</button>
+          <button type="button" class="btn" id="btn-tutorial-pick" hidden>Tippen</button>
+          <button type="button" class="btn" id="btn-tutorial-back">Zurück</button>
+          <button type="button" class="btn primary" id="btn-tutorial-next">Weiter</button>
+        </div>
+      </div>
+    </div>
+
     <div id="end-screen" class="modal-shell t-modal-backdrop" hidden>
       <div class="modal-card t-modal piece end-card" role="dialog" aria-modal="true">
         <h2 id="end-screen-title">Spiel beendet</h2>
@@ -415,18 +441,19 @@
       </div>
     </div>
 
-    <script src="vendor/three.min.js?v=52"></script>
-    <script src="js/data/constants.js?v=52"></script>
-    <script src="js/data/tiles.js?v=52"></script>
-    <script src="js/data/devices.js?v=52"></script>
-    <script src="js/data/events.js?v=52"></script>
-    <script src="js/data/cards.js?v=52"></script>
-    <script src="js/data/roles.js?v=52"></script>
-    <script src="js/icons.js?v=52"></script>
-    <script src="js/roles.js?v=52"></script>
-    <script src="js/state.js?v=52"></script>
-    <script src="js/board3d.js?v=52"></script>
-    <script src="js/render.js?v=52"></script>
-    <script src="js/main.js?v=52"></script>
+    <script src="vendor/three.min.js?v=53"></script>
+    <script src="js/data/constants.js?v=53"></script>
+    <script src="js/data/tiles.js?v=53"></script>
+    <script src="js/data/devices.js?v=53"></script>
+    <script src="js/data/events.js?v=53"></script>
+    <script src="js/data/cards.js?v=53"></script>
+    <script src="js/data/roles.js?v=53"></script>
+    <script src="js/data/tutorial.js?v=53"></script>
+    <script src="js/icons.js?v=53"></script>
+    <script src="js/roles.js?v=53"></script>
+    <script src="js/state.js?v=53"></script>
+    <script src="js/board3d.js?v=53"></script>
+    <script src="js/render.js?v=53"></script>
+    <script src="js/main.js?v=53"></script>
   </body>
 </html>

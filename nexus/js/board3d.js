@@ -544,9 +544,12 @@ window.Nexus = window.Nexus || {};
       c.lerp(wash, night ? 0.5 : 0.6);
       return lambert(c);
     }
-    mats.ownerPad0 = pastelOf(Nexus.PLAYER_COLORS[0]);
-    mats.ownerPad1 = pastelOf(Nexus.PLAYER_COLORS[1]);
-    mats.ownerPad2 = pastelOf(Nexus.PLAYER_COLORS[2]);
+    (Nexus.PLAYER_COLORS || []).forEach(function (hex, index) {
+      mats["ownerPad" + index] = pastelOf(hex);
+    });
+    if (!mats.ownerPad0) {
+      mats.ownerPad0 = pastelOf("#1f8f76");
+    }
     mats.hit = basic("#ffffff", { transparent: true, opacity: 0, depthWrite: false });
     mats.bin = lambert(night ? "#3c444c" : "#6b737a");
     mats.bench = lambert(night ? "#5a4634" : "#b08962");
@@ -725,7 +728,8 @@ window.Nexus = window.Nexus || {};
   }
 
   function ownerPadMat(index) {
-    return mats["ownerPad" + (index % 3)] || mats.ownerPad0;
+    var count = (Nexus.PLAYER_COLORS || []).length || 1;
+    return mats["ownerPad" + (index % count)] || mats.ownerPad0;
   }
 
   function facadeMat(q, r) {
@@ -737,7 +741,7 @@ window.Nexus = window.Nexus || {};
     return seeded(q, r, 3)() < 0.5 ? "bus" : "parking";
   }
 
-  function gizmosFor(state, zone, viewer) {
+  function gizmosFor(state, zone) {
     var out = {};
     if (!zone) {
       return out;
@@ -745,14 +749,13 @@ window.Nexus = window.Nexus || {};
     var owner = state.players.filter(function (p) {
       return p.id === zone.ownerId;
     })[0];
-    if (!owner || !owner.devices) {
+    if (!owner) {
       return out;
     }
-    var mine = viewer && zone.ownerId === viewer.id;
-    (Nexus.DEVICES || []).forEach(function (device) {
-      var mode = owner.devices[device.id];
-      if (mode === "cloud" || (mine && mode === "local")) {
-        out[device.id] = true;
+    var gadgets = Nexus.boardGadgetsFor ? Nexus.boardGadgetsFor(owner) : owner.devices || {};
+    Object.keys(gadgets).forEach(function (id) {
+      if (gadgets[id]) {
+        out[id] = true;
       }
     });
     return out;
@@ -1410,7 +1413,7 @@ window.Nexus = window.Nexus || {};
     (state.players || []).forEach(function (p) {
       Object.keys(p.devices || {}).forEach(function (id) {
         var mode = p.devices[id];
-        if (mode === "cloud" || (player && p.id === player.id && mode === "local")) {
+        if (mode) {
           parts.push(p.id, id, mode);
         }
       });
