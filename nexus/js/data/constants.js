@@ -124,14 +124,48 @@ Nexus.PRODUCTION_DICE = [
 ];
 
 /* Kräftig genug, um als Kachelkante auf hellem Land zu lesen */
-Nexus.PLAYER_COLORS = ["#1f8f76", "#d6942a", "#c04b6e"];
-Nexus.PLAYER_COLOR_NAMES = ["Salbei", "Sand", "Rose"];
+Nexus.PLAYER_COLORS = ["#1f8f76", "#d6942a", "#c04b6e", "#4a74c4", "#7a5ea8", "#3d8ea8"];
+Nexus.PLAYER_COLOR_NAMES = ["Salbei", "Sand", "Rose", "Indigo", "Flieder", "Petrol"];
 
 Nexus.GAME_LENGTHS = [
   { id: "short", label: "Kurz", rounds: 15 },
   { id: "standard", label: "Standard", rounds: 20 },
   { id: "long", label: "Lang", rounds: 25 }
 ];
+
+/* Sechs Hex-Ecken, Uhrzeigersinn ab Nordost. Fairer Spread: 2 gegenüber, 3 jeder zweite, 4 Raute, 5 eine Lücke, 6 alle. */
+Nexus.HEX_CORNER_AXIAL = function (radius) {
+  var r = radius;
+  return [
+    { q: r, r: -r },
+    { q: r, r: 0 },
+    { q: 0, r: r },
+    { q: -r, r: r },
+    { q: -r, r: 0 },
+    { q: 0, r: -r }
+  ];
+};
+
+Nexus.HOME_CORNER_PICKS = {
+  2: [0, 3],
+  3: [0, 4, 2],
+  4: [0, 2, 3, 5],
+  5: [0, 1, 2, 4, 5],
+  6: [0, 1, 2, 3, 4, 5]
+};
+
+Nexus.hexRadiusForPlayerCount = function (playerCount) {
+  var base = Nexus.CONSTANTS.HEX_RADIUS_BASE;
+  return playerCount > 3 ? base + 1 : base;
+};
+
+Nexus.homePositionsForCount = function (playerCount) {
+  var n = Math.max(2, Math.min(6, Number(playerCount) || 3));
+  var corners = Nexus.HEX_CORNER_AXIAL(Nexus.hexRadiusForPlayerCount(n));
+  return Nexus.HOME_CORNER_PICKS[n].map(function (index) {
+    return corners[index];
+  });
+};
 
 Nexus.HOME_POSITIONS = [
   { q: 3, r: -3 },
@@ -156,6 +190,7 @@ Nexus.CONSTANTS = {
   HAND_LIMIT: 4,
   LOCK_RISK_REDUCTION: 1,
   LOG_LIMIT: 40,
+  HEX_RADIUS_BASE: 3,
   HEX_RADIUS: 3,
   HEX_SIZE: 64,
   HEX_SHADOW_DY: 8,
@@ -171,7 +206,7 @@ Nexus.CONSTANTS = {
   HUB_DISCOUNT_TIE_ORDER: ["energy", "money", "bandwidth"],
   TRANSFORMER_MONEY_PER_ENERGY: 1,
   MIN_PLAYERS: 2,
-  MAX_PLAYERS: 3,
+  MAX_PLAYERS: 6,
   TRADE_RECENT_ROUNDS: 2,
   OPEN_STANDARD_DISCOUNT: 1,
   SAE_MAX_LEVEL: 5,

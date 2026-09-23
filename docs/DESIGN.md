@@ -11,17 +11,17 @@
 
 Spieler = Stadtteilmanager (Testgebiet). Geheimes **Wahlversprechen** statt alter Rollenziele. Wer am Ende laut eigenem Versprechen führt → Bürgermeister.
 
-**Hot-Seat bleibt der Vertrag:** 2–3 Spieler, ein Gerät. **LAN/WLAN-Multiplayer:** erst nach Verlassen von Hot-Seat (Gate), nicht in diesem Zyklus — kein Protokoll, kein WebRTC, kein Backend jetzt.
+**Hot-Seat bleibt der Vertrag:** 2–6 Spieler, ein Gerät. **LAN/WLAN-Multiplayer:** erst nach Verlassen von Hot-Seat (Gate), nicht in diesem Zyklus — kein Protokoll, kein WebRTC, kein Backend jetzt.
 
 ### Harte Kernregeln (nicht aufweichen)
 
 - Geheimes Wahlversprechen; **Ausrichtung öffentlich** (Turn-Chip), Versprechen-Details privat.
-- Hot-Seat-Schild + Handoff-Ritual **jetzt** hart (`role_reveal` / `handoff`, Board dimmen). Nacht-Look darf lokale Geräte nicht verraten.
+- Hot-Seat-Schild + Handoff-Ritual **jetzt** hart (`role_reveal` / `handoff`, Board dimmen). Nacht darf **keine** Rolle, kein Wallet und keine Versprechen-Details verraten.
 - Produktion **automatisch zu Zugbeginn**.
 - Bandbreite aus Wohnen nur mit **eigenem** Datenzentrum.
-- 2-Spieler: Metrik-Skalierung in `roles.js` bleibt.
+- 2-Spieler: Metrik-Skalierung in `roles.js` bleibt; 5–6 Spieler leichte Hochskalierung von Handel/Zonen.
 - Sieg = `computeRoleProgress` (Sofort ≥ 100 % nach voller Runde, sonst höchste %). Keine Spurensumme, **keine Catch-up-Regel**.
-- Cloud-Geräte öffentlich, lokale privat.
+- Geräte und Feld-Ausbau sind **öffentlich** (Cloud und lokal). Cloud vs lokal bleibt nur als Mechanik (Risiko, Upkeep, lokal %).
 - Vanilla HTML/CSS/JS für Regeln und App-Chrome; **kein** React/Vue, **kein** Online-Backend, keine Accounts. Das **Distrikt-Board** darf eine vendored 3D-Engine (Three.js) oder Canvas nutzen — nur Präsentation, keine Regeln.
 
 ## Präsentation / Board
@@ -32,7 +32,7 @@ Spieler = Stadtteilmanager (Testgebiet). Geheimes **Wahlversprechen** statt alte
 - **Board:** **keine** flachen Eurogame-Plättchen. Echte extrudierte Volumen; der Z-Buffer sortiert nach Bildtiefe (nahe Türme verdecken ferne Kacheln nach Seat-Yaw und Orbit). Aufsicht **steiler von oben**, Orbit extra. **Ein** Hauptgebäude (oder ein Block aus wenigen verbundenen Boxen) pro Spielkachel — keine vollgepflasterte Skyline. Startfeld = **Kontrollbüro / Leitstand**, kein Cottage. Kleine Gimmicks (Bäume, Dachtechnik, Randparken) auf jeder Parzelle. Landnutzung lesbar (**Typ vor Owner-Ring**): Wohnen = Wohnungsblock, Solar = Solarfarm mit Leitstand, Trafo = Umspannwerk, DC = eine Halle (Ausbau = extra Flügel), Verkehr = Busbahnhof oder Parkplatz mit Ladestationen. **Straßen sind keine Kacheln:** sie liegen auf den **Hex-Kanten** als **ein** geteiltes Netz (keine geschlossene Ringe pro Parzelle). Autos fahren kantenweise von Feld zu Feld; Ampeln an Kreuzungen. Parks nur **Deko**. **Rand des Boards:** Gewerbe, Hügel, Berge — **kein** Catan-Wasser.
 - **Kamera:** Zu Zugbeginn liegt der Leitstand der aktiven Person unten (Seat-Yaw). Extra-Orbit: Rechtsziehen oder Mittelziehen = Gieren/Neigen; Linksziehen = Verschieben; Rad = Zoom zum Cursor. Native Kontextmenüs / Mittelklick-Autoscroll auf dem Board sind blockiert. `nexus-cam-pitch` (0 steil … 100 flach) bleibt; Nutzer-Pan/Zoom (`userAdjusted`) überlebt den Sitzwechsel, reiner Orbit nicht zwingend.
 - **Look-Nordstern:** HexaUrbs (Steam) — Look und Hex-Lesbarkeit, **nicht** Genre, nicht Sandbox, nicht „ohne Ressourcen“. Grafik-Pfad: Land-use / Tag-Nacht plus geometrische 3D-Stadt; **nicht** Hybrid-Foto-Board. Parks/Natur nur Deko — keine baubaren Park-/Wasser-Zonen, keine Umweltpunkte für Deko-Grün.
-- **Nacht:** Fenster/Lichter nur nach öffentlichen Regeln (kein Leak lokaler Geräte); Handoff/Reveal dimmt das Board.
+- **Nacht:** Fenster/Lichter nach öffentlichen Regeln (Geräte sind öffentlich; kein Leak von Rolle/Wallet/Versprechen); Handoff/Reveal dimmt das Board.
 - **Motion = Lehre:** illegal shake, Ressourcen-/Spur-Ticks, Place-Pop, Produktion-Pulse, Handoff-Dim. Spectacle nachrangig. Tokens in `nexus/transitions.css`. Regeln nur in `state.js` (kein DOM, kein `setTimeout` als Regel). First-turn: Copy + Pulse (Coupon, DC-Gate, Solar-Würfel) — **keine** Tutorial-Phase / keine neue `turnPhase`.
 - **Investor-Metrik** `moneyThroughput` = kumuliertes **Geld**, nicht Gesamtproduktion.
 - **Verkehr:** Stub-Ertrag + Lesbarkeit; **+1 Komfort** beim Bau. Feld = Gebäude (nicht das Straßennetz). Volle Mobilitätslogik = später. Älterer Konzept-Default „traffic = sichtbare Straße / Asphalt-Hex“ gilt **nicht**.
@@ -75,7 +75,7 @@ Beim Expand wählt der Spieler Typ; bei `energy`/`datacenter` zusätzlich die Va
 
 ### Feld-Ausbau (alle Typen)
 
-Jedes eigene Feld hat `upgradeLevel` 0–2 (Konstante `ZONE_UPGRADE_MAX`). Kosten: `money` = `ZONE_UPGRADE_MONEY_BASE + level × ZONE_UPGRADE_MONEY_STEP`, ab Stufe 1 zusätzlich `energy`. **Ertrag:** `primaryBase + upgradeLevel` (Home: `HOME_BASE_YIELD + upgradeLevel` auf allen drei Ressourcen). Transformator-Aufwand skaliert mit der neuen Energiemenge. Geräte bleiben separat (Cloud öffentlich, lokal privat). Ausbau ist am Gebäude lesbar (Höhe, Flügel, Dachtechnik, Kameras) — keine parallele Tech-Tree.
+Jedes eigene Feld hat `upgradeLevel` 0–2 (Konstante `ZONE_UPGRADE_MAX`). Kosten: `money` = `ZONE_UPGRADE_MONEY_BASE + level × ZONE_UPGRADE_MONEY_STEP`, ab Stufe 1 zusätzlich `energy`. **Ertrag:** `primaryBase + upgradeLevel` (Home: `HOME_BASE_YIELD + upgradeLevel` auf allen drei Ressourcen). Transformator-Aufwand skaliert mit der neuen Energiemenge. Geräte bleiben separat (alle gebauten Gadgets öffentlich, Cloud und lokal). Ausbau ist am Gebäude lesbar (Höhe, Flügel, Dachtechnik, Kameras) — keine parallele Tech-Tree.
 
 ### Abriss
 
@@ -95,9 +95,9 @@ Keine neuen Geräte-IDs in diesem Zyklus; Loop über Feedback und Copy. Karten/E
 
 ## Was bleibt aus 2.1
 
-- Hex Radius 3, Homes an Ecken, Adjacent-Expand
+- Hex Radius 3 bei 2–3 Spielern, Radius 4 bei 4–6; Homes fair auf Hex-Ecken; Adjacent-Expand
 - Hot-Seat / Role-Reveal / Handoff
-- Cloud vs lokal bei Geräten (lokaler Anteil → `security`)
+- Cloud vs lokal bei Geräten als **Mechanik** (lokaler Anteil → `security`); Sichtbarkeit: alle eigenen Gadgets öffentlich
 - Offen / Proprietär Standard + Handels**angebot** (Ressourcen = die 3 neuen; Annahme/Ablehnung, kein Sofort-Tausch)
 - Innovationskarten + Ereignisse (Effekte nur noch auf 3 Ressourcen + 4 Spuren + Risiko)
 - SAE-Level als Mobilitätszahl (Visionär/Verkehr); Kosten in `money`+`bandwidth`
@@ -120,7 +120,16 @@ Event-Themen (Förderung, Engpass, Abgabe) höchstens später im **bestehenden**
 
 ## Wahlversprechen (Rollen)
 
-Sechs IDs bleiben (`climate`, `privacy`, `investor`, `visionary`, `networker`, `controller`), Labels/Alignments werden zu Versprechen umbenannt. **Ausrichtung öffentlich** (Partei-Farbe); Unterziele = Wahlprogramm, nur privat. Unterziele mappen auf die 4 Spuren + vorhandene Metriken (Risiko, lokal %, SAE, Handel, Streaks). Konkrete Steps in `nexus/js/data/roles.js`.
+Sechs IDs bleiben (`climate`, `privacy`, `investor`, `visionary`, `networker`, `controller`). Cast 22.9 (`docs/CAST_22_9.md`): Labels/Alignments = Parteirichtung, Unterziele = privates Wahlprogramm. **Ausrichtung öffentlich** (Turn-Chip); Versprechen-Details nur privat. Unterziele mappen auf die 4 Spuren + vorhandene Metriken. Konkrete Steps in `nexus/js/data/roles.js`.
+
+| ID | Figur (PDF) | Partei | Öffentliche Ausrichtung | Privates Programm |
+| --- | --- | --- | --- | --- |
+| `climate` | Mira Blüte | ÖZP | Umwelt | Radikale Ökologie: Umwelt-Spur, grüne Karten, Image (Begrünung/Öffis) |
+| `privacy` | Isabella Roth | PPP | Sicherheit | Datensicherheit: Sicherheits-Spur, niedriges Risiko, hoher Lokal-Anteil |
+| `investor` | Maria Hinterberger | Wnd | Wirtschaft | Wirtschaftswunder: Komfort + Sicherheit, Handelsvolumen (Wohnraum gegen Ressourcen) |
+| `visionary` | Jürgen Weiß | PdZ | Zukunft | Eudämonische Stadt: alle vier Spuren gleichwertig |
+| `networker` | Thomas Smurf | — | Image | Gemeinwohl auf Augenhöhe: Image, Umwelt, Handelspartner |
+| `controller` | Heinz Kohle | AfAP | Komfort | Autostadt: Komfort, Zonenausbau, Geld-Throughput |
 
 ## Agent-Ownership (Parallel)
 

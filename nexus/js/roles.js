@@ -124,14 +124,24 @@ window.Nexus = window.Nexus || {};
   var TWO_PLAYER_METRIC_SCALE = {
     tradeVolume: 0.55,
     blockedTradesCaused: 0.5,
-    standardsBonusVolume: 0.6
+    standardsBonusVolume: 0.6,
+    zoneControlCount: 0.75
+  };
+
+  var HIGH_PLAYER_METRIC_SCALE = {
+    tradeVolume: 1.25,
+    zoneControlCount: 1.15,
+    standardsBonusVolume: 1.2
   };
 
   function metricScaleForPlayerCount(metricKey, playerCount) {
-    if (playerCount >= 3) {
-      return 1;
+    if (playerCount <= 2) {
+      return TWO_PLAYER_METRIC_SCALE[metricKey] || 1;
     }
-    return TWO_PLAYER_METRIC_SCALE[metricKey] || 1;
+    if (playerCount >= 5) {
+      return HIGH_PLAYER_METRIC_SCALE[metricKey] || 1;
+    }
+    return 1;
   }
 
   function scaledSubGoal(subGoal, playerCount) {
@@ -195,7 +205,7 @@ window.Nexus = window.Nexus || {};
   }
 
   function formatMetricValue(subGoal, metricValue) {
-    if (subGoal.id === "local_processing_ratio") {
+    if (subGoal.id === "local_processing_ratio" || subGoal.id === "distinct_trade_partners") {
       return metricValue + "%";
     }
     if (subGoal.id === "own_risk_score") {

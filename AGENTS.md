@@ -14,7 +14,7 @@ Anleitung für Coding-Agents. Ausführlicher Workflow + Quellen: [`docs/AGENT_WO
 
 ## Was das ist
 
-Hot-seat Smart-City-Brettspiel (2–3 Spieler, ein Gerät), vanilla HTML/CSS/JS. Einstieg: `nexus/index.html`. Branch **`prototype`** = Freeze 2.1; Redesign auf **`main`**.
+Hot-seat Smart-City-Brettspiel (2–6 Spieler, ein Gerät), vanilla HTML/CSS/JS. Einstieg: `nexus/index.html`. Branch **`prototype`** = Freeze 2.1; Redesign auf **`main`**.
 
 ## Ownership
 
@@ -48,7 +48,7 @@ React/Vue, Bundler, npm, Test-Frameworks, Online-Multiplayer, Accounts, Persiste
 
 ## Fallen (Hot-Seat)
 
-- Kein Leak privater Infos in `role_reveal` / `handoff` (`isHotSeatShield`).
-- Cloud-Geräte anderer öffentlich; lokale privat.
+- Kein Leak privater Infos in `role_reveal` / `handoff` (`isHotSeatShield`): Rolle, Wallet, Versprechen.
+- Alle gebauten Geräte öffentlich (Cloud und lokal); `Nexus.boardGadgetsFor`.
 - Produktion auto zu Zugbeginn; 2-Spieler-Skalierung in `roles.js`.
 - Bandbreite aus Wohnen ohne eigenes Datenzentrum = 0.

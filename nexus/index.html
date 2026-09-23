@@ -18,8 +18,8 @@
       href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800&family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="transitions.css?v=51" />
-    <link rel="stylesheet" href="style.css?v=51" />
+    <link rel="stylesheet" href="transitions.css?v=52" />
+    <link rel="stylesheet" href="style.css?v=52" />
   </head>
   <body>
     <div class="modal-shell t-modal-backdrop" id="setup-screen">
@@ -60,12 +60,15 @@
         <p class="modal-kicker">NEXUS · Stadtteil</p>
         <h2>Neue Partie</h2>
         <p>Hot-Seat: Stadtteilmanager wechseln sich am selben Gerät ab.</p>
-        <p class="setup-note">Bei 2 Spielern werden Handels- und Blockade-Ziele angepasst. Geräte und Standards der anderen sind öffentlich — Ressourcen und Wahlversprechen bleiben privat.</p>
+        <p class="setup-note">2–6 Stadtteilmanager, ein Gerät. Bei 2 Spielern werden Handelsziele angepasst; ab 4 Spielern ist der Distrikt um einen Hex-Ring größer. Geräte und Ausbau der anderen sind öffentlich — Ressourcen und Wahlversprechen bleiben privat.</p>
 
         <p class="setup-label">Spielerzahl</p>
         <div class="pick-row" id="setup-player-count">
-          <button type="button" class="btn setup-choice" data-count="2">2 Spieler</button>
-          <button type="button" class="btn setup-choice" data-count="3">3 Spieler</button>
+          <button type="button" class="btn setup-choice" data-count="2">2</button>
+          <button type="button" class="btn setup-choice" data-count="3">3</button>
+          <button type="button" class="btn setup-choice" data-count="4">4</button>
+          <button type="button" class="btn setup-choice" data-count="5">5</button>
+          <button type="button" class="btn setup-choice" data-count="6">6</button>
         </div>
 
         <p class="setup-label">Spiellänge</p>
@@ -397,7 +400,7 @@
         <p class="modal-kicker">Öffentlich sichtbar</p>
         <h2 id="public-player-name"></h2>
         <p id="public-player-meta" class="role-reveal-hint"></p>
-        <p class="public-device-note">Nur Cloud-Geräte sind sichtbar. Lokale Verarbeitung bleibt privat.</p>
+        <p class="public-device-note">Geräte sind öffentlich (Cloud und lokal). Wahlversprechen und Ressourcen bleiben privat.</p>
         <div id="public-player-devices" class="public-device-grid"></div>
         <button type="button" class="btn ghost" id="btn-public-player-close">Schließen</button>
       </div>
@@ -412,18 +415,18 @@
       </div>
     </div>
 
-    <script src="vendor/three.min.js?v=51"></script>
-    <script src="js/data/constants.js?v=51"></script>
-    <script src="js/data/tiles.js?v=51"></script>
-    <script src="js/data/devices.js?v=51"></script>
-    <script src="js/data/events.js?v=51"></script>
-    <script src="js/data/cards.js?v=51"></script>
-    <script src="js/data/roles.js?v=51"></script>
-    <script src="js/icons.js?v=51"></script>
-    <script src="js/roles.js?v=51"></script>
-    <script src="js/state.js?v=51"></script>
-    <script src="js/board3d.js?v=51"></script>
-    <script src="js/render.js?v=51"></script>
-    <script src="js/main.js?v=51"></script>
+    <script src="vendor/three.min.js?v=52"></script>
+    <script src="js/data/constants.js?v=52"></script>
+    <script src="js/data/tiles.js?v=52"></script>
+    <script src="js/data/devices.js?v=52"></script>
+    <script src="js/data/events.js?v=52"></script>
+    <script src="js/data/cards.js?v=52"></script>
+    <script src="js/data/roles.js?v=52"></script>
+    <script src="js/icons.js?v=52"></script>
+    <script src="js/roles.js?v=52"></script>
+    <script src="js/state.js?v=52"></script>
+    <script src="js/board3d.js?v=52"></script>
+    <script src="js/render.js?v=52"></script>
+    <script src="js/main.js?v=52"></script>
   </body>
 </html>
