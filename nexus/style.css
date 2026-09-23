@@ -23,21 +23,21 @@
   --ink: #26313d;
   --ink-dim: rgba(38, 49, 61, 0.62);
   --ink-soft: rgba(38, 49, 61, 0.42);
-  --shell: #e7eef4;
-  --shell-2: #dbe6ef;
-  --surface: #fbfdff;
-  --surface-2: #f1f6fa;
+  --shell: #e4eef0;
+  --shell-2: #d2e6e8;
+  --surface: #f7fcfb;
+  --surface-2: #eef7f5;
   --panel: rgba(255, 255, 255, 0.86);
-  --panel-solid: #f7fafd;
-  --panel-edge: rgba(38, 61, 82, 0.13);
-  --panel-shadow: 0 10px 30px rgba(31, 52, 71, 0.13);
-  --accent: #2f7fb5;
-  --accent-soft: #cfe6f4;
+  --panel-solid: #f5fbfa;
+  --panel-edge: rgba(32, 64, 68, 0.13);
+  --panel-shadow: 0 10px 30px rgba(24, 56, 58, 0.13);
+  --accent: #2a8f8a;
+  --accent-soft: #cfecea;
   --accent-ink: #ffffff;
   --amber: #c8892f;
   --danger: #c2503f;
   --ok: #3f8f5c;
-  --cloud: #3f7fbf;
+  --cloud: #3d8fa8;
   --local: #5b8f4a;
   --mobility: #8a6bb0;
   --btn-bg: rgba(31, 60, 84, 0.06);
@@ -49,17 +49,17 @@
   --res-money: #b36a3c;
   --res-bandwidth: #3d7fa6;
 
-  /* Himmel */
-  --sky-top: #63b5e6;
-  --sky-mid: #a9dcf3;
-  --sky-low: #e5f2e2;
+  /* Himmel — grünblau */
+  --sky-top: #4aaeb8;
+  --sky-mid: #9bd6d4;
+  --sky-low: #dff0e4;
   --sky-orb: #fff6d8;
   --sky-orb-glow: rgba(255, 238, 180, 0.75);
   --sky-orb-x: 78%;
   --sky-orb-y: 11%;
   --cloud-tint: rgba(255, 255, 255, 0.85);
   --star-opacity: 0;
-  --haze: rgba(255, 252, 235, 0.45);
+  --haze: rgba(235, 252, 245, 0.45);
 
   /* Landnutzung: Deckfläche / Seitenwand / Kante */
   --lu-grass-top: #c8cfd6;
@@ -135,21 +135,21 @@
   --ink: #e8eef7;
   --ink-dim: rgba(232, 238, 247, 0.62);
   --ink-soft: rgba(232, 238, 247, 0.38);
-  --shell: #0d1426;
-  --shell-2: #131c33;
-  --surface: #18213a;
-  --surface-2: #1f2942;
-  --panel: rgba(20, 28, 48, 0.82);
-  --panel-solid: #141c30;
-  --panel-edge: rgba(174, 198, 230, 0.16);
+  --shell: #0b171c;
+  --shell-2: #12242c;
+  --surface: #15242c;
+  --surface-2: #1b2e36;
+  --panel: rgba(16, 32, 38, 0.82);
+  --panel-solid: #122026;
+  --panel-edge: rgba(160, 210, 214, 0.16);
   --panel-shadow: 0 14px 38px rgba(0, 0, 0, 0.45);
-  --accent: #58a8e0;
-  --accent-soft: rgba(88, 168, 224, 0.22);
-  --accent-ink: #0c1424;
+  --accent: #4eb8b0;
+  --accent-soft: rgba(78, 184, 176, 0.22);
+  --accent-ink: #0c1818;
   --amber: #e0ae5c;
   --danger: #e0715f;
   --ok: #5fb37c;
-  --cloud: #6fb0e8;
+  --cloud: #6eb6c4;
   --local: #86bf6e;
   --mobility: #ae8ad6;
   --btn-bg: rgba(200, 220, 245, 0.09);
@@ -161,16 +161,16 @@
   --res-money: #dd9b6c;
   --res-bandwidth: #7fbede;
 
-  --sky-top: #060a1c;
-  --sky-mid: #131d3f;
-  --sky-low: #2b3357;
+  --sky-top: #06141a;
+  --sky-mid: #12303a;
+  --sky-low: #1e4450;
   --sky-orb: #f2f6ff;
-  --sky-orb-glow: rgba(190, 214, 255, 0.35);
+  --sky-orb-glow: rgba(170, 230, 230, 0.28);
   --sky-orb-x: 17%;
   --sky-orb-y: 10%;
-  --cloud-tint: rgba(120, 140, 190, 0.22);
+  --cloud-tint: rgba(110, 160, 168, 0.22);
   --star-opacity: 1;
-  --haze: rgba(70, 92, 150, 0.35);
+  --haze: rgba(40, 90, 95, 0.35);
 
   --lu-grass-top: #3a424c;
   --lu-grass-side: #2a313a;
@@ -769,24 +769,25 @@ button {
   position: absolute;
   left: 0.6rem;
   bottom: 0.6rem;
-  z-index: 3;
+  z-index: 7;
   display: flex;
   flex-direction: column;
   gap: 0.3rem;
 }
 
-/* Ein Kanal am unteren Brettrand: Toasts über dem Coach, nie übereinander */
+/* Toasts sitzen über dem Tray, links die Zoom-Spalte frei, Dock unberührt */
 .board-feed {
   position: absolute;
-  left: 50%;
-  bottom: 0.65rem;
-  z-index: 6;
-  transform: translateX(-50%);
-  width: min(92%, 720px);
+  left: 4.4rem;
+  right: 0.85rem;
+  bottom: 0.85rem;
+  z-index: 4;
+  transform: none;
+  width: auto;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.45rem;
+  gap: 0.4rem;
   pointer-events: none;
 }
 
@@ -2273,22 +2274,22 @@ button {
 /* Höhe 0: die Banner wachsen nach oben, ohne Platz zu reservieren */
 .toast-stack {
   position: relative;
-  width: min(340px, 100%);
+  width: min(280px, 100%);
   height: 0;
   pointer-events: none;
 }
 
 .t-stack-banner {
   width: 100%;
-  min-height: 3.2rem;
-  padding: 0.7rem 0.9rem;
+  min-height: 0;
+  padding: 0.55rem 0.8rem;
   border-radius: var(--radius-card);
   background: var(--surface);
   border: 1px solid var(--panel-edge);
   color: var(--ink);
   font-weight: 600;
-  font-size: 0.85rem;
-  line-height: 1.3;
+  font-size: 0.8rem;
+  line-height: 1.28;
   box-shadow: var(--panel-shadow);
   pointer-events: auto;
 }
@@ -3051,7 +3052,7 @@ button {
 
   /* Zoom-Spalte links freihalten, statt den Coach darüber zu legen */
   .board-feed {
-    left: 3.2rem;
+    left: 4.4rem;
     right: 0.6rem;
     width: auto;
     transform: none;

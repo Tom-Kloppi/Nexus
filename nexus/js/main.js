@@ -116,6 +116,27 @@ window.Nexus = window.Nexus || {};
     localStorage.setItem("nexus-board-quality", prefs.boardQuality);
   }
 
+  function toastCopy(text) {
+    if (!text) {
+      return text;
+    }
+    return String(text)
+      .replace(/^Produktion: /, "Ertrag: ")
+      .replace(/^Produktion ohne Ertrag\.$/, "Leere Kassen — kein Ertrag.")
+      .replace(/^Zone erweitert: /, "Gebaut: ")
+      .replace(/^Startfeld gewählt: /, "Startfeld: ")
+      .replace(/Gerät an (.+) weitergeben\.$/, "Weitergeben an $1.")
+      .replace(/^prüft ein Handelsangebot\.$/, "prüft das Angebot.")
+      .replace(/^setzt den Zug fort\.$/, "spielt weiter.")
+      .replace(/^übernimmt\.$/, "nimmt das Gerät.")
+      .replace(/^übergibt das Gerät für das Handelsangebot\.$/, "reicht das Gerät weiter.")
+      .replace(/^Innovationskarte ausgespielt: /, "Karte: ")
+      .replace(/^Innovationskarte gezogen: /, "Neue Karte: ")
+      .replace(/^Ereignis: /, "Ereignis — ")
+      .replace(/^Zugende: /, "Zug vorbei: ")
+      .replace(/^Neues Spiel: /, "Partie: ");
+  }
+
   function toastNewLogs(prev, next) {
     var prevFirst = prev && prev.log && prev.log[0];
     if (!next || !next.log || !next.log.length || next.log[0] === prevFirst) {
@@ -131,7 +152,7 @@ window.Nexus = window.Nexus || {};
     }
     fresh.reverse().forEach(function (entry) {
       var prefix = entry.playerName ? entry.playerName + ": " : "";
-      Nexus.pushToast(prefix + entry.text);
+      Nexus.pushToast(prefix + toastCopy(entry.text));
     });
   }
 
@@ -161,8 +182,9 @@ window.Nexus = window.Nexus || {};
       prev &&
       prev.currentPlayerIndex !== state.currentPlayerIndex
     ) {
+      ui.map.userAdjusted = false;
       if (Nexus.Board3D) {
-        Nexus.Board3D.onSeatChange(!!ui.map.userAdjusted);
+        Nexus.Board3D.onSeatChange();
       }
     }
     toastNewLogs(prev, state);
@@ -636,7 +658,7 @@ window.Nexus = window.Nexus || {};
       commit(next);
     } else {
       triggerControlShake(document.getElementById("btn-sae-upgrade"));
-      Nexus.pushToast("SAE braucht V2X oder Ladenetz auf einem Verkehrsfeld.");
+      Nexus.pushToast("SAE: erst V2X oder Ladenetz auf einem Verkehrsfeld.");
     }
   });
 
@@ -1151,7 +1173,22 @@ window.Nexus = window.Nexus || {};
         next = Object.assign({}, next, {
           zones: extra,
           screen: "game",
-          turnPhase: "build"
+          turnPhase: "build",
+          players: next.players.map(function (p) {
+            var devices = Object.assign({}, p.devices || {});
+            devices.camera = "cloud";
+            devices.lock = "cloud";
+            devices.thermostat = "cloud";
+            devices.shutters = "cloud";
+            devices.hems = "cloud";
+            devices.peak_load = "cloud";
+            devices.v2x = "cloud";
+            devices.charger = "cloud";
+            devices.charging_network = "cloud";
+            devices.hub = "local";
+            devices.storage_battery = "local";
+            return Object.assign({}, p, { devices: devices });
+          })
         });
         commit(next, { skipAutoHarvest: true });
       }
