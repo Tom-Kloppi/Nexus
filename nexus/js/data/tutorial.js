@@ -297,7 +297,7 @@ Nexus.TUTORIAL_STEPS = [
     scene: "home",
     target: "#device-list",
     title: "Geräte",
-    body: "Der Leitstand listet alle Geräte. Leere kannst du bauen. Cloud ist öffentlich und riskant, lokal bleibt privat."
+    body: "Der Leitstand listet alle Geräte. Leere kannst du bauen. Cloud erzeugt Risiko, lokal kostet mehr — beide stehen öffentlich auf dem Brett."
   },
   {
     id: "home-upgrade",
@@ -314,7 +314,7 @@ Nexus.TUTORIAL_STEPS = [
     scene: "home-device",
     target: "#inspect-card",
     title: "Cloud oder lokal",
-    body: "Cloud ist günstiger, erzeugt Risiko und ist für andere sichtbar. Lokal kostet mehr und bleibt verdeckt. Manche Geräte gibt es nur lokal."
+    body: "Cloud ist günstiger und erzeugt Risiko. Lokal kostet mehr. Beide Betriebsarten sind auf dem Brett sichtbar. Ressourcen und Versprechen bleiben privat."
   },
   {
     id: "sae",
@@ -376,7 +376,7 @@ Nexus.TUTORIAL_STEPS = [
     target: "#public-player-devices",
     fallback: "#public-player-modal .modal-card",
     title: "Öffentliche Ansicht",
-    body: "Fremde Chips zeigen Ausrichtung, Standard, Zonen und nur Cloud-Geräte. Lokale Geräte erscheinen hier nicht."
+    body: "Fremde Chips zeigen Ausrichtung, Standard, Zonen und alle gebauten Geräte (Cloud und lokal). Wahlversprechen und Ressourcen bleiben privat."
   },
   {
     id: "end-screen",
