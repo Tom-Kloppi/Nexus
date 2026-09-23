@@ -9,6 +9,9 @@ window.Nexus = window.Nexus || {};
   var CAR_COUNT = 12;
   var MAX_LIGHTS = 16;
   var MAX_LAMPS = 18;
+  var MAX_TREES = 28;
+  var MAX_BINS = 12;
+  var MAX_BENCHES = 3;
 
   var renderer = null;
   var scene = null;
@@ -41,6 +44,7 @@ window.Nexus = window.Nexus || {};
   var dummy = null;
   var lights = [];
   var lamps = [];
+  var dressingCounts = { trees: 0, lamps: 0, bins: 0, benches: 0 };
   var plusPins = [];
   var overlays = [];
 
@@ -73,6 +77,16 @@ window.Nexus = window.Nexus || {};
       h = (h * 1664525 + 1013904223) % 4294967296;
       return h / 4294967296;
     };
+  }
+
+  function keyRand(key, salt) {
+    var h = ((salt || 7) * 83492791) >>> 0;
+    var s = String(key);
+    var i;
+    for (i = 0; i < s.length; i++) {
+      h = Math.imul(h ^ s.charCodeAt(i), 16777619) >>> 0;
+    }
+    return h / 4294967296;
   }
 
   function axial(q, r) {
@@ -184,8 +198,8 @@ window.Nexus = window.Nexus || {};
     geo.sphere = new THREE.SphereGeometry(1, 10, 8);
     geo.cone = new THREE.ConeGeometry(1, 1, 6);
     geo.plane = new THREE.PlaneGeometry(1, 1);
-    geo.car = new THREE.BoxGeometry(1.85, 0.48, 0.85);
-    geo.cabin = new THREE.BoxGeometry(0.7, 0.34, 0.78);
+    geo.car = new THREE.BoxGeometry(0.85, 0.48, 1.85);
+    geo.cabin = new THREE.BoxGeometry(0.72, 0.34, 0.92);
   }
 
   function buildMaterials() {
@@ -238,6 +252,8 @@ window.Nexus = window.Nexus || {};
     mats.owner1 = lambert(Nexus.PLAYER_COLORS[1]);
     mats.owner2 = lambert(Nexus.PLAYER_COLORS[2]);
     mats.hit = basic("#ffffff", { transparent: true, opacity: 0, depthWrite: false });
+    mats.bin = lambert(night ? "#3c444c" : "#6b737a");
+    mats.bench = lambert(night ? "#5a4634" : "#b08962");
     mats.car = lambert("#f4f0ea");
     mats.cabin = lambert(css("--glass", "#8bb0c9"), {
       emissive: "#9ec4dc",
@@ -317,6 +333,29 @@ window.Nexus = window.Nexus || {};
     var mesh = new THREE.Mesh(geo.sphere, mat);
     mesh.scale.set(r, r, r);
     mesh.position.set(x, y, z);
+    parent.add(mesh);
+    return mesh;
+  }
+
+  function addInstances(geom, mat, poses, parent) {
+    if (!poses.length) {
+      return null;
+    }
+    dummy = dummy || new THREE.Object3D();
+    var mesh = new THREE.InstancedMesh(geom, mat, poses.length);
+    mesh.frustumCulled = false;
+    var i;
+    for (i = 0; i < poses.length; i++) {
+      var p = poses[i];
+      dummy.position.set(p.x, p.y, p.z);
+      dummy.rotation.set(0, p.ry || 0, 0);
+      dummy.scale.set(p.sx, p.sy, p.sz);
+      dummy.updateMatrix();
+      mesh.setMatrixAt(i, dummy.matrix);
+    }
+    mesh.instanceMatrix.needsUpdate = true;
+    dummy.scale.set(1, 1, 1);
+    dummy.rotation.set(0, 0, 0);
     parent.add(mesh);
     return mesh;
   }
@@ -708,22 +747,15 @@ window.Nexus = window.Nexus || {};
       dash.rotation.y = road.rotation.y;
       roots.roads.add(dash);
     });
-    var lightKeys = graph.keys
-      .filter(function (k) {
-        return graph.nodes[k].next.length >= 3;
-      })
-      .sort();
+    var lightKeys = graph.keys.filter(function (k) {
+      return graph.nodes[k].next.length >= 3 && keyRand(k, 19) < 0.32;
+    });
     var i;
-    var placed = 0;
-    for (i = 0; i < lightKeys.length && placed < MAX_LIGHTS; i += 1) {
-      if (i % 2 === 1 && lightKeys.length > 8) {
-        continue;
-      }
+    for (i = 0; i < lightKeys.length && lights.length < MAX_LIGHTS; i++) {
       var n = graph.nodes[lightKeys[i]];
       var g = new THREE.Group();
-      var ox = 0.55;
-      var oz = 0.55;
-      g.position.set(n.x + ox, 0, n.z + oz);
+      var pull = Math.hypot(n.x, n.z) || 1;
+      g.position.set(n.x - (n.x / pull) * 1.42, 0, n.z - (n.z / pull) * 1.42);
       addCyl(g, mats.lampPole, 0.08, 0.1, 3.1, 0, TILE_H, 0, 8);
       addBox(g, mats.housing, 0.38, 0.95, 0.28, 0, TILE_H + 2.85, 0, 0);
       var red = addSphere(g, mats.red.clone(), 0.13, 0, TILE_H + 3.55, 0.16);
@@ -731,18 +763,110 @@ window.Nexus = window.Nexus || {};
       var gre = addSphere(g, mats.green.clone(), 0.13, 0, TILE_H + 3.02, 0.16);
       roots.roads.add(g);
       lights.push({ node: n.key, red: red, yel: yel, gre: gre, phase: i * 1.37 });
-      placed += 1;
     }
-    var lampKeys = graph.keys.filter(function (k) {
-      return graph.nodes[k].next.length <= 3;
-    });
-    placed = 0;
-    for (i = 0; i < lampKeys.length && placed < MAX_LAMPS; i += 2) {
-      var ln = graph.nodes[lampKeys[i]];
-      var bulb = lampPost(roots.roads, ln.x * 0.96, ln.z * 0.96, 2.35);
-      lamps.push(bulb);
-    }
+    scatterStreetDressing(net);
     spawnCars();
+  }
+
+  function scatterStreetDressing(net) {
+    var treeTrunks = [];
+    var crownsA = [];
+    var crownsB = [];
+    var lampPoles = [];
+    var lampHeads = [];
+    var bins = [];
+    var benchSeats = [];
+    var benchBacks = [];
+    var kerb = ROAD_W * 0.5 + 0.62;
+    var edgeKeys = Object.keys(net.edges);
+    var i;
+    for (i = 0; i < edgeKeys.length; i++) {
+      var ek = edgeKeys[i];
+      var e = net.edges[ek];
+      var dx = e.b.x - e.a.x;
+      var dz = e.b.z - e.a.z;
+      var len = Math.hypot(dx, dz) || 1;
+      var nx = -dz / len;
+      var nz = dx / len;
+      var mx = (e.a.x + e.b.x) / 2;
+      var mz = (e.a.z + e.b.z) / 2;
+      if (nx * mx + nz * mz > 0) {
+        nx = -nx;
+        nz = -nz;
+      }
+      var roll = keyRand(ek, 71);
+      var along = 0.28 + keyRand(ek, 72) * 0.44;
+      var px = e.a.x + dx * along;
+      var pz = e.a.z + dz * along;
+      var heading = Math.atan2(dx, dz);
+      if (roll < 0.2 && treeTrunks.length < MAX_TREES) {
+        var s = 0.52 + keyRand(ek, 73) * 0.38;
+        var tx = px + nx * (kerb + 0.45);
+        var tz = pz + nz * (kerb + 0.45);
+        treeTrunks.push({ x: tx, y: TILE_H + 0.45 * s, z: tz, sx: 0.18 * s, sy: 0.9 * s, sz: 0.2 * s, ry: 0 });
+        var c1 = { x: tx, y: TILE_H + 1.12 * s, z: tz, sx: 0.7 * s, sy: 0.7 * s, sz: 0.7 * s, ry: 0 };
+        var c2 = {
+          x: tx + 0.28 * s,
+          y: TILE_H + 0.82 * s,
+          z: tz - 0.12 * s,
+          sx: 0.46 * s,
+          sy: 0.46 * s,
+          sz: 0.46 * s,
+          ry: 0
+        };
+        if (keyRand(ek, 74) < 0.5) {
+          crownsA.push(c1);
+          crownsB.push(c2);
+        } else {
+          crownsB.push(c1);
+          crownsA.push(c2);
+        }
+      } else if (roll < 0.34 && lampPoles.length < MAX_LAMPS) {
+        var lx = px + nx * kerb;
+        var lz = pz + nz * kerb;
+        var h = 2.25 + keyRand(ek, 75) * 0.25;
+        lampPoles.push({ x: lx, y: TILE_H + h / 2, z: lz, sx: 0.07, sy: h, sz: 0.09, ry: 0 });
+        lampHeads.push({ x: lx, y: TILE_H + h + 0.08, z: lz, sx: 0.16, sy: 0.16, sz: 0.16, ry: 0 });
+      } else if (roll < 0.44 && bins.length < MAX_BINS) {
+        bins.push({
+          x: px + nx * kerb,
+          y: TILE_H + 0.22,
+          z: pz + nz * kerb,
+          sx: 0.28,
+          sy: 0.4,
+          sz: 0.24,
+          ry: heading
+        });
+      } else if (roll > 0.975 && benchSeats.length < MAX_BENCHES) {
+        var bx = px + nx * (kerb + 0.2);
+        var bz = pz + nz * (kerb + 0.2);
+        benchSeats.push({ x: bx, y: TILE_H + 0.2, z: bz, sx: 1.05, sy: 0.08, sz: 0.32, ry: heading });
+        benchBacks.push({
+          x: bx + nx * 0.14,
+          y: TILE_H + 0.36,
+          z: bz + nz * 0.14,
+          sx: 1.05,
+          sy: 0.28,
+          sz: 0.08,
+          ry: heading
+        });
+      }
+    }
+    addInstances(geo.cyl8, mats.trunk, treeTrunks, roots.roads);
+    addInstances(geo.sphere, mats.tree, crownsA, roots.roads);
+    addInstances(geo.sphere, mats.tree2, crownsB, roots.roads);
+    addInstances(geo.cyl8, mats.lampPole, lampPoles, roots.roads);
+    var heads = addInstances(geo.sphere, mats.lamp, lampHeads, roots.roads);
+    addInstances(geo.box, mats.bin, bins, roots.roads);
+    addInstances(geo.box, mats.bench, benchSeats, roots.roads);
+    addInstances(geo.box, mats.bench, benchBacks, roots.roads);
+    lamps = heads ? [heads] : [];
+    dressingCounts = {
+      trees: treeTrunks.length,
+      lamps: lampPoles.length,
+      bins: bins.length,
+      benches: benchSeats.length
+    };
   }
 
   function pickNext(fromKey, avoidKey) {
@@ -856,14 +980,14 @@ window.Nexus = window.Nexus || {};
       var x = a.x + (b.x - a.x) * car.u;
       var z = a.z + (b.z - a.z) * car.u;
       var ang = Math.atan2(b.x - a.x, b.z - a.z);
-    dummy.position.set(x, ROAD_Y + 0.38, z);
+      dummy.position.set(x, ROAD_Y + 0.38, z);
       dummy.rotation.set(0, ang, 0);
       dummy.scale.set(1, 1, 1);
       dummy.updateMatrix();
       carMesh.setMatrixAt(i, dummy.matrix);
       dummy.position.y = ROAD_Y + 0.68;
-      dummy.position.x += Math.sin(ang) * 0.12;
-      dummy.position.z += Math.cos(ang) * 0.12;
+      dummy.position.x += Math.sin(ang) * 0.22;
+      dummy.position.z += Math.cos(ang) * 0.22;
       dummy.updateMatrix();
       carCabin.setMatrixAt(i, dummy.matrix);
     }
@@ -1378,11 +1502,39 @@ window.Nexus = window.Nexus || {};
     debugSnapshot: function () {
       return {
         cars: cars.map(function (c) {
-          return { from: c.from, to: c.to, u: Math.round(c.u * 1000) / 1000, hold: c.hold };
+          var a = graph.nodes[c.from];
+          var b = graph.nodes[c.to];
+          var dx = a && b ? b.x - a.x : 0;
+          var dz = a && b ? b.z - a.z : 0;
+          return {
+            from: c.from,
+            to: c.to,
+            u: Math.round(c.u * 1000) / 1000,
+            hold: c.hold,
+            heading: Math.atan2(dx, dz),
+            dx: Math.round(dx * 100) / 100,
+            dz: Math.round(dz * 100) / 100
+          };
         }),
+        carLongAxis: "z",
+        carForward: (function () {
+          if (!carMesh || !cars.length) {
+            return [];
+          }
+          var out = [];
+          var m = new THREE.Matrix4();
+          var i;
+          for (i = 0; i < Math.min(cars.length, 6); i++) {
+            carMesh.getMatrixAt(i, m);
+            var el = m.elements;
+            out.push({ zx: Math.round(el[8] * 1000) / 1000, zz: Math.round(el[10] * 1000) / 1000 });
+          }
+          return out;
+        })(),
         graphNodes: graph.keys.length,
         lights: lights.length,
-        lamps: lamps.length,
+        lamps: dressingCounts.lamps,
+        dressing: dressingCounts,
         night: isNight(),
         yaw: cam.seatYaw + cam.userYaw,
         polar: cam.polar,
