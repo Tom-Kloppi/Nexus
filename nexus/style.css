@@ -2786,6 +2786,7 @@ button {
 
 .scale-presets {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.3rem;
 }
 
@@ -2793,6 +2794,19 @@ button {
   min-height: 30px;
   padding: 0.2rem 0.5rem;
   font-size: 0.7rem;
+}
+
+.scale-presets .btn.is-selected,
+.scale-presets .btn[aria-pressed="true"] {
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 700;
+  border-color: transparent;
+}
+
+#district-canvas.is-pixel {
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
 }
 
 .t-toggle {

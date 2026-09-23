@@ -17,7 +17,8 @@ window.Nexus = window.Nexus || {};
   var prefs = {
     theme: localStorage.getItem("nexus-theme") || "light",
     uiScale: Number(localStorage.getItem("nexus-ui-scale") || "1"),
-    camPitch: Number(localStorage.getItem("nexus-cam-pitch") || "58")
+    camPitch: Number(localStorage.getItem("nexus-cam-pitch") || "58"),
+    boardQuality: localStorage.getItem("nexus-board-quality") || "auto"
   };
   if (prefs.uiScale < 0.8 || prefs.uiScale > 1.25 || Number.isNaN(prefs.uiScale)) {
     prefs.uiScale = 1;
@@ -26,6 +27,14 @@ window.Nexus = window.Nexus || {};
     prefs.camPitch = 58;
   }
   prefs.camPitch = Math.max(0, Math.min(100, prefs.camPitch));
+  if (
+    prefs.boardQuality !== "auto" &&
+    prefs.boardQuality !== "quality" &&
+    prefs.boardQuality !== "balance" &&
+    prefs.boardQuality !== "performance"
+  ) {
+    prefs.boardQuality = "auto";
+  }
 
   /* Klick auf einen gesperrten Knopf: wackeln und den Grund nennen, nicht schweigen */
   document.addEventListener(
@@ -93,9 +102,18 @@ window.Nexus = window.Nexus || {};
     if (Nexus.Board3D && Nexus.Board3D.setTheme) {
       Nexus.Board3D.setTheme();
     }
+    if (Nexus.Board3D && Nexus.Board3D.setQuality) {
+      Nexus.Board3D.setQuality(prefs.boardQuality);
+    }
+    Array.prototype.forEach.call(document.querySelectorAll("[data-board-quality]"), function (btn) {
+      var on = btn.getAttribute("data-board-quality") === prefs.boardQuality;
+      btn.setAttribute("aria-pressed", on ? "true" : "false");
+      btn.classList.toggle("is-selected", on);
+    });
     localStorage.setItem("nexus-theme", prefs.theme);
     localStorage.setItem("nexus-ui-scale", String(prefs.uiScale));
     localStorage.setItem("nexus-cam-pitch", String(prefs.camPitch));
+    localStorage.setItem("nexus-board-quality", prefs.boardQuality);
   }
 
   function toastNewLogs(prev, next) {
@@ -938,6 +956,17 @@ window.Nexus = window.Nexus || {};
     }
   }
 
+  function setBoardQuality(value) {
+    if (value !== "auto" && value !== "quality" && value !== "balance" && value !== "performance") {
+      value = "auto";
+    }
+    prefs.boardQuality = value;
+    applyAppearance();
+    if (state.screen === "game") {
+      Nexus.render(state, ui);
+    }
+  }
+
   function closeSettingsPanels(exceptWrap) {
     Array.prototype.forEach.call(document.querySelectorAll(".settings-wrap"), function (wrap) {
       var panel = wrap.querySelector(".settings-panel");
@@ -982,6 +1011,11 @@ window.Nexus = window.Nexus || {};
 
   Array.prototype.forEach.call(document.querySelectorAll(".scale-presets"), function (presets) {
     presets.addEventListener("click", function (event) {
+      var qualityBtn = event.target.closest("[data-board-quality]");
+      if (qualityBtn) {
+        setBoardQuality(qualityBtn.getAttribute("data-board-quality"));
+        return;
+      }
       var btn = event.target.closest("[data-ui-scale]");
       if (!btn) {
         return;

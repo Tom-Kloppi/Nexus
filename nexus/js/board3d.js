@@ -6,12 +6,72 @@ window.Nexus = window.Nexus || {};
   var ROAD_W = 1.72;
   var ROAD_Y = TILE_H + 0.06;
   var DECO_RINGS = 1;
-  var CAR_COUNT = 12;
+  var CAR_COUNT = 16;
   var MAX_LIGHTS = 16;
   var MAX_LAMPS = 18;
   var MAX_TREES = 28;
   var MAX_BINS = 12;
   var MAX_BENCHES = 3;
+
+  var QUALITY_PRESETS = {
+    quality: {
+      pixelRatioCap: 2,
+      renderScale: 1,
+      antialias: true,
+      rafStep: 1,
+      carCount: 16,
+      maxLights: 16,
+      maxLamps: 18,
+      maxTrees: 28,
+      maxBins: 12,
+      maxBenches: 3,
+      decoKeep: 1,
+      lightInterval: 0,
+      pixelLook: false
+    },
+    balance: {
+      pixelRatioCap: 1.25,
+      renderScale: 0.88,
+      antialias: true,
+      rafStep: 1,
+      carCount: 12,
+      maxLights: 10,
+      maxLamps: 12,
+      maxTrees: 16,
+      maxBins: 8,
+      maxBenches: 2,
+      decoKeep: 0.55,
+      lightInterval: 0.14,
+      pixelLook: true
+    },
+    performance: {
+      pixelRatioCap: 1,
+      renderScale: 0.75,
+      antialias: false,
+      rafStep: 2,
+      carCount: 6,
+      maxLights: 6,
+      maxLamps: 8,
+      maxTrees: 8,
+      maxBins: 4,
+      maxBenches: 1,
+      decoKeep: 0.28,
+      lightInterval: 0.22,
+      pixelLook: true
+    }
+  };
+
+  var qualityChoice = "auto";
+  var resolvedPreset = "";
+  var qualityReady = false;
+  var activeQuality = QUALITY_PRESETS.quality;
+  var gpuProbe = null;
+  var rendererAntialias = true;
+  var rafId = 0;
+  var rafN = 0;
+  var lastLightPulse = -1;
+  var lastLampNight = null;
+  var visibilityBound = false;
 
   var renderer = null;
   var scene = null;
@@ -132,6 +192,221 @@ window.Nexus = window.Nexus || {};
 
   function isNight() {
     return document.documentElement.getAttribute("data-theme") === "dark";
+  }
+
+  function normalizeQuality(value) {
+    if (value === "quality" || value === "balance" || value === "performance" || value === "auto") {
+      return value;
+    }
+    return "auto";
+  }
+
+  function probeGpu() {
+    if (gpuProbe) {
+      return gpuProbe;
+    }
+    var out = {
+      caveat: false,
+      software: false,
+      maxTextureSize: 0,
+      renderer: "",
+      webgl2: false
+    };
+    var probe = document.createElement("canvas");
+    var gl = null;
+    try {
+      gl =
+        probe.getContext("webgl2", { failIfMajorPerformanceCaveat: true }) ||
+        probe.getContext("webgl", { failIfMajorPerformanceCaveat: true });
+      if (!gl) {
+        out.caveat = true;
+        gl = probe.getContext("webgl2") || probe.getContext("webgl");
+      }
+    } catch (err) {
+      out.caveat = true;
+    }
+    if (!gl) {
+      out.caveat = true;
+      out.software = true;
+      gpuProbe = out;
+      return out;
+    }
+    out.webgl2 = typeof WebGL2RenderingContext !== "undefined" && gl instanceof WebGL2RenderingContext;
+    out.maxTextureSize = gl.getParameter(gl.MAX_TEXTURE_SIZE) || 0;
+    var info = gl.getExtension("WEBGL_debug_renderer_info");
+    if (info) {
+      out.renderer = String(gl.getParameter(info.UNMASKED_RENDERER_WEBGL) || "");
+    } else {
+      out.renderer = String(gl.getParameter(gl.RENDERER) || "");
+    }
+    out.software = /swiftshader|llvmpipe|softpipe|microsoft basic render|software|mesa offscreen|cpu rasterizer/i.test(
+      out.renderer
+    );
+    var lose = gl.getExtension("WEBGL_lose_context");
+    if (lose) {
+      lose.loseContext();
+    }
+    gpuProbe = out;
+    return out;
+  }
+
+  function pickAutoPreset() {
+    var gpu = probeGpu();
+    var dpr = window.devicePixelRatio || 1;
+    var cores = navigator.hardwareConcurrency || 4;
+    var ua = navigator.userAgent || "";
+    var mobile = /Mobi|Android|iPhone|iPad/i.test(ua);
+    var gpuName = gpu.renderer || "";
+    var mobileGpu = /mali|adreno|powervr/i.test(gpuName);
+    var igpu = /intel hd|intel uhd|intel iris/i.test(gpuName);
+    if (gpu.software || gpu.caveat || gpu.maxTextureSize < 4096) {
+      return "performance";
+    }
+    if (cores <= 2) {
+      return "performance";
+    }
+    if (mobile || mobileGpu) {
+      return dpr >= 2.5 ? "performance" : "balance";
+    }
+    if (dpr >= 2.5) {
+      return "balance";
+    }
+    if (igpu && dpr >= 2) {
+      return "balance";
+    }
+    if (cores <= 4 && dpr >= 2) {
+      return "balance";
+    }
+    return "quality";
+  }
+
+  function applyQualityCounts() {
+    var q = activeQuality;
+    CAR_COUNT = q.carCount;
+    MAX_LIGHTS = q.maxLights;
+    MAX_LAMPS = q.maxLamps;
+    MAX_TREES = q.maxTrees;
+    MAX_BINS = q.maxBins;
+    MAX_BENCHES = q.maxBenches;
+  }
+
+  function resolveQuality(choice, forceProbe) {
+    qualityChoice = normalizeQuality(choice);
+    var next;
+    if (qualityChoice === "auto") {
+      next = forceProbe || !QUALITY_PRESETS[resolvedPreset] ? pickAutoPreset() : resolvedPreset;
+    } else {
+      next = qualityChoice;
+    }
+    resolvedPreset = QUALITY_PRESETS[next] ? next : "quality";
+    activeQuality = QUALITY_PRESETS[resolvedPreset];
+    applyQualityCounts();
+    return resolvedPreset;
+  }
+
+  function applyCanvasLook() {
+    if (!canvas) {
+      return;
+    }
+    canvas.classList.toggle("is-pixel", !!activeQuality.pixelLook);
+    canvas.style.imageRendering = activeQuality.pixelLook ? "pixelated" : "auto";
+  }
+
+  function shouldAnimate() {
+    if (!renderer) {
+      return false;
+    }
+    if (typeof document.hidden === "boolean" && document.hidden) {
+      return false;
+    }
+    if (lastState && lastState.screen !== "game") {
+      return false;
+    }
+    return true;
+  }
+
+  function startLoop() {
+    if (rafId) {
+      return;
+    }
+    if (!shouldAnimate()) {
+      running = false;
+      return;
+    }
+    running = true;
+    if (clock) {
+      clock.getDelta();
+    }
+    rafId = requestAnimationFrame(tick);
+  }
+
+  function bindVisibility() {
+    if (visibilityBound) {
+      return;
+    }
+    visibilityBound = true;
+    document.addEventListener("visibilitychange", function () {
+      if (!document.hidden) {
+        startLoop();
+      }
+    });
+  }
+
+  function createRenderer() {
+    renderer = new THREE.WebGLRenderer({
+      canvas: canvas,
+      antialias: !!activeQuality.antialias,
+      alpha: false,
+      powerPreference: resolvedPreset === "performance" ? "low-power" : "high-performance"
+    });
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.setClearColor(isNight() ? 0x1c2740 : 0xa9dcf3, 1);
+    rendererAntialias = !!activeQuality.antialias;
+  }
+
+  function applyQualityToEngine(rebuild) {
+    applyQualityCounts();
+    lastLightPulse = -1;
+    lastLampNight = null;
+    if (!renderer || !canvas) {
+      return;
+    }
+    if (rendererAntialias !== !!activeQuality.antialias) {
+      if (rafId) {
+        cancelAnimationFrame(rafId);
+        rafId = 0;
+      }
+      try {
+        renderer.dispose();
+      } catch (err) {}
+      createRenderer();
+    }
+    applyCanvasLook();
+    resize();
+    if (!rebuild || !lastState) {
+      startLoop();
+      return;
+    }
+    var playTiles = Nexus.allSlots(Nexus.CONSTANTS.HEX_RADIUS);
+    buildRoads(playTiles);
+    lastFp = "";
+    rebuildTiles(lastState, lastUi);
+    lastFp = fingerprint(lastState, lastUi);
+    applyCamera();
+    startLoop();
+  }
+
+  function setBoardQuality(choice) {
+    var nextChoice = normalizeQuality(choice);
+    var changed = !qualityReady || nextChoice !== qualityChoice;
+    var prevResolved = resolvedPreset;
+    resolveQuality(nextChoice, nextChoice === "auto" && changed);
+    qualityReady = true;
+    if (!changed && resolvedPreset === prevResolved && renderer) {
+      return resolvedPreset;
+    }
+    applyQualityToEngine(!!renderer);
+    return resolvedPreset;
   }
 
   function makeFacadeTexture(seed) {
@@ -731,22 +1006,21 @@ window.Nexus = window.Nexus || {};
     var net = uniqueEdges(playTiles);
     graph.nodes = net.nodes;
     graph.keys = Object.keys(net.nodes);
+    var roadPoses = [];
+    var dashPoses = [];
     Object.keys(net.edges).forEach(function (ek) {
       var e = net.edges[ek];
       var dx = e.b.x - e.a.x;
       var dz = e.b.z - e.a.z;
       var len = Math.hypot(dx, dz) || 1;
-      var road = new THREE.Mesh(geo.box, mats.road);
-      road.scale.set(ROAD_W, 0.12, len);
-      road.position.set((e.a.x + e.b.x) / 2, ROAD_Y, (e.a.z + e.b.z) / 2);
-      road.rotation.y = Math.atan2(dx, dz);
-      roots.roads.add(road);
-      var dash = new THREE.Mesh(geo.box, mats.mark);
-      dash.scale.set(0.12, 0.04, len * 0.55);
-      dash.position.set((e.a.x + e.b.x) / 2, ROAD_Y + 0.07, (e.a.z + e.b.z) / 2);
-      dash.rotation.y = road.rotation.y;
-      roots.roads.add(dash);
+      var mx = (e.a.x + e.b.x) / 2;
+      var mz = (e.a.z + e.b.z) / 2;
+      var heading = Math.atan2(dx, dz);
+      roadPoses.push({ x: mx, y: ROAD_Y, z: mz, sx: ROAD_W, sy: 0.12, sz: len, ry: heading });
+      dashPoses.push({ x: mx, y: ROAD_Y + 0.07, z: mz, sx: 0.12, sy: 0.04, sz: len * 0.55, ry: heading });
     });
+    addInstances(geo.box, mats.road, roadPoses, roots.roads);
+    addInstances(geo.box, mats.mark, dashPoses, roots.roads);
     var lightKeys = graph.keys.filter(function (k) {
       return graph.nodes[k].next.length >= 3 && keyRand(k, 19) < 0.32;
     });
@@ -762,7 +1036,7 @@ window.Nexus = window.Nexus || {};
       var yel = addSphere(g, mats.yellow.clone(), 0.13, 0, TILE_H + 3.28, 0.16);
       var gre = addSphere(g, mats.green.clone(), 0.13, 0, TILE_H + 3.02, 0.16);
       roots.roads.add(g);
-      lights.push({ node: n.key, red: red, yel: yel, gre: gre, phase: i * 1.37 });
+      lights.push({ node: n.key, red: red, yel: yel, gre: gre, phase: i * 1.37, shown: "", night: null });
     }
     scatterStreetDressing(net);
     spawnCars();
@@ -931,11 +1205,21 @@ window.Nexus = window.Nexus || {};
     return false;
   }
 
-  function updateLights(time) {
+  function updateLights(time, force) {
     var night = isNight();
+    var interval = activeQuality.lightInterval || 0;
+    if (!force && interval && time - lastLightPulse < interval) {
+      return;
+    }
+    lastLightPulse = time;
     lights.forEach(function (L) {
       var t = (time + L.phase) % 6.2;
       var phase = t < 2.7 ? "g" : t < 3.3 ? "y" : "r";
+      if (!force && L.shown === phase && L.night === night) {
+        return;
+      }
+      L.shown = phase;
+      L.night = night;
       function set(mesh, on, live) {
         mesh.material.emissiveIntensity = on ? (night ? 1.8 : 0.7) : night ? 0.08 : 0.04;
         mesh.material.color.set(on ? live : "#2a2a2a");
@@ -944,9 +1228,14 @@ window.Nexus = window.Nexus || {};
       set(L.yel, phase === "y", "#ffd14a");
       set(L.red, phase === "r", "#ff4d3a");
     });
-    lamps.forEach(function (bulb) {
-      bulb.material.emissiveIntensity = night ? 1.5 : 0.14;
-    });
+    if (force || lastLampNight !== night) {
+      lastLampNight = night;
+      lamps.forEach(function (bulb) {
+        if (bulb && bulb.material) {
+          bulb.material.emissiveIntensity = night ? 1.5 : 0.14;
+        }
+      });
+    }
   }
 
   function updateCars(dt, time) {
@@ -1006,7 +1295,8 @@ window.Nexus = window.Nexus || {};
       ui && ui.homeOpen ? 1 : 0,
       ui && ui.expandSlot ? ui.expandSlot.q + "," + ui.expandSlot.r : "",
       rec ? rec.q + "," + rec.r : "",
-      document.documentElement.getAttribute("data-theme")
+      document.documentElement.getAttribute("data-theme"),
+      resolvedPreset
     ];
     (state.zones || []).forEach(function (z) {
       parts.push(z.id, z.type, z.variant || "", z.ownerId, z.upgradeLevel || 0, z.lastDieId || "");
@@ -1062,7 +1352,10 @@ window.Nexus = window.Nexus || {};
       var padR = HEX * 0.78;
       if (dist > radius) {
         var deco = seeded(slot.q, slot.r, 5)();
-        if (dist >= radius + 1 && deco < 0.34) {
+        var keepRoll = seeded(slot.q, slot.r, 41)();
+        if (activeQuality.decoKeep < 1 && keepRoll > activeQuality.decoKeep) {
+          padKey = "grass";
+        } else if (dist >= radius + 1 && deco < 0.34) {
           artRidge(group, rand);
           padKey = "grass";
         } else if (deco < 0.62) {
@@ -1253,7 +1546,13 @@ window.Nexus = window.Nexus || {};
     }
     var w = Math.max(1, viewport.clientWidth);
     var h = Math.max(1, viewport.clientHeight);
-    renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
+    var dpr = window.devicePixelRatio || 1;
+    var cap = activeQuality.pixelRatioCap || 1;
+    var pr = Math.min(cap, dpr);
+    if (activeQuality.pixelLook) {
+      pr *= activeQuality.renderScale || 1;
+    }
+    renderer.setPixelRatio(Math.max(0.5, pr));
     renderer.setSize(w, h, false);
     camera.aspect = w / h;
     camera.updateProjectionMatrix();
@@ -1261,10 +1560,16 @@ window.Nexus = window.Nexus || {};
   }
 
   function tick() {
-    if (!running || !renderer) {
+    rafId = 0;
+    if (!shouldAnimate()) {
+      running = false;
       return;
     }
-    requestAnimationFrame(tick);
+    rafId = requestAnimationFrame(tick);
+    rafN += 1;
+    if (activeQuality.rafStep > 1 && rafN % activeQuality.rafStep !== 0) {
+      return;
+    }
     var dt = Math.min(0.05, clock.getDelta());
     var time = clock.elapsedTime;
     cam.seatYaw = lerpAngle(cam.seatYaw, cam.seatTarget, 1 - Math.pow(0.0008, dt));
@@ -1302,13 +1607,11 @@ window.Nexus = window.Nexus || {};
     if (!viewport || !canvas) {
       return false;
     }
+    if (!qualityReady) {
+      setBoardQuality(qualityChoice);
+    }
     try {
-      renderer = new THREE.WebGLRenderer({
-        canvas: canvas,
-        antialias: true,
-        alpha: false,
-        powerPreference: "high-performance"
-      });
+      createRenderer();
     } catch (err) {
       console.error("NEXUS Board3D: WebGL nicht verfügbar", err);
       return false;
@@ -1356,6 +1659,7 @@ window.Nexus = window.Nexus || {};
       }
     });
     lastTheme = document.documentElement.getAttribute("data-theme") || "light";
+    applyCanvasLook();
     resize();
     if (window.ResizeObserver) {
       resizeObs = new ResizeObserver(function () {
@@ -1363,9 +1667,9 @@ window.Nexus = window.Nexus || {};
       });
       resizeObs.observe(viewport);
     }
-    running = true;
+    bindVisibility();
     clock.start();
-    requestAnimationFrame(tick);
+    startLoop();
     return true;
   }
 
@@ -1373,11 +1677,13 @@ window.Nexus = window.Nexus || {};
     lastState = state;
     lastUi = ui;
     if (!state || state.screen !== "game") {
+      running = false;
       return;
     }
     if (!ensure()) {
       return;
     }
+    startLoop();
     var theme = document.documentElement.getAttribute("data-theme") || "light";
     var themeChanged = theme !== lastTheme;
     if (themeChanged) {
@@ -1487,6 +1793,31 @@ window.Nexus = window.Nexus || {};
     },
     resize: resize,
     pick: pickAt,
+    setQuality: setBoardQuality,
+    getQuality: function () {
+      return {
+        choice: qualityChoice,
+        resolved: resolvedPreset || "quality",
+        animating: running && !!rafId,
+        pixelRatio: renderer ? renderer.getPixelRatio() : null,
+        antialias: !!activeQuality.antialias,
+        rafStep: activeQuality.rafStep,
+        pixelLook: !!activeQuality.pixelLook,
+        renderScale: activeQuality.renderScale,
+        cars: CAR_COUNT,
+        maxLights: MAX_LIGHTS,
+        maxLamps: MAX_LAMPS,
+        maxTrees: MAX_TREES,
+        decoKeep: activeQuality.decoKeep,
+        gpu: gpuProbe,
+        preset: {
+          pixelRatioCap: activeQuality.pixelRatioCap,
+          carCount: activeQuality.carCount,
+          maxLights: activeQuality.maxLights,
+          maxLamps: activeQuality.maxLamps
+        }
+      };
+    },
     setTheme: function () {
       if (!renderer) {
         return;
@@ -1535,6 +1866,9 @@ window.Nexus = window.Nexus || {};
         lights: lights.length,
         lamps: dressingCounts.lamps,
         dressing: dressingCounts,
+        quality: qualityChoice,
+        resolvedQuality: resolvedPreset,
+        pixelRatio: renderer ? renderer.getPixelRatio() : null,
         night: isNight(),
         yaw: cam.seatYaw + cam.userYaw,
         polar: cam.polar,
