@@ -1083,6 +1083,65 @@ window.Nexus = window.Nexus || {};
     }
   }
 
+  /** Uncontrolled playable tiles: already built city fabric, no owner tint. */
+  function artUncontrolled(group, rand, q, r) {
+    var roll = rand();
+    if (roll < 0.34) {
+      var h = 4.2 + rand() * 5.5;
+      addBox(group, facadeMat(q, r), 2.8 + rand(), h, 2.6 + rand() * 0.6, -0.2, TILE_H, 0.1, 0);
+      addBox(group, mats.roof, 3.0, 0.16, 2.8, -0.2, TILE_H + h, 0.1, 0);
+      if (rand() < 0.5) {
+        addBox(group, mats.concrete, 1.6, h * 0.55, 1.5, 2.0, TILE_H, 0.4, 0);
+      }
+    } else if (roll < 0.55) {
+      addBox(group, mats.concrete, 4.2, 2.4 + rand() * 1.2, 3.2, 0, TILE_H, 0, 0);
+      addBox(group, mats.roof, 4.4, 0.14, 3.4, 0, TILE_H + 2.6, 0, 0);
+    } else if (roll < 0.72) {
+      artLot(group, rand);
+      if (rand() < 0.6) {
+        addBox(group, mats.car, 1.1, 0.35, 0.5, 1.2, TILE_H, -1.2, rand() * 1.5);
+      }
+    } else {
+      artPark(group, rand);
+    }
+    if (rand() < 0.35) {
+      lampPost(group, 2.2 + rand() * 0.4, -2.0, 2.2);
+    }
+  }
+
+  function addGreenPatches(group, patches) {
+    var i;
+    for (i = 0; i < patches.length; i++) {
+      var p = patches[i];
+      addCyl(group, mats.grass, p.r, p.r, 0.1, p.x, TILE_H, p.z, 12);
+      if (p.r > 0.9) {
+        tree(group, p.x + 0.2, p.z - 0.15, 0.55 + p.r * 0.15, i % 2 === 0);
+      }
+    }
+  }
+
+  function dressTileProps(group, zoneKey, q, r, budget) {
+    var Props = Nexus.BoardProps;
+    if (!Props) {
+      return;
+    }
+    var sprites = Props.cacheAll();
+    var list = Props.ZONE_PROPS[zoneKey] || Props.ZONE_PROPS.empty;
+    var rand = seeded(q, r, 55);
+    var count = Math.max(1, Math.min(budget || 4, 1 + Math.floor(rand() * (budget || 4))));
+    var i;
+    for (i = 0; i < count; i++) {
+      var type = Props.pickProp(list, rand);
+      var map = Props.mapFor(sprites, type, Math.floor(rand() * 8));
+      var sc = Props.propScale(type);
+      var ang = rand() * Math.PI * 2;
+      var dist = 1.4 + rand() * 3.4;
+      var x = Math.cos(ang) * dist;
+      var z = Math.sin(ang) * dist;
+      addBillboard(group, map, x, TILE_H + sc.sy * 0.45, z, sc.sx, sc.sy, 1);
+    }
+  }
+
   function artWarehouse(group, rand) {
     var h = 2.2 + (rand() < 0.5 ? 1.1 : 0);
     addBox(group, mats.concrete, 4.6, h, 3.4, 0, TILE_H, 0, 0);
@@ -1613,7 +1672,7 @@ window.Nexus = window.Nexus || {};
       }
       var x = a.x + (b.x - a.x) * car.u;
       var z = a.z + (b.z - a.z) * car.u;
-      var ang = Math.atan2(b.x - a.x, b.z - a.z);
+      var ang = Math.atan2(b.x - a.x, b.z - a.z) + Math.PI;
       dummy.position.set(x, ROAD_Y + 0.38, z);
       dummy.rotation.set(0, ang, 0);
       dummy.scale.set(1, 1, 1);
@@ -1747,12 +1806,30 @@ window.Nexus = window.Nexus || {};
           halo.rotation.y = HEX_YAW;
           group.add(halo);
         }
+        var greenOwned =
+          Nexus.BoardProps && Nexus.BoardProps.greenPlan
+            ? Nexus.BoardProps.greenPlan(slot.q, slot.r, radius, seeded)
+            : { kind: "none", patches: [] };
+        if (greenOwned.kind === "patch") {
+          addGreenPatches(group, greenOwned.patches);
+        }
+        dressTileProps(group, zone.type || "empty", slot.q, slot.r, zone.type === "home" ? 3 : 4);
       } else {
-        padKey = dist <= 1 ? "park" : "grass";
-        if (padKey === "park") {
+        var green =
+          Nexus.BoardProps && Nexus.BoardProps.greenPlan
+            ? Nexus.BoardProps.greenPlan(slot.q, slot.r, radius, seeded)
+            : { kind: dist <= 1 ? "full" : "none", patches: [] };
+        if (green.kind === "full") {
+          padKey = "park";
           artPark(group, rand);
+          dressTileProps(group, "park", slot.q, slot.r, 5);
         } else {
-          artLot(group, rand);
+          padKey = "grass";
+          artUncontrolled(group, rand, slot.q, slot.r);
+          if (green.kind === "patch") {
+            addGreenPatches(group, green.patches);
+          }
+          dressTileProps(group, "empty", slot.q, slot.r, 5);
         }
         var expandable = Nexus.isExpandableSlot(state, slot.q, slot.r) && state.turnPhase === "build";
         if (expandable) {
