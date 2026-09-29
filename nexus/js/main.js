@@ -1819,6 +1819,38 @@ window.Nexus = window.Nexus || {};
 
   document.getElementById("btn-tutorial").addEventListener("click", startTutorial);
   document.getElementById("btn-help").addEventListener("click", startInGameHelp);
+
+  function openGoalHelp() {
+    var shell = document.getElementById("goal-help-modal");
+    var list = document.getElementById("goal-help-list");
+    if (!shell || !list) {
+      return;
+    }
+    var gloss = Nexus.GOAL_GLOSSARY || {};
+    list.innerHTML = ["spur", "stufe", "prozent", "unterziel", "sieg"]
+      .map(function (key) {
+        var item = gloss[key];
+        if (!item) {
+          return "";
+        }
+        return "<li><strong>" + item.title + "</strong>" + item.text + "</li>";
+      })
+      .join("");
+    Nexus.openModal(shell);
+  }
+
+  document.addEventListener("click", function (event) {
+    if (event.target.closest("#btn-goal-help-open")) {
+      openGoalHelp();
+    }
+  });
+  var goalHelpClose = document.getElementById("btn-goal-help-close");
+  if (goalHelpClose) {
+    goalHelpClose.addEventListener("click", function () {
+      Nexus.closeModal(document.getElementById("goal-help-modal"));
+    });
+  }
+
   document.getElementById("btn-tutorial-next").addEventListener("click", nextTutorial);
   document.getElementById("btn-tutorial-back").addEventListener("click", prevTutorial);
   document.getElementById("btn-tutorial-exit").addEventListener("click", exitTutorial);

@@ -18,8 +18,8 @@
       href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800&family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="transitions.css?v=58" />
-    <link rel="stylesheet" href="style.css?v=58" />
+    <link rel="stylesheet" href="transitions.css?v=59" />
+    <link rel="stylesheet" href="style.css?v=59" />
   </head>
   <body>
     <div class="modal-shell t-modal-backdrop" id="setup-screen">
@@ -455,6 +455,24 @@
       </div>
     </div>
 
+    <div id="goal-help-modal" class="modal-shell t-modal-backdrop" hidden>
+      <div class="modal-card t-modal piece goal-help-card" role="dialog" aria-modal="true" aria-labelledby="goal-help-title">
+        <p class="modal-kicker">Regelhilfe</p>
+        <h2 id="goal-help-title">Spuren, Stufen, Prozent</h2>
+        <div class="goal-help-flow" aria-hidden="true">
+          <span>Spur / Metrik</span>
+          <span class="goal-help-arrow">→</span>
+          <span>Stufe</span>
+          <span class="goal-help-arrow">→</span>
+          <span>Prozent</span>
+          <span class="goal-help-arrow">→</span>
+          <span>Sieg</span>
+        </div>
+        <ul class="goal-help-list" id="goal-help-list"></ul>
+        <button type="button" class="btn primary" id="btn-goal-help-close">Verstanden</button>
+      </div>
+    </div>
+
     <div id="end-screen" class="modal-shell t-modal-backdrop" hidden>
       <div class="modal-card t-modal piece end-card" role="dialog" aria-modal="true">
         <h2 id="end-screen-title">Spiel beendet</h2>
@@ -464,21 +482,22 @@
       </div>
     </div>
 
-    <script src="vendor/three.min.js?v=58"></script>
-    <script src="js/data/constants.js?v=58"></script>
-    <script src="js/data/tiles.js?v=58"></script>
-    <script src="js/data/devices.js?v=58"></script>
-    <script src="js/data/events.js?v=58"></script>
-    <script src="js/data/cards.js?v=58"></script>
-    <script src="js/data/roles.js?v=58"></script>
-    <script src="js/data/tutorial.js?v=58"></script>
-    <script src="js/icons.js?v=58"></script>
-    <script src="js/roles.js?v=58"></script>
-    <script src="js/state.js?v=58"></script>
-    <script src="js/board-look.js?v=58"></script>
-    <script src="js/board-props.js?v=58"></script>
-    <script src="js/board3d.js?v=58"></script>
-    <script src="js/render.js?v=58"></script>
-    <script src="js/main.js?v=58"></script>
+    <script src="vendor/three.min.js?v=59"></script>
+    <script src="js/data/constants.js?v=59"></script>
+    <script src="js/data/tiles.js?v=59"></script>
+    <script src="js/data/devices.js?v=59"></script>
+    <script src="js/data/events.js?v=59"></script>
+    <script src="js/data/cards.js?v=59"></script>
+    <script src="js/data/roles.js?v=59"></script>
+    <script src="js/data/tutorial.js?v=59"></script>
+    <script src="js/icons.js?v=59"></script>
+    <script src="js/role-avatars.js?v=59"></script>
+    <script src="js/roles.js?v=59"></script>
+    <script src="js/state.js?v=59"></script>
+    <script src="js/board-look.js?v=59"></script>
+    <script src="js/board-props.js?v=59"></script>
+    <script src="js/board3d.js?v=59"></script>
+    <script src="js/render.js?v=59"></script>
+    <script src="js/main.js?v=59"></script>
   </body>
 </html>

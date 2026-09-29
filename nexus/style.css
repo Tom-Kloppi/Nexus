@@ -468,6 +468,186 @@ button {
   color: #fff;
   font-size: 0.78rem;
   font-weight: 800;
+  overflow: hidden;
+}
+
+.player-card-avatar {
+  background: color-mix(in srgb, var(--player-color, var(--accent)) 30%, #fff);
+  box-shadow: inset 0 0 0 2px var(--player-color, var(--accent));
+  color: var(--ink);
+}
+
+.player-card-avatar .role-avatar-svg,
+.turn-avatar .role-avatar-svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.turn-avatar-fallback {
+  font-weight: 800;
+}
+
+.player-card-stats {
+  display: none;
+  gap: 0.45rem;
+  font-size: 0.68rem;
+  color: var(--ink-soft);
+}
+
+.player-card.is-active .player-card-stats,
+.player-card[aria-expanded="true"] .player-card-stats {
+  display: flex;
+}
+
+.player-card.is-active {
+  height: auto;
+  min-height: 2.2rem;
+  padding-top: 0.25rem;
+  padding-bottom: 0.25rem;
+}
+
+.role-dossier {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.role-dossier-hero {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.role-dossier-id h3 {
+  margin: 0.15rem 0;
+  font-family: "Fraunces", Georgia, serif;
+}
+
+.role-dossier-char,
+.role-dossier-blurb {
+  margin: 0;
+  color: var(--ink-dim);
+  font-size: 0.9rem;
+}
+
+.role-dossier-facts {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.35rem;
+  font-size: 0.86rem;
+}
+
+.role-dossier-facts li {
+  padding: 0.4rem 0.55rem;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--surface-2) 80%, transparent);
+}
+
+.goal-glossary {
+  border: 1px dashed var(--panel-edge);
+  border-radius: 10px;
+  padding: 0.45rem 0.55rem;
+  margin-bottom: 0.35rem;
+}
+
+.goal-help-flow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  align-items: center;
+  margin: 0 0 0.8rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.goal-help-arrow {
+  color: var(--ink-soft);
+}
+
+.goal-help-list {
+  margin: 0 0 1rem;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.55rem;
+}
+
+.goal-help-list li {
+  padding: 0.55rem 0.65rem;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--surface-2) 85%, transparent);
+}
+
+.goal-help-list strong {
+  display: block;
+  margin-bottom: 0.15rem;
+}
+
+.resource-fx-layer {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 80;
+}
+
+.resource-fx-particle {
+  position: fixed;
+  width: 1.35rem;
+  height: 1.35rem;
+  margin: -0.65rem 0 0 -0.65rem;
+  color: var(--ink);
+  animation: resource-fx-fly 0.65s var(--ease-smooth-out, ease-out) forwards;
+}
+
+.resource-fx-particle svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.25));
+}
+
+.resource-fx-particle.res-energy {
+  color: var(--res-energy);
+}
+
+.resource-fx-particle.res-money {
+  color: var(--res-money);
+}
+
+.resource-fx-particle.res-bandwidth {
+  color: var(--res-bandwidth);
+}
+
+.wallet-item.is-res-flash {
+  animation: wallet-res-flash 0.45s ease-out;
+}
+
+@keyframes resource-fx-fly {
+  0% {
+    transform: translate(0, 0) scale(0.7);
+    opacity: 0;
+  }
+  12% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate(var(--fx-dx), var(--fx-dy)) scale(1.05);
+    opacity: 0;
+  }
+}
+
+@keyframes wallet-res-flash {
+  0% {
+    filter: brightness(1);
+  }
+  35% {
+    filter: brightness(1.35);
+  }
+  100% {
+    filter: brightness(1);
+  }
 }
 
 .turn-meta {
