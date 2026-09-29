@@ -718,6 +718,50 @@ window.Nexus = window.Nexus || {};
     commit(Nexus.endTurn(state), { skipAutoHarvest: true });
   });
 
+  document.getElementById("map-viewport").addEventListener("pointermove", function (event) {
+    var tip = document.getElementById("board-hover-tip");
+    if (!tip || !Nexus.Board3D || !Nexus.Board3D.pick) {
+      return;
+    }
+    if (ui.map.dragging || ui.map.panning) {
+      tip.hidden = true;
+      return;
+    }
+    var hit = Nexus.Board3D.pick(event.clientX, event.clientY);
+    if (!hit) {
+      tip.hidden = true;
+      return;
+    }
+    var text = "";
+    if (hit.kind === "empty" && hit.open) {
+      text = "Bebaubar — tippen zum Bauen";
+    } else if (hit.kind === "empty" && hit.blockedReason) {
+      text = hit.blockedReason;
+    } else if (hit.kind === "owned") {
+      text = hit.mine ? "Dein Feld" : "Fremdes Feld";
+    } else if (hit.kind === "home") {
+      text = hit.mine ? "Dein Kontrollbüro" : "Kontrollbüro";
+    }
+    if (!text) {
+      tip.hidden = true;
+      return;
+    }
+    tip.hidden = false;
+    tip.textContent = text;
+    tip.classList.toggle("is-ok", !!(hit.kind === "empty" && hit.open));
+    tip.classList.toggle("is-blocked", !!(hit.kind === "empty" && !hit.open));
+    var rect = document.getElementById("map-viewport").getBoundingClientRect();
+    tip.style.left = event.clientX - rect.left + 14 + "px";
+    tip.style.top = event.clientY - rect.top + 14 + "px";
+  });
+
+  document.getElementById("map-viewport").addEventListener("pointerleave", function () {
+    var tip = document.getElementById("board-hover-tip");
+    if (tip) {
+      tip.hidden = true;
+    }
+  });
+
   document.getElementById("map-viewport").addEventListener("click", function (event) {
     if (ui.map.moved) {
       ui.map.moved = false;

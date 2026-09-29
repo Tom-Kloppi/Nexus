@@ -735,6 +735,31 @@ button {
   touch-action: none;
 }
 
+.board-hover-tip {
+  position: absolute;
+  z-index: 8;
+  max-width: 14rem;
+  padding: 0.35rem 0.55rem;
+  border-radius: 8px;
+  border: 1px solid var(--panel-edge);
+  background: color-mix(in srgb, var(--panel-solid) 92%, transparent);
+  color: var(--ink);
+  font-size: 0.78rem;
+  line-height: 1.25;
+  pointer-events: none;
+  box-shadow: var(--panel-shadow);
+  backdrop-filter: blur(8px);
+}
+
+.board-hover-tip.is-ok {
+  border-color: color-mix(in srgb, var(--ok) 55%, var(--panel-edge));
+}
+
+.board-hover-tip.is-blocked {
+  border-color: color-mix(in srgb, var(--amber) 55%, var(--panel-edge));
+  color: var(--ink-dim);
+}
+
 .city-plane {
   user-select: none;
   -webkit-user-select: none;

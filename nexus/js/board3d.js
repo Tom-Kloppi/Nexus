@@ -7,8 +7,11 @@ window.Nexus = window.Nexus || {};
   var ROAD_Y = TILE_H + 0.06;
   var DECO_RINGS = 1;
   var HEX_YAW = 0;
-  var CAM_DIST_MIN = 30;
-  var CAM_DIST_MAX = 290;
+  var CAM_DIST_MIN = 34;
+  var CAM_DIST_MAX = 240;
+  var CAM_POLAR_MIN = 0.28;
+  var CAM_POLAR_MAX = 1.28;
+  var CAM_PAN_MARGIN = HEX * 2.4;
   var FOG_NEAR = 220;
   var FOG_FAR = 520;
   var PLATE_RADIUS = HEX * 42;
@@ -120,6 +123,8 @@ window.Nexus = window.Nexus || {};
   var plusPins = [];
   var overlays = [];
   var lampPools = [];
+  var buildRings = [];
+  var ownerRims = [];
 
   var cam = {
     pitchSlider: 58,
@@ -131,7 +136,12 @@ window.Nexus = window.Nexus || {};
     panX: 0,
     panZ: 0,
     panY: 2.2,
-    userAdjusted: false
+    userAdjusted: false,
+    targetPanX: 0,
+    targetPanZ: 0,
+    targetPolar: 0.72,
+    targetDistance: 78,
+    targetUserYaw: 0
   };
 
   function css(name, fallback) {
@@ -185,7 +195,20 @@ window.Nexus = window.Nexus || {};
 
   function polarFromSlider(t) {
     t = Math.max(0, Math.min(100, Number(t) || 58)) / 100;
-    return 0.26 + t * 0.84;
+    return CAM_POLAR_MIN + t * (CAM_POLAR_MAX - CAM_POLAR_MIN);
+  }
+
+  function panLimit() {
+    var radius = (Nexus.CONSTANTS && Nexus.CONSTANTS.HEX_RADIUS) || 3;
+    return HEX * (radius + 1.35) + CAM_PAN_MARGIN;
+  }
+
+  function clampPan() {
+    var lim = panLimit();
+    cam.targetPanX = clamp(cam.targetPanX, -lim, lim);
+    cam.targetPanZ = clamp(cam.targetPanZ, -lim, lim);
+    cam.panX = clamp(cam.panX, -lim, lim);
+    cam.panZ = clamp(cam.panZ, -lim, lim);
   }
 
   function clamp(v, a, b) {
@@ -615,17 +638,37 @@ window.Nexus = window.Nexus || {};
     mats.gizmoLock = lambert("#ffd14a", { emissive: "#ffb000", emissiveIntensity: night ? 1.1 : 0.55 });
     mats.gizmoHot = lambert("#ff8a3a", { emissive: "#ff6a18", emissiveIntensity: night ? 1.15 : 0.5 });
     mats.gizmoCool = lambert("#3ee0c4", { emissive: "#1aa890", emissiveIntensity: night ? 1.05 : 0.42 });
-    function pastelOf(hex) {
+    function ownerPadOf(hex) {
       var c = new THREE.Color(hex);
-      var wash = new THREE.Color(night ? "#27343c" : "#f3efe6");
-      c.lerp(wash, night ? 0.5 : 0.6);
+      var wash = new THREE.Color(night ? "#1a2430" : "#ffffff");
+      c.lerp(wash, night ? 0.18 : 0.12);
+      return lambert(c, {
+        emissive: hex,
+        emissiveIntensity: night ? 0.55 : 0.28
+      });
+    }
+    function ownerRimOf(hex) {
+      return lambert(hex, {
+        emissive: hex,
+        emissiveIntensity: night ? 0.85 : 0.45,
+        transparent: true,
+        opacity: 0.85
+      });
+    }
+    function ownerTintOf(hex) {
+      var c = new THREE.Color(hex);
+      c.lerp(new THREE.Color(night ? "#3a4450" : "#e8e0d8"), 0.45);
       return lambert(c);
     }
     (Nexus.PLAYER_COLORS || []).forEach(function (hex, index) {
-      mats["ownerPad" + index] = pastelOf(hex);
+      mats["ownerPad" + index] = ownerPadOf(hex);
+      mats["ownerRim" + index] = ownerRimOf(hex);
+      mats["ownerTint" + index] = ownerTintOf(hex);
     });
     if (!mats.ownerPad0) {
-      mats.ownerPad0 = pastelOf("#1f8f76");
+      mats.ownerPad0 = ownerPadOf("#009E73");
+      mats.ownerRim0 = ownerRimOf("#009E73");
+      mats.ownerTint0 = ownerTintOf("#009E73");
     }
     mats.hit = basic("#ffffff", { transparent: true, opacity: 0, depthWrite: false });
     mats.bin = lambert(night ? "#3c444c" : "#6b737a");
@@ -642,6 +685,13 @@ window.Nexus = window.Nexus || {};
       transparent: true,
       opacity: 0.35
     });
+    mats.buildPulse = lambert("#3ee0c4", {
+      emissive: "#3ee0c4",
+      emissiveIntensity: 0.7,
+      transparent: true,
+      opacity: 0.55
+    });
+    mats.tileDim = basic("#0a1218", { transparent: true, opacity: night ? 0.35 : 0.22, depthWrite: false });
     mats.island = lambert((biomeTheme() && biomeTheme().plate) || css("--lu-farm-top", "#c4beb4"));
     mats.waterless = lambert((biomeTheme() && biomeTheme().plateDeep) || css("--lu-hill-deep", "#5a6558"));
     mats.horizon = lambert((biomeTheme() && biomeTheme().horizon) || css("--lu-hill-side", "#7e8a7c"));
@@ -851,6 +901,45 @@ window.Nexus = window.Nexus || {};
   function ownerPadMat(index) {
     var count = (Nexus.PLAYER_COLORS || []).length || 1;
     return mats["ownerPad" + (index % count)] || mats.ownerPad0;
+  }
+
+  function ownerTintMat(index) {
+    var count = (Nexus.PLAYER_COLORS || []).length || 1;
+    return mats["ownerTint" + (index % count)] || mats.ownerTint0;
+  }
+
+  function ownerRimMat(index) {
+    var count = (Nexus.PLAYER_COLORS || []).length || 1;
+    return mats["ownerRim" + (index % count)] || mats.ownerRim0;
+  }
+
+  function tintOwnedBuildings(group, colorIndex) {
+    var tint = ownerTintMat(colorIndex);
+    if (!tint) {
+      return;
+    }
+    group.traverse(function (obj) {
+      if (!obj.isMesh || !obj.material) {
+        return;
+      }
+      if (obj.userData && obj.userData.pick) {
+        return;
+      }
+      var name = obj.material === mats.roof || obj.material === mats.slate || obj.material === mats.cream;
+      if (name || (obj.material.color && obj.position && obj.position.y > TILE_H + 3)) {
+        if (obj.material === mats.roof || obj.material === mats.slate) {
+          obj.material = tint;
+        }
+      }
+    });
+    /* Roof accents: boxes near the top of owned buildings */
+    var i;
+    for (i = 0; i < group.children.length; i++) {
+      var child = group.children[i];
+      if (child.isMesh && child.material === mats.roof) {
+        child.material = tint;
+      }
+    }
   }
 
   function facadeMat(q, r) {
@@ -1740,12 +1829,18 @@ window.Nexus = window.Nexus || {};
 
   function rebuildTiles(state, ui) {
     clearGroup(roots.tiles);
+    if (roots.picks) {
+      clearGroup(roots.picks);
+    }
     plusPins = [];
     overlays = [];
+    buildRings = [];
+    ownerRims = [];
     var player = Nexus.currentPlayer(state);
     var rec = Nexus.recommendExpandSlot ? Nexus.recommendExpandSlot(state) : null;
     var play = [];
     var radius = Nexus.CONSTANTS.HEX_RADIUS;
+    var buildPhase = state.turnPhase === "build";
     Nexus.allSlots(radius + DECO_RINGS).forEach(function (slot) {
       var dist = axialDist(slot.q, slot.r);
       var pos = axial(slot.q, slot.r);
@@ -1756,6 +1851,7 @@ window.Nexus = window.Nexus || {};
       var padKey = "grass";
       var padR = HEX * 0.9;
       var owner = null;
+      var expandable = false;
       if (dist > radius) {
         var deco = seeded(slot.q, slot.r, 5)();
         var keepRoll = seeded(slot.q, slot.r, 41)();
@@ -1796,6 +1892,9 @@ window.Nexus = window.Nexus || {};
           return p.id === zone.ownerId;
         })[0];
         owner = ownerMatch || null;
+        if (owner) {
+          tintOwnedBuildings(group, owner.colorIndex || 0);
+        }
         var selected =
           (ui && ui.inspectedZoneId === zone.id) ||
           (zone.type === "home" && ui && ui.homeOpen && player && zone.ownerId === player.id);
@@ -1818,7 +1917,7 @@ window.Nexus = window.Nexus || {};
         var green =
           Nexus.BoardProps && Nexus.BoardProps.greenPlan
             ? Nexus.BoardProps.greenPlan(slot.q, slot.r, radius, seeded)
-            : { kind: dist <= 1 ? "full" : "none", patches: [] };
+            : { kind: "none", patches: [] };
         if (green.kind === "full") {
           padKey = "park";
           artPark(group, rand);
@@ -1831,9 +1930,15 @@ window.Nexus = window.Nexus || {};
           }
           dressTileProps(group, "empty", slot.q, slot.r, 5);
         }
-        var expandable = Nexus.isExpandableSlot(state, slot.q, slot.r) && state.turnPhase === "build";
+        expandable = Nexus.isExpandableSlot(state, slot.q, slot.r) && buildPhase;
         if (expandable) {
           var recHere = rec && rec.q === slot.q && rec.r === slot.r;
+          var ring = new THREE.Mesh(geo.cyl6, mats.buildPulse);
+          ring.scale.set(HEX * 0.9, 0.1, HEX * 0.9);
+          ring.position.y = TILE_H + 0.14;
+          ring.rotation.y = HEX_YAW;
+          group.add(ring);
+          buildRings.push({ mesh: ring, rec: recHere });
           var pin = new THREE.Group();
           addCyl(pin, mats.lampPole, 0.07, 0.07, 2.1, 0, TILE_H, 0, 8);
           var head = addSphere(pin, recHere ? mats.plusRec : mats.plus, 0.55, 0, TILE_H + 2.4, 0);
@@ -1848,6 +1953,12 @@ window.Nexus = window.Nexus || {};
             sh.rotation.y = HEX_YAW;
             group.add(sh);
           }
+        } else if (buildPhase && dist <= radius) {
+          var dim = new THREE.Mesh(geo.cyl6, mats.tileDim);
+          dim.scale.set(HEX * 0.9, 0.06, HEX * 0.9);
+          dim.position.y = TILE_H + 0.12;
+          dim.rotation.y = HEX_YAW;
+          group.add(dim);
         }
       }
       var padMat = owner
@@ -1858,15 +1969,44 @@ window.Nexus = window.Nexus || {};
       pad.position.y = TILE_H / 2;
       pad.rotation.y = HEX_YAW;
       group.add(pad);
-      var hit = new THREE.Mesh(geo.cyl6, mats.hit);
-      hit.scale.set(HEX * 0.92, 8, HEX * 0.92);
-      hit.position.y = 4;
-      hit.rotation.y = HEX_YAW;
+      if (owner) {
+        var rim = new THREE.Mesh(geo.cyl6, ownerRimMat(owner.colorIndex || 0));
+        rim.scale.set(padR * 1.04, 0.12, padR * 1.04);
+        rim.position.y = TILE_H + 0.06;
+        rim.rotation.y = HEX_YAW;
+        group.add(rim);
+        ownerRims.push(rim);
+      }
       var pick = tilePickData({ q: slot.q, r: slot.r, dist: dist }, zone, state, ui, player);
       if (pick) {
+        pick.blockedReason = null;
+        if (pick.kind === "empty" && !pick.open && buildPhase) {
+          pick.blockedReason = Nexus.isAdjacentToPlayer
+            ? "Nicht angrenzend an dein Netz."
+            : "Hier kannst du gerade nicht bauen.";
+          if (!Nexus.isExpandableSlot(state, slot.q, slot.r)) {
+            var adj = false;
+            if (Nexus.neighbors) {
+              adj = Nexus.neighbors(slot.q, slot.r).some(function (n) {
+                var z = Nexus.zoneAt(state, n.q, n.r);
+                return z && player && z.ownerId === player.id;
+              });
+            }
+            pick.blockedReason = adj
+              ? "Nur in der Bauphase auf freien Nachbarfeldern."
+              : "Feld liegt nicht an deinem Distrikt.";
+          }
+        }
+        var hit = new THREE.Mesh(geo.cyl6, mats.hit);
+        hit.scale.set(HEX * 0.92, 0.18, HEX * 0.92);
+        hit.position.set(pos.x, TILE_H + 0.1, pos.z);
+        hit.rotation.y = HEX_YAW;
         hit.userData.pick = pick;
-        group.userData.pick = pick;
-        group.add(hit);
+        if (roots.picks) {
+          roots.picks.add(hit);
+        } else {
+          group.add(hit);
+        }
       }
       roots.tiles.add(group);
       if (dist <= radius) {
@@ -1917,12 +2057,17 @@ window.Nexus = window.Nexus || {};
 
   function frameHome(state, snap) {
     cam.polar = polarFromSlider(cam.pitchSlider);
+    cam.targetPolar = cam.polar;
     cam.distance = defaultDistance();
+    cam.targetDistance = cam.distance;
     cam.userYaw = 0;
+    cam.targetUserYaw = 0;
     var home = playerHome(state);
     if (!home) {
       cam.panX = 0;
       cam.panZ = 0;
+      cam.targetPanX = 0;
+      cam.targetPanZ = 0;
       cam.seatTarget = 0;
       if (snap) {
         cam.seatYaw = 0;
@@ -1933,6 +2078,8 @@ window.Nexus = window.Nexus || {};
     var p = axial(home.q, home.r);
     cam.panX = p.x * 0.58;
     cam.panZ = p.z * 0.58;
+    cam.targetPanX = cam.panX;
+    cam.targetPanZ = cam.panZ;
     cam.seatTarget = Math.atan2(p.x, p.z);
     if (snap) {
       cam.seatYaw = cam.seatTarget;
@@ -1944,15 +2091,39 @@ window.Nexus = window.Nexus || {};
     if (!camera) {
       return;
     }
+    clampPan();
+    cam.polar = clamp(cam.polar, CAM_POLAR_MIN, CAM_POLAR_MAX);
+    cam.targetPolar = clamp(cam.targetPolar, CAM_POLAR_MIN, CAM_POLAR_MAX);
+    cam.distance = clamp(cam.distance, CAM_DIST_MIN, CAM_DIST_MAX);
+    cam.targetDistance = clamp(cam.targetDistance, CAM_DIST_MIN, CAM_DIST_MAX);
     var a = cam.seatYaw + cam.userYaw;
     var p = cam.polar;
     var d = cam.distance;
+    var minY = 4.5;
+    var y = cam.panY + d * Math.cos(p);
+    if (y < minY) {
+      /* Keep camera above ground: pull polar toward steeper. */
+      var cosNeeded = (minY - cam.panY) / Math.max(1, d);
+      cam.polar = Math.min(cam.polar, Math.acos(clamp(cosNeeded, 0.05, 0.98)));
+      p = cam.polar;
+      y = cam.panY + d * Math.cos(p);
+    }
     camera.position.set(
       cam.panX + d * Math.sin(p) * Math.sin(a),
-      cam.panY + d * Math.cos(p),
+      y,
       cam.panZ + d * Math.sin(p) * Math.cos(a)
     );
     camera.lookAt(cam.panX, cam.panY, cam.panZ);
+  }
+
+  function dampCamera(dt) {
+    var k = 1 - Math.pow(0.0004, dt);
+    cam.panX += (cam.targetPanX - cam.panX) * k;
+    cam.panZ += (cam.targetPanZ - cam.panZ) * k;
+    cam.polar += (cam.targetPolar - cam.polar) * k;
+    cam.distance += (cam.targetDistance - cam.distance) * k;
+    cam.userYaw = lerpAngle(cam.userYaw, cam.targetUserYaw, k);
+    applyCamera();
   }
 
   function defaultDistance() {
@@ -2023,12 +2194,22 @@ window.Nexus = window.Nexus || {};
     var dt = Math.min(0.05, clock.getDelta());
     var time = clock.elapsedTime;
     cam.seatYaw = lerpAngle(cam.seatYaw, cam.seatTarget, 1 - Math.pow(0.0008, dt));
-    applyCamera();
+    dampCamera(dt);
     updateCars(dt, time);
     updateLights(time);
     plusPins.forEach(function (pin) {
       var s = pin.rec ? 1 + Math.sin(time * 4) * 0.08 : 1;
       pin.group.scale.set(s, s, s);
+    });
+    buildRings.forEach(function (ring) {
+      if (!ring.mesh || !ring.mesh.material) {
+        return;
+      }
+      var pulse = 0.4 + (Math.sin(time * (ring.rec ? 5 : 3.2)) * 0.5 + 0.5) * 0.45;
+      ring.mesh.material.opacity = pulse;
+      ring.mesh.material.emissiveIntensity = 0.45 + pulse * 0.55;
+      var s = 1 + Math.sin(time * 3.5) * (ring.rec ? 0.04 : 0.025);
+      ring.mesh.scale.set(HEX * 0.9 * s, 0.1, HEX * 0.9 * s);
     });
     overlays.forEach(function (item) {
       if (item.type === "spin" && item.mesh) {
@@ -2081,10 +2262,12 @@ window.Nexus = window.Nexus || {};
     roots.static = new THREE.Group();
     roots.roads = new THREE.Group();
     roots.tiles = new THREE.Group();
+    roots.picks = new THREE.Group();
     roots.cars = new THREE.Group();
     scene.add(roots.static);
     scene.add(roots.roads);
     scene.add(roots.tiles);
+    scene.add(roots.picks);
     scene.add(roots.cars);
     extras.hemi = new THREE.HemisphereLight(0xfff6e8, 0xc8e0a8, 0.92);
     extras.sun = new THREE.DirectionalLight(0xffe2a8, 1.15);
@@ -2189,7 +2372,8 @@ window.Nexus = window.Nexus || {};
     pointer.x = ((clientX - rect.left) / rect.width) * 2 - 1;
     pointer.y = -((clientY - rect.top) / rect.height) * 2 + 1;
     raycaster.setFromCamera(pointer, camera);
-    var hits = raycaster.intersectObject(roots.tiles, true);
+    var target = roots.picks && roots.picks.children.length ? roots.picks : roots.tiles;
+    var hits = raycaster.intersectObject(target, true);
     var i;
     for (i = 0; i < hits.length; i++) {
       var obj = hits[i].object;
@@ -2207,17 +2391,21 @@ window.Nexus = window.Nexus || {};
     sync: sync,
     setPitch: function (value) {
       cam.pitchSlider = Math.max(0, Math.min(100, Number(value) || 58));
+      cam.targetPolar = polarFromSlider(cam.pitchSlider);
       if (!cam.userAdjusted) {
-        cam.polar = polarFromSlider(cam.pitchSlider);
-      } else {
-        cam.polar = polarFromSlider(cam.pitchSlider);
+        cam.polar = cam.targetPolar;
       }
       applyCamera();
     },
     onSeatChange: function () {
       cam.userAdjusted = false;
       cam.userYaw = 0;
+      cam.targetUserYaw = 0;
       frameHome(lastState, true);
+      cam.targetPanX = cam.panX;
+      cam.targetPanZ = cam.panZ;
+      cam.targetPolar = cam.polar;
+      cam.targetDistance = cam.distance;
     },
     setUserAdjusted: function (value) {
       cam.userAdjusted = !!value;
@@ -2233,24 +2421,23 @@ window.Nexus = window.Nexus || {};
       var rz = -Math.sin(a);
       var fx = -Math.sin(a);
       var fz = -Math.cos(a);
-      cam.panX += (-dx * rx + dy * fx) * scale;
-      cam.panZ += (-dx * rz + dy * fz) * scale;
-      applyCamera();
+      cam.targetPanX += (-dx * rx + dy * fx) * scale;
+      cam.targetPanZ += (-dx * rz + dy * fz) * scale;
+      clampPan();
     },
     orbit: function (dx, dy) {
-      cam.userYaw -= dx * 0.0055;
-      cam.polar = clamp(cam.polar + dy * 0.0045, 0.18, 1.22);
-      applyCamera();
+      cam.targetUserYaw -= dx * 0.0055;
+      cam.targetPolar = clamp(cam.targetPolar + dy * 0.0045, CAM_POLAR_MIN, CAM_POLAR_MAX);
     },
     zoomAt: function (clientX, clientY, factor) {
       var before = groundHit(clientX, clientY);
-      cam.distance = clamp(cam.distance / factor, CAM_DIST_MIN, CAM_DIST_MAX);
+      cam.targetDistance = clamp(cam.targetDistance / factor, CAM_DIST_MIN, CAM_DIST_MAX);
       applyCamera();
       var after = groundHit(clientX, clientY);
       if (before && after) {
-        cam.panX += before.x - after.x;
-        cam.panZ += before.z - after.z;
-        applyCamera();
+        cam.targetPanX += before.x - after.x;
+        cam.targetPanZ += before.z - after.z;
+        clampPan();
       }
     },
     fit: function (force) {
