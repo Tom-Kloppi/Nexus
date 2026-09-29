@@ -1,6 +1,8 @@
 # NEXUS — Änderungsliste nach Playtest
 
-**Stand der Partie:** archivierter Prototyp (NEXUS 2.1, Branch `prototype`).  
+**Historisch** (Stimme direkt nach 2.1). Aktueller Vertrag: [`DESIGN.md`](DESIGN.md). Wellen: [`CHANGELOG.md`](CHANGELOG.md). **Kein zweiter Vertrag.**
+
+**Stand der Partie damals:** archivierter Prototyp (NEXUS 2.1, Branch `prototype`).  
 **Quellen:**
 
 1. **Interview** direkt nach der Runde — was sich angefühlt hat, was gefehlt hat, welche der „Stell dir vor“-Ideen gezogen haben.

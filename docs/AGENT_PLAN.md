@@ -1,25 +1,22 @@
 # Agent-Plan — NEXUS Post-Playtest
 
-Ausführung gegen `docs/DESIGN.md`. Parallel nur mit Ownership unten. Agent-Setup (Ignore, Tools, Konflikte): [`docs/AGENT_WORKFLOW.md`](AGENT_WORKFLOW.md).
+Ausführung gegen [`DESIGN.md`](DESIGN.md). Phasen-Status, keine zweiten Regeln. Setup: [`AGENT_WORKFLOW.md`](AGENT_WORKFLOW.md). Wellen: [`CHANGELOG.md`](CHANGELOG.md).
 
-## Phase 0 — Done (Orchestrator)
+## Phasen
 
-- [x] Branch `prototype` = Freeze 2.1, remote `origin/prototype`
-- [x] `docs/DESIGN.md` Vertrag
-- [x] Concept-PDFs unter `docs/concepts/`
+| Phase | Inhalt | Stand |
+| --- | --- | --- |
+| 0 Orchestrator | `prototype` Freeze, DESIGN, Konzept-PDFs | Done |
+| 1 Data/Logic/UI/Docs | 3 Ressourcen, Varianten, HUD, Vertrag | Done |
+| 2 Integrator | Smoke `Nexus.runSmokeCheck()`, Push `main` | Done (3.0 auf `main`) |
+| 3 Stadt + Cast + Anleitung | WebGL-Board, 2–6 Spieler, öffentliche Gadgets, Tutorial-Overlay | Done — siehe CHANGELOG 3.0 |
 
-## Phase 1 — Done
+## Parallel (weiter gültig)
 
-- [x] A Data — 3 Ressourcen, Varianten, Geräte/Karten/Events/Rollen
-- [x] B Logic — scores, Varianten-Produktion, DC-Gate, SAE/Upkeep
-- [x] C UI — HUD, Expand-Varianten, Wahlversprechen, `?v=`
-- [x] D Docs — DESIGN/AGENT_PLAN/AGENTS/README/GAME
+Ownership-Tabelle steht einmal in [`AGENTS.md`](../AGENTS.md) — hier nicht duplizieren.
 
-## Phase 2 — Integrator
+**Regel:** Spiel-Agent ändert nicht `AGENTS.md`/Rules ohne Absprache. Doku-Agent ändert nicht `nexus/**`. DESIGN nur bei explizitem Vertrags-Auftrag.
 
-- [x] Smoke: `Nexus.runSmokeCheck()`
-- [ ] Commit + Push `main`, GitHub-Description
+## Inkonsistenz
 
-## Inkonsistenz-Regel
-
-Bei Konflikt gewinnt `docs/DESIGN.md`. Nicht „weiterdenken“ über DESIGN hinaus.
+Bei Konflikt gewinnt `docs/DESIGN.md`. Nicht über DESIGN hinaus „weiterdenken“.

@@ -1,6 +1,6 @@
 # Cast 22.9 — Charakter-Stand
 
-Quelle: Charakter-PDF *Überarbeiteter Entwurf Charaktere (22.9.26)*. Vertrag bleibt `docs/DESIGN.md`. IDs unverändert.
+Quelle: Charakter-PDF *Überarbeiteter Entwurf Charaktere (22.9.26)*. **Vertrag bleibt [`DESIGN.md`](DESIGN.md).** IDs unverändert. Nicht die Unterziele hier und in DESIGN gleichzeitig pflegen.
 
 ## Mapping
 

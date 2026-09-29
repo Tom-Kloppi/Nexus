@@ -1,6 +1,6 @@
 # NEXUS — Update-Konzept (Review-Begründung)
 
-**Status:** Tom hat die Review akzeptiert (Defaults Anhang B / §3.5 / §9). Akzeptierte Vertrags-Sätze stehen in `docs/DESIGN.md`. **Diese Datei ist kein Vertrag** — nur Begründung, Gap-Matrix, Ankreuz-Protokoll. Nicht gegen DESIGN oder gegen Toms Grafik-Nachzug ausspielen.
+**Status:** Tom hat die Review akzeptiert (Defaults Anhang B / §3.5 / §9). Vertrags-Sätze stehen in `docs/DESIGN.md`. **Kein Vertrag.** Wellen danach: [`CHANGELOG.md`](CHANGELOG.md). Gate 4 („kein WebGL“) ist historisch — DESIGN erlaubt vendored Three.js für das Distrikt-Board.
 
 ### Gates (dieser Branch)
 

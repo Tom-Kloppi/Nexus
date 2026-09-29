@@ -71,5 +71,8 @@ IDs: climate, privacy, investor, visionary, networker, controller — Labels/Cas
 
 ## Öffentlich vs. privat
 
-Öffentlich: Name, Ausrichtung, Standard, SAE, Zonenzahl, **alle** gebauten Geräte (Cloud und lokal), Feld-Ausbau.  
+Öffentlich: Name, Ausrichtung, Standard, SAE, Zonenzahl, **alle** gebauten Geräte, Feld-Ausbau.  
 Privat: Ressourcen, Spuren, Hand, Versprechen-Details, Risiko. Nacht/Handoff leakt Rolle und Wallet nicht.
+
+**Anleitung:** Overlay, keine eigene Zugphase. Copy in `data/tutorial.js`.
+

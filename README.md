@@ -1,40 +1,37 @@
 # NEXUS
 
-Hot-Seat-Brettspiel im Browser: Stadtteilmanager in der nahen Zukunft, IoT und Abwägung statt Quiz. Seminarfachprojekt am Herbartgymnasium Oldenburg.
+Hot-Seat-Brettspiel im Browser: Stadtteilmanager, IoT, Abwägung. Seminarfachprojekt am Herbartgymnasium Oldenburg.
 
-Zwei oder drei Personen am **selben Gerät**. Jeder hat ein geheimes **Wahlversprechen** und versucht, dessen Zielprofil auf 100 % zu bringen, bevor die Runden auslaufen. Wer gewinnt, wird Bürgermeister.
+**2–6 Personen, ein Gerät.** Jeder hat ein geheimes **Wahlversprechen**. Wer dessen Profil auf 100 % bringt, wird Bürgermeister.
 
-**Spielen:** [`nexus/index.html`](nexus/index.html) im Browser öffnen. Kein Install, kein Server.
+**Spielen:** [`nexus/index.html`](nexus/index.html) im Browser (oder `python3 -m http.server` im Ordner `nexus/`). Kein npm.
+
+```bash
+git checkout main && git pull
+cd nexus && python3 -m http.server 8765
+# http://127.0.0.1:8765/index.html
+```
 
 ## Stand
 
-- **`main`** — Post-Playtest-Redesign (3 Ressourcen, 4 Wertungsspuren, neue Feldtypen). Vertrag: [`docs/DESIGN.md`](docs/DESIGN.md).
-- **`prototype`** — eingefrorener NEXUS-2.1-Stand (5 Ressourcen, alte Zonen) zum Vergleichen.
-- Playtest-Interview + Konzeptausbau → Änderungsliste (Prototyp-Stimme, Teaser/Todo): [`docs/PLAYTEST_AENDERUNGSLISTE.md`](docs/PLAYTEST_AENDERUNGSLISTE.md).
+| Ref | Bedeutung |
+| --- | --- |
+| **`main`** | Aktuell: WebGL-Stadt, 2–6 Spieler, öffentliche Gadgets, Anleitung. Vertrag: [`docs/DESIGN.md`](docs/DESIGN.md) |
+| **`prototype`** | Freeze NEXUS 2.1 (5 Ressourcen) |
+| **`archive/main-pre-webgl-cast-5bc5`** | `main` direkt vor 3.0 |
 
-## Features (Zielbild)
+Geschichte der Wellen: [`docs/CHANGELOG.md`](docs/CHANGELOG.md).
 
-- Hex-Distrikt, Hot-Seat mit verdeckten Ressourcen/Zielen
-- Ressourcen: Energie, Geld, Bandbreite
-- Felder: Wohnen, Energie (Solar vs. Transformator), Datenzentrum (unsicher vs. sicher), Verkehr (Stub)
-- Wertung: Image, Komfort, Umwelt, Sicherheit — gekoppelt an das Wahlversprechen
-- Geräte Cloud oder lokal, Standards offen/proprietär, Handel, SAE, Karten & Ereignisse
+## Spiel (kurz)
 
-Ausführlich: [`docs/GAME.md`](docs/GAME.md). Für Agents: [`AGENTS.md`](AGENTS.md), Plan: [`docs/AGENT_PLAN.md`](docs/AGENT_PLAN.md).
+Drei Ressourcen (Energie, Geld, Bandbreite), vier Spuren (Image, Komfort, Umwelt, Sicherheit), Felder Wohnen / Energie / Datenzentrum / Verkehr plus Leitstand. Geräte Cloud oder lokal (Mechanik), sichtbar für alle. Standards, Handelsangebot, SAE, Karten, Ereignisse.
+
+Ausführlich: [`docs/GAME.md`](docs/GAME.md). Figuren: [`docs/CAST_22_9.md`](docs/CAST_22_9.md).
 
 ## Tech
 
-HTML, CSS und JavaScript. Regeln in `state.js`, HUD in `render.js`, Distrikt in `board3d.js` (Three.js vendored unter `nexus/vendor/`). Kein npm, kein Bundler, kein Backend.
+HTML/CSS/JS. Regeln `state.js`, HUD `render.js`, Distrikt `board3d.js` + vendored Three.js. Kein Bundler, kein Backend.
 
-## Repo-Karte
+## Docs für Agents
 
-```
-nexus/                 Spielclient
-docs/DESIGN.md         Ziel-Vertrag (Post-Playtest)
-docs/GAME.md           Regeln = Code-Stand
-docs/PLAYTEST_AENDERUNGSLISTE.md  Interview-Briefing (Teaser/Todo)
-docs/AGENT_PLAN.md     Parallel-Ownership für Agents
-docs/concepts/         Konzept-PDFs
-AGENTS.md              Agent-Konventionen
-.cursor/rules/         immer-geladene Hard Constraints
-```
+Einstieg: [`AGENTS.md`](AGENTS.md). Karte: Vertrag `DESIGN.md` → Ist-Regeln `GAME.md` → Geschichte `CHANGELOG.md`. Nicht als Vertrag: Playtest-Liste, UPDATE_CONCEPT, CITY_3D_CUTS (Schnitte), CAST (Figuren-Details).

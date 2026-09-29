@@ -13,6 +13,6 @@ Hot-seat Smart-City Brettspiel: HTML/CSS/JS, kein Framework/Build. Three.js nur 
 - Nach JS/CSS-Änderungen `?v=` in `nexus/index.html` hochzählen.
 - Commit/Push nur auf ausdrückliche Anweisung.
 - Kein npm/Bundler nötig; keine Online-Backends. Neue UI-Libraries nur nach DESIGN (Board: vendored Three.js ist erlaubt).
-- Post-Playtest-Vertrag: `docs/DESIGN.md` schlägt ältere Doku. Branch `prototype` = Freeze 2.1.
+- Post-Playtest-Vertrag: `docs/DESIGN.md` schlägt ältere Doku. Geschichte: `docs/CHANGELOG.md`. Branch `prototype` = Freeze 2.1.
 
 Ownership & Lesepfad: `AGENTS.md`. Workflow/Quellen: `docs/AGENT_WORKFLOW.md`. Plan: `docs/AGENT_PLAN.md`. Ist-Regeln: `docs/GAME.md`.
