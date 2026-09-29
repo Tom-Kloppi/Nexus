@@ -33,7 +33,8 @@ window.Nexus = window.Nexus || {};
     theme: localStorage.getItem("nexus-theme") || "light",
     uiScale: Number(localStorage.getItem("nexus-ui-scale") || "1"),
     camPitch: Number(localStorage.getItem("nexus-cam-pitch") || "58"),
-    boardQuality: localStorage.getItem("nexus-board-quality") || "auto"
+    boardQuality: localStorage.getItem("nexus-board-quality") || "auto",
+    biome: localStorage.getItem("nexus-biome") || "grass"
   };
   if (prefs.uiScale < 0.8 || prefs.uiScale > 1.25 || Number.isNaN(prefs.uiScale)) {
     prefs.uiScale = 1;
@@ -49,6 +50,9 @@ window.Nexus = window.Nexus || {};
     prefs.boardQuality !== "performance"
   ) {
     prefs.boardQuality = "auto";
+  }
+  if (prefs.biome !== "grass" && prefs.biome !== "desert" && prefs.biome !== "water" && prefs.biome !== "random") {
+    prefs.biome = "grass";
   }
 
   /* Klick auf einen gesperrten Knopf: wackeln und den Grund nennen, nicht schweigen */
@@ -120,8 +124,16 @@ window.Nexus = window.Nexus || {};
     if (Nexus.Board3D && Nexus.Board3D.setQuality) {
       Nexus.Board3D.setQuality(prefs.boardQuality);
     }
+    if (Nexus.Board3D && Nexus.Board3D.setBiome) {
+      Nexus.Board3D.setBiome(prefs.biome, Date.now());
+    }
     Array.prototype.forEach.call(document.querySelectorAll("[data-board-quality]"), function (btn) {
       var on = btn.getAttribute("data-board-quality") === prefs.boardQuality;
+      btn.setAttribute("aria-pressed", on ? "true" : "false");
+      btn.classList.toggle("is-selected", on);
+    });
+    Array.prototype.forEach.call(document.querySelectorAll("[data-biome]"), function (btn) {
+      var on = btn.getAttribute("data-biome") === prefs.biome;
       btn.setAttribute("aria-pressed", on ? "true" : "false");
       btn.classList.toggle("is-selected", on);
     });
@@ -129,6 +141,15 @@ window.Nexus = window.Nexus || {};
     localStorage.setItem("nexus-ui-scale", String(prefs.uiScale));
     localStorage.setItem("nexus-cam-pitch", String(prefs.camPitch));
     localStorage.setItem("nexus-board-quality", prefs.boardQuality);
+    localStorage.setItem("nexus-biome", prefs.biome);
+  }
+
+  function setBiome(choice) {
+    if (choice !== "grass" && choice !== "desert" && choice !== "water" && choice !== "random") {
+      return;
+    }
+    prefs.biome = choice;
+    applyAppearance();
   }
 
   function toastCopy(text) {
@@ -1061,6 +1082,11 @@ window.Nexus = window.Nexus || {};
       var qualityBtn = event.target.closest("[data-board-quality]");
       if (qualityBtn) {
         setBoardQuality(qualityBtn.getAttribute("data-board-quality"));
+        return;
+      }
+      var biomeBtn = event.target.closest("[data-biome]");
+      if (biomeBtn) {
+        setBiome(biomeBtn.getAttribute("data-biome"));
         return;
       }
       var btn = event.target.closest("[data-ui-scale]");

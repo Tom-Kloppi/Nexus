@@ -9,14 +9,21 @@ window.Nexus = window.Nexus || {};
   var HEX_YAW = 0;
   var CAM_DIST_MIN = 30;
   var CAM_DIST_MAX = 290;
-  var FOG_NEAR = 400;
-  var FOG_FAR = 760;
+  var FOG_NEAR = 220;
+  var FOG_FAR = 520;
+  var PLATE_RADIUS = HEX * 42;
   var CAR_COUNT = 16;
   var MAX_LIGHTS = 16;
   var MAX_LAMPS = 18;
   var MAX_TREES = 28;
   var MAX_BINS = 12;
   var MAX_BENCHES = 3;
+  var MAX_BUSHES = 20;
+  var MAX_FLOWERS = 16;
+  var biomeChoice = "grass";
+  var activeBiome = "grass";
+  var spriteTextures = {};
+  var billboardSprites = [];
 
   var QUALITY_PRESETS = {
     quality: {
@@ -109,9 +116,10 @@ window.Nexus = window.Nexus || {};
   var dummy = null;
   var lights = [];
   var lamps = [];
-  var dressingCounts = { trees: 0, lamps: 0, bins: 0, benches: 0 };
+  var dressingCounts = { trees: 0, lamps: 0, bins: 0, benches: 0, bushes: 0, flowers: 0 };
   var plusPins = [];
   var overlays = [];
+  var lampPools = [];
 
   var cam = {
     pitchSlider: 58,
@@ -293,6 +301,65 @@ window.Nexus = window.Nexus || {};
     MAX_TREES = q.maxTrees;
     MAX_BINS = q.maxBins;
     MAX_BENCHES = q.maxBenches;
+    MAX_BUSHES = Math.max(4, Math.round(MAX_TREES * 0.7));
+    MAX_FLOWERS = Math.max(4, Math.round(MAX_TREES * 0.55));
+  }
+
+  function look() {
+    return Nexus.BoardLook || null;
+  }
+
+  function biomeTheme() {
+    var L = look();
+    if (!L) {
+      return null;
+    }
+    return L.themeFor(activeBiome, isNight());
+  }
+
+  function ensureSprites() {
+    var L = look();
+    if (!L) {
+      return;
+    }
+    var key = activeBiome + (isNight() ? "-n" : "-d");
+    if (spriteTextures.key === key) {
+      return;
+    }
+    spriteTextures = {
+      key: key,
+      lampGlow: L.lampGlowTex(),
+      lightPool: L.lightPoolTex(),
+      tree: L.treeSprite(1, activeBiome),
+      tree2: L.treeSprite(7, activeBiome),
+      bush: L.bushSprite(3, activeBiome),
+      flower: L.flowerSprite(0),
+      flower2: L.flowerSprite(2),
+      flower3: L.flowerSprite(4),
+      horizon: L.horizonSilhouette(activeBiome, isNight())
+    };
+  }
+
+  function spriteMat(map, opts) {
+    opts = opts || {};
+    return new THREE.SpriteMaterial({
+      map: map,
+      transparent: true,
+      depthWrite: false,
+      opacity: opts.opacity === undefined ? 1 : opts.opacity,
+      color: opts.color || 0xffffff,
+      fog: opts.fog !== false
+    });
+  }
+
+  function addBillboard(parent, map, x, y, z, sx, sy, opacity) {
+    var mat = spriteMat(map, { opacity: opacity === undefined ? 1 : opacity });
+    var spr = new THREE.Sprite(mat);
+    spr.position.set(x, y, z);
+    spr.scale.set(sx, sy, 1);
+    parent.add(spr);
+    billboardSprites.push(spr);
+    return spr;
   }
 
   function resolveQuality(choice, forceProbe) {
@@ -490,6 +557,7 @@ window.Nexus = window.Nexus || {};
 
   function buildMaterials() {
     var night = isNight();
+    ensureSprites();
     mats = {};
     mats.asphalt = lambert(css("--asphalt", "#6d747b"));
     mats.lot = lambert(night ? "#3a3f46" : "#8b9198");
@@ -525,9 +593,18 @@ window.Nexus = window.Nexus || {};
     });
     mats.lamp = lambert("#ffd98a", {
       emissive: "#ffd98a",
-      emissiveIntensity: night ? 1.4 : 0.18
+      emissiveIntensity: night ? 1.85 : 0.12
     });
     mats.lampPole = lambert(night ? "#2b3036" : "#6a7178");
+    mats.lampPool = basic("#ffd08a", {
+      transparent: true,
+      opacity: night ? 0.42 : 0,
+      depthWrite: false
+    });
+    if (spriteTextures.lightPool) {
+      mats.lampPool.map = spriteTextures.lightPool;
+      mats.lampPool.needsUpdate = true;
+    }
     mats.red = lambert("#ff4d3a", { emissive: "#ff4d3a", emissiveIntensity: 0.2 });
     mats.yellow = lambert("#ffd14a", { emissive: "#ffd14a", emissiveIntensity: 0.2 });
     mats.green = lambert("#3dce6a", { emissive: "#3dce6a", emissiveIntensity: 0.2 });
@@ -565,8 +642,11 @@ window.Nexus = window.Nexus || {};
       transparent: true,
       opacity: 0.35
     });
-    mats.island = lambert(css("--lu-farm-top", "#c4beb4"));
-    mats.waterless = lambert(css("--lu-hill-deep", "#5a6558"));
+    mats.island = lambert((biomeTheme() && biomeTheme().plate) || css("--lu-farm-top", "#c4beb4"));
+    mats.waterless = lambert((biomeTheme() && biomeTheme().plateDeep) || css("--lu-hill-deep", "#5a6558"));
+    mats.horizon = lambert((biomeTheme() && biomeTheme().horizon) || css("--lu-hill-side", "#7e8a7c"));
+    mats.plate = lambert((biomeTheme() && biomeTheme().plate) || "#6faf4a");
+    mats.plateDeep = lambert((biomeTheme() && biomeTheme().plateDeep) || "#4f8634");
     var uses = {
       residential: "--lu-res-top",
       "energy-solar": "--lu-solar-top",
@@ -575,34 +655,55 @@ window.Nexus = window.Nexus || {};
       "datacenter-secure": "--lu-dcsafe-top",
       traffic: "--lu-traffic-top",
       home: "--lu-home-top",
-      grass: "--lu-grass-top",
       park: "--lu-park-top"
     };
     Object.keys(uses).forEach(function (key) {
       mats["pad-" + key] = lambert(css(uses[key], "#c8cfd6"));
     });
-    mats.facade0 = lambert("#d7dee5", { map: makeFacadeTexture(1), emissiveMap: makeFacadeTexture(1), emissive: "#ffd27a", emissiveIntensity: night ? 0.85 : 0.05 });
+    /* Uncontrolled empty lots stay city-gray-green, not pure biome plate. */
+    mats["pad-grass"] = lambert(night ? "#4a5560" : "#a8b4a0");
+    mats.facade0 = lambert("#d7dee5", {
+      map: makeFacadeTexture(1),
+      emissiveMap: makeFacadeTexture(1),
+      emissive: "#ffd27a",
+      emissiveIntensity: night ? 0.85 : 0.05
+    });
     mats.facade1 = mats.facade0;
     mats.facade2 = mats.facade0;
   }
 
   function applyLightsTheme() {
     var night = isNight();
+    var theme = biomeTheme();
+    ensureSprites();
     if (extras.hemi) {
-      extras.hemi.color.set(night ? "#8aa4c8" : "#e8f3ff");
-      extras.hemi.groundColor.set(night ? "#1a2230" : "#c9d6c0");
-      extras.hemi.intensity = night ? 0.32 : 0.72;
+      extras.hemi.color.set(theme ? theme.hemiSky : night ? "#8eb0d8" : "#fff6e8");
+      extras.hemi.groundColor.set(theme ? theme.hemiGround : night ? "#1e2a30" : "#c8e0a8");
+      extras.hemi.intensity = theme ? theme.hemi : night ? 0.55 : 0.92;
     }
     if (extras.sun) {
-      extras.sun.color.set(night ? "#9bb6e0" : "#fff4d4");
-      extras.sun.intensity = night ? 0.28 : 0.95;
-      extras.sun.position.set(night ? -40 : 55, night ? 38 : 70, night ? -20 : 30);
+      extras.sun.color.set(theme ? theme.sun : night ? "#c8d8f0" : "#ffe2a8");
+      extras.sun.intensity = theme ? theme.sunI : night ? 0.42 : 1.15;
+      extras.sun.position.set(night ? -36 : 58, night ? 48 : 78, night ? -18 : 34);
     }
     if (extras.ambient) {
-      extras.ambient.intensity = night ? 0.16 : 0.28;
+      extras.ambient.color.set(night ? "#a8b8d0" : "#ffffff");
+      extras.ambient.intensity = theme ? theme.ambient : night ? 0.38 : 0.42;
     }
-    scene.background = new THREE.Color(css(night ? "--sky-mid" : "--sky-mid", night ? "#12303a" : "#9bd6d4"));
-    scene.fog = new THREE.Fog(scene.background, FOG_NEAR, FOG_FAR);
+    if (extras.moon && night) {
+      extras.moon.intensity = 0.35;
+      extras.moon.visible = true;
+    } else if (extras.moon) {
+      extras.moon.intensity = 0;
+      extras.moon.visible = false;
+    }
+    var skyCol = theme ? theme.sky : night ? "#1a2a3a" : "#a8e0de";
+    var fogCol = theme ? theme.fog : night ? "#1c2e3c" : "#b8e4dc";
+    scene.background = new THREE.Color(skyCol);
+    scene.fog = new THREE.Fog(new THREE.Color(fogCol), FOG_NEAR, FOG_FAR);
+    if (renderer) {
+      renderer.setClearColor(skyCol, 1);
+    }
   }
 
   function addBox(parent, mat, w, h, d, x, y0, z, ry) {
@@ -677,6 +778,12 @@ window.Nexus = window.Nexus || {};
   }
 
   function tree(parent, x, z, s, alt) {
+    ensureSprites();
+    var map = alt && spriteTextures.tree2 ? spriteTextures.tree2 : spriteTextures.tree;
+    if (map) {
+      addBillboard(parent, map, x, TILE_H + 1.05 * s, z, 1.6 * s, 2.1 * s, 1);
+      return;
+    }
     addCyl(parent, mats.trunk, 0.18 * s, 0.22 * s, 0.9 * s, x, TILE_H, z, 8);
     addSphere(parent, alt ? mats.tree2 : mats.tree, 0.7 * s, x, TILE_H + 1.15 * s, z);
     addSphere(parent, alt ? mats.tree : mats.tree2, 0.48 * s, x + 0.35 * s, TILE_H + 0.85 * s, z - 0.1 * s);
@@ -685,7 +792,21 @@ window.Nexus = window.Nexus || {};
   function lampPost(parent, x, z, tall) {
     var h = tall || 2.4;
     addCyl(parent, mats.lampPole, 0.07, 0.09, h, x, TILE_H, z, 8);
-    return addSphere(parent, mats.lamp, 0.16, x, TILE_H + h + 0.08, z);
+    var head = addSphere(parent, mats.lamp, 0.16, x, TILE_H + h + 0.08, z);
+    ensureSprites();
+    if (spriteTextures.lampGlow) {
+      addBillboard(parent, spriteTextures.lampGlow, x, TILE_H + h + 0.08, z, 1.8, 1.8, isNight() ? 0.85 : 0.08);
+    }
+    if (mats.lampPool) {
+      var pool = new THREE.Mesh(geo.plane, mats.lampPool);
+      pool.rotation.x = -Math.PI / 2;
+      pool.position.set(x, TILE_H + 0.04, z);
+      pool.scale.set(3.2, 3.2, 1);
+      pool.visible = isNight();
+      parent.add(pool);
+      lampPools.push(pool);
+    }
+    return head;
   }
 
   function mast(parent, x, z, h) {
@@ -998,15 +1119,62 @@ window.Nexus = window.Nexus || {};
 
   function buildStaticCity() {
     clearGroup(roots.static);
+    billboardSprites = [];
+    ensureSprites();
+    var theme = biomeTheme();
+    var plateMat = mats.plate || mats.island;
+    var deepMat = mats.plateDeep || mats.waterless;
+    var plate = new THREE.Mesh(geo.cyl12, plateMat);
+    plate.scale.set(PLATE_RADIUS, 1.2, PLATE_RADIUS);
+    plate.position.y = -0.55;
+    roots.static.add(plate);
+    var under = new THREE.Mesh(geo.cyl12, deepMat);
+    under.scale.set(PLATE_RADIUS * 1.08, 2.4, PLATE_RADIUS * 1.08);
+    under.position.y = -2.2;
+    roots.static.add(under);
     var island = new THREE.Mesh(geo.cyl6, mats.island);
-    island.scale.set(HEX * 8.6, 1.6, HEX * 8.6);
-    island.position.y = -0.15;
+    island.scale.set(HEX * 9.2, 1.4, HEX * 9.2);
+    island.position.y = -0.05;
     island.rotation.y = HEX_YAW;
     roots.static.add(island);
-    var disc = new THREE.Mesh(geo.cyl12, mats.waterless);
-    disc.scale.set(HEX * 14, 0.6, HEX * 14);
-    disc.position.y = -0.85;
-    roots.static.add(disc);
+    var ring = 8;
+    var i;
+    for (i = 0; i < ring; i++) {
+      var a = (i / ring) * Math.PI * 2 + 0.2;
+      var dist = HEX * 18 + (i % 3) * 4;
+      var ridge = new THREE.Mesh(geo.cone, mats.horizon || mats.ridge);
+      var h = 14 + (i % 4) * 5;
+      ridge.scale.set(8 + (i % 3) * 3, h, 8 + (i % 3) * 2);
+      ridge.position.set(Math.sin(a) * dist, h * 0.35 - 1, Math.cos(a) * dist);
+      roots.static.add(ridge);
+      if (theme && theme.snow && i % 2 === 0) {
+        var cap = new THREE.Mesh(geo.cone, mats.snow);
+        cap.scale.set(3.2, 3.5, 3.2);
+        cap.position.set(Math.sin(a) * dist, h * 0.7 + 0.5, Math.cos(a) * dist);
+        roots.static.add(cap);
+      }
+    }
+    if (spriteTextures.horizon) {
+      for (i = 0; i < 6; i++) {
+        var ha = (i / 6) * Math.PI * 2;
+        var hx = Math.sin(ha) * (HEX * 26);
+        var hz = Math.cos(ha) * (HEX * 26);
+        var sil = new THREE.Mesh(
+          geo.plane,
+          new THREE.MeshBasicMaterial({
+            map: spriteTextures.horizon,
+            transparent: true,
+            depthWrite: false,
+            side: THREE.DoubleSide,
+            fog: true
+          })
+        );
+        sil.scale.set(HEX * 16, HEX * 4.5, 1);
+        sil.position.set(hx, HEX * 1.6, hz);
+        sil.lookAt(0, HEX * 1.6, 0);
+        roots.static.add(sil);
+      }
+    }
   }
 
   function uniqueEdges(playTiles) {
@@ -1120,9 +1288,15 @@ window.Nexus = window.Nexus || {};
     var lampCands = [];
     var binCands = [];
     var benchCands = [];
+    var bushCands = [];
+    var flowerCands = [];
     var kerb = ROAD_W * 0.5 + 0.62;
     var edgeKeys = Object.keys(net.edges);
     var i;
+    lampPools = [];
+    billboardSprites = billboardSprites.filter(function () {
+      return false;
+    });
     for (i = 0; i < edgeKeys.length; i++) {
       var ek = edgeKeys[i];
       var e = net.edges[ek];
@@ -1142,37 +1316,30 @@ window.Nexus = window.Nexus || {};
       var px = e.a.x + dx * along;
       var pz = e.a.z + dz * along;
       var heading = Math.atan2(dx, dz);
-      if (roll < 0.2) {
-        var s = 0.52 + keyRand(ek, 73) * 0.38;
+      if (roll < 0.18) {
+        var s = 0.55 + keyRand(ek, 73) * 0.4;
         var tx = px + nx * (kerb + 0.45);
         var tz = pz + nz * (kerb + 0.45);
-        var c1 = { x: tx, y: TILE_H + 1.12 * s, z: tz, sx: 0.7 * s, sy: 0.7 * s, sz: 0.7 * s, ry: 0 };
-        var c2 = {
-          x: tx + 0.28 * s,
-          y: TILE_H + 0.82 * s,
-          z: tz - 0.12 * s,
-          sx: 0.46 * s,
-          sy: 0.46 * s,
-          sz: 0.46 * s,
-          ry: 0
-        };
-        var swap = keyRand(ek, 74) < 0.5;
         treeCands.push({
           key: ek,
-          trunk: { x: tx, y: TILE_H + 0.45 * s, z: tz, sx: 0.18 * s, sy: 0.9 * s, sz: 0.2 * s, ry: 0 },
-          c1: swap ? c1 : c2,
-          c2: swap ? c2 : c1
+          x: tx,
+          z: tz,
+          s: s,
+          alt: keyRand(ek, 74) < 0.5
         });
-      } else if (roll < 0.34) {
+      } else if (roll < 0.3) {
         var lx = px + nx * kerb;
         var lz = pz + nz * kerb;
         var h = 2.25 + keyRand(ek, 75) * 0.25;
         lampCands.push({
           key: ek,
           pole: { x: lx, y: TILE_H + h / 2, z: lz, sx: 0.07, sy: h, sz: 0.09, ry: 0 },
-          head: { x: lx, y: TILE_H + h + 0.08, z: lz, sx: 0.16, sy: 0.16, sz: 0.16, ry: 0 }
+          head: { x: lx, y: TILE_H + h + 0.08, z: lz, sx: 0.16, sy: 0.16, sz: 0.16, ry: 0 },
+          x: lx,
+          z: lz,
+          h: h
         });
-      } else if (roll < 0.44) {
+      } else if (roll < 0.4) {
         binCands.push({
           key: ek,
           pose: {
@@ -1184,6 +1351,20 @@ window.Nexus = window.Nexus || {};
             sz: 0.24,
             ry: heading
           }
+        });
+      } else if (roll < 0.52) {
+        bushCands.push({
+          key: ek,
+          x: px + nx * (kerb + 0.2),
+          z: pz + nz * (kerb + 0.2),
+          s: 0.7 + keyRand(ek, 76) * 0.4
+        });
+      } else if (roll < 0.62) {
+        flowerCands.push({
+          key: ek,
+          x: px + nx * (kerb + 0.35),
+          z: pz + nz * (kerb + 0.35),
+          kind: Math.floor(keyRand(ek, 77) * 3)
         });
       } else if (roll > 0.975) {
         var bx = px + nx * (kerb + 0.2);
@@ -1207,22 +1388,60 @@ window.Nexus = window.Nexus || {};
     lampCands = takeHashed(lampCands, MAX_LAMPS, 202);
     binCands = takeHashed(binCands, MAX_BINS, 203);
     benchCands = takeHashed(benchCands, MAX_BENCHES, 204);
-    var treeTrunks = [];
-    var crownsA = [];
-    var crownsB = [];
+    bushCands = takeHashed(bushCands, MAX_BUSHES, 205);
+    flowerCands = takeHashed(flowerCands, MAX_FLOWERS, 206);
+    ensureSprites();
     var lampPoles = [];
     var lampHeads = [];
     var bins = [];
     var benchSeats = [];
     var benchBacks = [];
     for (i = 0; i < treeCands.length; i++) {
-      treeTrunks.push(treeCands[i].trunk);
-      crownsA.push(treeCands[i].c1);
-      crownsB.push(treeCands[i].c2);
+      var tc = treeCands[i];
+      var tMap = tc.alt && spriteTextures.tree2 ? spriteTextures.tree2 : spriteTextures.tree;
+      if (tMap) {
+        addBillboard(roots.roads, tMap, tc.x, TILE_H + 1.05 * tc.s, tc.z, 1.6 * tc.s, 2.1 * tc.s, 1);
+      }
+    }
+    for (i = 0; i < bushCands.length; i++) {
+      var bc = bushCands[i];
+      if (spriteTextures.bush) {
+        addBillboard(roots.roads, spriteTextures.bush, bc.x, TILE_H + 0.45 * bc.s, bc.z, 1.1 * bc.s, 0.85 * bc.s, 1);
+      }
+    }
+    for (i = 0; i < flowerCands.length; i++) {
+      var fc = flowerCands[i];
+      var fMap =
+        fc.kind === 1 ? spriteTextures.flower2 : fc.kind === 2 ? spriteTextures.flower3 : spriteTextures.flower;
+      if (fMap) {
+        addBillboard(roots.roads, fMap, fc.x, TILE_H + 0.35, fc.z, 0.55, 0.7, 1);
+      }
     }
     for (i = 0; i < lampCands.length; i++) {
       lampPoles.push(lampCands[i].pole);
       lampHeads.push(lampCands[i].head);
+      var lc = lampCands[i];
+      if (spriteTextures.lampGlow) {
+        addBillboard(
+          roots.roads,
+          spriteTextures.lampGlow,
+          lc.x,
+          TILE_H + lc.h + 0.08,
+          lc.z,
+          2.2,
+          2.2,
+          isNight() ? 0.9 : 0.06
+        );
+      }
+      if (mats.lampPool) {
+        var pool = new THREE.Mesh(geo.plane, mats.lampPool.clone ? mats.lampPool.clone() : mats.lampPool);
+        pool.rotation.x = -Math.PI / 2;
+        pool.position.set(lc.x, TILE_H + 0.05, lc.z);
+        pool.scale.set(3.4, 3.4, 1);
+        pool.visible = isNight();
+        roots.roads.add(pool);
+        lampPools.push(pool);
+      }
     }
     for (i = 0; i < binCands.length; i++) {
       bins.push(binCands[i].pose);
@@ -1231,9 +1450,6 @@ window.Nexus = window.Nexus || {};
       benchSeats.push(benchCands[i].seat);
       benchBacks.push(benchCands[i].back);
     }
-    addInstances(geo.cyl8, mats.trunk, treeTrunks, roots.roads);
-    addInstances(geo.sphere, mats.tree, crownsA, roots.roads);
-    addInstances(geo.sphere, mats.tree2, crownsB, roots.roads);
     addInstances(geo.cyl8, mats.lampPole, lampPoles, roots.roads);
     var heads = addInstances(geo.sphere, mats.lamp, lampHeads, roots.roads);
     addInstances(geo.box, mats.bin, bins, roots.roads);
@@ -1241,10 +1457,12 @@ window.Nexus = window.Nexus || {};
     addInstances(geo.box, mats.bench, benchBacks, roots.roads);
     lamps = heads ? [heads] : [];
     dressingCounts = {
-      trees: treeTrunks.length,
+      trees: treeCands.length,
       lamps: lampPoles.length,
       bins: bins.length,
-      benches: benchSeats.length
+      benches: benchSeats.length,
+      bushes: bushCands.length,
+      flowers: flowerCands.length
     };
   }
 
@@ -1341,7 +1559,25 @@ window.Nexus = window.Nexus || {};
       lastLampNight = night;
       lamps.forEach(function (bulb) {
         if (bulb && bulb.material) {
-          bulb.material.emissiveIntensity = night ? 1.5 : 0.14;
+          bulb.material.emissiveIntensity = night ? 1.85 : 0.1;
+        }
+      });
+      lampPools.forEach(function (pool) {
+        if (!pool) {
+          return;
+        }
+        pool.visible = night;
+        if (pool.material) {
+          pool.material.opacity = night ? 0.42 : 0;
+        }
+      });
+      billboardSprites.forEach(function (spr) {
+        if (!spr || !spr.material || !spr.material.map) {
+          return;
+        }
+        var map = spr.material.map;
+        if (spriteTextures.lampGlow && map === spriteTextures.lampGlow) {
+          spr.material.opacity = night ? 0.9 : 0.06;
         }
       });
     }
@@ -1405,7 +1641,8 @@ window.Nexus = window.Nexus || {};
       ui && ui.expandSlot ? ui.expandSlot.q + "," + ui.expandSlot.r : "",
       rec ? rec.q + "," + rec.r : "",
       document.documentElement.getAttribute("data-theme"),
-      resolvedPreset
+      resolvedPreset,
+      activeBiome
     ];
     (state.zones || []).forEach(function (z) {
       parts.push(z.id, z.type, z.variant || "", z.ownerId, z.upgradeLevel || 0, z.lastDieId || "");
@@ -1762,6 +1999,7 @@ window.Nexus = window.Nexus || {};
     clock = new THREE.Clock();
     dummy = new THREE.Object3D();
     buildGeos();
+    ensureSprites();
     buildMaterials();
     roots.static = new THREE.Group();
     roots.roads = new THREE.Group();
@@ -1771,13 +2009,16 @@ window.Nexus = window.Nexus || {};
     scene.add(roots.roads);
     scene.add(roots.tiles);
     scene.add(roots.cars);
-    extras.hemi = new THREE.HemisphereLight(0xe8f3ff, 0xc9d6c0, 0.7);
-    extras.sun = new THREE.DirectionalLight(0xfff4d4, 0.95);
-    extras.sun.position.set(55, 70, 30);
-    extras.ambient = new THREE.AmbientLight(0xffffff, 0.25);
+    extras.hemi = new THREE.HemisphereLight(0xfff6e8, 0xc8e0a8, 0.92);
+    extras.sun = new THREE.DirectionalLight(0xffe2a8, 1.15);
+    extras.sun.position.set(58, 78, 34);
+    extras.ambient = new THREE.AmbientLight(0xffffff, 0.42);
+    extras.moon = new THREE.DirectionalLight(0xc8d8f0, 0);
+    extras.moon.position.set(-40, 55, -30);
     scene.add(extras.hemi);
     scene.add(extras.sun);
     scene.add(extras.ambient);
+    scene.add(extras.moon);
     applyLightsTheme();
     buildStaticCity();
     cam.polar = polarFromSlider(cam.pitchSlider);
@@ -1824,8 +2065,10 @@ window.Nexus = window.Nexus || {};
     var themeChanged = theme !== lastTheme;
     if (themeChanged) {
       lastTheme = theme;
+      ensureSprites();
       buildMaterials();
       applyLightsTheme();
+      buildStaticCity();
       lastFp = "";
     }
     cam.seatTarget = seatTargetFromState(state);
@@ -1839,6 +2082,26 @@ window.Nexus = window.Nexus || {};
       rebuildTiles(state, ui);
     }
     applyCamera();
+  }
+
+  function setBiome(choice, seed) {
+    var L = look();
+    biomeChoice = L ? L.normalizeBiome(choice) : "grass";
+    activeBiome = L ? L.resolveBiome(biomeChoice, seed || Date.now()) : "grass";
+    if (!renderer) {
+      return activeBiome;
+    }
+    ensureSprites();
+    buildMaterials();
+    applyLightsTheme();
+    buildStaticCity();
+    lastFp = "";
+    lastLampNight = null;
+    if (lastState) {
+      buildRoads(Nexus.allSlots(Nexus.CONSTANTS.HEX_RADIUS));
+      rebuildTiles(lastState, lastUi);
+    }
+    return activeBiome;
   }
 
   function pickAt(clientX, clientY) {
@@ -1919,6 +2182,10 @@ window.Nexus = window.Nexus || {};
     resize: resize,
     pick: pickAt,
     setQuality: setBoardQuality,
+    setBiome: setBiome,
+    getBiome: function () {
+      return { choice: biomeChoice, active: activeBiome };
+    },
     getQuality: function () {
       return {
         choice: qualityChoice,
