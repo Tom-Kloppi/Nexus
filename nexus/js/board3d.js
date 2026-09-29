@@ -87,6 +87,7 @@ window.Nexus = window.Nexus || {};
   var lastLightPulse = -1;
   var lastLampNight = null;
   var visibilityBound = false;
+  var webglFailed = false;
 
   var renderer = null;
   var scene = null;
@@ -2230,6 +2231,9 @@ window.Nexus = window.Nexus || {};
     if (renderer) {
       return true;
     }
+    if (webglFailed) {
+      return false;
+    }
     if (typeof THREE === "undefined") {
       return false;
     }
@@ -2243,7 +2247,12 @@ window.Nexus = window.Nexus || {};
     }
     try {
       createRenderer();
+      if (!renderer || !renderer.getContext || !renderer.getContext()) {
+        throw new Error("WebGL context missing");
+      }
     } catch (err) {
+      webglFailed = true;
+      renderer = null;
       console.error("NEXUS Board3D: WebGL nicht verfügbar", err);
       return false;
     }
