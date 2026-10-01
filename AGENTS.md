@@ -18,7 +18,7 @@ Nicht laden: PDFs unter `docs/concepts/` außer der Auftrag es verlangt.
 
 ## Was das ist
 
-Hot-Seat Smart-City (2–6 Spieler, ein Gerät). Einstieg `nexus/index.html`. **`prototype`** = Freeze 2.1. **`main`** = Redesign ab 3.0 (CHANGELOG).
+Hot-Seat Smart-City (2–6 Spieler, ein Gerät). Einstieg `nexus/index.html`. **`prototype`** = Freeze 2.1. **`main`** = Redesign ab 3.0, Visuals/UI ab 3.1 (CHANGELOG). Vor-3.1: `archive/main-pre-visuals-ui-d004`.
 
 ## Ownership
 
@@ -43,7 +43,7 @@ Hot-Seat Smart-City (2–6 Spieler, ein Gerät). Einstieg `nexus/index.html`. **
 ## Konventionen
 
 - UI: Deutsch.
-- Prefs: `nexus-theme`, `nexus-ui-scale`, `nexus-cam-pitch`, `nexus-board-quality`.
+- Prefs: `nexus-theme`, `nexus-ui-scale`, `nexus-cam-pitch`, `nexus-board-quality`, `nexus-biome`.
 - Nach JS/CSS: `?v=` in `nexus/index.html` erhöhen.
 - Gewinner / Ressourcen / Zonen / Sichtbarkeit: nur DESIGN, nicht hier.
 

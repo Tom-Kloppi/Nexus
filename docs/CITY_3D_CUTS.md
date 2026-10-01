@@ -1,6 +1,6 @@
 # Stadt-3D — Schnitte (umkehrbar)
 
-Präsentation. Vertrag: [`DESIGN.md`](DESIGN.md). Geschichte: [`CHANGELOG.md`](CHANGELOG.md) 3.0. Gemergt nach `main`.
+Präsentation. Vertrag: [`DESIGN.md`](DESIGN.md). Geschichte: [`CHANGELOG.md`](CHANGELOG.md) 3.0 → 3.1. Gemergt nach `main`. Vor-3.1: `archive/main-pre-visuals-ui-d004`.
 
 ## Stack
 
