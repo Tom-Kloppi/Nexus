@@ -16,8 +16,9 @@ cd nexus && python3 -m http.server 8765
 
 | Ref | Bedeutung |
 | --- | --- |
-| **`main`** | Aktuell: WebGL-Stadt, 2–6 Spieler, öffentliche Gadgets, Anleitung. Vertrag: [`docs/DESIGN.md`](docs/DESIGN.md) |
-| **`prototype`** | Freeze NEXUS 2.1 (5 Ressourcen) |
+| **`main`** | Aktuell (3.1): Visuals/UI-Overhaul auf WebGL-Stadt, 2–6 Spieler, Anleitung. Vertrag: [`docs/DESIGN.md`](docs/DESIGN.md) |
+| **`prototype`** | Freeze NEXUS 2.1 (5 Ressourcen) — bleibt erhalten |
+| **`archive/main-pre-visuals-ui-d004`** | `main` direkt vor 3.1 |
 | **`archive/main-pre-webgl-cast-5bc5`** | `main` direkt vor 3.0 |
 
 Geschichte der Wellen: [`docs/CHANGELOG.md`](docs/CHANGELOG.md).

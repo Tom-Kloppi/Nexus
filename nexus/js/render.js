@@ -1941,14 +1941,30 @@ window.Nexus = window.Nexus || {};
           index === state.currentPlayerIndex &&
           state.turnPhase !== "gameover" &&
           !Nexus.isHotSeatShield(state);
+        var shield = Nexus.isHotSeatShield(state);
+        var avatar =
+          !shield && role && Nexus.roleAvatarSvg
+            ? Nexus.roleAvatarSvg(role.id, 36)
+            : '<span class="turn-avatar-fallback">' + (index + 1) + "</span>";
+        var stats = "";
+        if (!shield && isActive) {
+          stats =
+            '<span class="player-card-stats">' +
+            '<span title="Felder">' +
+            zoneCount +
+            " Felder</span>" +
+            '<span title="Risiko">Risiko ' +
+            (player.risk || 0) +
+            "</span></span>";
+        }
         return (
-          '<button type="button" class="turn-chip' +
+          '<button type="button" class="turn-chip player-card' +
           (isActive ? " is-active" : "") +
           '" style="--player-color:' +
           playerColor(player) +
           '" data-player-id="' +
           player.id +
-          '" title="' +
+          '" aria-expanded="false" title="' +
           player.name +
           " · " +
           colorName +
@@ -1959,17 +1975,18 @@ window.Nexus = window.Nexus || {};
           " Zone" +
           (zoneCount === 1 ? "" : "n") +
           '">' +
-          '<span class="turn-avatar">' +
-          (index + 1) +
+          '<span class="turn-avatar player-card-avatar">' +
+          avatar +
           "</span>" +
-          '<span class="turn-meta">' +
+          '<span class="turn-meta player-card-meta">' +
           '<span class="turn-name">' +
           player.name +
           "</span>" +
           '<span class="turn-alignment">' +
-          alignment +
-          standardLabel +
-          "</span></span></button>"
+          (shield ? "Verdeckt" : alignment + standardLabel) +
+          "</span>" +
+          stats +
+          "</span></button>"
         );
       })
       .join("");
@@ -2065,34 +2082,46 @@ window.Nexus = window.Nexus || {};
       document.getElementById("goal-list").innerHTML =
         '<li class="goal-item"><p class="goal-meta">Unterziele stehen hier nur auf deinem Zug. In der Übung bleiben sie verdeckt.</p></li>';
     } else {
-    document.getElementById("goal-list").innerHTML = progress.subGoals
-      .map(function (goal, index) {
-        var subDef = roleDef.subGoals[index];
-        var metricText = Nexus.formatMetricValue(subDef, goal.metricValue);
-        var hint = Nexus.nextStepHint(subDef, goal.metricValue, state.players.length);
-        var bar = Math.round((goal.currentPercent / goal.maxContribution) * 100);
-        return (
-          '<li class="goal-item">' +
-          '<div class="goal-item-head">' +
-          "<span>" +
-          goal.label +
-          "</span>" +
-          "<strong>" +
-          goal.currentPercent +
-          "%</strong>" +
-          "</div>" +
-          '<div class="goal-bar"><span style="width:' +
-          bar +
-          '%"></span></div>' +
-          '<p class="goal-meta">Wert: ' +
-          metricText +
-          " · " +
-          hint +
-          "</p>" +
-          "</li>"
-        );
-      })
-      .join("");
+    document.getElementById("goal-list").innerHTML =
+      '<li class="goal-item goal-glossary">' +
+      '<p class="goal-meta"><strong>So hängt es zusammen:</strong> ' +
+      "Spuren = Stadtwerte · Stufen = Schwellen in Unterzielen · Prozent = Beitrag zum Versprechen · Sieg bei ≥ 100 %.</p>" +
+      '<button type="button" class="btn ghost btn-goal-help" id="btn-goal-help-open">Kurz erklärt</button>' +
+      "</li>" +
+      progress.subGoals
+        .map(function (goal, index) {
+          var subDef = roleDef.subGoals[index];
+          var metricText = Nexus.formatMetricValue(subDef, goal.metricValue);
+          var hint = Nexus.nextStepHint(subDef, goal.metricValue, state.players.length);
+          var bar = Math.round((goal.currentPercent / goal.maxContribution) * 100);
+          var label = Nexus.clarifySubGoalLabel ? Nexus.clarifySubGoalLabel(goal.label) : goal.label;
+          var tip = Nexus.subGoalExplain ? Nexus.subGoalExplain(subDef) : "";
+          return (
+            '<li class="goal-item" title="' +
+            tip.replace(/"/g, "&quot;") +
+            '">' +
+            '<div class="goal-item-head">' +
+            "<span>" +
+            label +
+            "</span>" +
+            "<strong>" +
+            goal.currentPercent +
+            "%</strong>" +
+            "</div>" +
+            '<div class="goal-bar"><span style="width:' +
+            bar +
+            '%"></span></div>' +
+            '<p class="goal-meta">Stufe ' +
+            (goal.currentStage || 0) +
+            " · Messwert: " +
+            metricText +
+            " · " +
+            hint +
+            "</p>" +
+            "</li>"
+          );
+        })
+        .join("");
     }
   }
 
@@ -2128,22 +2157,45 @@ window.Nexus = window.Nexus || {};
         '<p class="role-reveal-label">Wahlversprechen</p>' +
         "<p>Nur die Person am Gerät liest ihre Unterziele. In dieser Übung bleiben sie verdeckt, damit niemand mitliest.</p>";
     } else if (role && progress) {
+      var dossier = (Nexus.ROLE_DOSSIERS && Nexus.ROLE_DOSSIERS[role.id]) || {};
+      var avatar = Nexus.roleAvatarSvg ? Nexus.roleAvatarSvg(role.id, 72) : "";
       document.getElementById("role-reveal-body").innerHTML =
+        '<div class="role-dossier">' +
+        '<div class="role-dossier-hero">' +
+        avatar +
+        '<div class="role-dossier-id">' +
         '<p class="role-alignment-pill">' +
         role.alignment +
-        " · " +
-        role.name +
-        (role.character ? " · " + role.character : "") +
-        (role.party && role.party !== "—" ? " (" + role.party + ")" : "") +
         "</p>" +
-        '<p class="role-reveal-label">Wahlversprechen</p>' +
+        "<h3>" +
+        role.name +
+        "</h3>" +
+        '<p class="role-dossier-char">' +
+        (role.character || "") +
+        (role.party && role.party !== "—" ? " · " + role.party : "") +
+        "</p>" +
+        "</div></div>" +
+        '<p class="role-dossier-blurb">' +
+        (dossier.blurb || "") +
+        "</p>" +
+        '<ul class="role-dossier-facts">' +
+        "<li><strong>Stärke</strong> " +
+        (dossier.strength || "—") +
+        "</li>" +
+        "<li><strong>Besonderheit</strong> " +
+        (dossier.special || "—") +
+        "</li>" +
+        "<li><strong>Ziel</strong> Bringe dein Wahlversprechen auf 100 %.</li>" +
+        "</ul>" +
+        '<p class="role-reveal-label">Unterziele (privat)</p>' +
         progress.subGoals
           .map(function (goal, index) {
             var subDef = role.subGoals[index];
+            var label = Nexus.clarifySubGoalLabel ? Nexus.clarifySubGoalLabel(goal.label) : goal.label;
             return (
               '<div class="role-reveal-goal">' +
               "<strong>" +
-              goal.label +
+              label +
               "</strong>" +
               "<span>max. " +
               goal.maxContribution +
@@ -2153,7 +2205,8 @@ window.Nexus = window.Nexus || {};
               "</div>"
             );
           })
-          .join("");
+          .join("") +
+        "</div>";
     }
     if (shell.hidden || !shell.classList.contains("is-open")) {
       openModal(shell);
@@ -2260,6 +2313,59 @@ window.Nexus = window.Nexus || {};
     }
   }
 
+  function spawnResourceFly(key, delta) {
+    if (!delta) {
+      return;
+    }
+    var walletItem = document.querySelector('.wallet-item[data-res="' + key + '"]');
+    var viewport = document.getElementById("map-viewport");
+    if (!walletItem || !viewport) {
+      return;
+    }
+    var layer = document.getElementById("resource-fx-layer");
+    if (!layer) {
+      layer = document.createElement("div");
+      layer.id = "resource-fx-layer";
+      layer.className = "resource-fx-layer";
+      document.body.appendChild(layer);
+    }
+    var from = viewport.getBoundingClientRect();
+    var to = walletItem.getBoundingClientRect();
+    var amount = Math.min(5, Math.abs(delta));
+    var i;
+    for (i = 0; i < amount; i++) {
+      var particle = document.createElement("div");
+      particle.className = "resource-fx-particle res-" + key + (delta < 0 ? " is-spend" : "");
+      particle.innerHTML = (Nexus.RESOURCE_ICONS && Nexus.RESOURCE_ICONS[key]) || key;
+      var startX = from.left + from.width * (0.42 + Math.random() * 0.16);
+      var startY = from.top + from.height * (0.48 + Math.random() * 0.12);
+      if (delta < 0) {
+        startX = to.left + to.width / 2;
+        startY = to.top + to.height / 2;
+      }
+      var endX = delta < 0 ? from.left + from.width / 2 : to.left + to.width / 2;
+      var endY = delta < 0 ? from.top + from.height / 2 : to.top + to.height / 2;
+      particle.style.left = startX + "px";
+      particle.style.top = startY + "px";
+      particle.style.setProperty("--fx-dx", endX - startX + (Math.random() * 24 - 12) + "px");
+      particle.style.setProperty("--fx-dy", endY - startY + (Math.random() * 16 - 8) + "px");
+      particle.style.animationDelay = i * 0.045 + "s";
+      layer.appendChild(particle);
+      window.setTimeout(
+        function (node) {
+          if (node && node.parentNode) {
+            node.parentNode.removeChild(node);
+          }
+        },
+        700 + i * 45,
+        particle
+      );
+    }
+    walletItem.classList.remove("is-res-flash");
+    void walletItem.offsetWidth;
+    walletItem.classList.add("is-res-flash");
+  }
+
   function renderWallet(state) {
     var player = Nexus.currentPlayer(state);
     if (Nexus.isHotSeatShield(state)) {
@@ -2282,6 +2388,9 @@ window.Nexus = window.Nexus || {};
     Nexus.RESOURCE_KEYS.forEach(function (key) {
       var el = document.getElementById("res-" + key);
       var changed = !playerChanged && lastResourceSnapshot && lastResourceSnapshot[key] !== player.resources[key];
+      if (changed) {
+        spawnResourceFly(key, player.resources[key] - lastResourceSnapshot[key]);
+      }
       setDigitGroup(el, player.resources[key], changed);
       var expect = document.getElementById("expect-" + key);
       if (expect) {

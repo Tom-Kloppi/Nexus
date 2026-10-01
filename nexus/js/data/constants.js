@@ -123,9 +123,9 @@ Nexus.PRODUCTION_DICE = [
   { id: "boom", modifier: 2, weight: 1, label: "Boom", color: "#b89a6a" }
 ];
 
-/* Kräftig genug, um als Kachelkante auf hellem Land zu lesen */
-Nexus.PLAYER_COLORS = ["#1f8f76", "#d6942a", "#c04b6e", "#4a74c4", "#7a5ea8", "#3d8ea8"];
-Nexus.PLAYER_COLOR_NAMES = ["Salbei", "Sand", "Rose", "Indigo", "Flieder", "Petrol"];
+/* Farbenblindfreundliche, klar getrennte Spielerfarben (Okabe–Ito-nah) */
+Nexus.PLAYER_COLORS = ["#009E73", "#E69F00", "#D55E00", "#0072B2", "#CC79A7", "#56B4E9"];
+Nexus.PLAYER_COLOR_NAMES = ["Grün", "Orange", "Rost", "Blau", "Rosa", "Himmel"];
 
 Nexus.GAME_LENGTHS = [
   { id: "short", label: "Kurz", rounds: 15 },

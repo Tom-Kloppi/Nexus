@@ -18,8 +18,8 @@
       href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800&family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="transitions.css?v=54" />
-    <link rel="stylesheet" href="style.css?v=54" />
+    <link rel="stylesheet" href="transitions.css?v=60" />
+    <link rel="stylesheet" href="style.css?v=60" />
   </head>
   <body>
     <div class="modal-shell t-modal-backdrop" id="setup-screen">
@@ -53,6 +53,15 @@
                 <button type="button" class="btn" data-board-quality="quality">Qualität</button>
                 <button type="button" class="btn" data-board-quality="balance">Balance</button>
                 <button type="button" class="btn" data-board-quality="performance">Leistung</button>
+              </div>
+            </div>
+            <div class="settings-scale">
+              <label>Untergrund</label>
+              <div class="scale-presets js-biome">
+                <button type="button" class="btn" data-biome="grass">Gras</button>
+                <button type="button" class="btn" data-biome="desert">Wüste</button>
+                <button type="button" class="btn" data-biome="water">Wasser</button>
+                <button type="button" class="btn" data-biome="random">Zufall</button>
               </div>
             </div>
           </div>
@@ -153,6 +162,15 @@
                     <button type="button" class="btn" data-board-quality="performance">Leistung</button>
                   </div>
                 </div>
+                <div class="settings-scale">
+                  <label>Untergrund</label>
+                  <div class="scale-presets js-biome">
+                    <button type="button" class="btn" data-biome="grass">Gras</button>
+                    <button type="button" class="btn" data-biome="desert">Wüste</button>
+                    <button type="button" class="btn" data-biome="water">Wasser</button>
+                    <button type="button" class="btn" data-biome="random">Zufall</button>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -185,6 +203,7 @@
           </div>
           <div class="map-viewport" id="map-viewport" title="Links ziehen: verschieben · Rechts oder Mitte: drehen · Rad: zoomen">
             <canvas id="district-canvas" role="img" aria-label="Hex-Distrikt"></canvas>
+            <div id="board-hover-tip" class="board-hover-tip" hidden></div>
           </div>
           <div class="board-veil" aria-hidden="true"></div>
         </div>
@@ -203,6 +222,10 @@
       </section>
 
       <aside class="dock" id="dock" aria-label="Ziele und Feld">
+        <div class="dock-rail" aria-hidden="true">
+          <span class="dock-rail-mark"></span>
+          <span class="dock-rail-label">Ziele</span>
+        </div>
         <div class="dock-scroll">
           <button type="button" class="dock-close" id="btn-dock-close" aria-label="Panel schließen">Fertig</button>
 
@@ -432,6 +455,24 @@
       </div>
     </div>
 
+    <div id="goal-help-modal" class="modal-shell t-modal-backdrop" hidden>
+      <div class="modal-card t-modal piece goal-help-card" role="dialog" aria-modal="true" aria-labelledby="goal-help-title">
+        <p class="modal-kicker">Regelhilfe</p>
+        <h2 id="goal-help-title">Spuren, Stufen, Prozent</h2>
+        <div class="goal-help-flow" aria-hidden="true">
+          <span>Spur / Metrik</span>
+          <span class="goal-help-arrow">→</span>
+          <span>Stufe</span>
+          <span class="goal-help-arrow">→</span>
+          <span>Prozent</span>
+          <span class="goal-help-arrow">→</span>
+          <span>Sieg</span>
+        </div>
+        <ul class="goal-help-list" id="goal-help-list"></ul>
+        <button type="button" class="btn primary" id="btn-goal-help-close">Verstanden</button>
+      </div>
+    </div>
+
     <div id="end-screen" class="modal-shell t-modal-backdrop" hidden>
       <div class="modal-card t-modal piece end-card" role="dialog" aria-modal="true">
         <h2 id="end-screen-title">Spiel beendet</h2>
@@ -441,19 +482,22 @@
       </div>
     </div>
 
-    <script src="vendor/three.min.js?v=54"></script>
-    <script src="js/data/constants.js?v=54"></script>
-    <script src="js/data/tiles.js?v=54"></script>
-    <script src="js/data/devices.js?v=54"></script>
-    <script src="js/data/events.js?v=54"></script>
-    <script src="js/data/cards.js?v=54"></script>
-    <script src="js/data/roles.js?v=54"></script>
-    <script src="js/data/tutorial.js?v=54"></script>
-    <script src="js/icons.js?v=54"></script>
-    <script src="js/roles.js?v=54"></script>
-    <script src="js/state.js?v=54"></script>
-    <script src="js/board3d.js?v=54"></script>
-    <script src="js/render.js?v=54"></script>
-    <script src="js/main.js?v=54"></script>
+    <script src="vendor/three.min.js?v=60"></script>
+    <script src="js/data/constants.js?v=60"></script>
+    <script src="js/data/tiles.js?v=60"></script>
+    <script src="js/data/devices.js?v=60"></script>
+    <script src="js/data/events.js?v=60"></script>
+    <script src="js/data/cards.js?v=60"></script>
+    <script src="js/data/roles.js?v=60"></script>
+    <script src="js/data/tutorial.js?v=60"></script>
+    <script src="js/icons.js?v=60"></script>
+    <script src="js/role-avatars.js?v=60"></script>
+    <script src="js/roles.js?v=60"></script>
+    <script src="js/state.js?v=60"></script>
+    <script src="js/board-look.js?v=60"></script>
+    <script src="js/board-props.js?v=60"></script>
+    <script src="js/board3d.js?v=60"></script>
+    <script src="js/render.js?v=60"></script>
+    <script src="js/main.js?v=60"></script>
   </body>
 </html>

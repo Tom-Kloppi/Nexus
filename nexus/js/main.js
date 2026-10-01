@@ -33,7 +33,8 @@ window.Nexus = window.Nexus || {};
     theme: localStorage.getItem("nexus-theme") || "light",
     uiScale: Number(localStorage.getItem("nexus-ui-scale") || "1"),
     camPitch: Number(localStorage.getItem("nexus-cam-pitch") || "58"),
-    boardQuality: localStorage.getItem("nexus-board-quality") || "auto"
+    boardQuality: localStorage.getItem("nexus-board-quality") || "auto",
+    biome: localStorage.getItem("nexus-biome") || "grass"
   };
   if (prefs.uiScale < 0.8 || prefs.uiScale > 1.25 || Number.isNaN(prefs.uiScale)) {
     prefs.uiScale = 1;
@@ -49,6 +50,9 @@ window.Nexus = window.Nexus || {};
     prefs.boardQuality !== "performance"
   ) {
     prefs.boardQuality = "auto";
+  }
+  if (prefs.biome !== "grass" && prefs.biome !== "desert" && prefs.biome !== "water" && prefs.biome !== "random") {
+    prefs.biome = "grass";
   }
 
   /* Klick auf einen gesperrten Knopf: wackeln und den Grund nennen, nicht schweigen */
@@ -120,8 +124,16 @@ window.Nexus = window.Nexus || {};
     if (Nexus.Board3D && Nexus.Board3D.setQuality) {
       Nexus.Board3D.setQuality(prefs.boardQuality);
     }
+    if (Nexus.Board3D && Nexus.Board3D.setBiome) {
+      Nexus.Board3D.setBiome(prefs.biome, Date.now());
+    }
     Array.prototype.forEach.call(document.querySelectorAll("[data-board-quality]"), function (btn) {
       var on = btn.getAttribute("data-board-quality") === prefs.boardQuality;
+      btn.setAttribute("aria-pressed", on ? "true" : "false");
+      btn.classList.toggle("is-selected", on);
+    });
+    Array.prototype.forEach.call(document.querySelectorAll("[data-biome]"), function (btn) {
+      var on = btn.getAttribute("data-biome") === prefs.biome;
       btn.setAttribute("aria-pressed", on ? "true" : "false");
       btn.classList.toggle("is-selected", on);
     });
@@ -129,6 +141,15 @@ window.Nexus = window.Nexus || {};
     localStorage.setItem("nexus-ui-scale", String(prefs.uiScale));
     localStorage.setItem("nexus-cam-pitch", String(prefs.camPitch));
     localStorage.setItem("nexus-board-quality", prefs.boardQuality);
+    localStorage.setItem("nexus-biome", prefs.biome);
+  }
+
+  function setBiome(choice) {
+    if (choice !== "grass" && choice !== "desert" && choice !== "water" && choice !== "random") {
+      return;
+    }
+    prefs.biome = choice;
+    applyAppearance();
   }
 
   function toastCopy(text) {
@@ -697,6 +718,50 @@ window.Nexus = window.Nexus || {};
     commit(Nexus.endTurn(state), { skipAutoHarvest: true });
   });
 
+  document.getElementById("map-viewport").addEventListener("pointermove", function (event) {
+    var tip = document.getElementById("board-hover-tip");
+    if (!tip || !Nexus.Board3D || !Nexus.Board3D.pick) {
+      return;
+    }
+    if (ui.map.dragging || ui.map.panning) {
+      tip.hidden = true;
+      return;
+    }
+    var hit = Nexus.Board3D.pick(event.clientX, event.clientY);
+    if (!hit) {
+      tip.hidden = true;
+      return;
+    }
+    var text = "";
+    if (hit.kind === "empty" && hit.open) {
+      text = "Bebaubar — tippen zum Bauen";
+    } else if (hit.kind === "empty" && hit.blockedReason) {
+      text = hit.blockedReason;
+    } else if (hit.kind === "owned") {
+      text = hit.mine ? "Dein Feld" : "Fremdes Feld";
+    } else if (hit.kind === "home") {
+      text = hit.mine ? "Dein Kontrollbüro" : "Kontrollbüro";
+    }
+    if (!text) {
+      tip.hidden = true;
+      return;
+    }
+    tip.hidden = false;
+    tip.textContent = text;
+    tip.classList.toggle("is-ok", !!(hit.kind === "empty" && hit.open));
+    tip.classList.toggle("is-blocked", !!(hit.kind === "empty" && !hit.open));
+    var rect = document.getElementById("map-viewport").getBoundingClientRect();
+    tip.style.left = event.clientX - rect.left + 14 + "px";
+    tip.style.top = event.clientY - rect.top + 14 + "px";
+  });
+
+  document.getElementById("map-viewport").addEventListener("pointerleave", function () {
+    var tip = document.getElementById("board-hover-tip");
+    if (tip) {
+      tip.hidden = true;
+    }
+  });
+
   document.getElementById("map-viewport").addEventListener("click", function (event) {
     if (ui.map.moved) {
       ui.map.moved = false;
@@ -1061,6 +1126,11 @@ window.Nexus = window.Nexus || {};
       var qualityBtn = event.target.closest("[data-board-quality]");
       if (qualityBtn) {
         setBoardQuality(qualityBtn.getAttribute("data-board-quality"));
+        return;
+      }
+      var biomeBtn = event.target.closest("[data-biome]");
+      if (biomeBtn) {
+        setBiome(biomeBtn.getAttribute("data-biome"));
         return;
       }
       var btn = event.target.closest("[data-ui-scale]");
@@ -1749,6 +1819,38 @@ window.Nexus = window.Nexus || {};
 
   document.getElementById("btn-tutorial").addEventListener("click", startTutorial);
   document.getElementById("btn-help").addEventListener("click", startInGameHelp);
+
+  function openGoalHelp() {
+    var shell = document.getElementById("goal-help-modal");
+    var list = document.getElementById("goal-help-list");
+    if (!shell || !list) {
+      return;
+    }
+    var gloss = Nexus.GOAL_GLOSSARY || {};
+    list.innerHTML = ["spur", "stufe", "prozent", "unterziel", "sieg"]
+      .map(function (key) {
+        var item = gloss[key];
+        if (!item) {
+          return "";
+        }
+        return "<li><strong>" + item.title + "</strong>" + item.text + "</li>";
+      })
+      .join("");
+    Nexus.openModal(shell);
+  }
+
+  document.addEventListener("click", function (event) {
+    if (event.target.closest("#btn-goal-help-open")) {
+      openGoalHelp();
+    }
+  });
+  var goalHelpClose = document.getElementById("btn-goal-help-close");
+  if (goalHelpClose) {
+    goalHelpClose.addEventListener("click", function () {
+      Nexus.closeModal(document.getElementById("goal-help-modal"));
+    });
+  }
+
   document.getElementById("btn-tutorial-next").addEventListener("click", nextTutorial);
   document.getElementById("btn-tutorial-back").addEventListener("click", prevTutorial);
   document.getElementById("btn-tutorial-exit").addEventListener("click", exitTutorial);

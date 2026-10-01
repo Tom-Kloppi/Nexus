@@ -12,8 +12,12 @@
   --radius-card: 14px;
   --radius-pill: 999px;
   --dock-w: clamp(268px, 23vw, 330px);
-  --shell-gap: 0.6rem;
-  --shell-pad: 0.7rem;
+  --dock-rail-w: 68px;
+  --shell-gap: 0;
+  --shell-pad: 0;
+  --chrome-dock: var(--dock-rail-w);
+  --tray-clearance: calc(6.2rem * var(--ui-scale) + env(safe-area-inset-bottom, 0px));
+  --topbar-clearance: calc(4.2rem * var(--ui-scale) + env(safe-area-inset-top, 0px));
   font-family: "Outfit", system-ui, sans-serif;
 }
 
@@ -49,55 +53,55 @@
   --res-money: #b36a3c;
   --res-bandwidth: #3d7fa6;
 
-  /* Himmel — grünblau */
-  --sky-top: #4aaeb8;
-  --sky-mid: #9bd6d4;
-  --sky-low: #dff0e4;
-  --sky-orb: #fff6d8;
-  --sky-orb-glow: rgba(255, 238, 180, 0.75);
+  /* Himmel — helleres Grünblau, mehr Sättigung */
+  --sky-top: #5ec4c8;
+  --sky-mid: #b0e8e4;
+  --sky-low: #e8f6e8;
+  --sky-orb: #fff8dc;
+  --sky-orb-glow: rgba(255, 240, 180, 0.85);
   --sky-orb-x: 78%;
   --sky-orb-y: 11%;
-  --cloud-tint: rgba(255, 255, 255, 0.85);
+  --cloud-tint: rgba(255, 255, 255, 0.9);
   --star-opacity: 0;
-  --haze: rgba(235, 252, 245, 0.45);
+  --haze: rgba(240, 255, 248, 0.5);
 
-  /* Landnutzung: Deckfläche / Seitenwand / Kante */
-  --lu-grass-top: #c8cfd6;
-  --lu-grass-side: #96a0aa;
-  --lu-grass-deep: #6c7680;
-  --lu-park-top: #8ac95c;
-  --lu-park-side: #5f9440;
-  --lu-park-deep: #467033;
-  --lu-farm-top: #c4beb4;
-  --lu-farm-side: #8f897e;
-  --lu-farm-deep: #6a655c;
-  --lu-hill-top: #b7c0b4;
-  --lu-hill-side: #7e8a7c;
-  --lu-hill-deep: #5a6558;
-  --lu-ridge-top: #c4b8a4;
-  --lu-ridge-side: #8a7d6a;
-  --lu-ridge-deep: #5e5548;
-  --lu-res-top: #d5dbe2;
-  --lu-res-side: #a8b2be;
-  --lu-res-deep: #7e8a98;
-  --lu-solar-top: #d2ccb7;
-  --lu-solar-side: #a29a84;
-  --lu-solar-deep: #817969;
-  --lu-trafo-top: #c9c3b6;
-  --lu-trafo-side: #9a9387;
-  --lu-trafo-deep: #79736a;
-  --lu-dcopen-top: #c3cdd6;
-  --lu-dcopen-side: #92a0ad;
-  --lu-dcopen-deep: #6f7d8a;
-  --lu-dcsafe-top: #aebbc8;
-  --lu-dcsafe-side: #7e8e9c;
-  --lu-dcsafe-deep: #5f6d7a;
-  --lu-traffic-top: #c8c4ba;
-  --lu-traffic-side: #9a958a;
-  --lu-traffic-deep: #7a756c;
-  --lu-home-top: #d7e0ea;
-  --lu-home-side: #a9b6c6;
-  --lu-home-deep: #7d8c9e;
+  /* Landnutzung: Deckfläche / Seitenwand / Kante — kräftiger, weniger Grau */
+  --lu-grass-top: #a8c090;
+  --lu-grass-side: #7a9870;
+  --lu-grass-deep: #5a7450;
+  --lu-park-top: #7ed45a;
+  --lu-park-side: #52a038;
+  --lu-park-deep: #3d7a2a;
+  --lu-farm-top: #d0c4a8;
+  --lu-farm-side: #9a8e72;
+  --lu-farm-deep: #726650;
+  --lu-hill-top: #a8c4a0;
+  --lu-hill-side: #6e8e68;
+  --lu-hill-deep: #4e6848;
+  --lu-ridge-top: #d0c0a0;
+  --lu-ridge-side: #94846a;
+  --lu-ridge-deep: #685848;
+  --lu-res-top: #e0e6ee;
+  --lu-res-side: #b0bbc8;
+  --lu-res-deep: #8490a0;
+  --lu-solar-top: #ddd4b8;
+  --lu-solar-side: #aea486;
+  --lu-solar-deep: #887e68;
+  --lu-trafo-top: #d4cdc0;
+  --lu-trafo-side: #a49c8e;
+  --lu-trafo-deep: #807870;
+  --lu-dcopen-top: #cdd8e2;
+  --lu-dcopen-side: #9aabba;
+  --lu-dcopen-deep: #748490;
+  --lu-dcsafe-top: #b8c6d4;
+  --lu-dcsafe-side: #8698a8;
+  --lu-dcsafe-deep: #647484;
+  --lu-traffic-top: #d4d0c4;
+  --lu-traffic-side: #a49e90;
+  --lu-traffic-deep: #80786c;
+  --lu-home-top: #e0e8f2;
+  --lu-home-side: #b0c0d0;
+  --lu-home-deep: #8494a8;
 
   /* Baumaterial */
   --w-cream: #fbf4e6;
@@ -161,53 +165,54 @@
   --res-money: #dd9b6c;
   --res-bandwidth: #7fbede;
 
-  --sky-top: #06141a;
-  --sky-mid: #12303a;
-  --sky-low: #1e4450;
-  --sky-orb: #f2f6ff;
-  --sky-orb-glow: rgba(170, 230, 230, 0.28);
+  --sky-top: #0a1828;
+  --sky-mid: #1a2e42;
+  --sky-low: #243848;
+  --sky-orb: #e8f0ff;
+  --sky-orb-glow: rgba(180, 210, 255, 0.35);
   --sky-orb-x: 17%;
   --sky-orb-y: 10%;
-  --cloud-tint: rgba(110, 160, 168, 0.22);
+  --cloud-tint: rgba(120, 160, 180, 0.28);
   --star-opacity: 1;
-  --haze: rgba(40, 90, 95, 0.35);
+  --haze: rgba(40, 70, 100, 0.4);
 
-  --lu-grass-top: #3a424c;
-  --lu-grass-side: #2a313a;
-  --lu-grass-deep: #1a2028;
-  --lu-park-top: #2b4832;
-  --lu-park-side: #192b1f;
-  --lu-park-deep: #111e16;
-  --lu-farm-top: #3e3a34;
-  --lu-farm-side: #2c2924;
-  --lu-farm-deep: #1c1a16;
-  --lu-hill-top: #3a403c;
-  --lu-hill-side: #262b28;
-  --lu-hill-deep: #171b19;
-  --lu-ridge-top: #4a433a;
-  --lu-ridge-side: #2e2924;
-  --lu-ridge-deep: #1c1916;
-  --lu-res-top: #3c4652;
-  --lu-res-side: #262e38;
-  --lu-res-deep: #1a2028;
-  --lu-solar-top: #4c4433;
-  --lu-solar-side: #2f2b21;
-  --lu-solar-deep: #211e18;
-  --lu-trafo-top: #494138;
-  --lu-trafo-side: #2d2923;
-  --lu-trafo-deep: #201d19;
-  --lu-dcopen-top: #3c4755;
-  --lu-dcopen-side: #252d37;
-  --lu-dcopen-deep: #1a2028;
-  --lu-dcsafe-top: #323d4b;
-  --lu-dcsafe-side: #1f262f;
-  --lu-dcsafe-deep: #161c23;
-  --lu-traffic-top: #3f3c37;
-  --lu-traffic-side: #2a2824;
-  --lu-traffic-deep: #1c1b18;
-  --lu-home-top: #3d4858;
-  --lu-home-side: #28303c;
-  --lu-home-deep: #1b222c;
+  /* Nacht: dunkelblau/grau, Felder lesbar */
+  --lu-grass-top: #4a5868;
+  --lu-grass-side: #343e4a;
+  --lu-grass-deep: #222a32;
+  --lu-park-top: #3a5a42;
+  --lu-park-side: #2a4030;
+  --lu-park-deep: #1c2c20;
+  --lu-farm-top: #4a443a;
+  --lu-farm-side: #363228;
+  --lu-farm-deep: #242018;
+  --lu-hill-top: #3e4844;
+  --lu-hill-side: #2c342e;
+  --lu-hill-deep: #1c221e;
+  --lu-ridge-top: #524840;
+  --lu-ridge-side: #3a322a;
+  --lu-ridge-deep: #242018;
+  --lu-res-top: #4a5668;
+  --lu-res-side: #343e4c;
+  --lu-res-deep: #222a34;
+  --lu-solar-top: #564c38;
+  --lu-solar-side: #3a3426;
+  --lu-solar-deep: #28241a;
+  --lu-trafo-top: #524840;
+  --lu-trafo-side: #3a342c;
+  --lu-trafo-deep: #26221c;
+  --lu-dcopen-top: #465260;
+  --lu-dcopen-side: #303844;
+  --lu-dcopen-deep: #1e242c;
+  --lu-dcsafe-top: #3c4858;
+  --lu-dcsafe-side: #2a323e;
+  --lu-dcsafe-deep: #1a2028;
+  --lu-traffic-top: #4a4640;
+  --lu-traffic-side: #34322c;
+  --lu-traffic-deep: #22201c;
+  --lu-home-top: #4a5668;
+  --lu-home-side: #343e4c;
+  --lu-home-deep: #222a36;
 
   --w-cream: #4a4a52;
   --w-sand: #474149;
@@ -271,61 +276,100 @@ button {
   color: inherit;
 }
 
-/* ---------- 2 App-Shell ---------- */
+/* ---------- 2 App-Shell (full-bleed Board + Overlay-Chrome) ---------- */
 
 .app {
+  --chrome-dock: var(--dock-rail-w);
   height: 100vh;
   height: 100dvh;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) var(--dock-w);
-  grid-template-rows: auto minmax(0, 1fr) auto;
-  grid-template-areas:
-    "top   top"
-    "board dock"
-    "tray  dock";
+  position: relative;
+  display: block;
   gap: var(--shell-gap);
   padding: var(--shell-pad);
-  background:
-    radial-gradient(120% 80% at 50% -10%, var(--shell-2), transparent 60%),
-    var(--shell);
+  overflow: hidden;
+  background: var(--shell);
   font-size: calc(1rem * var(--ui-scale));
 }
 
-.topbar {
-  grid-area: top;
-  min-width: 0;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem 0.9rem;
+.app:has(.dock.is-open),
+.app.is-dock-expanded {
+  --chrome-dock: var(--dock-w);
 }
 
+/* Board füllt das Viewport — Chrome liegt darüber */
 .city-frame {
-  grid-area: board;
-  position: relative;
+  position: absolute;
+  inset: 0;
+  z-index: 1;
   min-width: 0;
   min-height: 0;
-  border-radius: var(--radius-panel);
-  border: 1px solid var(--panel-edge);
-  box-shadow: var(--panel-shadow), inset 0 0 0 1px rgba(255, 255, 255, 0.16);
+  border-radius: 0;
+  border: 0;
+  box-shadow: none;
   overflow: hidden;
   isolation: isolate;
 }
 
+.topbar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: var(--chrome-dock);
+  z-index: 20;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem 0.9rem;
+  padding:
+    calc(0.45rem + env(safe-area-inset-top, 0px))
+    0.75rem
+    0.45rem
+    calc(0.75rem + env(safe-area-inset-left, 0px));
+  background: color-mix(in srgb, var(--panel) 78%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--panel-edge) 70%, transparent);
+  backdrop-filter: blur(14px) saturate(1.1);
+  box-shadow: 0 8px 28px rgba(16, 36, 44, 0.08);
+  transition: right var(--duration-medium) var(--ease-smooth-out);
+}
+
 .dock {
-  grid-area: dock;
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 25;
+  width: var(--chrome-dock);
   min-height: 0;
-  position: relative;
-  border-radius: var(--radius-panel);
-  border: 1px solid var(--panel-edge);
-  background: var(--panel);
-  backdrop-filter: blur(14px);
-  box-shadow: var(--panel-shadow);
+  border-radius: 0;
+  border: 0;
+  border-left: 1px solid color-mix(in srgb, var(--panel-edge) 75%, transparent);
+  background: color-mix(in srgb, var(--panel) 82%, transparent);
+  backdrop-filter: blur(16px) saturate(1.12);
+  box-shadow: -10px 0 32px rgba(12, 28, 36, 0.12);
   overflow: hidden;
+  transition:
+    width var(--duration-medium) var(--ease-smooth-out),
+    background var(--duration-fast) var(--ease-smooth-out);
 }
 
 .tray {
-  grid-area: tray;
+  position: absolute;
+  left: 0;
+  right: var(--chrome-dock);
+  bottom: 0;
+  z-index: 20;
   min-width: 0;
+  padding:
+    0.35rem
+    0.55rem
+    calc(0.45rem + env(safe-area-inset-bottom, 0px))
+    calc(0.55rem + env(safe-area-inset-left, 0px));
+  pointer-events: none;
+  transition: right var(--duration-medium) var(--ease-smooth-out);
+}
+
+.tray > * {
+  pointer-events: auto;
 }
 
 /* ---------- 3 Topbar ---------- */
@@ -424,6 +468,186 @@ button {
   color: #fff;
   font-size: 0.78rem;
   font-weight: 800;
+  overflow: hidden;
+}
+
+.player-card-avatar {
+  background: color-mix(in srgb, var(--player-color, var(--accent)) 30%, #fff);
+  box-shadow: inset 0 0 0 2px var(--player-color, var(--accent));
+  color: var(--ink);
+}
+
+.player-card-avatar .role-avatar-svg,
+.turn-avatar .role-avatar-svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.turn-avatar-fallback {
+  font-weight: 800;
+}
+
+.player-card-stats {
+  display: none;
+  gap: 0.45rem;
+  font-size: 0.68rem;
+  color: var(--ink-soft);
+}
+
+.player-card.is-active .player-card-stats,
+.player-card[aria-expanded="true"] .player-card-stats {
+  display: flex;
+}
+
+.player-card.is-active {
+  height: auto;
+  min-height: 2.2rem;
+  padding-top: 0.25rem;
+  padding-bottom: 0.25rem;
+}
+
+.role-dossier {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.role-dossier-hero {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.role-dossier-id h3 {
+  margin: 0.15rem 0;
+  font-family: "Fraunces", Georgia, serif;
+}
+
+.role-dossier-char,
+.role-dossier-blurb {
+  margin: 0;
+  color: var(--ink-dim);
+  font-size: 0.9rem;
+}
+
+.role-dossier-facts {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.35rem;
+  font-size: 0.86rem;
+}
+
+.role-dossier-facts li {
+  padding: 0.4rem 0.55rem;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--surface-2) 80%, transparent);
+}
+
+.goal-glossary {
+  border: 1px dashed var(--panel-edge);
+  border-radius: 10px;
+  padding: 0.45rem 0.55rem;
+  margin-bottom: 0.35rem;
+}
+
+.goal-help-flow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  align-items: center;
+  margin: 0 0 0.8rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.goal-help-arrow {
+  color: var(--ink-soft);
+}
+
+.goal-help-list {
+  margin: 0 0 1rem;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.55rem;
+}
+
+.goal-help-list li {
+  padding: 0.55rem 0.65rem;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--surface-2) 85%, transparent);
+}
+
+.goal-help-list strong {
+  display: block;
+  margin-bottom: 0.15rem;
+}
+
+.resource-fx-layer {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 80;
+}
+
+.resource-fx-particle {
+  position: fixed;
+  width: 1.35rem;
+  height: 1.35rem;
+  margin: -0.65rem 0 0 -0.65rem;
+  color: var(--ink);
+  animation: resource-fx-fly 0.65s var(--ease-smooth-out, ease-out) forwards;
+}
+
+.resource-fx-particle svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.25));
+}
+
+.resource-fx-particle.res-energy {
+  color: var(--res-energy);
+}
+
+.resource-fx-particle.res-money {
+  color: var(--res-money);
+}
+
+.resource-fx-particle.res-bandwidth {
+  color: var(--res-bandwidth);
+}
+
+.wallet-item.is-res-flash {
+  animation: wallet-res-flash 0.45s ease-out;
+}
+
+@keyframes resource-fx-fly {
+  0% {
+    transform: translate(0, 0) scale(0.7);
+    opacity: 0;
+  }
+  12% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate(var(--fx-dx), var(--fx-dy)) scale(1.05);
+    opacity: 0;
+  }
+}
+
+@keyframes wallet-res-flash {
+  0% {
+    filter: brightness(1);
+  }
+  35% {
+    filter: brightness(1.35);
+  }
+  100% {
+    filter: brightness(1);
+  }
 }
 
 .turn-meta {
@@ -509,7 +733,7 @@ button {
 }
 
 .btn.dock-toggle {
-  display: none;
+  display: inline-flex;
   gap: 0.35rem;
   width: auto;
   padding: 0 0.7rem;
@@ -734,6 +958,32 @@ button {
   touch-action: none;
 }
 
+.board-hover-tip {
+  position: absolute;
+  z-index: 8;
+  max-width: min(16rem, 70vw);
+  padding: 0.4rem 0.65rem;
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, var(--panel-edge) 80%, transparent);
+  background: color-mix(in srgb, var(--panel-solid) 88%, transparent);
+  color: var(--ink);
+  font-size: 0.78rem;
+  line-height: 1.3;
+  pointer-events: none;
+  box-shadow: 0 10px 28px rgba(12, 28, 36, 0.16);
+  backdrop-filter: blur(10px) saturate(1.08);
+  text-wrap: balance;
+}
+
+.board-hover-tip.is-ok {
+  border-color: color-mix(in srgb, var(--ok) 55%, var(--panel-edge));
+}
+
+.board-hover-tip.is-blocked {
+  border-color: color-mix(in srgb, var(--amber) 55%, var(--panel-edge));
+  color: var(--ink-dim);
+}
+
 .city-plane {
   user-select: none;
   -webkit-user-select: none;
@@ -768,19 +1018,19 @@ button {
 .map-controls {
   position: absolute;
   left: 0.6rem;
-  bottom: 0.6rem;
+  bottom: calc(var(--tray-clearance) + 0.35rem);
   z-index: 7;
   display: flex;
   flex-direction: column;
   gap: 0.3rem;
 }
 
-/* Toasts sitzen über dem Tray, links die Zoom-Spalte frei, Dock unberührt */
+/* Toasts über dem Tray, Zoom-Spalte und Dock-Rand freihalten */
 .board-feed {
   position: absolute;
   left: 4.4rem;
-  right: 0.85rem;
-  bottom: 0.85rem;
+  right: calc(var(--chrome-dock) + 0.65rem);
+  bottom: calc(var(--tray-clearance) + 0.35rem);
   z-index: 4;
   transform: none;
   width: auto;
@@ -789,6 +1039,7 @@ button {
   align-items: center;
   gap: 0.4rem;
   pointer-events: none;
+  transition: right var(--duration-medium) var(--ease-smooth-out);
 }
 
 .coach {
@@ -1301,16 +1552,69 @@ button {
 
 /* ---------- 5 Dock ---------- */
 
+.dock-rail {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.85rem;
+  padding: calc(0.85rem + env(safe-area-inset-top, 0px)) 0.35rem 1rem;
+  pointer-events: none;
+}
+
+.dock-rail-mark {
+  width: 1.55rem;
+  height: 1.15rem;
+  border-radius: 4px;
+  border: 2px solid color-mix(in srgb, var(--ink) 55%, transparent);
+  border-bottom-width: 5px;
+  opacity: 0.9;
+}
+
+.dock-rail-label {
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+}
+
+.dock.is-open .dock-rail,
+.app.is-dock-expanded .dock-rail {
+  display: none;
+}
+
+.dock:not(.is-open) .dock-scroll {
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.app.is-dock-expanded .dock:not(.is-open) .dock-scroll,
+.dock.is-open .dock-scroll {
+  visibility: visible;
+  opacity: 1;
+  pointer-events: auto;
+}
+
 .dock-scroll {
+  position: relative;
+  z-index: 2;
   height: 100%;
   overflow: auto;
   overscroll-behavior: contain;
-  padding: 0.7rem 0.75rem 0.75rem;
+  padding: calc(0.7rem + env(safe-area-inset-top, 0px)) 0.75rem 0.75rem;
   display: flex;
   flex-direction: column;
   gap: 0.55rem;
   scrollbar-width: thin;
   scrollbar-color: var(--panel-edge) transparent;
+  transition: opacity var(--duration-fast) var(--ease-smooth-out);
 }
 
 /* Ausgeblendete Unterkante statt harter Schnittkante, wenn das Dock scrollt */
@@ -1319,7 +1623,7 @@ button {
   position: absolute;
   inset: auto 0 0;
   height: 1.6rem;
-  border-radius: 0 0 var(--radius-panel) var(--radius-panel);
+  border-radius: 0;
   background: linear-gradient(to top, var(--panel-solid), transparent);
   opacity: 0;
   transition: opacity var(--duration-fast) var(--ease-smooth-out);
@@ -1332,6 +1636,19 @@ button {
 
 .dock-close {
   display: none;
+}
+
+.dock.is-open .dock-close,
+.app.is-dock-expanded .dock-close {
+  display: block;
+  align-self: flex-end;
+  padding: 0.2rem 0.6rem;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: var(--btn-bg);
+  color: var(--ink-dim);
+  font-size: 0.74rem;
+  cursor: pointer;
 }
 
 /* Jede Dock-Sektion ist dieselbe Karte — eine Rhythmus-Einheit statt Flickenteppich */
@@ -1686,10 +2003,10 @@ button {
   gap: 0.6rem 0.9rem;
   padding: 0.5rem 0.75rem;
   border-radius: var(--radius-panel);
-  border: 1px solid var(--panel-edge);
-  background: var(--panel);
-  backdrop-filter: blur(12px);
-  box-shadow: var(--panel-shadow);
+  border: 1px solid color-mix(in srgb, var(--panel-edge) 75%, transparent);
+  background: color-mix(in srgb, var(--panel) 82%, transparent);
+  backdrop-filter: blur(14px) saturate(1.1);
+  box-shadow: 0 -8px 28px rgba(12, 28, 36, 0.1);
 }
 
 .card-piles {
@@ -2886,41 +3203,73 @@ button {
   }
 }
 
-/* Schmal / Telefon: Dock wird ein Sheet, Board behält seine Fläche */
+/* Schmal / Telefon: Dock wird ein Sheet, Board behält volle Fläche */
 @media (max-width: 880px), (max-height: 560px) {
   :root {
-    --shell-pad: 0.45rem;
-    --shell-gap: 0.45rem;
+    --shell-pad: 0;
+    --shell-gap: 0;
+    --chrome-dock: 0px;
   }
 
-  .app {
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-areas:
-      "top"
-      "board"
-      "tray";
+  .app,
+  .app:has(.dock.is-open),
+  .app.is-dock-expanded {
+    --chrome-dock: 0px;
+  }
+
+  .topbar {
+    right: 0;
+    padding-right: calc(0.65rem + env(safe-area-inset-right, 0px));
+  }
+
+  .tray {
+    right: 0;
+    padding-right: calc(0.55rem + env(safe-area-inset-right, 0px));
+  }
+
+  .board-feed {
+    right: 0.65rem;
   }
 
   .dock {
     position: fixed;
     left: 0;
     right: 0;
+    top: auto;
     bottom: 0;
     z-index: 25;
+    width: auto;
     max-height: 72dvh;
+    border: 0;
+    border-left: 0;
     border-radius: 20px 20px 0 0;
-    background: var(--surface);
+    background: color-mix(in srgb, var(--surface) 94%, transparent);
     transform: translateY(101%);
     transition: transform var(--duration-medium) var(--ease-smooth-out);
     box-shadow: 0 -18px 50px rgba(6, 14, 24, 0.32);
+    backdrop-filter: blur(16px) saturate(1.1);
   }
 
-  .dock.is-open {
+  .dock.is-open,
+  .app.is-dock-expanded .dock {
+    width: auto;
     transform: translateY(0);
   }
 
+  .dock-rail {
+    display: none !important;
+  }
+
+  .dock:not(.is-open) .dock-scroll,
+  .dock.is-open .dock-scroll,
+  .app.is-dock-expanded .dock:not(.is-open) .dock-scroll {
+    visibility: visible;
+    opacity: 1;
+    pointer-events: auto;
+  }
+
   .dock-scroll {
-    padding-bottom: 1.2rem;
+    padding: 0.7rem 0.75rem calc(1.2rem + env(safe-area-inset-bottom, 0px));
   }
 
   .dock-scroll::before {
@@ -2933,7 +3282,9 @@ button {
     flex: 0 0 auto;
   }
 
-  .dock-close {
+  .dock-close,
+  .dock.is-open .dock-close,
+  .app.is-dock-expanded .dock-close {
     display: block;
     align-self: flex-end;
     padding: 0.2rem 0.6rem;
@@ -3067,6 +3418,7 @@ button {
   .board-feed {
     left: 4.4rem;
     right: 0.6rem;
+    bottom: calc(var(--tray-clearance) + 0.25rem);
     width: auto;
     transform: none;
     align-items: stretch;

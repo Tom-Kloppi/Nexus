@@ -15,7 +15,7 @@ window.Nexus = window.Nexus || {};
     money:
       '<circle cx="12" cy="12" r="8"/><path d="M12 7v10"/><path d="M9.5 9.2c.6-1 1.7-1.5 2.5-1.5 1.4 0 2.5.8 2.5 2s-1.1 2-2.5 2h-1c-1.4 0-2.5.8-2.5 2s1.1 2 2.5 2c.9 0 1.9-.5 2.5-1.4"/>',
     bandwidth:
-      '<path d="M4.5 14.5a9 9 0 0 1 15 0"/><path d="M7.5 14.5a5.5 5.5 0 0 1 9 0"/><path d="M10.2 14.5a2.5 2.5 0 0 1 3.6 0"/><circle cx="12" cy="17" r="1.1" fill="currentColor" stroke="none"/>',
+      '<path d="M8 7l4-4 4 4"/><path d="M12 3v8"/><path d="M8 17l4 4 4-4"/><path d="M12 13v8"/>',
     data: '<ellipse cx="12" cy="6" rx="7" ry="3"/><path d="M5 6v6c0 1.7 3.1 3 7 3s7-1.3 7-3V6"/><path d="M5 12v6c0 1.7 3.1 3 7 3s7-1.3 7-3v-6"/>',
     compute: '<rect x="6" y="6" width="12" height="12" rx="2"/><path d="M9 3v3M15 3v3M9 18v3M15 18v3M3 9h3M3 15h3M18 9h3M18 15h3"/>',
     hardware: '<circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/>',
