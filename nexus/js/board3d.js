@@ -130,6 +130,20 @@ window.Nexus = window.Nexus || {};
   var fpsValue = 0;
   var fpsFrames = 0;
   var fpsStamp = 0;
+  var frameSamples = [];
+  var cityReady = false;
+  var cityPhase = null;
+  var tileCursor = null;
+  var tileBudget = null;
+  var batchOn = false;
+  var batchItems = [];
+  var forceMesh = false;
+  var sharedMat = typeof WeakSet === "function" ? new WeakSet() : null;
+  var sharedGeo = typeof WeakSet === "function" ? new WeakSet() : null;
+  var disposeN = 0;
+  var lastDraw = 0;
+  var leakPrev = 0;
+  var leakHits = 0;
   var dummy = null;
   var lights = [];
   var lamps = [];
@@ -245,7 +259,18 @@ window.Nexus = window.Nexus || {};
   }
 
   function normalizeQuality(value) {
-    if (value === "quality" || value === "balance" || value === "performance" || value === "auto") {
+    var legacy = { quality: "high", balance: "medium", performance: "low" };
+    if (legacy[value]) {
+      return legacy[value];
+    }
+    if (
+      value === "auto" ||
+      value === "minimal" ||
+      value === "low" ||
+      value === "medium" ||
+      value === "high" ||
+      value === "ultra"
+    ) {
       return value;
     }
     return "auto";
@@ -297,6 +322,18 @@ window.Nexus = window.Nexus || {};
       lose.loseContext();
     }
     gpuProbe = out;
+    if (
+      out.software &&
+      Nexus.Quality &&
+      !(function () {
+        var search = window.location && window.location.search;
+        var fromUrl = Nexus.Quality.parseUrl(search || "");
+        return fromUrl.tier && fromUrl.tier !== "auto";
+      })()
+    ) {
+      Nexus.Quality.setManual("minimal");
+      Nexus.Quality.setCap("minimal");
+    }
     return out;
   }
 
@@ -330,7 +367,30 @@ window.Nexus = window.Nexus || {};
     return "quality";
   }
 
+  function qualityParams() {
+    if (Nexus.Quality && Nexus.Quality.snapshot) {
+      return Nexus.Quality.snapshot();
+    }
+    return null;
+  }
+
   function applyQualityCounts() {
+    var tuned = qualityParams();
+    if (tuned) {
+      CAR_COUNT = tuned.cars;
+      MAX_LIGHTS = tuned.lights;
+      MAX_LAMPS = tuned.lamps;
+      MAX_TREES = tuned.trees;
+      MAX_BINS = tuned.bins;
+      MAX_BENCHES = tuned.benches;
+      MAX_BUSHES = Math.max(2, Math.round(MAX_TREES * 0.7));
+      MAX_FLOWERS = Math.max(2, Math.round(MAX_TREES * 0.55));
+      activeQuality.decoKeep = tuned.decoKeep;
+      activeQuality.antialias = tuned.antialias;
+      activeQuality.pixelRatioCap = tuned.pixelRatioCap;
+      activeQuality.renderScale = tuned.renderScale;
+      return;
+    }
     var q = activeQuality;
     CAR_COUNT = q.carCount;
     MAX_LIGHTS = q.maxLights;
@@ -425,6 +485,9 @@ window.Nexus = window.Nexus || {};
     if (!renderer) {
       return false;
     }
+    if (lastState && lastState.turnPhase === "role_reveal") {
+      return false;
+    }
     if (typeof document.hidden === "boolean" && document.hidden) {
       return false;
     }
@@ -502,6 +565,8 @@ window.Nexus = window.Nexus || {};
       startLoop();
       return;
     }
+    tileCursor = null;
+    tileBudget = null;
     buildRoads(roadTiles());
     lastFp = "";
     rebuildTiles(lastState, lastUi);
@@ -512,6 +577,9 @@ window.Nexus = window.Nexus || {};
 
   function setBoardQuality(choice) {
     var nextChoice = normalizeQuality(choice);
+    if (Nexus.Quality) {
+      Nexus.Quality.setManual(nextChoice === "auto" ? "auto" : nextChoice);
+    }
     var changed = !qualityReady || nextChoice !== qualityChoice;
     var prevResolved = resolvedPreset;
     resolveQuality(nextChoice, nextChoice === "auto" && changed);
@@ -553,6 +621,35 @@ window.Nexus = window.Nexus || {};
     return tex;
   }
 
+  function shareMat(material) {
+    if (material && sharedMat) {
+      sharedMat.add(material);
+    }
+    return material;
+  }
+
+  function shareGeo(geometry) {
+    if (geometry && sharedGeo) {
+      sharedGeo.add(geometry);
+    }
+    return geometry;
+  }
+
+  function isSharedMat(material) {
+    return !!(material && sharedMat && sharedMat.has(material));
+  }
+
+  function ownMat(material) {
+    if (!material || !material.clone) {
+      return material;
+    }
+    var copy = material.clone();
+    if (copy.userData) {
+      copy.userData.shared = false;
+    }
+    return copy;
+  }
+
   function lambert(color, opts) {
     opts = opts || {};
     return new THREE.MeshLambertMaterial({
@@ -580,18 +677,35 @@ window.Nexus = window.Nexus || {};
   }
 
   function buildGeos() {
-    geo.box = new THREE.BoxGeometry(1, 1, 1);
-    geo.cyl6 = new THREE.CylinderGeometry(1, 1, 1, 6);
-    geo.cyl8 = new THREE.CylinderGeometry(1, 1, 1, 8);
-    geo.cyl12 = new THREE.CylinderGeometry(1, 1, 1, 12);
-    geo.sphere = new THREE.SphereGeometry(1, 10, 8);
-    geo.cone = new THREE.ConeGeometry(1, 1, 6);
-    geo.plane = new THREE.PlaneGeometry(1, 1);
-    geo.car = new THREE.BoxGeometry(0.85, 0.48, 1.85);
-    geo.cabin = new THREE.BoxGeometry(0.72, 0.34, 0.92);
+    geo.box = shareGeo(new THREE.BoxGeometry(1, 1, 1));
+    geo.cyl6 = shareGeo(new THREE.CylinderGeometry(1, 1, 1, 6));
+    geo.cyl8 = shareGeo(new THREE.CylinderGeometry(1, 1, 1, 8));
+    geo.cyl12 = shareGeo(new THREE.CylinderGeometry(1, 1, 1, 12));
+    geo.sphere = shareGeo(new THREE.SphereGeometry(1, 10, 8));
+    geo.cone = shareGeo(new THREE.ConeGeometry(1, 1, 6));
+    geo.plane = shareGeo(new THREE.PlaneGeometry(1, 1));
+    geo.car = shareGeo(new THREE.BoxGeometry(0.85, 0.48, 1.85));
+    geo.cabin = shareGeo(new THREE.BoxGeometry(0.72, 0.34, 0.92));
   }
 
   function buildMaterials() {
+    if (mats) {
+      var seen = [];
+      Object.keys(mats).forEach(function (key) {
+        var material = mats[key];
+        if (!material || seen.indexOf(material) >= 0) {
+          return;
+        }
+        seen.push(material);
+        if (sharedMat && sharedMat.has(material)) {
+          sharedMat.delete(material);
+        }
+        if (material.dispose) {
+          material.dispose();
+          disposeN += 1;
+        }
+      });
+    }
     var night = isNight();
     ensureSprites();
     mats = {};
@@ -735,6 +849,9 @@ window.Nexus = window.Nexus || {};
     });
     mats.facade1 = mats.facade0;
     mats.facade2 = mats.facade0;
+    Object.keys(mats).forEach(function (key) {
+      shareMat(mats[key]);
+    });
   }
 
   function applyLightsTheme() {
@@ -765,13 +882,70 @@ window.Nexus = window.Nexus || {};
     var skyCol = theme ? theme.sky : night ? "#1a2a3a" : "#a8e0de";
     var fogCol = theme ? theme.fog : night ? "#1c2e3c" : "#b8e4dc";
     scene.background = new THREE.Color(skyCol);
-    scene.fog = new THREE.Fog(new THREE.Color(fogCol), FOG_NEAR, FOG_FAR);
+    var tuned = qualityParams();
+    if (tuned && tuned.fog === false) {
+      scene.fog = null;
+    } else {
+      scene.fog = new THREE.Fog(new THREE.Color(fogCol), FOG_NEAR, FOG_FAR);
+    }
+    if (extras.sun) {
+      extras.sun.castShadow = !!(tuned && tuned.shadows);
+      if (tuned && tuned.shadows && extras.sun.shadow && extras.sun.shadow.mapSize) {
+        extras.sun.shadow.mapSize.set(tuned.shadowMap || 512, tuned.shadowMap || 512);
+      }
+    }
+    if (renderer && renderer.shadowMap) {
+      renderer.shadowMap.enabled = !!(tuned && tuned.shadows);
+    }
     if (renderer) {
       renderer.setClearColor(skyCol, 1);
     }
   }
 
+  function nowMs() {
+    if (typeof performance !== "undefined" && performance.now) {
+      return performance.now();
+    }
+    return Date.now();
+  }
+
+  function liveParent(parent) {
+    var node = parent;
+    while (node) {
+      if (node.userData && node.userData.live) {
+        return true;
+      }
+      node = node.parent;
+    }
+    return false;
+  }
+
+  function canBatch(parent, mat) {
+    if (!batchOn || forceMesh || !mat || liveParent(parent)) {
+      return false;
+    }
+    if (mat === mats.roof || mat === mats.slate) {
+      return false;
+    }
+    return true;
+  }
+
+  function batchHandle(item) {
+    var rot = { x: 0, y: item.ry || 0, z: 0 };
+    item.rot = rot;
+    return { rotation: rot, position: { x: item.x, y: item.y, z: item.z }, isMesh: false };
+  }
+
+  function rememberBatch(parent, mat, geoKey, x, y, z, sx, sy, sz, ry) {
+    var item = { parent: parent, mat: mat, geoKey: geoKey, x: x, y: y, z: z, sx: sx, sy: sy, sz: sz, ry: ry || 0 };
+    batchItems.push(item);
+    return batchHandle(item);
+  }
+
   function addBox(parent, mat, w, h, d, x, y0, z, ry) {
+    if (canBatch(parent, mat)) {
+      return rememberBatch(parent, mat, "box", x, y0 + h / 2, z, w, h, d, ry);
+    }
     var mesh = new THREE.Mesh(geo.box, mat);
     mesh.scale.set(w, h, d);
     mesh.position.set(x, y0 + h / 2, z);
@@ -784,6 +958,9 @@ window.Nexus = window.Nexus || {};
 
   function addCyl(parent, mat, rTop, rBot, h, x, y0, z, segs) {
     var g = segs === 6 ? geo.cyl6 : segs === 8 ? geo.cyl8 : geo.cyl12;
+    if (canBatch(parent, mat)) {
+      return rememberBatch(parent, mat, segs === 6 ? "cyl6" : segs === 8 ? "cyl8" : "cyl12", x, y0 + h / 2, z, rTop, h, rBot || rTop, segs === 6 ? Math.PI / 6 : 0);
+    }
     var mesh = new THREE.Mesh(g, mat);
     mesh.scale.set(rTop, h, rBot || rTop);
     mesh.position.set(x, y0 + h / 2, z);
@@ -795,11 +972,69 @@ window.Nexus = window.Nexus || {};
   }
 
   function addSphere(parent, mat, r, x, y, z) {
+    if (canBatch(parent, mat)) {
+      return rememberBatch(parent, mat, "sphere", x, y, z, r, r, r, 0);
+    }
     var mesh = new THREE.Mesh(geo.sphere, mat);
     mesh.scale.set(r, r, r);
     mesh.position.set(x, y, z);
     parent.add(mesh);
     return mesh;
+  }
+
+  function worldOf(parent, x, y, z) {
+    var node = parent;
+    while (node) {
+      x += node.position ? node.position.x || 0 : 0;
+      y += node.position ? node.position.y || 0 : 0;
+      z += node.position ? node.position.z || 0 : 0;
+      node = node.parent;
+    }
+    return { x: x, y: y, z: z };
+  }
+
+  function flushBatches() {
+    if (!batchItems.length) {
+      return;
+    }
+    if (!roots.batches) {
+      roots.batches = new THREE.Group();
+      if (scene) {
+        scene.add(roots.batches);
+      }
+    }
+    var buckets = [];
+    batchItems.forEach(function (item) {
+      var found = null;
+      buckets.forEach(function (bucket) {
+        if (bucket.mat === item.mat && bucket.geoKey === item.geoKey) {
+          found = bucket;
+        }
+      });
+      if (!found) {
+        found = { mat: item.mat, geoKey: item.geoKey, items: [] };
+        buckets.push(found);
+      }
+      found.items.push(item);
+    });
+    dummy = dummy || new THREE.Object3D();
+    buckets.forEach(function (bucket) {
+      var geometry = geo[bucket.geoKey] || geo.box;
+      var mesh = new THREE.InstancedMesh(geometry, bucket.mat, bucket.items.length);
+      mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+      bucket.items.forEach(function (item, index) {
+        var at = worldOf(item.parent, item.x, item.y, item.z);
+        var rot = item.rot || { x: 0, y: item.ry || 0, z: 0 };
+        dummy.position.set(at.x, at.y, at.z);
+        dummy.rotation.set(rot.x || 0, rot.y || 0, rot.z || 0);
+        dummy.scale.set(item.sx, item.sy, item.sz);
+        dummy.updateMatrix();
+        mesh.setMatrixAt(index, dummy.matrix);
+      });
+      mesh.instanceMatrix.needsUpdate = true;
+      roots.batches.add(mesh);
+    });
+    batchItems = [];
   }
 
   function addInstances(geom, mat, poses, parent) {
@@ -1292,9 +1527,52 @@ window.Nexus = window.Nexus || {};
     group.add(cap);
   }
 
+  function disposeTree(obj) {
+    if (!obj) {
+      return;
+    }
+    var walk = obj.traverse
+      ? obj.traverse.bind(obj)
+      : function (fn) {
+          fn(obj);
+        };
+    walk(function (node) {
+      var materials = node.material ? (Array.isArray(node.material) ? node.material : [node.material]) : [];
+      materials.forEach(function (material) {
+        if (!material || isSharedMat(material)) {
+          return;
+        }
+        if (material.map && material.map.dispose && !(sharedMat && sharedMat.has(material.map))) {
+          material.map.dispose();
+        }
+        if (material.dispose) {
+          material.dispose();
+          disposeN += 1;
+        }
+      });
+      if (node.geometry && node.geometry.dispose && !(sharedGeo && sharedGeo.has(node.geometry))) {
+        node.geometry.dispose();
+      }
+      if (node.isInstancedMesh && node.dispose) {
+        node.dispose();
+        disposeN += 1;
+      }
+    });
+  }
+
   function clearGroup(g) {
-    while (g.children.length) {
-      g.remove(g.children[0]);
+    if (!g) {
+      return;
+    }
+    var kids = g.children ? g.children.slice() : [];
+    kids.forEach(function (child) {
+      disposeTree(child);
+      if (g.remove) {
+        g.remove(child);
+      }
+    });
+    if (g.children && g.children.length && kids.length) {
+      g.children.length = 0;
     }
   }
 
@@ -1336,8 +1614,10 @@ window.Nexus = window.Nexus || {};
       }
     }
     if (spriteTextures.horizon) {
-      for (i = 0; i < 6; i++) {
-        var ha = (i / 6) * Math.PI * 2;
+      var silTune = qualityParams();
+      var silN = silTune ? Math.round(6 * (silTune.horizon || 0)) : 6;
+      for (i = 0; i < silN; i++) {
+        var ha = (i / Math.max(1, silN)) * Math.PI * 2;
         var hx = Math.sin(ha) * (HEX * 26);
         var hz = Math.cos(ha) * (HEX * 26);
         var sil = new THREE.Mesh(
@@ -1363,15 +1643,25 @@ window.Nexus = window.Nexus || {};
     birds = [];
     clouds = [];
     turbines = [];
+    var tuned = qualityParams();
     var biome = activeBiome || "grass";
     var i;
+    var duneN = tuned ? Math.round(7 * (tuned.horizon || 0)) : 7;
+    var treeN = tuned ? Math.round(10 * (tuned.horizon || 0)) : 10;
+    var turbineN = tuned ? tuned.turbines : 5;
+    var villageN = tuned ? tuned.villages : 4;
+    var cloudN = tuned ? tuned.clouds : 6;
+    var birdN = tuned ? tuned.birds : 8;
+    if (!duneN && !treeN && !turbineN && !villageN && !cloudN && !birdN && tuned && tuned.horizon === 0) {
+      return;
+    }
     if (biome === "water") {
       var lake = new THREE.Mesh(geo.cyl12, mats.plateDeep || mats.neutral);
       lake.scale.set(HEX * 18, 0.25, HEX * 12);
       lake.position.set(HEX * 24, -0.15, HEX * 4);
       roots.static.add(lake);
     } else if (biome === "desert") {
-      for (i = 0; i < 7; i++) {
+      for (i = 0; i < duneN; i++) {
         var dune = new THREE.Mesh(geo.sphere, mats.sand || mats.cream);
         var ang = (i / 7) * Math.PI * 2;
         dune.scale.set(7, 1.3, 4.2);
@@ -1391,13 +1681,13 @@ window.Nexus = window.Nexus || {};
       roots.static.add(pond);
       if (spriteTextures.tree) {
         var t;
-        for (t = 0; t < 10; t++) {
+        for (t = 0; t < treeN; t++) {
           var ta = (t / 10) * Math.PI * 2;
           addBillboard(roots.static, spriteTextures.tree, Math.sin(ta) * HEX * 16, 2.2, Math.cos(ta) * HEX * 16, 2.4, 3.2, 1);
         }
       }
     }
-    for (i = 0; i < 5; i++) {
+    for (i = 0; i < turbineN; i++) {
       var wa = (i / 5) * Math.PI * 2 + 0.5;
       var wd = HEX * (biome === "desert" ? 30 : 27);
       var pole = new THREE.Mesh(geo.cyl8, mats.steel);
@@ -1410,14 +1700,14 @@ window.Nexus = window.Nexus || {};
       roots.static.add(blade);
       turbines.push(blade);
     }
-    for (i = 0; i < 4; i++) {
+    for (i = 0; i < villageN; i++) {
       var village = new THREE.Mesh(geo.box, mats.neutral || mats.concrete);
       var va = 0.4 + i * 1.3;
       village.scale.set(2.2, 1.4 + (i % 2), 1.8);
       village.position.set(Math.sin(va) * HEX * 32, 0.8, Math.cos(va) * HEX * 32);
       roots.static.add(village);
     }
-    for (i = 0; i < 6; i++) {
+    for (i = 0; i < cloudN; i++) {
       var cloud = new THREE.Mesh(
         geo.sphere,
         basic("#f4f7fb", { transparent: true, opacity: isNight() ? 0.18 : 0.55, depthWrite: false })
@@ -1427,7 +1717,7 @@ window.Nexus = window.Nexus || {};
       roots.static.add(cloud);
       clouds.push({ mesh: cloud, speed: 0.4 + i * 0.08 });
     }
-    for (i = 0; i < 8; i++) {
+    for (i = 0; i < birdN; i++) {
       var bird = new THREE.Mesh(geo.box, mats.slate);
       bird.scale.set(0.55, 0.06, 0.16);
       roots.static.add(bird);
@@ -1585,14 +1875,14 @@ window.Nexus = window.Nexus || {};
       g.position.set(n.x - (n.x / pull) * 1.42, 0, n.z - (n.z / pull) * 1.42);
       addCyl(g, mats.lampPole, 0.08, 0.1, 3.1, 0, TILE_H, 0, 8);
       addBox(g, mats.housing, 0.38, 0.95, 0.28, 0, TILE_H + 2.85, 0, 0);
-      var red = addSphere(g, mats.red.clone(), 0.13, 0, TILE_H + 3.55, 0.16);
-      var yel = addSphere(g, mats.yellow.clone(), 0.13, 0, TILE_H + 3.28, 0.16);
-      var gre = addSphere(g, mats.green.clone(), 0.13, 0, TILE_H + 3.02, 0.16);
+      g.userData.live = true;
+      var red = addSphere(g, ownMat(mats.red), 0.13, 0, TILE_H + 3.55, 0.16);
+      var yel = addSphere(g, ownMat(mats.yellow), 0.13, 0, TILE_H + 3.28, 0.16);
+      var gre = addSphere(g, ownMat(mats.green), 0.13, 0, TILE_H + 3.02, 0.16);
       roots.roads.add(g);
       lights.push({ node: n.key, red: red, yel: yel, gre: gre, phase: i * 1.37, shown: "", night: null });
     }
     scatterStreetDressing(net);
-    spawnCars();
   }
 
   function takeHashed(items, maxCount, salt) {
@@ -1764,7 +2054,7 @@ window.Nexus = window.Nexus || {};
         );
       }
       if (mats.lampPool) {
-        var pool = new THREE.Mesh(geo.plane, mats.lampPool.clone ? mats.lampPool.clone() : mats.lampPool);
+        var pool = new THREE.Mesh(geo.plane, ownMat(mats.lampPool));
         pool.rotation.x = -Math.PI / 2;
         pool.position.set(lc.x, TILE_H + 0.05, lc.z);
         pool.scale.set(3.4, 3.4, 1);
@@ -2198,12 +2488,9 @@ window.Nexus = window.Nexus || {};
   }
 
   function fingerprint(state, ui) {
-    var player = Nexus.currentPlayer(state);
     var rec = Nexus.recommendExpandSlot ? Nexus.recommendExpandSlot(state) : null;
     var parts = [
-      player && player.id,
-      state.turnPhase,
-      state.currentPlayerIndex,
+      state.turnPhase === "build" ? "build" : "play",
       ui && ui.inspectedZoneId,
       ui && ui.homeOpen ? 1 : 0,
       ui && ui.expandSlot ? ui.expandSlot.q + "," + ui.expandSlot.r : "",
@@ -2259,26 +2546,64 @@ window.Nexus = window.Nexus || {};
     return { kind: "empty", q: tile.q, r: tile.r, open: false };
   }
 
-  function rebuildTiles(state, ui) {
-    clearGroup(roots.tiles);
-    if (roots.picks) {
-      clearGroup(roots.picks);
+  function showCityProgress(frac) {
+    var node = document.getElementById("city-progress");
+    if (!node && document.body && document.createElement) {
+      node = document.createElement("div");
+      node.id = "city-progress";
+      node.className = "city-progress";
+      document.body.appendChild(node);
     }
-    plusPins = [];
-    overlays = [];
-    buildRings = [];
-    ownerRims = [];
+    if (!node) {
+      return;
+    }
+    var pct = Math.max(0, Math.min(100, Math.round((frac || 0) * 100)));
+    node.hidden = pct >= 100;
+    node.textContent = pct >= 100 ? "" : "Stadt wird aufgebaut " + pct + " %";
+    if (node.style && node.style.setProperty) {
+      node.style.setProperty("--p", pct + "%");
+    }
+  }
+
+  function rebuildTiles(state, ui) {
+    var budget = tileBudget == null ? 1e9 : tileBudget;
+    var started = nowMs();
+    if (!tileCursor) {
+      clearGroup(roots.tiles);
+      if (roots.picks) {
+        clearGroup(roots.picks);
+      }
+      if (roots.batches) {
+        clearGroup(roots.batches);
+      }
+      plusPins = [];
+      overlays = [];
+      buildRings = [];
+      ownerRims = [];
+      batchItems = [];
+      tileCursor = {
+        slots: Nexus.allSlots((Nexus.CONSTANTS.HEX_RADIUS || 3) + DECO_RINGS),
+        index: 0,
+        play: []
+      };
+      batchOn = true;
+    }
     var player = Nexus.currentPlayer(state);
     var rec = Nexus.recommendExpandSlot ? Nexus.recommendExpandSlot(state) : null;
-    var play = [];
+    var play = tileCursor.play;
     var radius = Nexus.CONSTANTS.HEX_RADIUS;
     var buildPhase = state.turnPhase === "build";
-    Nexus.allSlots(radius + DECO_RINGS).forEach(function (slot) {
+    while (tileCursor.index < tileCursor.slots.length && nowMs() - started < budget) {
+      var slot = tileCursor.slots[tileCursor.index];
+      tileCursor.index += 1;
       var dist = axialDist(slot.q, slot.r);
       var pos = axial(slot.q, slot.r);
       var group = new THREE.Group();
       group.position.set(pos.x, 0, pos.z);
       var zone = dist <= radius ? Nexus.zoneAt(state, slot.q, slot.r) : null;
+      if (zone && ui && ui.placePopZoneId === zone.id) {
+        group.userData.live = true;
+      }
       var rand = seeded(slot.q, slot.r, 11);
       var padKey = "grass";
       var padR = HEX * 0.9;
@@ -2392,6 +2717,7 @@ window.Nexus = window.Nexus || {};
           group.add(ring);
           buildRings.push({ mesh: ring, rec: recHere });
           var pin = new THREE.Group();
+          pin.userData.live = true;
           addCyl(pin, mats.lampPole, 0.07, 0.07, 2.1, 0, TILE_H, 0, 8);
           var head = addSphere(pin, recHere ? mats.plusRec : mats.plus, 0.55, 0, TILE_H + 2.4, 0);
           addBox(pin, mats.cream, 0.55, 0.1, 0.1, 0, TILE_H + 2.35, 0, 0);
@@ -2473,11 +2799,22 @@ window.Nexus = window.Nexus || {};
           return o.zoneId === zone.id;
         });
         if (spinning) {
+          forceMesh = true;
           var chip = addBox(group, mats.cream, 1.1, 0.18, 1.1, 0, TILE_H + 9, 0, 0);
+          forceMesh = false;
           overlays.push({ type: "spin", mesh: chip });
         }
       }
-    });
+    }
+    if (tileCursor && tileCursor.index >= tileCursor.slots.length) {
+      batchOn = false;
+      flushBatches();
+      tileCursor = null;
+      tileBudget = null;
+      showCityProgress(1);
+    } else if (tileCursor) {
+      showCityProgress(tileCursor.index / tileCursor.slots.length);
+    }
     return play;
   }
 
@@ -2632,16 +2969,25 @@ window.Nexus = window.Nexus || {};
     applyCamera();
   }
 
-  function tick() {
+  function tick(stamp) {
     rafId = 0;
     if (!shouldAnimate()) {
       running = false;
+      return;
+    }
+    var tuned = qualityParams();
+    var capFps = tuned && tuned.fpsCap ? tuned.fpsCap : 0;
+    if (capFps && lastDraw && stamp && stamp - lastDraw < 1000 / capFps - 0.75) {
+      rafId = requestAnimationFrame(tick);
       return;
     }
     rafId = requestAnimationFrame(tick);
     rafN += 1;
     if (activeQuality.rafStep > 1 && rafN % activeQuality.rafStep !== 0) {
       return;
+    }
+    if (cityPhase && cityPhase !== "done" && lastState) {
+      stepCity(lastState, lastUi || {});
     }
     var dt = Math.min(0.05, clock.getDelta());
     var time = clock.elapsedTime;
@@ -2656,8 +3002,11 @@ window.Nexus = window.Nexus || {};
     }
     cam.seatYaw = lerpAngle(cam.seatYaw, cam.seatTarget, 1 - Math.pow(0.0008, dt));
     dampCamera(dt);
-    updateCars(dt, time);
-    updateBuses(dt);
+    var stride = tuned && tuned.vehicleStride ? tuned.vehicleStride : 1;
+    if (stride <= 1 || rafN % stride === 0) {
+      updateCars(dt, time);
+      updateBuses(dt);
+    }
     updateSky(dt, time);
     updateLights(time);
     plusPins.forEach(function (pin) {
@@ -2686,7 +3035,27 @@ window.Nexus = window.Nexus || {};
         item.group.scale.set(e * bounce, e * bounce, e * bounce);
       }
     });
+    if (Nexus.Quality && dt) {
+      var governed = Nexus.Quality.pushFrame(dt * 1000, stamp || nowMs());
+      if (governed && tuned && governed.tier !== tuned.tier) {
+        applyQualityCounts();
+        if (cityReady) {
+          spawnCars();
+        }
+      } else if (governed && tuned && Math.abs(governed.renderScale - tuned.renderScale) > 0.03) {
+        resize();
+      }
+    }
+    var moving =
+      (cars && cars.length && !(tuned && tuned.cars === 0)) ||
+      (cityPhase && cityPhase !== "done") ||
+      Math.abs(cam.targetDistance - cam.distance) > 0.35 ||
+      Math.abs(cam.targetPolar - cam.polar) > 0.02;
     renderer.render(scene, camera);
+    lastDraw = stamp || nowMs();
+    if (tuned && tuned.demand && cityReady && !moving) {
+      stopLoop();
+    }
   }
 
   function ensure() {
@@ -2751,7 +3120,8 @@ window.Nexus = window.Nexus || {};
     scene.add(extras.ambient);
     scene.add(extras.moon);
     applyLightsTheme();
-    buildStaticCity();
+    roots.batches = new THREE.Group();
+    scene.add(roots.batches);
     cam.polar = polarFromSlider(cam.pitchSlider);
     canvas.addEventListener("contextmenu", function (event) {
       event.preventDefault();
@@ -2777,21 +3147,109 @@ window.Nexus = window.Nexus || {};
     }
     bindVisibility();
     clock.start();
-    startLoop();
     return true;
+  }
+
+  function stopLoop() {
+    if (rafId && typeof cancelAnimationFrame === "function") {
+      cancelAnimationFrame(rafId);
+    }
+    rafId = 0;
+    running = false;
+  }
+
+  function tearDownCity() {
+    tileCursor = null;
+    tileBudget = null;
+    batchOn = false;
+    batchItems = [];
+    cityPhase = null;
+    cityReady = false;
+    clearGroup(roots.tiles);
+    clearGroup(roots.picks);
+    clearGroup(roots.roads);
+    clearGroup(roots.cars);
+    clearGroup(roots.static);
+    clearGroup(roots.batches);
+    graph.nodes = {};
+    graph.keys = [];
+    cars = [];
+    peds = [];
+    carMesh = null;
+    carCabin = null;
+    pedMesh = null;
+    busMesh = null;
+    busAgents = [];
+    lights = [];
+    lamps = [];
+    birds = [];
+    clouds = [];
+    turbines = [];
+    plusPins = [];
+    overlays = [];
+    buildRings = [];
+    billboardSprites = [];
+    lampPools = [];
+  }
+
+  function stepCity(state, ui) {
+    var tuned = qualityParams();
+    var budget = tuned && tuned.chunkMs ? tuned.chunkMs : 10;
+    var t0 = nowMs();
+    if (!cityPhase) {
+      cityPhase = "static";
+    }
+    if (cityPhase === "static") {
+      buildStaticCity();
+      cityPhase = "roads";
+      showCityProgress(0.08);
+      if (nowMs() - t0 > budget) {
+        return;
+      }
+    }
+    if (cityPhase === "roads") {
+      buildRoads(roadTiles());
+      cityPhase = "tiles";
+      showCityProgress(0.18);
+      if (nowMs() - t0 > budget) {
+        return;
+      }
+    }
+    if (cityPhase === "tiles") {
+      tileBudget = Math.max(1, budget - (nowMs() - t0));
+      rebuildTiles(state, ui);
+      if (!tileCursor) {
+        spawnCars();
+        syncBuses(state);
+        cityPhase = "done";
+        cityReady = true;
+        showCityProgress(1);
+      }
+    }
   }
 
   function sync(state, ui) {
     lastState = state;
     lastUi = ui;
     if (!state || state.screen !== "game") {
-      running = false;
+      stopLoop();
+      return;
+    }
+    if (state.turnPhase === "role_reveal") {
+      if (cityReady || cityPhase || (graph.keys && graph.keys.length)) {
+        tearDownCity();
+      }
+      if (!ensure()) {
+        return;
+      }
+      stopLoop();
+      showCityProgress(0);
       return;
     }
     if (!ensure()) {
       return;
     }
-    startLoop();
+    applyQualityCounts();
     var theme = document.documentElement.getAttribute("data-theme") || "light";
     var themeChanged = theme !== lastTheme;
     if (themeChanged) {
@@ -2799,21 +3257,33 @@ window.Nexus = window.Nexus || {};
       ensureSprites();
       buildMaterials();
       applyLightsTheme();
-      buildStaticCity();
       lastFp = "";
     }
     cam.seatTarget = seatTargetFromState(state);
     var fp = fingerprint(state, ui);
-    if (!graph.keys.length || themeChanged) {
-      buildRoads(roadTiles());
-    }
-    if (fp !== lastFp) {
+    if (fp !== lastFp || themeChanged) {
       lastFp = fp;
-      rebuildTiles(state, ui);
-      spawnCars();
-      syncBuses(state);
+      tearDownCity();
+      cityPhase = "static";
+      stepCity(state, ui);
+    } else if (cityPhase && cityPhase !== "done") {
+      stepCity(state, ui);
     }
+    startLoop();
     applyCamera();
+    if (renderer && renderer.info && renderer.info.memory) {
+      var geos = renderer.info.memory.geometries || 0;
+      if (geos > leakPrev + 8 && cityReady) {
+        leakHits += 1;
+        if (leakHits >= 3) {
+          console.warn("NEXUS: Geometrien steigen nach Szenenwechseln (" + geos + ").");
+          leakHits = 0;
+        }
+      } else {
+        leakHits = 0;
+      }
+      leakPrev = geos;
+    }
   }
 
   function setBiome(choice, seed) {
@@ -2985,6 +3455,40 @@ window.Nexus = window.Nexus || {};
       densityLevel = Math.max(0, Math.min(2, Number(level) || 0));
       if (graph.keys.length) {
         spawnCars();
+      }
+    },
+    liveNodes: function () {
+      function count(root) {
+        var n = 0;
+        if (!root || !root.traverse) {
+          return 0;
+        }
+        root.traverse(function () {
+          n += 1;
+        });
+        return n;
+      }
+      var parts = {
+        tiles: count(roots.tiles),
+        roads: count(roots.roads),
+        static: count(roots.static),
+        batches: count(roots.batches),
+        cars: count(roots.cars),
+        scene: scene && scene.children ? scene.children.length : 0
+      };
+      Nexus._liveParts = parts;
+      return parts.tiles + parts.roads + parts.static + parts.batches + parts.cars;
+    },
+    rebuildForTest: function () {
+      if (!lastState) {
+        return;
+      }
+      tearDownCity();
+      cityPhase = "static";
+      var guard = 0;
+      while (cityPhase !== "done" && guard < 30) {
+        stepCity(lastState, lastUi || {});
+        guard += 1;
       }
     },
     debugSnapshot: function () {
