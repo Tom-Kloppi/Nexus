@@ -203,9 +203,47 @@
   padding: 0.35rem 0.5rem 0;
 }
 
-.tray .card-piles,
-.tray #hand-fan {
+.tray .card-piles {
   display: none;
+}
+
+.city-progress {
+  position: fixed;
+  z-index: 40;
+  left: 50%;
+  bottom: 5.4rem;
+  transform: translateX(-50%);
+  min-width: 14rem;
+  padding: 0.35rem 0.7rem;
+  border-radius: 999px;
+  background: rgba(16, 22, 26, 0.82);
+  color: #f6f1e8;
+  font-size: 0.78rem;
+  text-align: center;
+}
+
+.city-progress[hidden] {
+  display: none;
+}
+
+.gfx-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
+.gfx-note {
+  margin: 0.35rem 0 0;
+  font-size: 0.75rem;
+  opacity: 0.85;
+}
+
+html[data-blur="off"] .topbar,
+html[data-blur="off"] .dock,
+html[data-blur="off"] .tray,
+html[data-blur="off"] .modal-card,
+html[data-blur="off"] .settings-panel {
+  backdrop-filter: none;
 }
 
 .end-eval {

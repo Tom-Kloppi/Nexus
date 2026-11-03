@@ -246,18 +246,18 @@ Nexus.TUTORIAL_STEPS = [
     id: "hand",
     section: "actions",
     scene: "build",
-    target: "#hand-fan",
-    title: "Hand",
-    body: "Ohne Karten steht hier ein Hinweis. Karten kommen aus der Ernte oder über Nachziehen und lassen sich nur in der Bauphase spielen."
+    target: "#project-fan",
+    title: "Projekte",
+    body: "Drei offene Projektkarten. Antippen kauft die Karte, wenn die Kosten da sind. Förderkarten liegen daneben."
   },
   {
     id: "hand-card",
     section: "actions",
     scene: "cards",
-    target: "#hand-fan .play-card",
-    fallback: "#hand-fan",
-    title: "Karte ausspielen",
-    body: "Kategorie, Name und Effekt stehen auf der Karte. Antippen spielt sie. In der Übung liegt nur ein Beispiel, es wird nichts verbucht."
+    target: "#project-fan .project-card",
+    fallback: "#project-fan",
+    title: "Projekt nehmen",
+    body: "Name, Wirkung und Kosten stehen auf der Karte. Antippen nimmt sie, wenn die Bauphase läuft und die Kosten da sind."
   },
   {
     id: "trade-btn",
