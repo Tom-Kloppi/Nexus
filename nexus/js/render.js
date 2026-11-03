@@ -3708,8 +3708,12 @@ window.Nexus = window.Nexus || {};
     if (factors) {
       factors.innerHTML = (preview.factors || [])
         .map(function (factor) {
+          var gloss =
+            { cyber: "cyber", grid: "netzstress", dependency: "abhaengigkeit", traffic: "verkehrslast" }[factor.id] || "";
           return (
-            "<li><strong>" +
+            "<li data-gloss='" +
+            gloss +
+            "'><strong>" +
             factor.label +
             " " +
             factor.value +
