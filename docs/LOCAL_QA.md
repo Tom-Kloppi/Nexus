@@ -37,3 +37,16 @@ Die Cloud-Umgebung hat kein verlässliches WebGL. Alles in dieser Liste ist am e
 - [ ] Risiko-Modal vor dem Wurf, Ereigniskarte nennt Ursache.
 - [ ] Undo in der Bauphase, Speichern/Laden im Überblick.
 - [ ] Schlussbilanz nennt Erneuerbare, Autarkie, Datenschutz, Komfort, Resilienz.
+
+## Leistung
+
+Die Stadt wird während der Rollenansicht nicht aufgebaut. Der Balken „Stadt wird aufgebaut“ erscheint erst danach und darf den Klick auf „Verstanden“ nicht blockieren.
+
+- [ ] Sechs Rollen durchklicken, danach bleibt die Oberfläche bedienbar. Konsole ohne Warnung „Geometrien steigen“.
+- [ ] `?quality=minimal` startet sofort klein, auch wenn Auto zuletzt Hoch gespeichert hat.
+- [ ] `?quality=ultra&fps=30` erzwingt Ultra und 30 Bilder pro Sekunde.
+- [ ] `?debug=1` zeigt FPS, Stufe und den letzten Governor-Grund. „Perf-Bericht kopieren“ legt JSON in die Zwischenablage. Diese JSON hier einfügen.
+- [ ] Grafik-Menü: Auto, Minimal, Niedrig, Mittel, Hoch, Ultra, 30/60, Akku, Schalter für Schatten, Nebel, Partikel, Verkehr, Weichzeichnen. Hover erklärt die Kosten.
+- [ ] Nach einem harten Abbruch (Tab schließen, während `nexus-session-open` noch gesetzt ist) startet die nächste Sitzung zwei Stufen niedriger und nennt das in einem Toast.
+
+Chrome-Profil, wenn es noch ruckelt: DevTools → Leistung → Aufnahme starten, eine Rolle durchklicken und fünf Sekunden Stadt stehen lassen, Aufnahme stoppen, als `.json` speichern. Zusammen mit dem Perf-Bericht aus `?debug` schicken.
