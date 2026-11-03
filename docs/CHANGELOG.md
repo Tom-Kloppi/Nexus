@@ -4,6 +4,18 @@ Neueste Welle zuerst. Das ist die **Geschichte** des spielbaren Stands — nicht
 
 Neue spielbare Welle: hier einen Block anlegen (Datum, Branch, Warum, Regeln, Grafik). DESIGN nur ändern, wenn sich der Vertrag ändert.
 
+## Overhaul 2 — Risiko, Markt, Mobilität, Stadt (2026-11)
+
+**Branch / Stand:** `main`. Rückkehrpunkt: Tag `pre-overhaul-2`.
+
+**Warum.** Risiko war ein Zähler ohne Ursache, Karten eine Leiste, Mobilität ein Stub, die Stadt wirkte leer.
+
+**Regeln.** Abgeleitetes Risiko mit offenem d100, Projektmarkt mit drei Karten, Straßengraph mit Randring, Haltestellen, Busbahnhof, Linien, SAE-Tore, Kapitel und Schlussauswertung. Umwelt aus der Ernte höchstens ±1 pro Zug. Fremde Halte geben Image bis 8. Zahlen und Begründung: [`DESIGN_DECISIONS.md`](DESIGN_DECISIONS.md).
+
+**Präsentation.** Baukasten pro Zone, entsättigte freie Felder, Fahrzeuge mit Spur, Tempo und Elektro-Anteil, Kulisse je Biom, Feldmenü und Projektfächer, Tooltips mit Glossar. Debug hinter `?debug`. Würfelserver `server/app.py`.
+
+**Smoke:** `node tools/sim.js 0`. Bot-Partien: `node tools/sim.js 36`.
+
 ## 3.1 — Visuals/UI-Overhaul (2026-10)
 
 **Branch / Stand:** `main` (Merge von `cursor/visuals-ui-overhaul-d004`). Vorheriger `main`: `archive/main-pre-visuals-ui-d004` (`af71e2a`). Freeze 2.1 bleibt `prototype`.
