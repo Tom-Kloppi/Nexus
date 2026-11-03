@@ -53,6 +53,12 @@ Undo nur aus der Bauphase, höchstens acht Schnappschüsse, ohne Stapel im Schna
 
 Dialog-Engine: ein Platzhalter-Schritt, kein fertiges Intro.
 
+## Ernte-Umwelt und Linien-Image
+
+Mehrere Solarfarmen liefern weiter jeweils Energie. Die Umwelt-Spur bekommt daraus höchstens +1 pro eigener Ernte, ein Umspannwerk höchstens −1. Der Ertrag stapelt, die Punktespur sagt nur „ihr fahrt erneuerbar“. Sonst entscheidet die Zahl der Solarfelder die Partie, bevor Mobilität und Datenschutz ins Spiel kommen.
+
+Eine eigene Linie mit mindestens einem fremden Halt gibt +1 Image pro Zug, solange Image unter 8 liegt. Die fünfte Stufe des Gemeinwohl-Versprechens liegt bei 8, also genau an dieser Decke. Frühere Stufen bleiben bei 1, 2, 4 und 5.
+
 ## Was bewusst nicht gebaut wurde
 
 Kein Multiplayer. Der Server würfelt nur und liefert die Dateien aus. Keine neue Frontend-Bibliothek: Three bleibt vendored, UI bleibt HTML/CSS/JS. Neue Geräte-IDs gibt es nicht.

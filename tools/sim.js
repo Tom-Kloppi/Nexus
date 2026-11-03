@@ -457,6 +457,8 @@ function run(games) {
   return lines.join("\n");
 }
 
+module.exports = { playOne: playOne, run: run };
+
 if (require.main === module) {
   var games = Number(process.argv[2] || 24);
   console.log(Nexus.runSmokeCheck());

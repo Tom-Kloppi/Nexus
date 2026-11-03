@@ -301,8 +301,8 @@ Nexus.ROLES = {
           { stage: 1, metricValue: 1, cumulativePercent: 4 },
           { stage: 2, metricValue: 2, cumulativePercent: 11 },
           { stage: 3, metricValue: 4, cumulativePercent: 20 },
-          { stage: 4, metricValue: 6, cumulativePercent: 31 },
-          { stage: 5, metricValue: 9, cumulativePercent: 38 }
+          { stage: 4, metricValue: 5, cumulativePercent: 31 },
+          { stage: 5, metricValue: 8, cumulativePercent: 38 }
         ]
       },
       {
