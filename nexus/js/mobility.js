@@ -512,18 +512,37 @@ window.Nexus = window.Nexus || {};
     });
     energy = Math.min(3, energy);
     money = Math.min(2, money);
-    if (!energy && !money) {
+    var imageGain = 0;
+    lines.forEach(function (line) {
+      (line.stopKeys || []).forEach(function (key) {
+        var zone = zoneByKey(state, key);
+        if (zone && zone.ownerId !== player.id) {
+          imageGain = 1;
+        }
+      });
+    });
+    if (imageGain && (player.scores.image || 0) >= 8) {
+      imageGain = 0;
+    }
+    if (!energy && !money && !imageGain) {
       return state;
     }
     var resources = Object.assign({}, player.resources);
     resources.energy = (resources.energy || 0) + energy;
     resources.money = (resources.money || 0) + money;
-    var nextPlayer = Object.assign({}, player, { resources: resources });
+    var scores = imageGain ? bump(player.scores, { image: imageGain }) : player.scores;
+    var nextPlayer = Object.assign({}, player, { resources: resources, scores: scores });
     var next = replace(state, nextPlayer);
     next.log = note(
       next,
       player.name,
-      "Mobilität: +" + energy + " Energie, +" + money + " Geld. Warum: Weniger Autoverkehr und Solardächer, Tickets aus angebundenem Wohnen."
+      "Mobilität: +" +
+        energy +
+        " Energie, +" +
+        money +
+        " Geld" +
+        (imageGain ? ", +1 Image (fremder Halt)." : ".") +
+        " Warum: Weniger Autoverkehr und Solardächer. Ein fremder Halt zeigt Zusammenarbeit, bis Image 8."
     );
     return next;
   }

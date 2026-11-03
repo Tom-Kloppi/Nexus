@@ -1667,6 +1667,7 @@ window.Nexus = window.Nexus || {};
     var harvestIds = {};
     var revealDelayByZone = {};
     var boomDraws = 0;
+    var envFromHarvest = 0;
 
     state.spinningOutcomes.forEach(function (outcome) {
       harvestIds[outcome.zoneId] = true;
@@ -1712,7 +1713,12 @@ window.Nexus = window.Nexus || {};
         }
       }
       if (outcome.yield.scoreHint) {
-        scores = bumpScores(scores, outcome.yield.scoreHint);
+        var hint = Object.assign({}, outcome.yield.scoreHint);
+        if (hint.environment) {
+          envFromHarvest += hint.environment;
+          delete hint.environment;
+        }
+        scores = bumpScores(scores, hint);
       }
       if (outcome.yield.riskDelta && !Nexus.Risk) {
         risk += outcome.yield.riskDelta;
@@ -1721,6 +1727,15 @@ window.Nexus = window.Nexus || {};
         boomDraws += 1;
       }
     });
+    if (envFromHarvest > 1) {
+      envFromHarvest = 1;
+    }
+    if (envFromHarvest < -1) {
+      envFromHarvest = -1;
+    }
+    if (envFromHarvest) {
+      scores = bumpScores(scores, { environment: envFromHarvest });
+    }
 
     var zones = state.zones.map(function (zone) {
       if (harvestIds[zone.id]) {
