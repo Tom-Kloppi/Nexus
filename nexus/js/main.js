@@ -257,6 +257,14 @@ window.Nexus = window.Nexus || {};
     if (state.spinningOutcomes) {
       return;
     }
+    if (Nexus.Dice && Nexus.Dice.prepare && !(state._diceReady)) {
+      state._diceReady = true;
+      Nexus.Dice.prepare(8, 100).then(function () {
+        state._diceReady = false;
+        triggerAutoHarvest();
+      });
+      return;
+    }
     if (Nexus.remainingHarvestCount(state) === 0) {
       commit(Nexus.skipEmptyProduce(state), { skipAutoHarvest: true });
       return;
@@ -704,6 +712,19 @@ window.Nexus = window.Nexus || {};
       Nexus.pushToast("SAE: erst V2X oder Ladenetz auf einem Verkehrsfeld.");
     }
   });
+
+  var riskRollButton = document.getElementById("btn-risk-roll");
+  if (riskRollButton) {
+    riskRollButton.addEventListener("click", function () {
+      if (state.turnPhase !== "risk") {
+        return;
+      }
+      if (Nexus.Sfx) {
+        Nexus.Sfx.play("roll");
+      }
+      commit(Nexus.confirmRiskRoll(state), { skipAutoHarvest: true });
+    });
+  }
 
   document.getElementById("btn-end-round").addEventListener("click", function () {
     if (!Nexus.canEndTurn(state)) {
