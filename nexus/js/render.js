@@ -3687,6 +3687,50 @@ window.Nexus = window.Nexus || {};
     }
   }
 
+  function renderRiskModal(state) {
+    var shell = document.getElementById("risk-modal");
+    if (!shell) {
+      return;
+    }
+    var open = state.turnPhase === "risk" && state.riskPreview;
+    if (!open) {
+      if (!shell.hidden) {
+        closeModal(shell);
+      }
+      return;
+    }
+    var preview = state.riskPreview;
+    var summary = document.getElementById("risk-summary");
+    var factors = document.getElementById("risk-factors");
+    if (summary) {
+      summary.textContent = preview.summary;
+    }
+    if (factors) {
+      factors.innerHTML = (preview.factors || [])
+        .map(function (factor) {
+          return (
+            "<li><strong>" +
+            factor.label +
+            " " +
+            factor.value +
+            "</strong> " +
+            factor.why +
+            " Gegenmaßnahme: " +
+            factor.counter +
+            "</li>"
+          );
+        })
+        .join("");
+    }
+    var button = document.getElementById("btn-risk-roll");
+    if (button) {
+      button.textContent = preview.major ? "Großereignis würfeln" : "Würfeln (d100)";
+    }
+    if (shell.hidden || !shell.classList.contains("is-open")) {
+      openModal(shell);
+    }
+  }
+
   function renderEventModal(state, ui) {
     var shell = document.getElementById("event-modal");
     var player = Nexus.currentPlayer(state);
@@ -4020,6 +4064,7 @@ window.Nexus = window.Nexus || {};
     renderExpandModal(state, ui);
     renderTradeModal(state, ui);
     renderTradeRespondModal(state, ui);
+    renderRiskModal(state);
     renderEventModal(state, ui);
     renderRoleRevealModal(state, ui);
     renderHandoffModal(state);
