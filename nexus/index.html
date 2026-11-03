@@ -18,8 +18,9 @@
       href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800&family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="transitions.css?v=61" />
-    <link rel="stylesheet" href="style.css?v=61" />
+    <link rel="stylesheet" href="transitions.css?v=63" />
+    <link rel="stylesheet" href="style.css?v=63" />
+    <link rel="stylesheet" href="overhaul.css?v=63" />
   </head>
   <body>
     <div class="modal-shell t-modal-backdrop" id="setup-screen">
@@ -86,6 +87,14 @@
           <button type="button" class="btn setup-choice" data-length="standard">Standard · 20</button>
           <button type="button" class="btn setup-choice" data-length="long">Lang · 25</button>
         </div>
+
+        <p class="setup-label">Schwierigkeit</p>
+        <div class="pick-row" id="setup-difficulty">
+          <button type="button" class="btn setup-choice" data-difficulty="easy">Leicht</button>
+          <button type="button" class="btn setup-choice is-selected" data-difficulty="normal">Normal</button>
+          <button type="button" class="btn setup-choice" data-difficulty="hard">Schwer</button>
+        </div>
+        <label class="setup-note"><input type="checkbox" id="setup-beginner" /> Einsteiger: weniger Standards, billigere erste Linie</label>
 
         <div class="setup-actions">
           <button type="button" class="btn" id="btn-tutorial">Anleitung</button>
@@ -303,6 +312,8 @@
           <ul id="hand-fan" class="card-fan t-avatar-group" aria-label="Ausspielbare Karten"></ul>
           <div class="action-buttons">
             <button type="button" class="btn" id="btn-trade" disabled>Handeln</button>
+            <button type="button" class="btn" id="btn-undo">Rückgängig</button>
+            <button type="button" class="btn" id="btn-guide">Überblick</button>
             <button type="button" class="btn primary" id="btn-end-round" disabled>Zug beenden</button>
           </div>
         </div>
@@ -492,30 +503,31 @@
       </div>
     </div>
 
-    <script src="vendor/three.min.js?v=61"></script>
-    <script src="js/data/constants.js?v=61"></script>
-    <script src="js/data/tiles.js?v=61"></script>
-    <script src="js/data/devices.js?v=61"></script>
-    <script src="js/data/events.js?v=61"></script>
-    <script src="js/data/cards.js?v=61"></script>
-    <script src="js/data/roles.js?v=61"></script>
-    <script src="js/data/tutorial.js?v=61"></script>
-    <script src="js/icons.js?v=61"></script>
-    <script src="js/glossary.js?v=61"></script>
-    <script src="js/dice.js?v=61"></script>
-    <script src="js/risk.js?v=61"></script>
-    <script src="js/mobility.js?v=61"></script>
-    <script src="js/projects.js?v=61"></script>
-    <script src="js/arc.js?v=61"></script>
-    <script src="js/dialog.js?v=61"></script>
-    <script src="js/field-actions.js?v=61"></script>
-    <script src="js/role-avatars.js?v=61"></script>
-    <script src="js/roles.js?v=61"></script>
-    <script src="js/state.js?v=61"></script>
-    <script src="js/board-look.js?v=61"></script>
-    <script src="js/board-props.js?v=61"></script>
-    <script src="js/board3d.js?v=61"></script>
-    <script src="js/render.js?v=61"></script>
-    <script src="js/main.js?v=61"></script>
+    <script src="vendor/three.min.js?v=63"></script>
+    <script src="js/data/constants.js?v=63"></script>
+    <script src="js/data/tiles.js?v=63"></script>
+    <script src="js/data/devices.js?v=63"></script>
+    <script src="js/data/events.js?v=63"></script>
+    <script src="js/data/cards.js?v=63"></script>
+    <script src="js/data/roles.js?v=63"></script>
+    <script src="js/data/tutorial.js?v=63"></script>
+    <script src="js/icons.js?v=63"></script>
+    <script src="js/glossary.js?v=63"></script>
+    <script src="js/dice.js?v=63"></script>
+    <script src="js/risk.js?v=63"></script>
+    <script src="js/mobility.js?v=63"></script>
+    <script src="js/projects.js?v=63"></script>
+    <script src="js/arc.js?v=63"></script>
+    <script src="js/dialog.js?v=63"></script>
+    <script src="js/field-actions.js?v=63"></script>
+    <script src="js/role-avatars.js?v=63"></script>
+    <script src="js/roles.js?v=63"></script>
+    <script src="js/state.js?v=63"></script>
+    <script src="js/board-look.js?v=63"></script>
+    <script src="js/board-props.js?v=63"></script>
+    <script src="js/board3d.js?v=63"></script>
+    <script src="js/render.js?v=63"></script>
+    <script src="js/ui-overhaul.js?v=63"></script>
+    <script src="js/main.js?v=63"></script>
   </body>
 </html>

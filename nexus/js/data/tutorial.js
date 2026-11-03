@@ -109,7 +109,7 @@ Nexus.TUTORIAL_STEPS = [
     scene: "build",
     target: ".risk-pill",
     title: "Risiko",
-    body: "Cloud-Geräte treiben das Risiko. Die Leiste wächst mit dem Wert. Solange das Gerät übergeben wird, ist die Zahl verdeckt."
+    body: "Vier Zahlen aus dem Stadtbild: Cyber, Netzstress, Abhängigkeit, Verkehrslast. Vor dem offenen Wurf siehst du die Chance. In der Übergabe ist die Zahl verdeckt."
   },
   {
     id: "hud-goal",
@@ -314,7 +314,7 @@ Nexus.TUTORIAL_STEPS = [
     scene: "home-device",
     target: "#inspect-card",
     title: "Cloud oder lokal",
-    body: "Cloud ist günstiger und erzeugt Risiko. Lokal kostet mehr. Beide Betriebsarten sind auf dem Brett sichtbar. Ressourcen und Versprechen bleiben privat."
+    body: "Cloud ist günstiger, braucht Bandbreite und fällt bei einem Blackout aus. Lokal kostet mehr und läuft weiter. Beides ist auf dem Brett sichtbar. Ressourcen und Versprechen bleiben privat."
   },
   {
     id: "sae",
@@ -322,7 +322,7 @@ Nexus.TUTORIAL_STEPS = [
     scene: "sae",
     target: "#sae-panel",
     title: "SAE-Stufe",
-    body: "Mit einem Mobilitätsgerät kannst du die SAE-Stufe ausbauen. Sie zählt fürs Verkehr-Versprechen und ist kein eigenes Spielfeld."
+    body: "SAE 0 bis 5 am Leitstand. Höhere Stufen brauchen Sensorik, ein Datenzentrum oder lokales V2X, bringen mehr Ertrag und werden über Cyber störanfälliger."
   },
   {
     id: "trade-modal",
@@ -349,7 +349,7 @@ Nexus.TUTORIAL_STEPS = [
     target: "#event-choices",
     fallback: "#event-modal .modal-card",
     title: "Ereignis",
-    body: "Manche Züge bringen eine Wahl. Die Knöpfe nennen Kosten und Wirkung. In der Übung wird nichts verbucht."
+    body: "Nach dem offenen Wurf erklärt die Karte, warum sie trifft und was geholfen hätte. Positive Karten gibt es auch. In der Übung wird nichts verbucht."
   },
   {
     id: "role-reveal",

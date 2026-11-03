@@ -541,7 +541,8 @@ window.Nexus = window.Nexus || {};
     if (Nexus.Board3D) {
       Nexus.Board3D.setUserAdjusted(false);
     }
-    commit(Nexus.startGame(setupChoice.count, setupChoice.lengthId));
+    var extra = Nexus.UIOverhaul ? Nexus.UIOverhaul.setupOptions() : {};
+    commit(Nexus.startGame(setupChoice.count, setupChoice.lengthId, extra));
   }
 
   document.getElementById("btn-start-game").addEventListener("click", startNewGame);
@@ -1960,5 +1961,16 @@ window.Nexus = window.Nexus || {};
         commit(next, { skipAutoHarvest: true });
       }
     };
+  }
+  if (Nexus.UIOverhaul) {
+    Nexus.UIOverhaul.install({
+      commit: commit,
+      getState: function () {
+        return state;
+      },
+      getUi: function () {
+        return ui;
+      }
+    });
   }
 })();

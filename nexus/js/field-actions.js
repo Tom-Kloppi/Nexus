@@ -110,10 +110,55 @@ window.Nexus = window.Nexus || {};
       actions.push(item("line-add", "In Linie aufnehmen", state.turnPhase === "build" && !!player.hasDepot, player.hasDepot ? "" : "Zuerst einen Busbahnhof bauen.", "Zwei Halte verbinden, Antrieb wählen."));
     }
     if (zone.type === "home") {
-      actions.push(item("devices", "Geräte am Leitstand", true, "", Nexus.WHY && Nexus.WHY.cloud));
+      actions.push(item("devices", "Cloud oder lokal", true, "", Nexus.WHY && Nexus.WHY.cloud));
       var sae = Nexus.Mobility ? Nexus.Mobility.saeOffer(state, player) : { allowed: false, reason: "SAE fehlt.", why: "" };
       actions.push(item("sae", "SAE " + ((player.saeLevel || 0) + 1), sae.allowed, sae.reason, sae.why));
     }
+    return actions;
+  }
+
+  function deviceOffers(state) {
+    var player = Nexus.currentPlayer(state);
+    var actions = [];
+    if (!player || !Nexus.DEVICES || !Nexus.getBuildOffer) {
+      return actions;
+    }
+    var shown = 0;
+    Nexus.DEVICES.forEach(function (device) {
+      if (shown >= 6) {
+        return;
+      }
+      var current = player.devices[device.id];
+      var modes = [];
+      if (!current && !device.localOnly) {
+        modes.push("cloud");
+      }
+      if (current !== "local") {
+        modes.push("local");
+      }
+      modes.forEach(function (mode) {
+        if (shown >= 6) {
+          return;
+        }
+        var offer = Nexus.getBuildOffer(state, device.id, mode);
+        if (!offer.allowed && current !== "cloud") {
+          return;
+        }
+        var why = mode === "local" ? (Nexus.WHY && Nexus.WHY.local) : (Nexus.WHY && Nexus.WHY.cloud);
+        actions.push(
+          item(
+            "device",
+            device.shortName + (mode === "local" ? " lokal" : " Cloud"),
+            offer.allowed,
+            offer.reason,
+            why,
+            { deviceId: device.id, mode: mode }
+          )
+        );
+        shown += 1;
+      });
+    });
+    actions.push(item("devices-home", "Alle Geräte im Leitstand", true, "", "Dort stehen Voraussetzungen und Kosten vollständig."));
     return actions;
   }
 
@@ -136,6 +181,7 @@ window.Nexus = window.Nexus || {};
 
   Nexus.FieldActions = {
     forHit: forHit,
-    zoneAtHit: zoneAtHit
+    zoneAtHit: zoneAtHit,
+    deviceOffers: deviceOffers
   };
 })(window.Nexus);
