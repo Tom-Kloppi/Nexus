@@ -412,6 +412,11 @@ window.Nexus = window.Nexus || {};
     renderChapter(state);
     renderEnd(state);
     stampHelp(state);
+    var note = document.querySelector(".js-gfx-note");
+    if (note && Nexus.Quality) {
+      var st = Nexus.Quality.state();
+      note.textContent = "Stufe " + (Nexus.Quality.LABELS[st.tier] || st.tier) + ", Grenze " + (Nexus.Quality.LABELS[st.cap] || st.cap);
+    }
     if (state.turnPhase !== lastPhase && state.turnPhase === "risk") {
       Nexus.Sfx.play("roll");
     }
@@ -424,7 +429,18 @@ window.Nexus = window.Nexus || {};
       var snap = Nexus.Board3D.debugSnapshot();
       var fps = document.getElementById("debug-fps");
       if (fps) {
-        fps.textContent = "Knoten " + (snap.graphNodes || 0) + " · Autos " + ((snap.cars && snap.cars.length) || 0);
+        var tier = Nexus.Quality ? Nexus.Quality.state().tier : "";
+        var gov = Nexus.Quality ? Nexus.Quality.log().slice(-1)[0] : null;
+        fps.textContent =
+          "FPS " +
+          (snap.fps || "–") +
+          " · " +
+          tier +
+          " · Knoten " +
+          (snap.graphNodes || 0) +
+          " · Autos " +
+          ((snap.cars && snap.cars.length) || 0) +
+          (gov ? " · " + gov.reason : "");
       }
     }
   }
@@ -495,7 +511,8 @@ window.Nexus = window.Nexus || {};
         "<button type='button' id='debug-night'>Tag/Nacht</button>" +
         "<button type='button' id='debug-biome'>Biom</button>" +
         "<label>Dichte <input id='debug-density' type='range' min='0' max='2' step='1' value='1'></label>" +
-        "<button type='button' id='debug-wire'>Wireframe</button>";
+        "<button type='button' id='debug-wire'>Wireframe</button>" +
+        "<button type='button' id='debug-copy'>Perf-Bericht kopieren</button>";
       document.body.appendChild(debugPanel);
       var density = document.getElementById("debug-density");
       if (density) {
@@ -530,8 +547,98 @@ window.Nexus = window.Nexus || {};
         if (id === "debug-wire" && Nexus.Board3D.setWirePick) {
           Nexus.Board3D.setWirePick();
         }
+        if (id === "debug-copy") {
+          var snap = Nexus.Board3D.debugSnapshot ? Nexus.Board3D.debugSnapshot() : {};
+          var report = {
+            tier: Nexus.Quality ? Nexus.Quality.state() : null,
+            params: Nexus.Quality ? Nexus.Quality.snapshot() : null,
+            log: Nexus.Quality ? Nexus.Quality.log() : [],
+            board: snap
+          };
+          var text = JSON.stringify(report);
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text);
+          }
+          if (Nexus.pushToast) {
+            Nexus.pushToast("Perf-Bericht kopiert.");
+          }
+        }
       });
     }
+    document.querySelectorAll(".js-board-quality").forEach(function (host) {
+      host.innerHTML = "";
+      ["auto", "minimal", "low", "medium", "high", "ultra"].forEach(function (id) {
+        var button = el("button", "btn", Nexus.Quality ? Nexus.Quality.LABELS[id] : id);
+        button.type = "button";
+        button.setAttribute("data-board-quality", id);
+        var help = {
+          auto: "Misst das Gerät und bleibt unter der Kalibrierungsgrenze.",
+          minimal: "Wenig Verkehr, keine Kulisse, 30 FPS. Für schwache Grafik.",
+          low: "Kleine Stadt, kein Weichzeichnen.",
+          medium: "Alltag. Schatten aus, 60 FPS als Ziel.",
+          high: "Volle Props und Weichzeichnen.",
+          ultra: "Höchste Auflösung, optional Schatten. Kann ruckeln."
+        };
+        button.setAttribute("data-help-title", Nexus.Quality ? Nexus.Quality.LABELS[id] : id);
+        button.setAttribute("data-help", help[id]);
+        host.appendChild(button);
+      });
+      var extra = el("div", "gfx-row");
+      [["30", "30 FPS"], ["60", "60 FPS"]].forEach(function (pair) {
+        var button = el("button", "btn", pair[1]);
+        button.type = "button";
+        button.setAttribute("data-help-title", pair[1]);
+        button.setAttribute("data-help", "Obergrenze für die Bildrate. 30 spart Akku und Wärme.");
+        button.addEventListener("click", function () {
+          if (Nexus.Quality) {
+            Nexus.Quality.setFps(Number(pair[0]));
+            window.localStorage.setItem("nexus-gfx-fps", pair[0]);
+          }
+        });
+        extra.appendChild(button);
+      });
+      var battery = el("button", "btn", "Akku sparen");
+      battery.type = "button";
+      battery.setAttribute("data-help-title", "Akku sparen");
+      battery.setAttribute("data-help", "Deckt die Stufe bei Niedrig und die Bildrate bei 30.");
+      battery.addEventListener("click", function () {
+        if (!Nexus.Quality) {
+          return;
+        }
+        var on = !Nexus.Quality.state().battery;
+        Nexus.Quality.setBattery(on);
+        battery.classList.toggle("is-selected", on);
+      });
+      extra.appendChild(battery);
+      host.parentNode.appendChild(extra);
+      var toggles = el("div", "gfx-row");
+      [
+        ["shadows", "Schatten"],
+        ["fog", "Nebel"],
+        ["particles", "Partikel"],
+        ["traffic", "Verkehr"],
+        ["backdrop", "Weichzeichnen"]
+      ].forEach(function (pair) {
+        var button = el("button", "btn", pair[1]);
+        button.type = "button";
+        button.setAttribute("data-help-title", pair[1]);
+        button.setAttribute("data-help", "Schaltet diesen Effekt aus oder auf den Stufen-Standard zurück.");
+        button.addEventListener("click", function () {
+          if (!Nexus.Quality) {
+            return;
+          }
+          var current = Nexus.Quality.state().toggles[pair[0]];
+          var next = current === false ? null : false;
+          Nexus.Quality.setToggle(pair[0], next);
+          button.classList.toggle("is-selected", next === false);
+        });
+        toggles.appendChild(button);
+      });
+      host.parentNode.appendChild(toggles);
+      var note = el("p", "gfx-note", "");
+      note.classList.add("js-gfx-note");
+      host.parentNode.appendChild(note);
+    });
     document.getElementById("setup-difficulty").addEventListener("click", function (event) {
       var button = event.target.closest("[data-difficulty]");
       if (!button) {
