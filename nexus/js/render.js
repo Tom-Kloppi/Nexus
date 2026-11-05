@@ -124,6 +124,87 @@ window.Nexus = window.Nexus || {};
       .join("");
   }
 
+  function bindCardFanOnce() {
+    var root = document.getElementById("hand-fan");
+    if (!root || root.dataset.hoverBound) {
+      return;
+    }
+    root.dataset.hoverBound = "1";
+
+    function num(name, fallback) {
+      var value = parseFloat(getComputedStyle(root).getPropertyValue(name));
+      return Number.isFinite(value) ? value : fallback;
+    }
+
+    function ease(name, fallback) {
+      return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback;
+    }
+
+    function avatars() {
+      return Array.prototype.slice.call(root.querySelectorAll(".t-avatar"));
+    }
+
+    function setShifts(activeIdx, phase) {
+      var lift = num("--avatar-lift", -42);
+      var falloff = num("--avatar-falloff", 0.32);
+      var scale = num("--avatar-scale", 1.08);
+      var timing =
+        phase === "out"
+          ? ease("--avatar-ease-out", "cubic-bezier(0.34, 3.85, 0.64, 1)")
+          : ease("--avatar-ease-in", "cubic-bezier(0.22, 1, 0.36, 1)");
+      avatars().forEach(function (el, i) {
+        el.style.transitionTimingFunction = timing;
+        if (activeIdx == null) {
+          el.style.setProperty("--shift", "0px");
+          el.style.setProperty("--scale-active", "1");
+          el.style.removeProperty("--fan-rot-live");
+          el.style.zIndex = "";
+          return;
+        }
+        var distance = Math.abs(i - activeIdx);
+        el.style.setProperty("--shift", (lift * Math.pow(falloff, distance)).toFixed(3) + "px");
+        el.style.setProperty("--scale-active", i === activeIdx ? String(scale) : "1");
+        if (i === activeIdx) {
+          el.style.setProperty("--fan-rot-live", "0deg");
+          el.style.zIndex = "20";
+        } else {
+          el.style.removeProperty("--fan-rot-live");
+          el.style.zIndex = String(10 - distance);
+        }
+      });
+    }
+
+    root.addEventListener("mouseover", function (event) {
+      var item = event.target.closest(".t-avatar");
+      if (!item || !root.contains(item)) {
+        return;
+      }
+      if (event.relatedTarget && item.contains(event.relatedTarget)) {
+        return;
+      }
+      var idx = avatars().indexOf(item);
+      if (idx < 0) {
+        return;
+      }
+      setShifts(idx, "in");
+    });
+
+    root.addEventListener("mouseout", function (event) {
+      var item = event.target.closest(".t-avatar");
+      if (!item) {
+        return;
+      }
+      var next = event.relatedTarget;
+      if (next && item.contains(next)) {
+        return;
+      }
+      if (next && root.contains(next) && next.closest(".t-avatar")) {
+        return;
+      }
+      setShifts(null, "out");
+    });
+  }
+
   function formatZoneYield(zone) {
     if (!zone || !zone.lastYield) {
       return "Noch nicht produziert";
@@ -3275,7 +3356,65 @@ window.Nexus = window.Nexus || {};
     document.getElementById("build-flags").textContent = flags.join(" · ");
 
     var shield = Nexus.isHotSeatShield(state);
+    var cards = shield ? [] : player.handCards || [];
     var played = shield ? [] : player.playedCards || [];
+    var canPlay = state.turnPhase === "build" && !shield;
+    var fan = document.getElementById("hand-fan");
+    if (fan) {
+      if (!cards.length) {
+        fan.classList.remove("is-dense");
+        fan.innerHTML = shield
+          ? ""
+          : '<li class="hand-empty">' +
+            '<span class="hand-ghost" aria-hidden="true"></span>' +
+            '<span class="hand-ghost" aria-hidden="true"></span>' +
+            "<span class=\"hand-empty-text\">Keine Handkarten — Innovationen kommen beim Ernten oder über <b>Nachziehen</b>.</span>" +
+            "</li>";
+      } else {
+        var n = cards.length;
+        /* Flacher Fächer: die Karten dürfen nicht unter die Trayleiste schwenken */
+        var spread = n > 6 ? 2.5 : 3;
+        fan.classList.toggle("is-dense", n > 5);
+        fan.innerHTML = cards
+          .map(function (card, index) {
+            var effects = Nexus.formatEffects(card.effects);
+            var rot = (index - (n - 1) / 2) * spread;
+            var title = canPlay
+              ? "Ausspielen: " + (effects || card.name)
+              : "Nur in der Bauphase ausspielbar";
+            return (
+              '<li class="t-avatar" style="--fan-i:' +
+              index +
+              "; --fan-n:" +
+              n +
+              "; --fan-rot:" +
+              rot +
+              'deg">' +
+              '<button type="button" class="play-card cat-' +
+              card.category +
+              '" data-card-index="' +
+              index +
+              '" title="' +
+              title +
+              '"' +
+              (canPlay ? "" : " disabled") +
+              ">" +
+              '<span class="play-card-cat">' +
+              (Nexus.INNOVATION_CATEGORY_LABELS[card.category] || card.category) +
+              "</span>" +
+              '<strong class="play-card-name">' +
+              card.name +
+              "</strong>" +
+              '<span class="play-card-text">' +
+              (card.text || "") +
+              "</span>" +
+              (effects ? '<span class="play-card-fx">' + effects + "</span>" : "") +
+              "</button></li>"
+            );
+          })
+          .join("");
+      }
+    }
 
     var playedStack = document.getElementById("played-stack");
     var playedCount = document.getElementById("played-count");
@@ -3317,6 +3456,7 @@ window.Nexus = window.Nexus || {};
       drawBtn.setAttribute("aria-label", drawBtn.title);
     }
 
+    bindCardFanOnce();
   }
 
   function escapeAttr(value) {
@@ -3541,54 +3681,6 @@ window.Nexus = window.Nexus || {};
           (rec ? recommendReasonText(rec) + " " : "") +
           "Ein Gebäude pro Feld. Straßen umringen die Kanten.</p>";
       }
-    }
-    if (shell.hidden || !shell.classList.contains("is-open")) {
-      openModal(shell);
-    }
-  }
-
-  function renderRiskModal(state) {
-    var shell = document.getElementById("risk-modal");
-    if (!shell) {
-      return;
-    }
-    var open = state.turnPhase === "risk" && state.riskPreview;
-    if (!open) {
-      if (!shell.hidden) {
-        closeModal(shell);
-      }
-      return;
-    }
-    var preview = state.riskPreview;
-    var summary = document.getElementById("risk-summary");
-    var factors = document.getElementById("risk-factors");
-    if (summary) {
-      summary.textContent = preview.summary;
-    }
-    if (factors) {
-      factors.innerHTML = (preview.factors || [])
-        .map(function (factor) {
-          var gloss =
-            { cyber: "cyber", grid: "netzstress", dependency: "abhaengigkeit", traffic: "verkehrslast" }[factor.id] || "";
-          return (
-            "<li data-gloss='" +
-            gloss +
-            "'><strong>" +
-            factor.label +
-            " " +
-            factor.value +
-            "</strong> " +
-            factor.why +
-            " Gegenmaßnahme: " +
-            factor.counter +
-            "</li>"
-          );
-        })
-        .join("");
-    }
-    var button = document.getElementById("btn-risk-roll");
-    if (button) {
-      button.textContent = preview.major ? "Großereignis würfeln" : "Würfeln (d100)";
     }
     if (shell.hidden || !shell.classList.contains("is-open")) {
       openModal(shell);
@@ -3928,7 +4020,6 @@ window.Nexus = window.Nexus || {};
     renderExpandModal(state, ui);
     renderTradeModal(state, ui);
     renderTradeRespondModal(state, ui);
-    renderRiskModal(state);
     renderEventModal(state, ui);
     renderRoleRevealModal(state, ui);
     renderHandoffModal(state);

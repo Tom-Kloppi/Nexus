@@ -89,13 +89,6 @@ window.Nexus = window.Nexus || {};
   Nexus.allSlots = allSlots;
   Nexus.boardSlots = boardSlots;
   Nexus.boardLayout = boardLayout;
-  function neighbors(q, r) {
-    return HEX_DIRS.map(function (dir) {
-      return { q: q + dir.q, r: r + dir.r };
-    });
-  }
-
   Nexus.isAdjacent = isAdjacent;
-  Nexus.neighbors = neighbors;
   Nexus.HEX_DIRS = HEX_DIRS;
 })(window.Nexus);

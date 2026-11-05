@@ -109,7 +109,7 @@ Nexus.TUTORIAL_STEPS = [
     scene: "build",
     target: ".risk-pill",
     title: "Risiko",
-    body: "Vier Zahlen aus dem Stadtbild: Cyber, Netzstress, Abhängigkeit, Verkehrslast. Vor dem offenen Wurf siehst du die Chance. In der Übergabe ist die Zahl verdeckt."
+    body: "Cloud-Geräte treiben das Risiko. Die Leiste wächst mit dem Wert. Solange das Gerät übergeben wird, ist die Zahl verdeckt."
   },
   {
     id: "hud-goal",
@@ -246,18 +246,18 @@ Nexus.TUTORIAL_STEPS = [
     id: "hand",
     section: "actions",
     scene: "build",
-    target: "#project-fan",
-    title: "Projekte",
-    body: "Drei offene Projektkarten. Antippen kauft die Karte, wenn die Kosten da sind. Förderkarten liegen daneben."
+    target: "#hand-fan",
+    title: "Hand",
+    body: "Ohne Karten steht hier ein Hinweis. Karten kommen aus der Ernte oder über Nachziehen und lassen sich nur in der Bauphase spielen."
   },
   {
     id: "hand-card",
     section: "actions",
     scene: "cards",
-    target: "#project-fan .project-card",
-    fallback: "#project-fan",
-    title: "Projekt nehmen",
-    body: "Name, Wirkung und Kosten stehen auf der Karte. Antippen nimmt sie, wenn die Bauphase läuft und die Kosten da sind."
+    target: "#hand-fan .play-card",
+    fallback: "#hand-fan",
+    title: "Karte ausspielen",
+    body: "Kategorie, Name und Effekt stehen auf der Karte. Antippen spielt sie. In der Übung liegt nur ein Beispiel, es wird nichts verbucht."
   },
   {
     id: "trade-btn",
@@ -314,7 +314,7 @@ Nexus.TUTORIAL_STEPS = [
     scene: "home-device",
     target: "#inspect-card",
     title: "Cloud oder lokal",
-    body: "Cloud ist günstiger, braucht Bandbreite und fällt bei einem Blackout aus. Lokal kostet mehr und läuft weiter. Beides ist auf dem Brett sichtbar. Ressourcen und Versprechen bleiben privat."
+    body: "Cloud ist günstiger und erzeugt Risiko. Lokal kostet mehr. Beide Betriebsarten sind auf dem Brett sichtbar. Ressourcen und Versprechen bleiben privat."
   },
   {
     id: "sae",
@@ -322,7 +322,7 @@ Nexus.TUTORIAL_STEPS = [
     scene: "sae",
     target: "#sae-panel",
     title: "SAE-Stufe",
-    body: "SAE 0 bis 5 am Leitstand. Höhere Stufen brauchen Sensorik, ein Datenzentrum oder lokales V2X, bringen mehr Ertrag und werden über Cyber störanfälliger."
+    body: "Mit einem Mobilitätsgerät kannst du die SAE-Stufe ausbauen. Sie zählt fürs Verkehr-Versprechen und ist kein eigenes Spielfeld."
   },
   {
     id: "trade-modal",
@@ -349,7 +349,7 @@ Nexus.TUTORIAL_STEPS = [
     target: "#event-choices",
     fallback: "#event-modal .modal-card",
     title: "Ereignis",
-    body: "Nach dem offenen Wurf erklärt die Karte, warum sie trifft und was geholfen hätte. Positive Karten gibt es auch. In der Übung wird nichts verbucht."
+    body: "Manche Züge bringen eine Wahl. Die Knöpfe nennen Kosten und Wirkung. In der Übung wird nichts verbucht."
   },
   {
     id: "role-reveal",

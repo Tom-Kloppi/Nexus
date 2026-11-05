@@ -5,15 +5,13 @@
 **Freeze:** Branch `prototype` = spielbarer Stand vor diesem Redesign (NEXUS 2.1).  
 **Diese Datei ist Vertrag.** Code und `docs/GAME.md` folgen ihr. Abweichungen = Bug. Wellen/Geschichte: [`CHANGELOG.md`](CHANGELOG.md) — kein Vertrag.  
 **Concept-Review:** Tom hat die Defaults in `docs/UPDATE_CONCEPT.md` (Anhang B, §3.5, §9) akzeptiert. Akzeptierte Sätze stehen hier. Die Review-Datei bleibt Begründung — **kein** zweiter Vertrag.  
-**Grafik-Nachzug (schlägt ältere Konzept-Defaults):** Straßen auf **Kanten**; `traffic` = Busbahnhof/Parkplatz/Parkhaus (**nicht** die Straße); WebGL-Stadt mit echten Volumen (Three.js, vendored), Gewerbe-/Hügel-Rand, Orbit-Kamera; Feld-Ausbau, Abriss nur wenn verbunden, Handel = Angebot.
-
-**Overhaul 2 (schlägt die Sätze unten, wo sie widersprechen):** [`DESIGN_DECISIONS.md`](DESIGN_DECISIONS.md). Kurz: Risiko ist aus Cyber, Netzstress, Abhängigkeit und Verkehrslast abgeleitet und wird vor einem offenen d100 angezeigt. Projektkarten liegen zu dritt offen, Aktionen am Feld. Mobilität ist ein Graph mit Haltestellen, Busbahnhof, Linien, Antrieb und SAE-Toren. Vier Kapitel, Schlussauswertung. Würfel bevorzugt über `server/app.py` (`/api/roll`, `/ws`), sonst lokal markiert. Umwelt aus der Ernte höchstens ±1 pro Zug. Eine Linie mit fremdem Halt gibt Image, gedeckelt bei 8.
+**Grafik-Nachzug (schlägt ältere Konzept-Defaults):** Straßen auf **Kanten**; `traffic` = Busbahnhof/Parkplatz (**nicht** die Straße); WebGL-Stadt mit echten Volumen (Three.js, vendored), Gewerbe-/Hügel-Rand, Orbit-Kamera; Feld-Ausbau, Abriss nur wenn verbunden, Handel = Angebot.
 
 ## Setting
 
 Spieler = Stadtteilmanager (Testgebiet). Geheimes **Wahlversprechen** statt alter Rollenziele. Wer am Ende laut eigenem Versprechen führt → Bürgermeister.
 
-**Hot-Seat bleibt der Vertrag:** 2–6 Spieler, ein Gerät. **LAN/WLAN-Multiplayer:** erst nach Verlassen von Hot-Seat (Gate), nicht in diesem Zyklus — kein Spielprotokoll, kein WebRTC. Ein kleiner FastAPI-Prozess darf nur würfeln und Dateien ausliefern (`server/app.py`).
+**Hot-Seat bleibt der Vertrag:** 2–6 Spieler, ein Gerät. **LAN/WLAN-Multiplayer:** erst nach Verlassen von Hot-Seat (Gate), nicht in diesem Zyklus — kein Protokoll, kein WebRTC, kein Backend jetzt.
 
 ### Harte Kernregeln (nicht aufweichen)
 
@@ -24,7 +22,7 @@ Spieler = Stadtteilmanager (Testgebiet). Geheimes **Wahlversprechen** statt alte
 - 2-Spieler: Metrik-Skalierung in `roles.js` bleibt; 5–6 Spieler leichte Hochskalierung von Handel/Zonen.
 - Sieg = `computeRoleProgress` (Sofort ≥ 100 % nach voller Runde, sonst höchste %). Keine Spurensumme, **keine Catch-up-Regel**.
 - Geräte und Feld-Ausbau sind **öffentlich** (Cloud und lokal). Cloud vs lokal bleibt nur als Mechanik (Risiko, Upkeep, lokal %).
-- Vanilla HTML/CSS/JS für Regeln und App-Chrome; **kein** React/Vue, keine Accounts, kein Spiel-Backend. Erlaubt ist nur der Würfelserver. Das **Distrikt-Board** darf eine vendored 3D-Engine (Three.js) oder Canvas nutzen — nur Präsentation, keine Regeln.
+- Vanilla HTML/CSS/JS für Regeln und App-Chrome; **kein** React/Vue, **kein** Online-Backend, keine Accounts. Das **Distrikt-Board** darf eine vendored 3D-Engine (Three.js) oder Canvas nutzen — nur Präsentation, keine Regeln.
 
 ## Präsentation / Board
 
@@ -37,7 +35,7 @@ Spieler = Stadtteilmanager (Testgebiet). Geheimes **Wahlversprechen** statt alte
 - **Nacht:** dunkelblau/dunkelgrau mit genug Ambient und Mondlicht; Felder und Besitzfarben bleiben lesbar. Fenster/Laternen/Ampeln (emissive/Glow/Lichtpools, keine PointLights pro Laterne); Geräte-Gizmos öffentlich. Kein Leak von Rolle/Wallet/Versprechen. Handoff/Reveal dimmt das Board.
 - **Motion = Lehre:** Shake, Ticks, Place-Pop, Produktion-Pulse/Flugpartikel, Handoff-Dim. Tokens `nexus/transitions.css`. First-turn: Copy + Pulse — **keine** `turnPhase` für Tutorial. **Anleitung** = Overlay (`data/tutorial.js`), optional, Spotlight auf echte UI. Rollen als Steckbriefe mit Avatar; Glossar Spur/Stufe/Prozent.
 - **Investor-Metrik** `moneyThroughput` = kumuliertes **Geld**.
-- **Verkehr:** Das Feld ist Parkplatz, Parkhaus (Solardach, Ladesäulen) oder Busbahnhof. Straßen, Haltestellen und Linien liegen auf dem Graphen. Nur das erste Verkehrsfeld gibt +1 Komfort.
+- **Verkehr:** Stub-Ertrag; **+1 Komfort** beim Bau. Feld = Gebäude, nicht das Straßennetz.
 
 ## Ressourcen (genau 3)
 
@@ -70,7 +68,7 @@ Sieg = `computeRoleProgress` gegen das Wahlversprechen (Unterziele auf diesen Sp
 | `energy` | `solar`: Würfel-Produktion (bestehende PRODUCTION_DICE). `transformer`: stabile Produktion, kostet `money` pro Ertragseinheit (Konstante `TRANSFORMER_MONEY_PER_ENERGY`). Optional: Bau kann `environment` geben (Solar) oder kosten (Transformer). |
 | `datacenter` | `insecure` günstig / unsicher (+Risiko). `secure` teurer / sicher. **Ohne eigenes Datenzentrum:** Spieler hat keinen Zugriff auf Bandbreiten-Ertrag aus Wohnfeldern (Wallet-`bandwidth` aus Residential = 0 bis DC existiert). |
 | `residential` | Produziert Bandbreite (Basis). Geräte (Kamera, Schloss, …) bleiben Gadgets im Device-Menü. **Feld-Ausbau** `upgradeLevel` 0–2 ist Monopoly-artig und sichtbar am 3D-Gebäude. Nachbar-Bonus: optional später; MVP = nur eigenes Feld. |
-| `traffic` | Parkplatz, Parkhaus oder Busbahnhof. Erstes Feld +1 Komfort. Linien und SAE: `mobility.js`, Zahlen in DESIGN_DECISIONS. |
+| `traffic` | Stub: baubar, produziert wenig `money`. **+1 Komfort** beim Bau. Grafik: Busbahnhof oder Parkplatz mit Ladestationen **auf** dem Feld. |
 | `home` | Startfeld **Kontrollbüro**; Basis +1 aller 3 Ressourcen / Runde, plus +1 je `upgradeLevel`. |
 
 Beim Expand wählt der Spieler Typ; bei `energy`/`datacenter` zusätzlich die Variante. UI: Typwahl **2×2**. Optional: empfohlenes Feld/Typ leuchtet aus den **eigenen** Engpässen (Ressourcen / Versprechen) — kein Leak fremder Privatinfos.
@@ -111,7 +109,7 @@ Keine neuen Geräte-IDs in diesem Zyklus; Loop über Feedback und Copy. Karten/E
 - Umweltsteuer als eigener Screen
 - Amortisierung über Runden
 - Public-fields / exclusive districts
-- Autonomes Fahren als vom Rest getrenntes Mini-Spiel (SAE bleibt Teil der Mobilität und des Risikos)
+- Autonomes Fahren als eigener Layer
 - Nachbarschafts-Smart-Home-Miete
 - LAN/WLAN-Multiplayer bis Gate nach Hot-Seat
 - Neue Geräte-IDs, neue Ressourcen, vierte Spur, neue Event-Engine

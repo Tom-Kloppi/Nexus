@@ -117,35 +117,6 @@ window.Nexus = window.Nexus || {};
   var cars = [];
   var carMesh = null;
   var carCabin = null;
-  var pedMesh = null;
-  var peds = [];
-  var busMesh = null;
-  var busAgents = [];
-  var birds = [];
-  var clouds = [];
-  var turbines = [];
-  var densityLevel = 1;
-  var wireOn = false;
-  var debugCamOn = false;
-  var fpsValue = 0;
-  var fpsFrames = 0;
-  var fpsStamp = 0;
-  var frameSamples = [];
-  var cityReady = false;
-  var cityPhase = null;
-  var roadDress = null;
-  var lastRoadNet = null;
-  var tileCursor = null;
-  var tileBudget = null;
-  var batchOn = false;
-  var batchItems = [];
-  var forceMesh = false;
-  var sharedMat = typeof WeakSet === "function" ? new WeakSet() : null;
-  var sharedGeo = typeof WeakSet === "function" ? new WeakSet() : null;
-  var disposeN = 0;
-  var lastDraw = 0;
-  var leakPrev = 0;
-  var leakHits = 0;
   var dummy = null;
   var lights = [];
   var lamps = [];
@@ -261,18 +232,7 @@ window.Nexus = window.Nexus || {};
   }
 
   function normalizeQuality(value) {
-    var legacy = { quality: "high", balance: "medium", performance: "low" };
-    if (legacy[value]) {
-      return legacy[value];
-    }
-    if (
-      value === "auto" ||
-      value === "minimal" ||
-      value === "low" ||
-      value === "medium" ||
-      value === "high" ||
-      value === "ultra"
-    ) {
+    if (value === "quality" || value === "balance" || value === "performance" || value === "auto") {
       return value;
     }
     return "auto";
@@ -324,18 +284,6 @@ window.Nexus = window.Nexus || {};
       lose.loseContext();
     }
     gpuProbe = out;
-    if (
-      out.software &&
-      Nexus.Quality &&
-      !(function () {
-        var search = window.location && window.location.search;
-        var fromUrl = Nexus.Quality.parseUrl(search || "");
-        return fromUrl.tier && fromUrl.tier !== "auto";
-      })()
-    ) {
-      Nexus.Quality.setManual("minimal");
-      Nexus.Quality.setCap("minimal");
-    }
     return out;
   }
 
@@ -369,30 +317,7 @@ window.Nexus = window.Nexus || {};
     return "quality";
   }
 
-  function qualityParams() {
-    if (Nexus.Quality && Nexus.Quality.snapshot) {
-      return Nexus.Quality.snapshot();
-    }
-    return null;
-  }
-
   function applyQualityCounts() {
-    var tuned = qualityParams();
-    if (tuned) {
-      CAR_COUNT = tuned.cars;
-      MAX_LIGHTS = tuned.lights;
-      MAX_LAMPS = tuned.lamps;
-      MAX_TREES = tuned.trees;
-      MAX_BINS = tuned.bins;
-      MAX_BENCHES = tuned.benches;
-      MAX_BUSHES = Math.max(2, Math.round(MAX_TREES * 0.7));
-      MAX_FLOWERS = Math.max(2, Math.round(MAX_TREES * 0.55));
-      activeQuality.decoKeep = tuned.decoKeep;
-      activeQuality.antialias = tuned.antialias;
-      activeQuality.pixelRatioCap = tuned.pixelRatioCap;
-      activeQuality.renderScale = tuned.renderScale;
-      return;
-    }
     var q = activeQuality;
     CAR_COUNT = q.carCount;
     MAX_LIGHTS = q.maxLights;
@@ -487,9 +412,6 @@ window.Nexus = window.Nexus || {};
     if (!renderer) {
       return false;
     }
-    if (lastState && lastState.turnPhase === "role_reveal") {
-      return false;
-    }
     if (typeof document.hidden === "boolean" && document.hidden) {
       return false;
     }
@@ -567,9 +489,8 @@ window.Nexus = window.Nexus || {};
       startLoop();
       return;
     }
-    tileCursor = null;
-    tileBudget = null;
-    buildRoads(roadTiles());
+    var playTiles = Nexus.allSlots(Nexus.CONSTANTS.HEX_RADIUS);
+    buildRoads(playTiles);
     lastFp = "";
     rebuildTiles(lastState, lastUi);
     lastFp = fingerprint(lastState, lastUi);
@@ -579,9 +500,6 @@ window.Nexus = window.Nexus || {};
 
   function setBoardQuality(choice) {
     var nextChoice = normalizeQuality(choice);
-    if (Nexus.Quality) {
-      Nexus.Quality.setManual(nextChoice === "auto" ? "auto" : nextChoice);
-    }
     var changed = !qualityReady || nextChoice !== qualityChoice;
     var prevResolved = resolvedPreset;
     resolveQuality(nextChoice, nextChoice === "auto" && changed);
@@ -623,35 +541,6 @@ window.Nexus = window.Nexus || {};
     return tex;
   }
 
-  function shareMat(material) {
-    if (material && sharedMat) {
-      sharedMat.add(material);
-    }
-    return material;
-  }
-
-  function shareGeo(geometry) {
-    if (geometry && sharedGeo) {
-      sharedGeo.add(geometry);
-    }
-    return geometry;
-  }
-
-  function isSharedMat(material) {
-    return !!(material && sharedMat && sharedMat.has(material));
-  }
-
-  function ownMat(material) {
-    if (!material || !material.clone) {
-      return material;
-    }
-    var copy = material.clone();
-    if (copy.userData) {
-      copy.userData.shared = false;
-    }
-    return copy;
-  }
-
   function lambert(color, opts) {
     opts = opts || {};
     return new THREE.MeshLambertMaterial({
@@ -679,35 +568,18 @@ window.Nexus = window.Nexus || {};
   }
 
   function buildGeos() {
-    geo.box = shareGeo(new THREE.BoxGeometry(1, 1, 1));
-    geo.cyl6 = shareGeo(new THREE.CylinderGeometry(1, 1, 1, 6));
-    geo.cyl8 = shareGeo(new THREE.CylinderGeometry(1, 1, 1, 8));
-    geo.cyl12 = shareGeo(new THREE.CylinderGeometry(1, 1, 1, 12));
-    geo.sphere = shareGeo(new THREE.SphereGeometry(1, 10, 8));
-    geo.cone = shareGeo(new THREE.ConeGeometry(1, 1, 6));
-    geo.plane = shareGeo(new THREE.PlaneGeometry(1, 1));
-    geo.car = shareGeo(new THREE.BoxGeometry(0.85, 0.48, 1.85));
-    geo.cabin = shareGeo(new THREE.BoxGeometry(0.72, 0.34, 0.92));
+    geo.box = new THREE.BoxGeometry(1, 1, 1);
+    geo.cyl6 = new THREE.CylinderGeometry(1, 1, 1, 6);
+    geo.cyl8 = new THREE.CylinderGeometry(1, 1, 1, 8);
+    geo.cyl12 = new THREE.CylinderGeometry(1, 1, 1, 12);
+    geo.sphere = new THREE.SphereGeometry(1, 10, 8);
+    geo.cone = new THREE.ConeGeometry(1, 1, 6);
+    geo.plane = new THREE.PlaneGeometry(1, 1);
+    geo.car = new THREE.BoxGeometry(0.85, 0.48, 1.85);
+    geo.cabin = new THREE.BoxGeometry(0.72, 0.34, 0.92);
   }
 
   function buildMaterials() {
-    if (mats) {
-      var seen = [];
-      Object.keys(mats).forEach(function (key) {
-        var material = mats[key];
-        if (!material || seen.indexOf(material) >= 0) {
-          return;
-        }
-        seen.push(material);
-        if (sharedMat && sharedMat.has(material)) {
-          sharedMat.delete(material);
-        }
-        if (material.dispose) {
-          material.dispose();
-          disposeN += 1;
-        }
-      });
-    }
     var night = isNight();
     ensureSprites();
     mats = {};
@@ -721,8 +593,6 @@ window.Nexus = window.Nexus || {};
     mats.cream = lambert(css("--w-cream", "#fbf4e6"));
     mats.sand = mats.cream;
     mats.roof = lambert(css("--r-slate", "#5d7285"));
-    mats.neutral = lambert(night ? "#4a5158" : "#b7bcc2");
-    mats.neutralRoof = lambert(night ? "#3c444c" : "#8e969e");
     mats.pv = lambert(css("--panel-pv", "#2e4a78"));
     mats.pvNight = lambert(css("--panel-pv", "#2e4a78"), {
       emissive: "#1a3358",
@@ -851,9 +721,6 @@ window.Nexus = window.Nexus || {};
     });
     mats.facade1 = mats.facade0;
     mats.facade2 = mats.facade0;
-    Object.keys(mats).forEach(function (key) {
-      shareMat(mats[key]);
-    });
   }
 
   function applyLightsTheme() {
@@ -884,70 +751,13 @@ window.Nexus = window.Nexus || {};
     var skyCol = theme ? theme.sky : night ? "#1a2a3a" : "#a8e0de";
     var fogCol = theme ? theme.fog : night ? "#1c2e3c" : "#b8e4dc";
     scene.background = new THREE.Color(skyCol);
-    var tuned = qualityParams();
-    if (tuned && tuned.fog === false) {
-      scene.fog = null;
-    } else {
-      scene.fog = new THREE.Fog(new THREE.Color(fogCol), FOG_NEAR, FOG_FAR);
-    }
-    if (extras.sun) {
-      extras.sun.castShadow = !!(tuned && tuned.shadows);
-      if (tuned && tuned.shadows && extras.sun.shadow && extras.sun.shadow.mapSize) {
-        extras.sun.shadow.mapSize.set(tuned.shadowMap || 512, tuned.shadowMap || 512);
-      }
-    }
-    if (renderer && renderer.shadowMap) {
-      renderer.shadowMap.enabled = !!(tuned && tuned.shadows);
-    }
+    scene.fog = new THREE.Fog(new THREE.Color(fogCol), FOG_NEAR, FOG_FAR);
     if (renderer) {
       renderer.setClearColor(skyCol, 1);
     }
   }
 
-  function nowMs() {
-    if (typeof performance !== "undefined" && performance.now) {
-      return performance.now();
-    }
-    return Date.now();
-  }
-
-  function liveParent(parent) {
-    var node = parent;
-    while (node) {
-      if (node.userData && node.userData.live) {
-        return true;
-      }
-      node = node.parent;
-    }
-    return false;
-  }
-
-  function canBatch(parent, mat) {
-    if (!batchOn || forceMesh || !mat || liveParent(parent)) {
-      return false;
-    }
-    if (mat === mats.roof || mat === mats.slate) {
-      return false;
-    }
-    return true;
-  }
-
-  function batchHandle(item) {
-    var rot = { x: 0, y: item.ry || 0, z: 0 };
-    item.rot = rot;
-    return { rotation: rot, position: { x: item.x, y: item.y, z: item.z }, isMesh: false };
-  }
-
-  function rememberBatch(parent, mat, geoKey, x, y, z, sx, sy, sz, ry) {
-    var item = { parent: parent, mat: mat, geoKey: geoKey, x: x, y: y, z: z, sx: sx, sy: sy, sz: sz, ry: ry || 0 };
-    batchItems.push(item);
-    return batchHandle(item);
-  }
-
   function addBox(parent, mat, w, h, d, x, y0, z, ry) {
-    if (canBatch(parent, mat)) {
-      return rememberBatch(parent, mat, "box", x, y0 + h / 2, z, w, h, d, ry);
-    }
     var mesh = new THREE.Mesh(geo.box, mat);
     mesh.scale.set(w, h, d);
     mesh.position.set(x, y0 + h / 2, z);
@@ -960,9 +770,6 @@ window.Nexus = window.Nexus || {};
 
   function addCyl(parent, mat, rTop, rBot, h, x, y0, z, segs) {
     var g = segs === 6 ? geo.cyl6 : segs === 8 ? geo.cyl8 : geo.cyl12;
-    if (canBatch(parent, mat)) {
-      return rememberBatch(parent, mat, segs === 6 ? "cyl6" : segs === 8 ? "cyl8" : "cyl12", x, y0 + h / 2, z, rTop, h, rBot || rTop, segs === 6 ? Math.PI / 6 : 0);
-    }
     var mesh = new THREE.Mesh(g, mat);
     mesh.scale.set(rTop, h, rBot || rTop);
     mesh.position.set(x, y0 + h / 2, z);
@@ -974,71 +781,11 @@ window.Nexus = window.Nexus || {};
   }
 
   function addSphere(parent, mat, r, x, y, z) {
-    if (canBatch(parent, mat)) {
-      return rememberBatch(parent, mat, "sphere", x, y, z, r, r, r, 0);
-    }
     var mesh = new THREE.Mesh(geo.sphere, mat);
     mesh.scale.set(r, r, r);
     mesh.position.set(x, y, z);
     parent.add(mesh);
     return mesh;
-  }
-
-  function worldOf(parent, x, y, z) {
-    var node = parent;
-    var guard = 0;
-    while (node && guard < 16) {
-      x += node.position ? node.position.x || 0 : 0;
-      y += node.position ? node.position.y || 0 : 0;
-      z += node.position ? node.position.z || 0 : 0;
-      node = node.parent;
-      guard += 1;
-    }
-    return { x: x, y: y, z: z };
-  }
-
-  function flushBatches() {
-    if (!batchItems.length) {
-      return;
-    }
-    if (!roots.batches) {
-      roots.batches = new THREE.Group();
-      if (scene) {
-        scene.add(roots.batches);
-      }
-    }
-    var buckets = [];
-    batchItems.forEach(function (item) {
-      var found = null;
-      buckets.forEach(function (bucket) {
-        if (bucket.mat === item.mat && bucket.geoKey === item.geoKey) {
-          found = bucket;
-        }
-      });
-      if (!found) {
-        found = { mat: item.mat, geoKey: item.geoKey, items: [] };
-        buckets.push(found);
-      }
-      found.items.push(item);
-    });
-    dummy = dummy || new THREE.Object3D();
-    buckets.forEach(function (bucket) {
-      var geometry = geo[bucket.geoKey] || geo.box;
-      var mesh = new THREE.InstancedMesh(geometry, bucket.mat, bucket.items.length);
-      mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-      bucket.items.forEach(function (item, index) {
-        var at = worldOf(item.parent, item.x, item.y, item.z);
-        var rot = item.rot || { x: 0, y: item.ry || 0, z: 0 };
-        dummy.position.set(at.x, at.y, at.z);
-        dummy.rotation.set(rot.x || 0, rot.y || 0, rot.z || 0);
-        dummy.scale.set(item.sx, item.sy, item.sz);
-        dummy.updateMatrix();
-        mesh.setMatrixAt(index, dummy.matrix);
-      });
-      mesh.instanceMatrix.needsUpdate = true;
-      roots.batches.add(mesh);
-    });
-    batchItems = [];
   }
 
   function addInstances(geom, mat, poses, parent) {
@@ -1201,26 +948,8 @@ window.Nexus = window.Nexus || {};
     return mats["facade" + n];
   }
 
-  function trafficKind(q, r, zone) {
-    if (zone && zone.trafficMode === "depot") {
-      return "bus";
-    }
-    if (zone && (zone.trafficMode === "garage" || zone.trafficMode === "lot")) {
-      return "parking";
-    }
+  function trafficKind(q, r) {
     return seeded(q, r, 3)() < 0.5 ? "bus" : "parking";
-  }
-
-  function desaturateGroup(group) {
-    group.traverse(function (obj) {
-      if (!obj.isMesh || !obj.material) {
-        return;
-      }
-      if (obj.material === mats.grass || obj.material === mats.grassDeep || obj.material === mats.lot) {
-        return;
-      }
-      obj.material = obj.position.y > TILE_H + 2.2 ? mats.neutralRoof : mats.neutral;
-    });
   }
 
   function gizmosFor(state, zone) {
@@ -1531,52 +1260,9 @@ window.Nexus = window.Nexus || {};
     group.add(cap);
   }
 
-  function disposeTree(obj) {
-    if (!obj) {
-      return;
-    }
-    var walk = obj.traverse
-      ? obj.traverse.bind(obj)
-      : function (fn) {
-          fn(obj);
-        };
-    walk(function (node) {
-      var materials = node.material ? (Array.isArray(node.material) ? node.material : [node.material]) : [];
-      materials.forEach(function (material) {
-        if (!material || isSharedMat(material)) {
-          return;
-        }
-        if (material.map && material.map.dispose && !(sharedMat && sharedMat.has(material.map))) {
-          material.map.dispose();
-        }
-        if (material.dispose) {
-          material.dispose();
-          disposeN += 1;
-        }
-      });
-      if (node.geometry && node.geometry.dispose && !(sharedGeo && sharedGeo.has(node.geometry))) {
-        node.geometry.dispose();
-      }
-      if (node.isInstancedMesh && node.dispose) {
-        node.dispose();
-        disposeN += 1;
-      }
-    });
-  }
-
   function clearGroup(g) {
-    if (!g) {
-      return;
-    }
-    var kids = g.children ? g.children.slice() : [];
-    kids.forEach(function (child) {
-      disposeTree(child);
-      if (g.remove) {
-        g.remove(child);
-      }
-    });
-    if (g.children && g.children.length && kids.length) {
-      g.children.length = 0;
+    while (g.children.length) {
+      g.remove(g.children[0]);
     }
   }
 
@@ -1618,10 +1304,8 @@ window.Nexus = window.Nexus || {};
       }
     }
     if (spriteTextures.horizon) {
-      var silTune = qualityParams();
-      var silN = silTune ? Math.round(6 * (silTune.horizon || 0)) : 6;
-      for (i = 0; i < silN; i++) {
-        var ha = (i / Math.max(1, silN)) * Math.PI * 2;
+      for (i = 0; i < 6; i++) {
+        var ha = (i / 6) * Math.PI * 2;
         var hx = Math.sin(ha) * (HEX * 26);
         var hz = Math.cos(ha) * (HEX * 26);
         var sil = new THREE.Mesh(
@@ -1639,93 +1323,6 @@ window.Nexus = window.Nexus || {};
         sil.lookAt(0, HEX * 1.6, 0);
         roots.static.add(sil);
       }
-    }
-    dressHorizon();
-  }
-
-  function dressHorizon() {
-    birds = [];
-    clouds = [];
-    turbines = [];
-    var tuned = qualityParams();
-    var biome = activeBiome || "grass";
-    var i;
-    var duneN = tuned ? Math.round(7 * (tuned.horizon || 0)) : 7;
-    var treeN = tuned ? Math.round(10 * (tuned.horizon || 0)) : 10;
-    var turbineN = tuned ? tuned.turbines : 5;
-    var villageN = tuned ? tuned.villages : 4;
-    var cloudN = tuned ? tuned.clouds : 6;
-    var birdN = tuned ? tuned.birds : 8;
-    if (!duneN && !treeN && !turbineN && !villageN && !cloudN && !birdN && tuned && tuned.horizon === 0) {
-      return;
-    }
-    if (biome === "water") {
-      var lake = new THREE.Mesh(geo.cyl12, mats.plateDeep || mats.neutral);
-      lake.scale.set(HEX * 18, 0.25, HEX * 12);
-      lake.position.set(HEX * 24, -0.15, HEX * 4);
-      roots.static.add(lake);
-    } else if (biome === "desert") {
-      for (i = 0; i < duneN; i++) {
-        var dune = new THREE.Mesh(geo.sphere, mats.sand || mats.cream);
-        var ang = (i / 7) * Math.PI * 2;
-        dune.scale.set(7, 1.3, 4.2);
-        dune.position.set(Math.sin(ang) * HEX * 22, 0.15, Math.cos(ang) * HEX * 22);
-        roots.static.add(dune);
-      }
-    } else {
-      var field = new THREE.Mesh(geo.cyl12, mats.grass);
-      field.scale.set(HEX * 7, 0.12, HEX * 4.5);
-      field.position.set(-HEX * 24, 0.02, HEX * 8);
-      roots.static.add(field);
-      addBox(roots.static, mats.concrete, 3.2, 2.1, 2.4, -HEX * 22, 0, HEX * 12, 0.2);
-      addBox(roots.static, mats.roof, 3.6, 0.4, 2.8, -HEX * 22, 2.1, HEX * 12, 0.2);
-      var pond = new THREE.Mesh(geo.cyl12, mats.plateDeep || mats.neutral);
-      pond.scale.set(HEX * 4, 0.12, HEX * 3);
-      pond.position.set(HEX * 20, 0.02, -HEX * 16);
-      roots.static.add(pond);
-      if (spriteTextures.tree) {
-        var t;
-        for (t = 0; t < treeN; t++) {
-          var ta = (t / 10) * Math.PI * 2;
-          addBillboard(roots.static, spriteTextures.tree, Math.sin(ta) * HEX * 16, 2.2, Math.cos(ta) * HEX * 16, 2.4, 3.2, 1);
-        }
-      }
-    }
-    for (i = 0; i < turbineN; i++) {
-      var wa = (i / 5) * Math.PI * 2 + 0.5;
-      var wd = HEX * (biome === "desert" ? 30 : 27);
-      var pole = new THREE.Mesh(geo.cyl8, mats.steel);
-      pole.scale.set(0.18, 7, 0.18);
-      pole.position.set(Math.sin(wa) * wd, 3.5, Math.cos(wa) * wd);
-      roots.static.add(pole);
-      var blade = new THREE.Mesh(geo.box, mats.cream);
-      blade.scale.set(0.12, 2.8, 0.2);
-      blade.position.set(pole.position.x, 7.2, pole.position.z);
-      roots.static.add(blade);
-      turbines.push(blade);
-    }
-    for (i = 0; i < villageN; i++) {
-      var village = new THREE.Mesh(geo.box, mats.neutral || mats.concrete);
-      var va = 0.4 + i * 1.3;
-      village.scale.set(2.2, 1.4 + (i % 2), 1.8);
-      village.position.set(Math.sin(va) * HEX * 32, 0.8, Math.cos(va) * HEX * 32);
-      roots.static.add(village);
-    }
-    for (i = 0; i < cloudN; i++) {
-      var cloud = new THREE.Mesh(
-        geo.sphere,
-        basic("#f4f7fb", { transparent: true, opacity: isNight() ? 0.18 : 0.55, depthWrite: false })
-      );
-      cloud.scale.set(6 + i, 1.4, 3);
-      cloud.position.set(-HEX * 10 + i * HEX * 6, 18 + (i % 3) * 2, -HEX * 8 + (i % 2) * 6);
-      roots.static.add(cloud);
-      clouds.push({ mesh: cloud, speed: 0.4 + i * 0.08 });
-    }
-    for (i = 0; i < birdN; i++) {
-      var bird = new THREE.Mesh(geo.box, mats.slate);
-      bird.scale.set(0.55, 0.06, 0.16);
-      roots.static.add(bird);
-      birds.push({ mesh: bird, a: i * 0.7, r: HEX * (12 + (i % 4)), y: 7 + (i % 3) * 1.4, speed: 0.15 + (i % 3) * 0.05 });
     }
   }
 
@@ -1760,78 +1357,7 @@ window.Nexus = window.Nexus || {};
     return { edges: edges, nodes: nodes };
   }
 
-  function roadTiles() {
-    var radius = (Nexus.CONSTANTS && Nexus.CONSTANTS.HEX_RADIUS) || 3;
-    return Nexus.allSlots(radius + 1);
-  }
-
-  function attachRim(roadPoses) {
-    var radius = (Nexus.CONSTANTS && Nexus.CONSTANTS.HEX_RADIUS) || 3;
-    var corners = Nexus.HEX_CORNER_AXIAL ? Nexus.HEX_CORNER_AXIAL(radius) : [];
-    var added = [];
-    corners.forEach(function (c, index) {
-      var inner = axial(c.q, c.r);
-      var len = Math.hypot(inner.x, inner.z) || 1;
-      var ox = inner.x + (inner.x / len) * HEX * 2.6;
-      var oz = inner.z + (inner.z / len) * HEX * 2.6;
-      var near = null;
-      var best = 1e12;
-      graph.keys.forEach(function (k) {
-        var n = graph.nodes[k];
-        var d = (n.x - inner.x) * (n.x - inner.x) + (n.z - inner.z) * (n.z - inner.z);
-        if (d < best) {
-          best = d;
-          near = n;
-        }
-      });
-      var key = "rim-" + index;
-      graph.nodes[key] = { key: key, x: ox, z: oz, next: [] };
-      if (near) {
-        if (near.next.indexOf(key) < 0) {
-          near.next.push(key);
-        }
-        graph.nodes[key].next.push(near.key);
-        var dx = ox - near.x;
-        var dz = oz - near.z;
-        var span = Math.hypot(dx, dz) || 1;
-        roadPoses.push({
-          x: (near.x + ox) / 2,
-          y: ROAD_Y,
-          z: (near.z + oz) / 2,
-          sx: ROAD_W,
-          sy: 0.12,
-          sz: span + ROAD_W * 0.4,
-          ry: Math.atan2(dx, dz)
-        });
-      }
-      added.push(key);
-    });
-    var i;
-    for (i = 0; i < added.length; i++) {
-      var a = graph.nodes[added[i]];
-      var b = graph.nodes[added[(i + 1) % added.length]];
-      if (a.next.indexOf(b.key) < 0) {
-        a.next.push(b.key);
-      }
-      if (b.next.indexOf(a.key) < 0) {
-        b.next.push(a.key);
-      }
-      var dx2 = b.x - a.x;
-      var dz2 = b.z - a.z;
-      roadPoses.push({
-        x: (a.x + b.x) / 2,
-        y: ROAD_Y,
-        z: (a.z + b.z) / 2,
-        sx: ROAD_W,
-        sy: 0.12,
-        sz: Math.hypot(dx2, dz2) || 1,
-        ry: Math.atan2(dx2, dz2)
-      });
-    }
-    graph.keys = Object.keys(graph.nodes);
-  }
-
-  function buildRoads(playTiles, skipDress) {
+  function buildRoads(playTiles) {
     clearGroup(roots.roads);
     lights = [];
     lamps = [];
@@ -1864,7 +1390,6 @@ window.Nexus = window.Nexus || {};
         ry: 0
       });
     });
-    attachRim(roadPoses);
     addInstances(geo.box, mats.road, roadPoses, roots.roads);
     addInstances(geo.cyl12, mats.road, capPoses, roots.roads);
     addInstances(geo.box, mats.mark, dashPoses, roots.roads);
@@ -1879,17 +1404,14 @@ window.Nexus = window.Nexus || {};
       g.position.set(n.x - (n.x / pull) * 1.42, 0, n.z - (n.z / pull) * 1.42);
       addCyl(g, mats.lampPole, 0.08, 0.1, 3.1, 0, TILE_H, 0, 8);
       addBox(g, mats.housing, 0.38, 0.95, 0.28, 0, TILE_H + 2.85, 0, 0);
-      g.userData.live = true;
-      var red = addSphere(g, ownMat(mats.red), 0.13, 0, TILE_H + 3.55, 0.16);
-      var yel = addSphere(g, ownMat(mats.yellow), 0.13, 0, TILE_H + 3.28, 0.16);
-      var gre = addSphere(g, ownMat(mats.green), 0.13, 0, TILE_H + 3.02, 0.16);
+      var red = addSphere(g, mats.red.clone(), 0.13, 0, TILE_H + 3.55, 0.16);
+      var yel = addSphere(g, mats.yellow.clone(), 0.13, 0, TILE_H + 3.28, 0.16);
+      var gre = addSphere(g, mats.green.clone(), 0.13, 0, TILE_H + 3.02, 0.16);
       roots.roads.add(g);
       lights.push({ node: n.key, red: red, yel: yel, gre: gre, phase: i * 1.37, shown: "", night: null });
     }
-    lastRoadNet = net;
-    if (!skipDress) {
-      scatterStreetDressing(net);
-    }
+    scatterStreetDressing(net);
+    spawnCars();
   }
 
   function takeHashed(items, maxCount, salt) {
@@ -1910,7 +1432,7 @@ window.Nexus = window.Nexus || {};
     return out;
   }
 
-  function scatterStreetDressing(net, from, to) {
+  function scatterStreetDressing(net) {
     var treeCands = [];
     var lampCands = [];
     var binCands = [];
@@ -1919,16 +1441,12 @@ window.Nexus = window.Nexus || {};
     var flowerCands = [];
     var kerb = ROAD_W * 0.5 + 0.62;
     var edgeKeys = Object.keys(net.edges);
-    var start = from == null ? 0 : from;
-    var end = to == null ? edgeKeys.length : to;
     var i;
-    if (start === 0) {
-      lampPools = [];
-      billboardSprites = billboardSprites.filter(function () {
-        return false;
-      });
-    }
-    for (i = start; i < end; i++) {
+    lampPools = [];
+    billboardSprites = billboardSprites.filter(function () {
+      return false;
+    });
+    for (i = 0; i < edgeKeys.length; i++) {
       var ek = edgeKeys[i];
       var e = net.edges[ek];
       var dx = e.b.x - e.a.x;
@@ -2065,7 +1583,7 @@ window.Nexus = window.Nexus || {};
         );
       }
       if (mats.lampPool) {
-        var pool = new THREE.Mesh(geo.plane, ownMat(mats.lampPool));
+        var pool = new THREE.Mesh(geo.plane, mats.lampPool.clone ? mats.lampPool.clone() : mats.lampPool);
         pool.rotation.x = -Math.PI / 2;
         pool.position.set(lc.x, TILE_H + 0.05, lc.z);
         pool.scale.set(3.4, 3.4, 1);
@@ -2111,143 +1629,45 @@ window.Nexus = window.Nexus || {};
     return opts[Math.floor(Math.random() * opts.length)];
   }
 
-  function densityMul() {
-    if (densityLevel <= 0) {
-      return 0.3;
-    }
-    if (densityLevel >= 2) {
-      return 1.75;
-    }
-    return 1;
-  }
-
-  function evShare() {
-    var state = lastState;
-    if (!state) {
-      return 0.12;
-    }
-    var ev = 0;
-    var weight = 2;
-    (state.busLines || []).forEach(function (line) {
-      weight += 1;
-      if (line.propulsion && line.propulsion !== "diesel") {
-        ev += 1;
-      }
-    });
-    (state.zones || []).forEach(function (zone) {
-      if (zone.trafficMode === "garage" || (zone.type === "energy" && zone.variant !== "transformer")) {
-        ev += 1;
-        weight += 1;
-      }
-    });
-    (state.players || []).forEach(function (player) {
-      var devices = player.devices || {};
-      if (devices.charger || devices.charging_network) {
-        ev += 1;
-        weight += 1;
-      }
-    });
-    return Math.max(0.08, Math.min(0.82, ev / weight));
-  }
-
-  function vehicleKind(index) {
-    var slot = index % 7;
-    if (slot === 0) {
-      return "bus";
-    }
-    if (slot === 1) {
-      return "van";
-    }
-    if (slot === 2) {
-      return "bike";
-    }
-    return "car";
-  }
-
-  function kindScale(kind) {
-    if (kind === "bus") {
-      return { x: 1.15, y: 1.35, z: 2.05 };
-    }
-    if (kind === "van") {
-      return { x: 1.1, y: 1.25, z: 1.35 };
-    }
-    if (kind === "bike") {
-      return { x: 0.32, y: 0.42, z: 0.62 };
-    }
-    return { x: 1, y: 1, z: 1 };
-  }
-
   function spawnCars() {
     cars = [];
-    peds = [];
     if (!graph.keys.length) {
       return;
     }
-    var count = Math.max(4, Math.round(CAR_COUNT * densityMul()));
-    var pedCount = Math.max(3, Math.round(count * 0.45));
-    var share = evShare();
     var i;
-    for (i = 0; i < count; i++) {
+    for (i = 0; i < CAR_COUNT; i++) {
       var from = graph.keys[i % graph.keys.length];
       var to = pickNext(from, null);
-      var kind = vehicleKind(i);
-      var electric = Math.random() < share;
-      var color = electric
-        ? new THREE.Color().setHSL(0.3, 0.42, isNight() ? 0.5 : 0.72)
-        : new THREE.Color().setHSL((i % 5) * 0.08, 0.5, isNight() ? 0.4 : 0.58);
       cars.push({
         from: from,
         to: to,
         u: Math.random(),
-        speed: 0,
-        cruise: kind === "bike" ? 0.16 : kind === "bus" ? 0.18 : 0.28 + (i % 3) * 0.04,
+        speed: 0.22 + Math.random() * 0.2,
         hold: 0,
-        kind: kind,
-        lane: i % 2 === 0 ? 0.38 : -0.38,
-        color: color
-      });
-    }
-    for (i = 0; i < pedCount; i++) {
-      var pf = graph.keys[i % graph.keys.length];
-      peds.push({
-        from: pf,
-        to: pickNext(pf, null),
-        u: Math.random(),
-        speed: 0.08 + (i % 3) * 0.02,
-        cruise: 0.08 + (i % 3) * 0.02,
-        hold: 0,
-        side: i % 2 === 0 ? 1.15 : -1.15,
-        bike: i % 4 === 0
+        color: new THREE.Color().setHSL((i % 5) * 0.08, 0.55, isNight() ? 0.42 : 0.62)
       });
     }
     if (carMesh) {
       roots.cars.remove(carMesh);
       roots.cars.remove(carCabin);
     }
-    if (pedMesh) {
-      roots.cars.remove(pedMesh);
-    }
     dummy = dummy || new THREE.Object3D();
-    carMesh = new THREE.InstancedMesh(geo.car, mats.car, count);
-    carCabin = new THREE.InstancedMesh(geo.cabin, mats.cabin, count);
-    pedMesh = new THREE.InstancedMesh(geo.box, mats.slate, pedCount);
+    carMesh = new THREE.InstancedMesh(geo.car, mats.car, CAR_COUNT);
+    carCabin = new THREE.InstancedMesh(geo.cabin, mats.cabin, CAR_COUNT);
     carMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     carCabin.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-    pedMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     var carR = HEX * (((Nexus.CONSTANTS && Nexus.CONSTANTS.HEX_RADIUS) || 3) + DECO_RINGS + 2) * 2.15;
     var carBound = new THREE.Sphere(new THREE.Vector3(0, ROAD_Y, 0), carR);
     carMesh.boundingSphere = carBound;
     carCabin.boundingSphere = carBound.clone();
-    pedMesh.boundingSphere = carBound.clone();
     carMesh.frustumCulled = true;
     carCabin.frustumCulled = true;
-    for (i = 0; i < count; i++) {
+    for (i = 0; i < CAR_COUNT; i++) {
       carMesh.setColorAt(i, cars[i].color);
     }
     carMesh.instanceColor.needsUpdate = true;
     roots.cars.add(carMesh);
     roots.cars.add(carCabin);
-    roots.cars.add(pedMesh);
   }
 
   function lightIsRed(nodeKey, time) {
@@ -2312,220 +1732,69 @@ window.Nexus = window.Nexus || {};
     }
   }
 
-  function placeOnEdge(fromKey, toKey, u, lane) {
-    var a = graph.nodes[fromKey];
-    var b = graph.nodes[toKey];
-    if (!a || !b) {
-      return null;
-    }
-    var dx = b.x - a.x;
-    var dz = b.z - a.z;
-    var len = Math.hypot(dx, dz) || 1;
-    var ang = Math.atan2(dx, dz) + Math.PI;
-    return {
-      x: a.x + dx * u + (-dz / len) * lane,
-      z: a.z + dz * u + (dx / len) * lane,
-      ang: ang
-    };
-  }
-
-  function stepAgent(agent, dt, time, slow) {
-    var node = graph.nodes[agent.to];
-    var red = lightIsRed(agent.to, time) && agent.u > 0.72;
-    var yieldTurn = node && node.next.length >= 3 && agent.u > 0.84 && Math.floor(time * 2 + agent.u * 5) % 4 === 0;
-    if (agent.hold > 0) {
-      agent.hold -= dt;
-      agent.speed = Math.max(0, agent.speed - dt * 1.2);
-      return;
-    }
-    if (red || (yieldTurn && !slow)) {
-      agent.speed = Math.max(0, agent.speed - dt * 1.3);
-      if (agent.u > 0.93) {
-        agent.u = 0.9;
-        agent.hold = red ? 0.55 : 0.28;
-        return;
-      }
-    } else {
-      var cruise = agent.cruise || agent.speed || 0.2;
-      agent.speed += (cruise - agent.speed) * Math.min(1, dt * 1.8);
-    }
-    agent.u += Math.max(0.02, agent.speed) * dt;
-    var hops = 0;
-    while (agent.u >= 1 && hops < 8) {
-      agent.u -= 1;
-      hops += 1;
-      var prev = agent.from;
-      agent.from = agent.to;
-      agent.to = pickNext(agent.from, prev);
-    }
-    if (agent.u >= 1) {
-      agent.u = 0;
-    }
-  }
-
   function updateCars(dt, time) {
-    if (!carMesh || !dummy) {
+    if (!carMesh) {
       return;
     }
     var i;
     for (i = 0; i < cars.length; i++) {
       var car = cars[i];
-      stepAgent(car, dt, time, car.kind === "bike");
-      var spot = placeOnEdge(car.from, car.to, car.u, car.lane);
-      if (!spot) {
+      if (car.hold > 0) {
+        car.hold -= dt;
+      } else {
+        car.u += car.speed * dt;
+        while (car.u >= 1) {
+          if (lightIsRed(car.to, time) && car.u < 1.08) {
+            car.u = 0.98;
+            car.hold = 0.45;
+            break;
+          }
+          car.u -= 1;
+          var prev = car.from;
+          car.from = car.to;
+          car.to = pickNext(car.from, prev);
+        }
+      }
+      var a = graph.nodes[car.from];
+      var b = graph.nodes[car.to];
+      if (!a || !b) {
         continue;
       }
-      var scale = kindScale(car.kind);
-      dummy.position.set(spot.x, ROAD_Y + 0.22 * scale.y, spot.z);
-      dummy.rotation.set(0, spot.ang, 0);
-      dummy.scale.set(scale.x, scale.y, scale.z);
+      var x = a.x + (b.x - a.x) * car.u;
+      var z = a.z + (b.z - a.z) * car.u;
+      var ang = Math.atan2(b.x - a.x, b.z - a.z) + Math.PI;
+      dummy.position.set(x, ROAD_Y + 0.38, z);
+      dummy.rotation.set(0, ang, 0);
+      dummy.scale.set(1, 1, 1);
       dummy.updateMatrix();
       carMesh.setMatrixAt(i, dummy.matrix);
-      var cabin = car.kind === "bike" ? 0.01 : 0.72;
-      dummy.position.y = ROAD_Y + 0.55 * scale.y;
-      dummy.scale.set(scale.x * cabin, scale.y * 0.55, scale.z * 0.48);
+      dummy.position.y = ROAD_Y + 0.68;
+      dummy.position.x += Math.sin(ang) * 0.22;
+      dummy.position.z += Math.cos(ang) * 0.22;
       dummy.updateMatrix();
       carCabin.setMatrixAt(i, dummy.matrix);
     }
     carMesh.instanceMatrix.needsUpdate = true;
     carCabin.instanceMatrix.needsUpdate = true;
-    if (!pedMesh) {
-      return;
-    }
-    for (i = 0; i < peds.length; i++) {
-      var ped = peds[i];
-      stepAgent(ped, dt, time, true);
-      var foot = placeOnEdge(ped.from, ped.to, ped.u, ped.side);
-      if (!foot) {
-        continue;
-      }
-      dummy.position.set(foot.x, ROAD_Y + (ped.bike ? 0.35 : 0.45), foot.z);
-      dummy.rotation.set(0, foot.ang, 0);
-      dummy.scale.set(ped.bike ? 0.55 : 0.22, ped.bike ? 0.35 : 0.7, ped.bike ? 0.9 : 0.22);
-      dummy.updateMatrix();
-      pedMesh.setMatrixAt(i, dummy.matrix);
-    }
-    pedMesh.instanceMatrix.needsUpdate = true;
-  }
-
-  function worldOfKey(key) {
-    if (graph.nodes[key]) {
-      return { x: graph.nodes[key].x, z: graph.nodes[key].z };
-    }
-    if (String(key).indexOf("rim-") === 0) {
-      return null;
-    }
-    var parts = String(key).split(",");
-    if (parts.length < 2 || isNaN(Number(parts[0]))) {
-      return null;
-    }
-    return axial(Number(parts[0]), Number(parts[1]));
-  }
-
-  function syncBuses(state) {
-    var lines = (state && state.busLines) || [];
-    busAgents = [];
-    lines.forEach(function (line, index) {
-      if (!line.pathKeys || line.pathKeys.length < 2 || busAgents.length >= 12) {
-        return;
-      }
-      busAgents.push({
-        keys: line.pathKeys,
-        u: index * 0.17,
-        speed: 0.16,
-        ev: line.propulsion !== "diesel"
-      });
-    });
-    if (busMesh) {
-      roots.cars.remove(busMesh);
-      busMesh = null;
-    }
-    if (!busAgents.length) {
-      return;
-    }
-    busMesh = new THREE.InstancedMesh(geo.car, mats.plus || mats.car, busAgents.length);
-    busMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-    var i;
-    for (i = 0; i < busAgents.length; i++) {
-      busMesh.setColorAt(i, new THREE.Color(busAgents[i].ev ? "#d7f27a" : "#f0c36a"));
-    }
-    if (busMesh.instanceColor) {
-      busMesh.instanceColor.needsUpdate = true;
-    }
-    roots.cars.add(busMesh);
-  }
-
-  function updateBuses(dt) {
-    if (!busMesh || !dummy) {
-      return;
-    }
-    var i;
-    for (i = 0; i < busAgents.length; i++) {
-      var bus = busAgents[i];
-      var span = bus.keys.length - 1;
-      bus.u += bus.speed * dt;
-      if (bus.u >= span) {
-        bus.u = 0;
-      }
-      var index = Math.min(span - 1, Math.floor(bus.u));
-      var local = bus.u - index;
-      var a = worldOfKey(bus.keys[index]);
-      var b = worldOfKey(bus.keys[index + 1]);
-      if (!a || !b) {
-        continue;
-      }
-      var ang = Math.atan2(b.x - a.x, b.z - a.z) + Math.PI;
-      dummy.position.set(a.x + (b.x - a.x) * local, ROAD_Y + 0.45, a.z + (b.z - a.z) * local);
-      dummy.rotation.set(0, ang, 0);
-      dummy.scale.set(1.2, 1.45, 2.3);
-      dummy.updateMatrix();
-      busMesh.setMatrixAt(i, dummy.matrix);
-    }
-    busMesh.instanceMatrix.needsUpdate = true;
-  }
-
-  function updateSky(dt, time) {
-    var i;
-    for (i = 0; i < birds.length; i++) {
-      var bird = birds[i];
-      bird.a += bird.speed * dt;
-      bird.mesh.position.set(Math.sin(bird.a) * bird.r, bird.y + Math.sin(time * 3 + i) * 0.3, Math.cos(bird.a) * bird.r);
-      bird.mesh.rotation.y = -bird.a;
-    }
-    for (i = 0; i < clouds.length; i++) {
-      clouds[i].mesh.position.x += clouds[i].speed * dt;
-      if (clouds[i].mesh.position.x > HEX * 36) {
-        clouds[i].mesh.position.x = -HEX * 36;
-      }
-    }
-    for (i = 0; i < turbines.length; i++) {
-      turbines[i].rotation.z += dt * (0.8 + i * 0.1);
-    }
   }
 
   function fingerprint(state, ui) {
+    var player = Nexus.currentPlayer(state);
+    var rec = Nexus.recommendExpandSlot ? Nexus.recommendExpandSlot(state) : null;
     var parts = [
-      state.turnPhase === "build" ? "build" : "play",
+      player && player.id,
+      state.turnPhase,
+      state.currentPlayerIndex,
       ui && ui.inspectedZoneId,
       ui && ui.homeOpen ? 1 : 0,
+      ui && ui.expandSlot ? ui.expandSlot.q + "," + ui.expandSlot.r : "",
+      rec ? rec.q + "," + rec.r : "",
       document.documentElement.getAttribute("data-theme"),
       resolvedPreset,
       activeBiome
     ];
     (state.zones || []).forEach(function (z) {
-      parts.push(
-        z.id,
-        z.type,
-        z.variant || "",
-        z.ownerId,
-        z.upgradeLevel || 0,
-        z.lastDieId || "",
-        z.trafficMode || "",
-        z.busStop ? 1 : 0
-      );
-    });
-    (state.busLines || []).forEach(function (line) {
-      parts.push("line", line.id, line.propulsion);
+      parts.push(z.id, z.type, z.variant || "", z.ownerId, z.upgradeLevel || 0, z.lastDieId || "");
     });
     (state.players || []).forEach(function (p) {
       Object.keys(p.devices || {}).forEach(function (id) {
@@ -2534,6 +1803,9 @@ window.Nexus = window.Nexus || {};
           parts.push(p.id, id, mode);
         }
       });
+    });
+    (state.spinningOutcomes || []).forEach(function (o) {
+      parts.push("spin", o.zoneId);
     });
     return parts.join("|");
   }
@@ -2556,72 +1828,26 @@ window.Nexus = window.Nexus || {};
     return { kind: "empty", q: tile.q, r: tile.r, open: false };
   }
 
-  function showCityProgress(frac) {
-    var node = document.getElementById("city-progress");
-    if (!node && document.body && document.createElement) {
-      node = document.createElement("div");
-      node.id = "city-progress";
-      node.className = "city-progress";
-      document.body.appendChild(node);
-    }
-    if (!node) {
-      return;
-    }
-    if (frac == null || frac >= 1) {
-      node.hidden = true;
-      node.textContent = "";
-      return;
-    }
-    var pct = Math.max(1, Math.min(99, Math.round(frac * 100)));
-    node.hidden = false;
-    node.textContent = "Stadt wird aufgebaut " + pct + " %";
-    if (node.style && node.style.setProperty) {
-      node.style.setProperty("--p", pct + "%");
-    }
-  }
-
   function rebuildTiles(state, ui) {
-    var budget = tileBudget == null ? 1e9 : tileBudget;
-    var started = nowMs();
-    if (!tileCursor) {
-      clearGroup(roots.tiles);
-      if (roots.picks) {
-        clearGroup(roots.picks);
-      }
-      if (roots.batches) {
-        clearGroup(roots.batches);
-      }
-      plusPins = [];
-      overlays = [];
-      buildRings = [];
-      ownerRims = [];
-      batchItems = [];
-      tileCursor = {
-        slots: Nexus.allSlots((Nexus.CONSTANTS.HEX_RADIUS || 3) + DECO_RINGS),
-        index: 0,
-        play: []
-      };
-      batchOn = true;
+    clearGroup(roots.tiles);
+    if (roots.picks) {
+      clearGroup(roots.picks);
     }
+    plusPins = [];
+    overlays = [];
+    buildRings = [];
+    ownerRims = [];
     var player = Nexus.currentPlayer(state);
     var rec = Nexus.recommendExpandSlot ? Nexus.recommendExpandSlot(state) : null;
-    var play = tileCursor.play;
+    var play = [];
     var radius = Nexus.CONSTANTS.HEX_RADIUS;
     var buildPhase = state.turnPhase === "build";
-    var slice = 0;
-    var sliceMax = budget > 50 ? 100000 : 2;
-    while (tileCursor.index < tileCursor.slots.length && slice < sliceMax && nowMs() - started < budget) {
-      slice += 1;
-      var slot = tileCursor.slots[tileCursor.index];
-      tileCursor.index += 1;
+    Nexus.allSlots(radius + DECO_RINGS).forEach(function (slot) {
       var dist = axialDist(slot.q, slot.r);
       var pos = axial(slot.q, slot.r);
       var group = new THREE.Group();
       group.position.set(pos.x, 0, pos.z);
       var zone = dist <= radius ? Nexus.zoneAt(state, slot.q, slot.r) : null;
-      if (zone && ui && ui.placePopZoneId === zone.id) {
-        group.userData.live = true;
-      }
       var rand = seeded(slot.q, slot.r, 11);
       var padKey = "grass";
       var padR = HEX * 0.9;
@@ -2646,26 +1872,7 @@ window.Nexus = window.Nexus || {};
         padKey = landUseKey(zone);
         var level = (Nexus.zoneUpgradeLevel && Nexus.zoneUpgradeLevel(zone)) || zone.upgradeLevel || 0;
         var giz = gizmosFor(state, zone, player);
-        var kitBuilt =
-          Nexus.BoardKit &&
-          Nexus.BoardKit.build &&
-          Nexus.BoardKit.build(group, {
-            zone: zone,
-            q: slot.q,
-            r: slot.r,
-            level: level,
-            mats: mats,
-            TILE_H: TILE_H,
-            addBox: addBox,
-            addCyl: addCyl,
-            addSphere: addSphere,
-            dressDevices: function () {
-              dressDevices(group, zone.type === "home" ? "home" : zone.type, giz);
-            }
-          });
-        if (kitBuilt) {
-          /* Baukasten hat das Feld gesetzt. */
-        } else if (zone.type === "home") {
+        if (zone.type === "home") {
           artHome(group, level, giz, slot.q, slot.r);
         } else if (zone.type === "residential") {
           artResidential(group, level, giz, slot.q, slot.r);
@@ -2676,7 +1883,7 @@ window.Nexus = window.Nexus || {};
         } else if (zone.type === "datacenter") {
           artDatacenter(group, level, giz, zone.variant === "secure", slot.q, slot.r);
         } else if (zone.type === "traffic") {
-          if (trafficKind(slot.q, slot.r, zone) === "parking") {
+          if (trafficKind(slot.q, slot.r) === "parking") {
             artParking(group, level, giz);
           } else {
             artBus(group, level, giz);
@@ -2719,7 +1926,6 @@ window.Nexus = window.Nexus || {};
         } else {
           padKey = "grass";
           artUncontrolled(group, rand, slot.q, slot.r);
-          desaturateGroup(group);
           if (green.kind === "patch") {
             addGreenPatches(group, green.patches);
           }
@@ -2735,7 +1941,6 @@ window.Nexus = window.Nexus || {};
           group.add(ring);
           buildRings.push({ mesh: ring, rec: recHere });
           var pin = new THREE.Group();
-          pin.userData.live = true;
           addCyl(pin, mats.lampPole, 0.07, 0.07, 2.1, 0, TILE_H, 0, 8);
           var head = addSphere(pin, recHere ? mats.plusRec : mats.plus, 0.55, 0, TILE_H + 2.4, 0);
           addBox(pin, mats.cream, 0.55, 0.1, 0.1, 0, TILE_H + 2.35, 0, 0);
@@ -2817,22 +2022,11 @@ window.Nexus = window.Nexus || {};
           return o.zoneId === zone.id;
         });
         if (spinning) {
-          forceMesh = true;
           var chip = addBox(group, mats.cream, 1.1, 0.18, 1.1, 0, TILE_H + 9, 0, 0);
-          forceMesh = false;
           overlays.push({ type: "spin", mesh: chip });
         }
       }
-    }
-    if (tileCursor && tileCursor.index >= tileCursor.slots.length) {
-      batchOn = false;
-      flushBatches();
-      tileCursor = null;
-      tileBudget = null;
-      showCityProgress(1);
-    } else if (tileCursor) {
-      showCityProgress(tileCursor.index / tileCursor.slots.length);
-    }
+    });
     return play;
   }
 
@@ -2987,16 +2181,10 @@ window.Nexus = window.Nexus || {};
     applyCamera();
   }
 
-  function tick(stamp) {
+  function tick() {
     rafId = 0;
     if (!shouldAnimate()) {
       running = false;
-      return;
-    }
-    var tuned = qualityParams();
-    var capFps = tuned && tuned.fpsCap ? tuned.fpsCap : 0;
-    if (capFps && lastDraw && stamp && stamp - lastDraw < 1000 / capFps - 0.75) {
-      rafId = requestAnimationFrame(tick);
       return;
     }
     rafId = requestAnimationFrame(tick);
@@ -3004,28 +2192,11 @@ window.Nexus = window.Nexus || {};
     if (activeQuality.rafStep > 1 && rafN % activeQuality.rafStep !== 0) {
       return;
     }
-    if (cityPhase && cityPhase !== "done" && lastState) {
-      stepCity(lastState, lastUi || {});
-    }
     var dt = Math.min(0.05, clock.getDelta());
     var time = clock.elapsedTime;
-    fpsFrames += 1;
-    if (!fpsStamp) {
-      fpsStamp = time;
-    }
-    if (time - fpsStamp >= 0.5) {
-      fpsValue = Math.round(fpsFrames / (time - fpsStamp));
-      fpsFrames = 0;
-      fpsStamp = time;
-    }
     cam.seatYaw = lerpAngle(cam.seatYaw, cam.seatTarget, 1 - Math.pow(0.0008, dt));
     dampCamera(dt);
-    var stride = tuned && tuned.vehicleStride ? tuned.vehicleStride : 1;
-    if (stride <= 1 || rafN % stride === 0) {
-      updateCars(dt, time);
-      updateBuses(dt);
-    }
-    updateSky(dt, time);
+    updateCars(dt, time);
     updateLights(time);
     plusPins.forEach(function (pin) {
       var s = pin.rec ? 1 + Math.sin(time * 4) * 0.08 : 1;
@@ -3053,27 +2224,7 @@ window.Nexus = window.Nexus || {};
         item.group.scale.set(e * bounce, e * bounce, e * bounce);
       }
     });
-    if (Nexus.Quality && dt) {
-      var governed = Nexus.Quality.pushFrame(dt * 1000, stamp || nowMs());
-      if (governed && tuned && governed.tier !== tuned.tier) {
-        applyQualityCounts();
-        if (cityReady) {
-          spawnCars();
-        }
-      } else if (governed && tuned && Math.abs(governed.renderScale - tuned.renderScale) > 0.03) {
-        resize();
-      }
-    }
-    var moving =
-      (cars && cars.length && !(tuned && tuned.cars === 0)) ||
-      (cityPhase && cityPhase !== "done") ||
-      Math.abs(cam.targetDistance - cam.distance) > 0.35 ||
-      Math.abs(cam.targetPolar - cam.polar) > 0.02;
     renderer.render(scene, camera);
-    lastDraw = stamp || nowMs();
-    if (tuned && tuned.demand && cityReady && !moving) {
-      stopLoop();
-    }
   }
 
   function ensure() {
@@ -3138,8 +2289,7 @@ window.Nexus = window.Nexus || {};
     scene.add(extras.ambient);
     scene.add(extras.moon);
     applyLightsTheme();
-    roots.batches = new THREE.Group();
-    scene.add(roots.batches);
+    buildStaticCity();
     cam.polar = polarFromSlider(cam.pitchSlider);
     canvas.addEventListener("contextmenu", function (event) {
       event.preventDefault();
@@ -3165,126 +2315,21 @@ window.Nexus = window.Nexus || {};
     }
     bindVisibility();
     clock.start();
+    startLoop();
     return true;
-  }
-
-  function stopLoop() {
-    if (rafId && typeof cancelAnimationFrame === "function") {
-      cancelAnimationFrame(rafId);
-    }
-    rafId = 0;
-    running = false;
-  }
-
-  function tearDownCity() {
-    tileCursor = null;
-    tileBudget = null;
-    batchOn = false;
-    batchItems = [];
-    cityPhase = null;
-    cityReady = false;
-    roadDress = null;
-    lastRoadNet = null;
-    clearGroup(roots.tiles);
-    clearGroup(roots.picks);
-    clearGroup(roots.roads);
-    clearGroup(roots.cars);
-    clearGroup(roots.static);
-    clearGroup(roots.batches);
-    graph.nodes = {};
-    graph.keys = [];
-    cars = [];
-    peds = [];
-    carMesh = null;
-    carCabin = null;
-    pedMesh = null;
-    busMesh = null;
-    busAgents = [];
-    lights = [];
-    lamps = [];
-    birds = [];
-    clouds = [];
-    turbines = [];
-    plusPins = [];
-    overlays = [];
-    buildRings = [];
-    billboardSprites = [];
-    lampPools = [];
-  }
-
-  function stepCity(state, ui) {
-    var tuned = qualityParams();
-    var budget = tuned && tuned.chunkMs ? tuned.chunkMs : 8;
-    if (!cityPhase) {
-      cityPhase = "static";
-    }
-    if (cityPhase === "static") {
-      buildStaticCity();
-      cityPhase = "roads";
-      showCityProgress(0.12);
-      return;
-    }
-    if (cityPhase === "roads") {
-      buildRoads(roadTiles(), true);
-      cityPhase = "dress";
-      roadDress = { net: lastRoadNet, index: 0 };
-      showCityProgress(0.28);
-      return;
-    }
-    if (cityPhase === "dress") {
-      if (!roadDress || !roadDress.net) {
-        cityPhase = "tiles";
-        showCityProgress(0.4);
-        return;
-      }
-      var edgeKeys = Object.keys(roadDress.net.edges);
-      var next = Math.min(edgeKeys.length, roadDress.index + 24);
-      scatterStreetDressing(roadDress.net, roadDress.index, next);
-      roadDress.index = next;
-      showCityProgress(0.28 + 0.22 * (edgeKeys.length ? roadDress.index / edgeKeys.length : 1));
-      if (roadDress.index >= edgeKeys.length) {
-        cityPhase = "tiles";
-      }
-      return;
-    }
-    if (cityPhase === "tiles") {
-      tileBudget = budget;
-      rebuildTiles(state, ui);
-      var total = tileCursor ? tileCursor.slots.length : 1;
-      var done = tileCursor ? tileCursor.index : total;
-      showCityProgress(0.5 + 0.49 * (done / Math.max(1, total)));
-      if (!tileCursor) {
-        spawnCars();
-        syncBuses(state);
-        cityPhase = "done";
-        cityReady = true;
-        showCityProgress(1);
-      }
-    }
   }
 
   function sync(state, ui) {
     lastState = state;
     lastUi = ui;
     if (!state || state.screen !== "game") {
-      stopLoop();
-      return;
-    }
-    if (state.turnPhase === "role_reveal") {
-      if (cityReady || cityPhase || (graph.keys && graph.keys.length)) {
-        tearDownCity();
-      }
-      if (!ensure()) {
-        return;
-      }
-      stopLoop();
-      showCityProgress(null);
+      running = false;
       return;
     }
     if (!ensure()) {
       return;
     }
-    applyQualityCounts();
+    startLoop();
     var theme = document.documentElement.getAttribute("data-theme") || "light";
     var themeChanged = theme !== lastTheme;
     if (themeChanged) {
@@ -3292,36 +2337,20 @@ window.Nexus = window.Nexus || {};
       ensureSprites();
       buildMaterials();
       applyLightsTheme();
+      buildStaticCity();
       lastFp = "";
     }
     cam.seatTarget = seatTargetFromState(state);
-    if (cityPhase && cityPhase !== "done") {
-      startLoop();
-      applyCamera();
-      return;
-    }
     var fp = fingerprint(state, ui);
-    if (fp !== lastFp || themeChanged) {
+    var playTiles = Nexus.allSlots(Nexus.CONSTANTS.HEX_RADIUS);
+    if (!graph.keys.length || themeChanged) {
+      buildRoads(playTiles);
+    }
+    if (fp !== lastFp) {
       lastFp = fp;
-      tearDownCity();
-      cityPhase = "static";
-      showCityProgress(0.02);
+      rebuildTiles(state, ui);
     }
-    startLoop();
     applyCamera();
-    if (renderer && renderer.info && renderer.info.memory) {
-      var geos = renderer.info.memory.geometries || 0;
-      if (geos > leakPrev + 8 && cityReady) {
-        leakHits += 1;
-        if (leakHits >= 3) {
-          console.warn("NEXUS: Geometrien steigen nach Szenenwechseln (" + geos + ").");
-          leakHits = 0;
-        }
-      } else {
-        leakHits = 0;
-      }
-      leakPrev = geos;
-    }
   }
 
   function setBiome(choice, seed) {
@@ -3338,7 +2367,7 @@ window.Nexus = window.Nexus || {};
     lastFp = "";
     lastLampNight = null;
     if (lastState) {
-      buildRoads(roadTiles());
+      buildRoads(Nexus.allSlots(Nexus.CONSTANTS.HEX_RADIUS));
       rebuildTiles(lastState, lastUi);
     }
     return activeBiome;
@@ -3466,69 +2495,6 @@ window.Nexus = window.Nexus || {};
     canvas: function () {
       return canvas;
     },
-    debugCamera: function () {
-      debugCamOn = !debugCamOn;
-      if (debugCamOn) {
-        cam.targetPolar = CAM_POLAR_MIN;
-        cam.targetDistance = CAM_DIST_MAX;
-        cam.targetPanX = 0;
-        cam.targetPanZ = 0;
-      } else {
-        cam.targetPolar = polarFromSlider(cam.pitchSlider);
-        cam.targetDistance = defaultDistance();
-      }
-      cam.userAdjusted = true;
-      applyCamera();
-    },
-    setWirePick: function () {
-      wireOn = !wireOn;
-      if (mats.hit) {
-        mats.hit.wireframe = wireOn;
-        mats.hit.opacity = wireOn ? 0.85 : 0;
-        mats.hit.transparent = true;
-        mats.hit.needsUpdate = true;
-      }
-    },
-    setDensity: function (level) {
-      densityLevel = Math.max(0, Math.min(2, Number(level) || 0));
-      if (graph.keys.length) {
-        spawnCars();
-      }
-    },
-    liveNodes: function () {
-      function count(root) {
-        var n = 0;
-        if (!root || !root.traverse) {
-          return 0;
-        }
-        root.traverse(function () {
-          n += 1;
-        });
-        return n;
-      }
-      var parts = {
-        tiles: count(roots.tiles),
-        roads: count(roots.roads),
-        static: count(roots.static),
-        batches: count(roots.batches),
-        cars: count(roots.cars),
-        scene: scene && scene.children ? scene.children.length : 0
-      };
-      Nexus._liveParts = parts;
-      return parts.tiles + parts.roads + parts.static + parts.batches + parts.cars;
-    },
-    rebuildForTest: function () {
-      if (!lastState) {
-        return;
-      }
-      tearDownCity();
-      cityPhase = "static";
-      var guard = 0;
-      while (cityPhase !== "done" && guard < 30) {
-        stepCity(lastState, lastUi || {});
-        guard += 1;
-      }
-    },
     debugSnapshot: function () {
       return {
         cars: cars.map(function (c) {
@@ -3569,9 +2535,6 @@ window.Nexus = window.Nexus || {};
         resolvedQuality: resolvedPreset,
         pixelRatio: renderer ? renderer.getPixelRatio() : null,
         night: isNight(),
-        fps: fpsValue,
-        density: densityLevel,
-        wire: wireOn,
         yaw: cam.seatYaw + cam.userYaw,
         polar: cam.polar,
         distance: cam.distance,

@@ -55,89 +55,6 @@ window.Nexus = window.Nexus || {};
     prefs.biome = "grass";
   }
 
-  function gfxInfo() {
-    var conn = navigator.connection || navigator.mozConnection || null;
-    return {
-      cores: navigator.hardwareConcurrency || 4,
-      memory: navigator.deviceMemory || 4,
-      dpr: window.devicePixelRatio || 1,
-      pixels: window.screen ? window.screen.width * window.screen.height : 1,
-      w: window.innerWidth || 0,
-      h: window.innerHeight || 0,
-      mobile: /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent || ""),
-      saveData: !!(conn && conn.saveData),
-      renderer: ""
-    };
-  }
-
-  function loadGfx() {
-    try {
-      return JSON.parse(localStorage.getItem("nexus-gfx") || "null");
-    } catch (err) {
-      return null;
-    }
-  }
-
-  function saveGfx() {
-    if (!Nexus.Quality) {
-      return;
-    }
-    var st = Nexus.Quality.state();
-    localStorage.setItem(
-      "nexus-gfx",
-      JSON.stringify({
-        tier: st.tier,
-        cap: st.cap,
-        manual: st.manual,
-        fps: st.fpsTarget,
-        battery: st.battery,
-        toggles: st.toggles,
-        fingerprint: Nexus.Quality.fingerprint(gfxInfo())
-      })
-    );
-  }
-
-  if (Nexus.Quality) {
-    var storedGfx = loadGfx() || {};
-    var legacyTier = { quality: "high", balance: "medium", performance: "low" };
-    if (!storedGfx.manual && prefs.boardQuality && prefs.boardQuality !== "auto") {
-      storedGfx.manual = legacyTier[prefs.boardQuality] || prefs.boardQuality;
-    }
-    if (localStorage.getItem("nexus-session-open") === "1") {
-      storedGfx.crashed = true;
-    }
-    localStorage.setItem("nexus-session-open", "1");
-    Nexus.Quality.boot(gfxInfo(), storedGfx, window.location.search);
-    document.documentElement.setAttribute("data-gfx", Nexus.Quality.state().tier);
-    window.setTimeout(function () {
-      localStorage.removeItem("nexus-session-open");
-      saveGfx();
-    }, 8000);
-    var calibFrames = [];
-    var calibLast = 0;
-    var calibStart = window.performance && performance.now ? performance.now() : Date.now();
-    var calib = function (now) {
-      if (calibLast) {
-        calibFrames.push(now - calibLast);
-      }
-      calibLast = now;
-      if (now - calibStart < 700) {
-        window.requestAnimationFrame(calib);
-        return;
-      }
-      var result = Nexus.Quality.calibrate(calibFrames, gfxInfo());
-      if (!Nexus.Quality.state().manual) {
-        Nexus.Quality.acceptCalibration(result);
-      }
-      saveGfx();
-      document.documentElement.setAttribute("data-gfx", Nexus.Quality.state().tier);
-      if (storedGfx.crashed && Nexus.pushToast) {
-        Nexus.pushToast("Grafik reduziert: die letzte Sitzung wurde unterbrochen.");
-      }
-    };
-    window.requestAnimationFrame(calib);
-  }
-
   /* Klick auf einen gesperrten Knopf: wackeln und den Grund nennen, nicht schweigen */
   document.addEventListener(
     "pointerdown",
@@ -206,10 +123,6 @@ window.Nexus = window.Nexus || {};
     }
     if (Nexus.Board3D && Nexus.Board3D.setQuality) {
       Nexus.Board3D.setQuality(prefs.boardQuality);
-    }
-    if (Nexus.Quality && Nexus.Quality.snapshot) {
-      document.documentElement.setAttribute("data-blur", Nexus.Quality.snapshot().backdrop ? "on" : "off");
-      document.documentElement.setAttribute("data-gfx", Nexus.Quality.state().tier);
     }
     if (Nexus.Board3D && Nexus.Board3D.setBiome) {
       Nexus.Board3D.setBiome(prefs.biome, Date.now());
@@ -342,22 +255,6 @@ window.Nexus = window.Nexus || {};
       return;
     }
     if (state.spinningOutcomes) {
-      return;
-    }
-    if (Nexus.Dice && Nexus.Dice.prepare && !state._diceReady) {
-      state._diceReady = true;
-      Nexus.Dice.prepare(8, 100).then(function () {
-        if (state.turnPhase === "produce") {
-          runHarvest();
-        }
-      });
-      return;
-    }
-    runHarvest();
-  }
-
-  function runHarvest() {
-    if (state.screen !== "game" || state.turnPhase !== "produce" || state.spinningOutcomes) {
       return;
     }
     if (Nexus.remainingHarvestCount(state) === 0) {
@@ -636,8 +533,7 @@ window.Nexus = window.Nexus || {};
     if (Nexus.Board3D) {
       Nexus.Board3D.setUserAdjusted(false);
     }
-    var extra = Nexus.UIOverhaul ? Nexus.UIOverhaul.setupOptions() : {};
-    commit(Nexus.startGame(setupChoice.count, setupChoice.lengthId, extra));
+    commit(Nexus.startGame(setupChoice.count, setupChoice.lengthId));
   }
 
   document.getElementById("btn-start-game").addEventListener("click", startNewGame);
@@ -808,19 +704,6 @@ window.Nexus = window.Nexus || {};
       Nexus.pushToast("SAE: erst V2X oder Ladenetz auf einem Verkehrsfeld.");
     }
   });
-
-  var riskRollButton = document.getElementById("btn-risk-roll");
-  if (riskRollButton) {
-    riskRollButton.addEventListener("click", function () {
-      if (state.turnPhase !== "risk") {
-        return;
-      }
-      if (Nexus.Sfx) {
-        Nexus.Sfx.play("roll");
-      }
-      commit(Nexus.confirmRiskRoll(state), { skipAutoHarvest: true });
-    });
-  }
 
   document.getElementById("btn-end-round").addEventListener("click", function () {
     if (!Nexus.canEndTurn(state)) {
@@ -1114,21 +997,18 @@ window.Nexus = window.Nexus || {};
     commit(next);
   });
 
-  var handFan = document.getElementById("hand-fan");
-  if (handFan) {
-    handFan.addEventListener("click", function (event) {
-      var item = event.target.closest("[data-card-index]");
-      if (!item || item.disabled) {
-        return;
-      }
-      var index = Number(item.getAttribute("data-card-index"));
-      var next = Nexus.playInnovationCard(state, index);
-      if (next === state) {
-        return;
-      }
-      commit(next);
-    });
-  }
+  document.getElementById("hand-fan").addEventListener("click", function (event) {
+    var item = event.target.closest("[data-card-index]");
+    if (!item || item.disabled) {
+      return;
+    }
+    var index = Number(item.getAttribute("data-card-index"));
+    var next = Nexus.playInnovationCard(state, index);
+    if (next === state) {
+      return;
+    }
+    commit(next);
+  });
 
   function closeHomeModal() {
     ui.homeOpen = false;
@@ -1189,23 +1069,11 @@ window.Nexus = window.Nexus || {};
   }
 
   function setBoardQuality(value) {
-    var allowed = {
-      auto: 1,
-      minimal: 1,
-      low: 1,
-      medium: 1,
-      high: 1,
-      ultra: 1,
-      quality: 1,
-      balance: 1,
-      performance: 1
-    };
-    if (!allowed[value]) {
+    if (value !== "auto" && value !== "quality" && value !== "balance" && value !== "performance") {
       value = "auto";
     }
     prefs.boardQuality = value;
     applyAppearance();
-    saveGfx();
     if (state.screen === "game") {
       Nexus.render(state, ui);
     }
@@ -2071,16 +1939,5 @@ window.Nexus = window.Nexus || {};
         commit(next, { skipAutoHarvest: true });
       }
     };
-  }
-  if (Nexus.UIOverhaul) {
-    Nexus.UIOverhaul.install({
-      commit: commit,
-      getState: function () {
-        return state;
-      },
-      getUi: function () {
-        return ui;
-      }
-    });
   }
 })();

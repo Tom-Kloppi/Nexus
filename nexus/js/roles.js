@@ -87,14 +87,7 @@ window.Nexus = window.Nexus || {};
       case "greenInnovationCards":
         return player.greenInnovationCards || 0;
       case "ownRiskScore":
-        /* Leere Stadt zählt nicht als „sicher“. Erst mit Substanz ist niedriges Risiko ein Verdienst. */
-        var assets = Nexus.playerFactoryZones(state, player.id).length;
-        Nexus.DEVICES.forEach(function (device) {
-          if (player.devices && player.devices[device.id]) {
-            assets += 1;
-          }
-        });
-        return (player.risk || 0) + Math.max(0, 6 - assets);
+        return player.risk || 0;
       case "privacyShieldEvents":
         return player.privacyShieldEvents || 0;
       case "totalResourceThroughput":
@@ -123,12 +116,6 @@ window.Nexus = window.Nexus || {};
         return Nexus.countResourceMonopolies(state, player.id);
       case "blockedTradesCaused":
         return player.blockedTradesCaused || 0;
-      case "renewableMobility":
-      case "commerceServed":
-      case "linkPartnerRatio":
-      case "parkingSites":
-      case "shieldedSae":
-        return Nexus.Mobility ? Nexus.Mobility.metrics(state, player)[metricKey] || 0 : 0;
       default:
         return 0;
     }
@@ -218,11 +205,7 @@ window.Nexus = window.Nexus || {};
   }
 
   function formatMetricValue(subGoal, metricValue) {
-    if (
-      subGoal.id === "local_processing_ratio" ||
-      subGoal.id === "distinct_trade_partners" ||
-      subGoal.id === "linked_districts"
-    ) {
+    if (subGoal.id === "local_processing_ratio" || subGoal.id === "distinct_trade_partners") {
       return metricValue + "%";
     }
     if (subGoal.id === "own_risk_score") {

@@ -18,9 +18,8 @@
       href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800&family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="transitions.css?v=63" />
-    <link rel="stylesheet" href="style.css?v=63" />
-    <link rel="stylesheet" href="overhaul.css?v=64" />
+    <link rel="stylesheet" href="transitions.css?v=60" />
+    <link rel="stylesheet" href="style.css?v=60" />
   </head>
   <body>
     <div class="modal-shell t-modal-backdrop" id="setup-screen">
@@ -87,14 +86,6 @@
           <button type="button" class="btn setup-choice" data-length="standard">Standard · 20</button>
           <button type="button" class="btn setup-choice" data-length="long">Lang · 25</button>
         </div>
-
-        <p class="setup-label">Schwierigkeit</p>
-        <div class="pick-row" id="setup-difficulty">
-          <button type="button" class="btn setup-choice" data-difficulty="easy">Leicht</button>
-          <button type="button" class="btn setup-choice is-selected" data-difficulty="normal">Normal</button>
-          <button type="button" class="btn setup-choice" data-difficulty="hard">Schwer</button>
-        </div>
-        <label class="setup-note"><input type="checkbox" id="setup-beginner" /> Einsteiger: weniger Standards, billigere erste Linie</label>
 
         <div class="setup-actions">
           <button type="button" class="btn" id="btn-tutorial">Anleitung</button>
@@ -309,10 +300,9 @@
               <span class="pile-caption">Ausgespielt</span>
             </div>
           </div>
+          <ul id="hand-fan" class="card-fan t-avatar-group" aria-label="Ausspielbare Karten"></ul>
           <div class="action-buttons">
             <button type="button" class="btn" id="btn-trade" disabled>Handeln</button>
-            <button type="button" class="btn" id="btn-undo">Rückgängig</button>
-            <button type="button" class="btn" id="btn-guide">Überblick</button>
             <button type="button" class="btn primary" id="btn-end-round" disabled>Zug beenden</button>
           </div>
         </div>
@@ -404,16 +394,6 @@
       </div>
     </div>
 
-    <div id="risk-modal" class="modal-shell t-modal-backdrop" hidden>
-      <div class="modal-card t-modal piece" role="dialog" aria-modal="true" aria-labelledby="risk-summary">
-        <p class="modal-kicker">Risiko, bevor der Würfel fällt</p>
-        <h3>Transparenter Wurf</h3>
-        <p id="risk-summary"></p>
-        <ul id="risk-factors" class="goal-help-list"></ul>
-        <button type="button" class="btn primary" id="btn-risk-roll">Würfeln (d100)</button>
-      </div>
-    </div>
-
     <div id="event-modal" class="modal-shell t-modal-backdrop" hidden>
       <div class="modal-card t-modal piece" role="dialog" aria-modal="true">
         <h3 id="event-title">Ereignis</h3>
@@ -502,33 +482,22 @@
       </div>
     </div>
 
-    <script src="vendor/three.min.js?v=63"></script>
-    <script src="js/data/constants.js?v=63"></script>
-    <script src="js/data/tiles.js?v=63"></script>
-    <script src="js/data/devices.js?v=63"></script>
-    <script src="js/data/events.js?v=63"></script>
-    <script src="js/data/cards.js?v=63"></script>
-    <script src="js/data/roles.js?v=63"></script>
-    <script src="js/data/tutorial.js?v=64"></script>
-    <script src="js/icons.js?v=63"></script>
-    <script src="js/glossary.js?v=63"></script>
-    <script src="js/dice.js?v=64"></script>
-    <script src="js/quality.js?v=64"></script>
-    <script src="js/risk.js?v=63"></script>
-    <script src="js/mobility.js?v=63"></script>
-    <script src="js/projects.js?v=63"></script>
-    <script src="js/arc.js?v=63"></script>
-    <script src="js/dialog.js?v=63"></script>
-    <script src="js/field-actions.js?v=63"></script>
-    <script src="js/role-avatars.js?v=63"></script>
-    <script src="js/roles.js?v=63"></script>
-    <script src="js/state.js?v=63"></script>
-    <script src="js/board-look.js?v=63"></script>
-    <script src="js/board-props.js?v=63"></script>
-    <script src="js/board-kit.js?v=63"></script>
-    <script src="js/board3d.js?v=65"></script>
-    <script src="js/render.js?v=64"></script>
-    <script src="js/ui-overhaul.js?v=64"></script>
-    <script src="js/main.js?v=65"></script>
+    <script src="vendor/three.min.js?v=60"></script>
+    <script src="js/data/constants.js?v=60"></script>
+    <script src="js/data/tiles.js?v=60"></script>
+    <script src="js/data/devices.js?v=60"></script>
+    <script src="js/data/events.js?v=60"></script>
+    <script src="js/data/cards.js?v=60"></script>
+    <script src="js/data/roles.js?v=60"></script>
+    <script src="js/data/tutorial.js?v=60"></script>
+    <script src="js/icons.js?v=60"></script>
+    <script src="js/role-avatars.js?v=60"></script>
+    <script src="js/roles.js?v=60"></script>
+    <script src="js/state.js?v=60"></script>
+    <script src="js/board-look.js?v=60"></script>
+    <script src="js/board-props.js?v=60"></script>
+    <script src="js/board3d.js?v=60"></script>
+    <script src="js/render.js?v=60"></script>
+    <script src="js/main.js?v=60"></script>
   </body>
 </html>

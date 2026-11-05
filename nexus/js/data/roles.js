@@ -20,57 +20,43 @@ Nexus.ROLES = {
       {
         id: "environment_score",
         label: "Umwelt-Spur (Fahrradstadt, Solarpflicht, Begrünung, Öffis)",
-        maxContribution: 40,
+        maxContribution: 50,
         higherIsBetter: true,
         metricKey: "environmentScore",
         steps: [
-          { stage: 1, metricValue: 2, cumulativePercent: 5 },
-          { stage: 2, metricValue: 4, cumulativePercent: 11 },
-          { stage: 3, metricValue: 7, cumulativePercent: 22 },
-          { stage: 4, metricValue: 11, cumulativePercent: 34 },
-          { stage: 5, metricValue: 15, cumulativePercent: 40 }
+          { stage: 1, metricValue: 2, cumulativePercent: 6 },
+          { stage: 2, metricValue: 4, cumulativePercent: 14 },
+          { stage: 3, metricValue: 7, cumulativePercent: 27 },
+          { stage: 4, metricValue: 11, cumulativePercent: 42 },
+          { stage: 5, metricValue: 15, cumulativePercent: 50 }
         ]
       },
       {
         id: "green_innovation_cards",
         label: "Grüne Innovationskarten",
-        maxContribution: 25,
+        maxContribution: 35,
         higherIsBetter: true,
         metricKey: "greenInnovationCards",
         steps: [
-          { stage: 1, metricValue: 1, cumulativePercent: 3 },
-          { stage: 2, metricValue: 2, cumulativePercent: 8 },
-          { stage: 3, metricValue: 3, cumulativePercent: 14 },
-          { stage: 4, metricValue: 4, cumulativePercent: 21 },
-          { stage: 5, metricValue: 5, cumulativePercent: 25 }
+          { stage: 1, metricValue: 1, cumulativePercent: 4 },
+          { stage: 2, metricValue: 2, cumulativePercent: 11 },
+          { stage: 3, metricValue: 3, cumulativePercent: 20 },
+          { stage: 4, metricValue: 4, cumulativePercent: 30 },
+          { stage: 5, metricValue: 5, cumulativePercent: 35 }
         ]
       },
       {
         id: "image_score",
         label: "Image-Spur (sichtbare Begrünung / Öffis)",
-        maxContribution: 20,
+        maxContribution: 25,
         higherIsBetter: true,
         metricKey: "imageScore",
         steps: [
-          { stage: 1, metricValue: 2, cumulativePercent: 2 },
-          { stage: 2, metricValue: 4, cumulativePercent: 6 },
-          { stage: 3, metricValue: 7, cumulativePercent: 11 },
-          { stage: 4, metricValue: 11, cumulativePercent: 17 },
-          { stage: 5, metricValue: 15, cumulativePercent: 20 }
-        ]
-      },
-      {
-        id: "renewable_mobility",
-        label: "Erneuerbare Buslinie (Halte an Solarstrom)",
-        maxContribution: 15,
-        higherIsBetter: true,
-        metricKey: "renewableMobility",
-        steps: [
-          { stage: 1, metricValue: 1, cumulativePercent: 3 },
-          { stage: 2, metricValue: 2, cumulativePercent: 6 },
-          { stage: 3, metricValue: 3, cumulativePercent: 9 },
-          { stage: 4, metricValue: 4, cumulativePercent: 12 },
-          { stage: 5, metricValue: 5, cumulativePercent: 15 }
+          { stage: 1, metricValue: 2, cumulativePercent: 3 },
+          { stage: 2, metricValue: 4, cumulativePercent: 8 },
+          { stage: 3, metricValue: 7, cumulativePercent: 14 },
+          { stage: 4, metricValue: 11, cumulativePercent: 21 },
+          { stage: 5, metricValue: 15, cumulativePercent: 25 }
         ]
       }
     ]
@@ -85,57 +71,43 @@ Nexus.ROLES = {
       {
         id: "security_score",
         label: "Sicherheits-Spur (Cyberabwehr)",
-        maxContribution: 30,
+        maxContribution: 45,
         higherIsBetter: true,
         metricKey: "securityScore",
         steps: [
-          { stage: 1, metricValue: 12, cumulativePercent: 4 },
-          { stage: 2, metricValue: 24, cumulativePercent: 8 },
-          { stage: 3, metricValue: 40, cumulativePercent: 14 },
-          { stage: 4, metricValue: 60, cumulativePercent: 22 },
-          { stage: 5, metricValue: 80, cumulativePercent: 30 }
+          { stage: 1, metricValue: 2, cumulativePercent: 5 },
+          { stage: 2, metricValue: 4, cumulativePercent: 13 },
+          { stage: 3, metricValue: 7, cumulativePercent: 24 },
+          { stage: 4, metricValue: 11, cumulativePercent: 37 },
+          { stage: 5, metricValue: 15, cumulativePercent: 45 }
         ]
       },
       {
         id: "own_risk_score",
         label: "Niedriges eigenes Risiko-Level",
-        maxContribution: 24,
+        maxContribution: 40,
         higherIsBetter: false,
         metricKey: "ownRiskScore",
         steps: [
-          { stage: 1, metricValue: 16, cumulativePercent: 3 },
-          { stage: 2, metricValue: 11, cumulativePercent: 7 },
-          { stage: 3, metricValue: 7, cumulativePercent: 12 },
-          { stage: 4, metricValue: 4, cumulativePercent: 18 },
-          { stage: 5, metricValue: 1, cumulativePercent: 24 }
+          { stage: 1, metricValue: 18, cumulativePercent: 5 },
+          { stage: 2, metricValue: 13, cumulativePercent: 12 },
+          { stage: 3, metricValue: 9, cumulativePercent: 22 },
+          { stage: 4, metricValue: 5, cumulativePercent: 34 },
+          { stage: 5, metricValue: 2, cumulativePercent: 40 }
         ]
       },
       {
         id: "local_processing_ratio",
         label: "Anteil lokal verarbeiteter Geräte",
-        maxContribution: 16,
+        maxContribution: 25,
         higherIsBetter: true,
         metricKey: "localProcessingRatio",
         steps: [
-          { stage: 1, metricValue: 25, cumulativePercent: 2 },
-          { stage: 2, metricValue: 45, cumulativePercent: 5 },
-          { stage: 3, metricValue: 65, cumulativePercent: 8 },
-          { stage: 4, metricValue: 85, cumulativePercent: 12 },
-          { stage: 5, metricValue: 100, cumulativePercent: 16 }
-        ]
-      },
-      {
-        id: "shielded_mobility",
-        label: "Abgeschirmte SAE (lokal oder gesichert)",
-        maxContribution: 30,
-        higherIsBetter: true,
-        metricKey: "shieldedSae",
-        steps: [
-          { stage: 1, metricValue: 1, cumulativePercent: 4 },
-          { stage: 2, metricValue: 2, cumulativePercent: 10 },
-          { stage: 3, metricValue: 3, cumulativePercent: 16 },
-          { stage: 4, metricValue: 4, cumulativePercent: 23 },
-          { stage: 5, metricValue: 5, cumulativePercent: 30 }
+          { stage: 1, metricValue: 25, cumulativePercent: 3 },
+          { stage: 2, metricValue: 45, cumulativePercent: 8 },
+          { stage: 3, metricValue: 65, cumulativePercent: 14 },
+          { stage: 4, metricValue: 85, cumulativePercent: 21 },
+          { stage: 5, metricValue: 100, cumulativePercent: 25 }
         ]
       }
     ]
@@ -150,57 +122,43 @@ Nexus.ROLES = {
       {
         id: "comfort_score",
         label: "Komfort-Spur (Wohlhaben)",
-        maxContribution: 32,
+        maxContribution: 40,
         higherIsBetter: true,
         metricKey: "comfortScore",
         steps: [
-          { stage: 1, metricValue: 2, cumulativePercent: 4 },
-          { stage: 2, metricValue: 4, cumulativePercent: 10 },
-          { stage: 3, metricValue: 7, cumulativePercent: 18 },
-          { stage: 4, metricValue: 11, cumulativePercent: 27 },
-          { stage: 5, metricValue: 15, cumulativePercent: 32 }
+          { stage: 1, metricValue: 2, cumulativePercent: 5 },
+          { stage: 2, metricValue: 4, cumulativePercent: 12 },
+          { stage: 3, metricValue: 7, cumulativePercent: 22 },
+          { stage: 4, metricValue: 11, cumulativePercent: 34 },
+          { stage: 5, metricValue: 15, cumulativePercent: 40 }
         ]
       },
       {
         id: "security_score",
         label: "Sicherheits-Spur (Wohlhaben)",
-        maxContribution: 28,
+        maxContribution: 35,
         higherIsBetter: true,
         metricKey: "securityScore",
         steps: [
-          { stage: 1, metricValue: 2, cumulativePercent: 3 },
-          { stage: 2, metricValue: 4, cumulativePercent: 8 },
-          { stage: 3, metricValue: 7, cumulativePercent: 15 },
-          { stage: 4, metricValue: 11, cumulativePercent: 23 },
-          { stage: 5, metricValue: 15, cumulativePercent: 28 }
+          { stage: 1, metricValue: 2, cumulativePercent: 4 },
+          { stage: 2, metricValue: 4, cumulativePercent: 10 },
+          { stage: 3, metricValue: 7, cumulativePercent: 19 },
+          { stage: 4, metricValue: 11, cumulativePercent: 29 },
+          { stage: 5, metricValue: 15, cumulativePercent: 35 }
         ]
       },
       {
         id: "trade_volume",
         label: "Handelsvolumen (Wohnraum gegen Ressourcen)",
-        maxContribution: 28,
+        maxContribution: 35,
         higherIsBetter: true,
         metricKey: "tradeVolume",
         steps: [
-          { stage: 1, metricValue: 8, cumulativePercent: 3 },
-          { stage: 2, metricValue: 16, cumulativePercent: 8 },
-          { stage: 3, metricValue: 28, cumulativePercent: 15 },
-          { stage: 4, metricValue: 40, cumulativePercent: 23 },
-          { stage: 5, metricValue: 55, cumulativePercent: 28 }
-        ]
-      },
-      {
-        id: "commerce_served",
-        label: "Wohnen an eigenen Buslinien",
-        maxContribution: 12,
-        higherIsBetter: true,
-        metricKey: "commerceServed",
-        steps: [
-          { stage: 1, metricValue: 1, cumulativePercent: 2 },
-          { stage: 2, metricValue: 2, cumulativePercent: 4 },
-          { stage: 3, metricValue: 3, cumulativePercent: 7 },
-          { stage: 4, metricValue: 4, cumulativePercent: 10 },
-          { stage: 5, metricValue: 5, cumulativePercent: 12 }
+          { stage: 1, metricValue: 10, cumulativePercent: 4 },
+          { stage: 2, metricValue: 20, cumulativePercent: 10 },
+          { stage: 3, metricValue: 35, cumulativePercent: 19 },
+          { stage: 4, metricValue: 55, cumulativePercent: 29 },
+          { stage: 5, metricValue: 75, cumulativePercent: 35 }
         ]
       }
     ]
@@ -215,71 +173,57 @@ Nexus.ROLES = {
       {
         id: "image_score",
         label: "Image-Spur",
-        maxContribution: 22,
+        maxContribution: 28,
         higherIsBetter: true,
         metricKey: "imageScore",
         steps: [
-          { stage: 1, metricValue: 2, cumulativePercent: 2 },
-          { stage: 2, metricValue: 4, cumulativePercent: 6 },
-          { stage: 3, metricValue: 7, cumulativePercent: 11 },
-          { stage: 4, metricValue: 11, cumulativePercent: 17 },
-          { stage: 5, metricValue: 15, cumulativePercent: 22 }
+          { stage: 1, metricValue: 2, cumulativePercent: 3 },
+          { stage: 2, metricValue: 4, cumulativePercent: 8 },
+          { stage: 3, metricValue: 7, cumulativePercent: 14 },
+          { stage: 4, metricValue: 11, cumulativePercent: 22 },
+          { stage: 5, metricValue: 15, cumulativePercent: 28 }
         ]
       },
       {
         id: "comfort_score",
         label: "Komfort-Spur",
-        maxContribution: 22,
+        maxContribution: 28,
         higherIsBetter: true,
         metricKey: "comfortScore",
         steps: [
-          { stage: 1, metricValue: 2, cumulativePercent: 2 },
-          { stage: 2, metricValue: 4, cumulativePercent: 6 },
-          { stage: 3, metricValue: 7, cumulativePercent: 11 },
-          { stage: 4, metricValue: 11, cumulativePercent: 17 },
-          { stage: 5, metricValue: 15, cumulativePercent: 22 }
+          { stage: 1, metricValue: 2, cumulativePercent: 3 },
+          { stage: 2, metricValue: 4, cumulativePercent: 8 },
+          { stage: 3, metricValue: 7, cumulativePercent: 14 },
+          { stage: 4, metricValue: 11, cumulativePercent: 22 },
+          { stage: 5, metricValue: 15, cumulativePercent: 28 }
         ]
       },
       {
         id: "environment_score",
         label: "Umwelt-Spur",
-        maxContribution: 22,
+        maxContribution: 28,
         higherIsBetter: true,
         metricKey: "environmentScore",
         steps: [
-          { stage: 1, metricValue: 2, cumulativePercent: 2 },
-          { stage: 2, metricValue: 4, cumulativePercent: 6 },
-          { stage: 3, metricValue: 7, cumulativePercent: 11 },
-          { stage: 4, metricValue: 11, cumulativePercent: 17 },
-          { stage: 5, metricValue: 15, cumulativePercent: 22 }
+          { stage: 1, metricValue: 2, cumulativePercent: 3 },
+          { stage: 2, metricValue: 4, cumulativePercent: 8 },
+          { stage: 3, metricValue: 7, cumulativePercent: 14 },
+          { stage: 4, metricValue: 11, cumulativePercent: 22 },
+          { stage: 5, metricValue: 15, cumulativePercent: 28 }
         ]
       },
       {
         id: "security_score",
         label: "Sicherheits-Spur",
-        maxContribution: 22,
+        maxContribution: 28,
         higherIsBetter: true,
         metricKey: "securityScore",
         steps: [
-          { stage: 1, metricValue: 2, cumulativePercent: 2 },
-          { stage: 2, metricValue: 4, cumulativePercent: 6 },
-          { stage: 3, metricValue: 7, cumulativePercent: 11 },
-          { stage: 4, metricValue: 11, cumulativePercent: 17 },
-          { stage: 5, metricValue: 15, cumulativePercent: 22 }
-        ]
-      },
-      {
-        id: "sae_level",
-        label: "SAE-Stufe der eigenen Flotte",
-        maxContribution: 12,
-        higherIsBetter: true,
-        metricKey: "saeLevel",
-        steps: [
-          { stage: 1, metricValue: 1, cumulativePercent: 2 },
-          { stage: 2, metricValue: 2, cumulativePercent: 4 },
-          { stage: 3, metricValue: 3, cumulativePercent: 7 },
-          { stage: 4, metricValue: 4, cumulativePercent: 10 },
-          { stage: 5, metricValue: 5, cumulativePercent: 12 }
+          { stage: 1, metricValue: 2, cumulativePercent: 3 },
+          { stage: 2, metricValue: 4, cumulativePercent: 8 },
+          { stage: 3, metricValue: 7, cumulativePercent: 14 },
+          { stage: 4, metricValue: 11, cumulativePercent: 22 },
+          { stage: 5, metricValue: 15, cumulativePercent: 28 }
         ]
       }
     ]
@@ -294,57 +238,43 @@ Nexus.ROLES = {
       {
         id: "image_score",
         label: "Image-Spur (Zusammenarbeit)",
-        maxContribution: 38,
+        maxContribution: 45,
         higherIsBetter: true,
         metricKey: "imageScore",
         steps: [
-          { stage: 1, metricValue: 1, cumulativePercent: 4 },
-          { stage: 2, metricValue: 2, cumulativePercent: 11 },
-          { stage: 3, metricValue: 4, cumulativePercent: 20 },
-          { stage: 4, metricValue: 5, cumulativePercent: 31 },
-          { stage: 5, metricValue: 8, cumulativePercent: 38 }
+          { stage: 1, metricValue: 2, cumulativePercent: 5 },
+          { stage: 2, metricValue: 4, cumulativePercent: 13 },
+          { stage: 3, metricValue: 7, cumulativePercent: 24 },
+          { stage: 4, metricValue: 11, cumulativePercent: 37 },
+          { stage: 5, metricValue: 15, cumulativePercent: 45 }
         ]
       },
       {
         id: "environment_score",
         label: "Umwelt-Spur (nachhaltiges Mittelmaß)",
-        maxContribution: 28,
+        maxContribution: 35,
         higherIsBetter: true,
         metricKey: "environmentScore",
         steps: [
-          { stage: 1, metricValue: 2, cumulativePercent: 3 },
-          { stage: 2, metricValue: 4, cumulativePercent: 8 },
-          { stage: 3, metricValue: 7, cumulativePercent: 15 },
-          { stage: 4, metricValue: 11, cumulativePercent: 23 },
-          { stage: 5, metricValue: 15, cumulativePercent: 28 }
+          { stage: 1, metricValue: 2, cumulativePercent: 4 },
+          { stage: 2, metricValue: 4, cumulativePercent: 10 },
+          { stage: 3, metricValue: 7, cumulativePercent: 19 },
+          { stage: 4, metricValue: 11, cumulativePercent: 29 },
+          { stage: 5, metricValue: 15, cumulativePercent: 35 }
         ]
       },
       {
         id: "distinct_trade_partners",
         label: "Handelspartner-Anteil",
-        maxContribution: 22,
+        maxContribution: 30,
         higherIsBetter: true,
         metricKey: "tradePartnerRatio",
         steps: [
-          { stage: 1, metricValue: 20, cumulativePercent: 2 },
-          { stage: 2, metricValue: 40, cumulativePercent: 7 },
-          { stage: 3, metricValue: 60, cumulativePercent: 12 },
-          { stage: 4, metricValue: 80, cumulativePercent: 18 },
-          { stage: 5, metricValue: 100, cumulativePercent: 22 }
-        ]
-      },
-      {
-        id: "linked_districts",
-        label: "Fremde Halte an eigenen Linien",
-        maxContribution: 12,
-        higherIsBetter: true,
-        metricKey: "linkPartnerRatio",
-        steps: [
-          { stage: 1, metricValue: 20, cumulativePercent: 2 },
-          { stage: 2, metricValue: 40, cumulativePercent: 5 },
-          { stage: 3, metricValue: 60, cumulativePercent: 8 },
-          { stage: 4, metricValue: 80, cumulativePercent: 10 },
-          { stage: 5, metricValue: 100, cumulativePercent: 12 }
+          { stage: 1, metricValue: 20, cumulativePercent: 3 },
+          { stage: 2, metricValue: 40, cumulativePercent: 9 },
+          { stage: 3, metricValue: 60, cumulativePercent: 16 },
+          { stage: 4, metricValue: 80, cumulativePercent: 24 },
+          { stage: 5, metricValue: 100, cumulativePercent: 30 }
         ]
       }
     ]
@@ -359,57 +289,43 @@ Nexus.ROLES = {
       {
         id: "comfort_score",
         label: "Komfort-Spur (Auto-Infrastruktur)",
-        maxContribution: 40,
+        maxContribution: 50,
         higherIsBetter: true,
         metricKey: "comfortScore",
         steps: [
-          { stage: 1, metricValue: 2, cumulativePercent: 5 },
-          { stage: 2, metricValue: 4, cumulativePercent: 11 },
-          { stage: 3, metricValue: 7, cumulativePercent: 22 },
-          { stage: 4, metricValue: 11, cumulativePercent: 34 },
-          { stage: 5, metricValue: 15, cumulativePercent: 40 }
+          { stage: 1, metricValue: 2, cumulativePercent: 6 },
+          { stage: 2, metricValue: 4, cumulativePercent: 14 },
+          { stage: 3, metricValue: 7, cumulativePercent: 27 },
+          { stage: 4, metricValue: 11, cumulativePercent: 42 },
+          { stage: 5, metricValue: 15, cumulativePercent: 50 }
         ]
       },
       {
         id: "zone_control_count",
         label: "Anzahl kontrollierter Zonen (Ausbau)",
-        maxContribution: 28,
+        maxContribution: 35,
         higherIsBetter: true,
         metricKey: "zoneControlCount",
         steps: [
-          { stage: 1, metricValue: 5, cumulativePercent: 3 },
-          { stage: 2, metricValue: 8, cumulativePercent: 8 },
-          { stage: 3, metricValue: 11, cumulativePercent: 15 },
-          { stage: 4, metricValue: 14, cumulativePercent: 23 },
-          { stage: 5, metricValue: 18, cumulativePercent: 28 }
+          { stage: 1, metricValue: 2, cumulativePercent: 4 },
+          { stage: 2, metricValue: 3, cumulativePercent: 10 },
+          { stage: 3, metricValue: 4, cumulativePercent: 19 },
+          { stage: 4, metricValue: 5, cumulativePercent: 29 },
+          { stage: 5, metricValue: 6, cumulativePercent: 35 }
         ]
       },
       {
         id: "money_throughput",
         label: "Kumulierte Geldproduktion (schnelle Lösungen)",
-        maxContribution: 20,
+        maxContribution: 25,
         higherIsBetter: true,
         metricKey: "moneyThroughput",
         steps: [
-          { stage: 1, metricValue: 40, cumulativePercent: 2 },
-          { stage: 2, metricValue: 100, cumulativePercent: 6 },
-          { stage: 3, metricValue: 180, cumulativePercent: 11 },
-          { stage: 4, metricValue: 280, cumulativePercent: 17 },
-          { stage: 5, metricValue: 400, cumulativePercent: 20 }
-        ]
-      },
-      {
-        id: "parking_sites",
-        label: "Parkplätze und Parkhäuser",
-        maxContribution: 12,
-        higherIsBetter: true,
-        metricKey: "parkingSites",
-        steps: [
-          { stage: 1, metricValue: 1, cumulativePercent: 2 },
-          { stage: 2, metricValue: 2, cumulativePercent: 4 },
-          { stage: 3, metricValue: 4, cumulativePercent: 7 },
-          { stage: 4, metricValue: 6, cumulativePercent: 10 },
-          { stage: 5, metricValue: 8, cumulativePercent: 12 }
+          { stage: 1, metricValue: 8, cumulativePercent: 3 },
+          { stage: 2, metricValue: 18, cumulativePercent: 8 },
+          { stage: 3, metricValue: 32, cumulativePercent: 14 },
+          { stage: 4, metricValue: 50, cumulativePercent: 21 },
+          { stage: 5, metricValue: 70, cumulativePercent: 25 }
         ]
       }
     ]

@@ -38,7 +38,7 @@ Hot-Seat Smart-City (2–6 Spieler, ein Gerät). Einstieg `nexus/index.html`. **
 
 ## Architektur
 
-`main.js` → Regel in `state.js` (plus `risk.js`, `mobility.js`, `projects.js`, `arc.js`, ohne DOM/Three) → `Nexus.render` in `render.js` (Distrikt: `Nexus.Board3D.sync`). Würfel: `server/app.py` oder lokal markiert. Smoke: `node tools/sim.js 0`.
+`main.js` → Regel in `state.js` → `Nexus.render` in `render.js` (Distrikt: `Nexus.Board3D.sync`). Smoke: [`docs/AGENT_WORKFLOW.md`](docs/AGENT_WORKFLOW.md#code-einstieg-pointers-nicht-vollständige-dateien).
 
 ## Konventionen
 

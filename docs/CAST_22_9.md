@@ -23,7 +23,6 @@ Partei-Kürzel liegen als `party` / `character` auf dem Rollenobjekt (nur Reveal
 - `climate`: lokal-% gestrichen (PDF = Umweltpunkte, nicht Edge-Compute).
 - `investor`: `moneyThroughput` + Zonenzahl gestrichen; PDF = Komfort & Sicherheit plus Abhängigkeit vom Handel.
 - `visionary`: SAE-Leiter, lokale Geräte, Innovationskarten-Zählung gestrichen; PDF = alle Ziele gleichwertig.
-- Overhaul 2 setzt jede Rolle auf 100 % und gibt ein Mobilitäts-Teilziel (erneuerbare Halte, abgeschirmte SAE, Wohnen an der Linie, SAE-Stufe, fremde Halte, Parkhaus/Bahnhof). Schwellen stehen in `nexus/js/data/roles.js`, nicht hier.
 - `networker`: Open-Standard-Streak und Standards-Bonus-Volumen gestrichen; PDF = Image + Umwelt + Zusammenarbeit.
 - `controller`: Proprietär-Streak, Ressourcen-Monopole, blockierte Handelsversuche gestrichen; PDF = Komfort/Auto-Infra, nicht Lock-in.
 - Keine neuen Ressourcen, keine neuen Geräte-IDs.

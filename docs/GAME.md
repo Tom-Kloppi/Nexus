@@ -1,6 +1,6 @@
 # NEXUS — Spielregeln (Post-Playtest)
 
-Diese Datei beschreibt, was das Spiel **im Code tun soll** laut [`DESIGN.md`](DESIGN.md) und [`DESIGN_DECISIONS.md`](DESIGN_DECISIONS.md). Bei Abweichung: DESIGN gewinnt, dann Code anpassen.
+Diese Datei beschreibt, was das Spiel **im Code tun soll** laut [`DESIGN.md`](DESIGN.md). Bei Abweichung: DESIGN gewinnt, dann Code anpassen.
 
 **Freeze:** Branch `prototype` = NEXUS 2.1 (fünf Ressourcen, alte Zonen).
 
@@ -19,8 +19,8 @@ Kein Spurensummen-Rennen. Jedes Versprechen hat Unterziele (u. a. auf Image, Kom
 
 1. Zugübergabe (private Infos verdeckt)
 2. Produktion automatisch zu Zugbeginn (eigene Fabriken + Home)
-3. Risiko: vier abgeleitete Zahlen, dann offener d100. Ereignis erklärt Ursache und Gegenmaßnahme. Im letzten Kapitel kann ein Großereignis kommen.
-4. Bauphase: Feldmenü (bauen, ausbauen, abreißen, Halt, Parkhaus, Busbahnhof, Linie, Cloud/lokal), drei offene Projektkarten, **Handelsangebot**, Standard, SAE, Zugende
+3. Ereignis (gerade Runden)
+4. Bauphase: Felder (bauen / ausbauen / abreißen), Geräte, Karten, **Handelsangebot**, Standard, SAE, Zugende
 
 Cloud-Upkeep in Bandbreite. Ohne Zahlung: Cloud-Effekte in der Auswertung aus.
 
@@ -43,7 +43,7 @@ Radius 3 (2–3 Spieler) bzw. 4 (4–6 Spieler). Homes auf den Hex-Ecken (`homeP
 | Energie | Transformator | stabile Energie, kostet Geld pro Einheit |
 | Datenzentrum | Unsicher | günstig, erhöht Risiko |
 | Datenzentrum | Sicher | teurer, stärkt Sicherheit |
-| Verkehr | Parkplatz / Parkhaus / Busbahnhof | Erstes Feld +1 Komfort. Haltestelle, Linie (Diesel, Elektro, erneuerbar), SAE mit Technik-Toren. Straßen auf den Kanten plus Randring. |
+| Verkehr | — | Stub, wenig Geld; +1 Komfort beim Bau. Grafik: Busbahnhof oder Parkplatz mit Ladestationen **auf** dem Feld. Straßen liegen auf den Kanten aller Felder, nicht als eigener Feldtyp. |
 | Kontrollbüro | — | +1 aller drei Ressourcen, kein Würfel; +1 je Ausbaustufe |
 
 Solar nutzt PRODUCTION_DICE (Ausfall…Boom). Boom → grüne Innovationskarte. Neu gebautes Feld produziert erst nächste Runde.
@@ -60,7 +60,7 @@ Cloud vs. lokal (Kosten nur noch in den 3 Ressourcen). Lokal → Risiko runter /
 
 ## Karten, Handel, Standards, SAE
 
-Projektmarkt: drei offene Karten, Kauf wirkt sofort, keine Pflicht-Hand. Förderkarten bleiben im Posteingang. SAE 0–5 mit Technik-Toren (Sensor, Datenzentrum, V2X, lokal ab Stufe 5). Handel ist ein **Angebot** (Kurs + Menge), Annahme/Ablehnung im Partnerzug oder als Unterbrechung — kein Sofort-Tausch.
+Handlimit und SAE 0–5 bleiben. Handel ist ein **Angebot** (Kurs + Menge), Annahme/Ablehnung im Partnerzug oder als Unterbrechung — kein Sofort-Tausch.
 
 **Offen:** mit anderem Offen handelbar; Rabatt `OPEN_STANDARD_DISCOUNT` auf den Aufpreis nicht selbst produzierter Ware; Tausch füllt `standardsBonusVolume`.  
 **Proprietär:** nur mit anderem Proprietär; kein Rabatt; gemischte Paare blockieren (Versuch gegen Proprietär → `blockedTradesCaused`).
