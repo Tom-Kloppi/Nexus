@@ -133,6 +133,8 @@ window.Nexus = window.Nexus || {};
   var frameSamples = [];
   var cityReady = false;
   var cityPhase = null;
+  var roadDress = null;
+  var lastRoadNet = null;
   var tileCursor = null;
   var tileBudget = null;
   var batchOn = false;
@@ -984,11 +986,13 @@ window.Nexus = window.Nexus || {};
 
   function worldOf(parent, x, y, z) {
     var node = parent;
-    while (node) {
+    var guard = 0;
+    while (node && guard < 16) {
       x += node.position ? node.position.x || 0 : 0;
       y += node.position ? node.position.y || 0 : 0;
       z += node.position ? node.position.z || 0 : 0;
       node = node.parent;
+      guard += 1;
     }
     return { x: x, y: y, z: z };
   }
@@ -1827,7 +1831,7 @@ window.Nexus = window.Nexus || {};
     graph.keys = Object.keys(graph.nodes);
   }
 
-  function buildRoads(playTiles) {
+  function buildRoads(playTiles, skipDress) {
     clearGroup(roots.roads);
     lights = [];
     lamps = [];
@@ -1882,7 +1886,10 @@ window.Nexus = window.Nexus || {};
       roots.roads.add(g);
       lights.push({ node: n.key, red: red, yel: yel, gre: gre, phase: i * 1.37, shown: "", night: null });
     }
-    scatterStreetDressing(net);
+    lastRoadNet = net;
+    if (!skipDress) {
+      scatterStreetDressing(net);
+    }
   }
 
   function takeHashed(items, maxCount, salt) {
@@ -1903,7 +1910,7 @@ window.Nexus = window.Nexus || {};
     return out;
   }
 
-  function scatterStreetDressing(net) {
+  function scatterStreetDressing(net, from, to) {
     var treeCands = [];
     var lampCands = [];
     var binCands = [];
@@ -1912,12 +1919,16 @@ window.Nexus = window.Nexus || {};
     var flowerCands = [];
     var kerb = ROAD_W * 0.5 + 0.62;
     var edgeKeys = Object.keys(net.edges);
+    var start = from == null ? 0 : from;
+    var end = to == null ? edgeKeys.length : to;
     var i;
-    lampPools = [];
-    billboardSprites = billboardSprites.filter(function () {
-      return false;
-    });
-    for (i = 0; i < edgeKeys.length; i++) {
+    if (start === 0) {
+      lampPools = [];
+      billboardSprites = billboardSprites.filter(function () {
+        return false;
+      });
+    }
+    for (i = start; i < end; i++) {
       var ek = edgeKeys[i];
       var e = net.edges[ek];
       var dx = e.b.x - e.a.x;
@@ -2339,11 +2350,16 @@ window.Nexus = window.Nexus || {};
       agent.speed += (cruise - agent.speed) * Math.min(1, dt * 1.8);
     }
     agent.u += Math.max(0.02, agent.speed) * dt;
-    while (agent.u >= 1) {
+    var hops = 0;
+    while (agent.u >= 1 && hops < 8) {
       agent.u -= 1;
+      hops += 1;
       var prev = agent.from;
       agent.from = agent.to;
       agent.to = pickNext(agent.from, prev);
+    }
+    if (agent.u >= 1) {
+      agent.u = 0;
     }
   }
 
@@ -2488,13 +2504,10 @@ window.Nexus = window.Nexus || {};
   }
 
   function fingerprint(state, ui) {
-    var rec = Nexus.recommendExpandSlot ? Nexus.recommendExpandSlot(state) : null;
     var parts = [
       state.turnPhase === "build" ? "build" : "play",
       ui && ui.inspectedZoneId,
       ui && ui.homeOpen ? 1 : 0,
-      ui && ui.expandSlot ? ui.expandSlot.q + "," + ui.expandSlot.r : "",
-      rec ? rec.q + "," + rec.r : "",
       document.documentElement.getAttribute("data-theme"),
       resolvedPreset,
       activeBiome
@@ -2521,9 +2534,6 @@ window.Nexus = window.Nexus || {};
           parts.push(p.id, id, mode);
         }
       });
-    });
-    (state.spinningOutcomes || []).forEach(function (o) {
-      parts.push("spin", o.zoneId);
     });
     return parts.join("|");
   }
@@ -2557,9 +2567,14 @@ window.Nexus = window.Nexus || {};
     if (!node) {
       return;
     }
-    var pct = Math.max(0, Math.min(100, Math.round((frac || 0) * 100)));
-    node.hidden = pct >= 100;
-    node.textContent = pct >= 100 ? "" : "Stadt wird aufgebaut " + pct + " %";
+    if (frac == null || frac >= 1) {
+      node.hidden = true;
+      node.textContent = "";
+      return;
+    }
+    var pct = Math.max(1, Math.min(99, Math.round(frac * 100)));
+    node.hidden = false;
+    node.textContent = "Stadt wird aufgebaut " + pct + " %";
     if (node.style && node.style.setProperty) {
       node.style.setProperty("--p", pct + "%");
     }
@@ -2593,7 +2608,10 @@ window.Nexus = window.Nexus || {};
     var play = tileCursor.play;
     var radius = Nexus.CONSTANTS.HEX_RADIUS;
     var buildPhase = state.turnPhase === "build";
-    while (tileCursor.index < tileCursor.slots.length && nowMs() - started < budget) {
+    var slice = 0;
+    var sliceMax = budget > 50 ? 100000 : 2;
+    while (tileCursor.index < tileCursor.slots.length && slice < sliceMax && nowMs() - started < budget) {
+      slice += 1;
       var slot = tileCursor.slots[tileCursor.index];
       tileCursor.index += 1;
       var dist = axialDist(slot.q, slot.r);
@@ -3165,6 +3183,8 @@ window.Nexus = window.Nexus || {};
     batchItems = [];
     cityPhase = null;
     cityReady = false;
+    roadDress = null;
+    lastRoadNet = null;
     clearGroup(roots.tiles);
     clearGroup(roots.picks);
     clearGroup(roots.roads);
@@ -3194,30 +3214,45 @@ window.Nexus = window.Nexus || {};
 
   function stepCity(state, ui) {
     var tuned = qualityParams();
-    var budget = tuned && tuned.chunkMs ? tuned.chunkMs : 10;
-    var t0 = nowMs();
+    var budget = tuned && tuned.chunkMs ? tuned.chunkMs : 8;
     if (!cityPhase) {
       cityPhase = "static";
     }
     if (cityPhase === "static") {
       buildStaticCity();
       cityPhase = "roads";
-      showCityProgress(0.08);
-      if (nowMs() - t0 > budget) {
-        return;
-      }
+      showCityProgress(0.12);
+      return;
     }
     if (cityPhase === "roads") {
-      buildRoads(roadTiles());
-      cityPhase = "tiles";
-      showCityProgress(0.18);
-      if (nowMs() - t0 > budget) {
+      buildRoads(roadTiles(), true);
+      cityPhase = "dress";
+      roadDress = { net: lastRoadNet, index: 0 };
+      showCityProgress(0.28);
+      return;
+    }
+    if (cityPhase === "dress") {
+      if (!roadDress || !roadDress.net) {
+        cityPhase = "tiles";
+        showCityProgress(0.4);
         return;
       }
+      var edgeKeys = Object.keys(roadDress.net.edges);
+      var next = Math.min(edgeKeys.length, roadDress.index + 24);
+      scatterStreetDressing(roadDress.net, roadDress.index, next);
+      roadDress.index = next;
+      showCityProgress(0.28 + 0.22 * (edgeKeys.length ? roadDress.index / edgeKeys.length : 1));
+      if (roadDress.index >= edgeKeys.length) {
+        cityPhase = "tiles";
+      }
+      return;
     }
     if (cityPhase === "tiles") {
-      tileBudget = Math.max(1, budget - (nowMs() - t0));
+      tileBudget = budget;
       rebuildTiles(state, ui);
+      var total = tileCursor ? tileCursor.slots.length : 1;
+      var done = tileCursor ? tileCursor.index : total;
+      showCityProgress(0.5 + 0.49 * (done / Math.max(1, total)));
       if (!tileCursor) {
         spawnCars();
         syncBuses(state);
@@ -3243,7 +3278,7 @@ window.Nexus = window.Nexus || {};
         return;
       }
       stopLoop();
-      showCityProgress(0);
+      showCityProgress(null);
       return;
     }
     if (!ensure()) {
@@ -3260,14 +3295,17 @@ window.Nexus = window.Nexus || {};
       lastFp = "";
     }
     cam.seatTarget = seatTargetFromState(state);
+    if (cityPhase && cityPhase !== "done") {
+      startLoop();
+      applyCamera();
+      return;
+    }
     var fp = fingerprint(state, ui);
     if (fp !== lastFp || themeChanged) {
       lastFp = fp;
       tearDownCity();
       cityPhase = "static";
-      stepCity(state, ui);
-    } else if (cityPhase && cityPhase !== "done") {
-      stepCity(state, ui);
+      showCityProgress(0.02);
     }
     startLoop();
     applyCamera();
