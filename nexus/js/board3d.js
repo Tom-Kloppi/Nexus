@@ -1762,7 +1762,7 @@ window.Nexus = window.Nexus || {};
 
   function roadTiles() {
     var radius = (Nexus.CONSTANTS && Nexus.CONSTANTS.HEX_RADIUS) || 3;
-    return Nexus.allSlots(radius + 1);
+    return Nexus.allSlots(radius);
   }
 
   function attachRim(roadPoses) {
@@ -1848,7 +1848,7 @@ window.Nexus = window.Nexus || {};
       var mx = (e.a.x + e.b.x) / 2;
       var mz = (e.a.z + e.b.z) / 2;
       var heading = Math.atan2(dx, dz);
-      roadPoses.push({ x: mx, y: ROAD_Y, z: mz, sx: ROAD_W, sy: 0.12, sz: len + ROAD_W * 0.62, ry: heading });
+      roadPoses.push({ x: mx, y: ROAD_Y, z: mz, sx: ROAD_W, sy: 0.12, sz: len, ry: heading });
       dashPoses.push({ x: mx, y: ROAD_Y + 0.07, z: mz, sx: 0.12, sy: 0.04, sz: len * 0.55, ry: heading });
     });
     var capPoses = [];
@@ -1858,13 +1858,12 @@ window.Nexus = window.Nexus || {};
         x: n.x,
         y: ROAD_Y,
         z: n.z,
-        sx: ROAD_W * 0.64,
+        sx: ROAD_W,
         sy: 0.13,
-        sz: ROAD_W * 0.64,
+        sz: ROAD_W,
         ry: 0
       });
     });
-    attachRim(roadPoses);
     addInstances(geo.box, mats.road, roadPoses, roots.roads);
     addInstances(geo.cyl12, mats.road, capPoses, roots.roads);
     addInstances(geo.box, mats.mark, dashPoses, roots.roads);

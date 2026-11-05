@@ -12,7 +12,7 @@
   --radius-card: 14px;
   --radius-pill: 999px;
   --dock-w: clamp(268px, 23vw, 330px);
-  --dock-rail-w: 68px;
+  --dock-rail-w: 0px;
   --shell-gap: 0;
   --shell-pad: 0;
   --chrome-dock: var(--dock-rail-w);
@@ -315,7 +315,7 @@ button {
   top: 0;
   left: 0;
   right: var(--chrome-dock);
-  z-index: 20;
+  z-index: 30;
   min-width: 0;
   display: flex;
   align-items: center;
@@ -1552,11 +1552,18 @@ button {
 
 /* ---------- 5 Dock ---------- */
 
+.dock:not(.is-open) {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  pointer-events: none;
+}
+
 .dock-rail {
+  display: none;
   position: absolute;
   inset: 0;
   z-index: 1;
-  display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: flex-start;

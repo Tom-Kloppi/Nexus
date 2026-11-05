@@ -126,10 +126,12 @@ window.Nexus = window.Nexus || {};
       }, 280);
     });
     document.body.addEventListener("mouseout", function (event) {
-      if (event.target.closest("[data-gloss], [data-help]")) {
-        window.clearTimeout(tipTimer);
-        hideTip();
+      var host = event.target.closest("[data-gloss], [data-help]");
+      if (!host || host.contains(event.relatedTarget)) {
+        return;
       }
+      window.clearTimeout(tipTimer);
+      hideTip();
     });
     document.body.addEventListener("pointerdown", function (event) {
       var host = event.target.closest("[data-gloss], [data-help]");
@@ -729,22 +731,6 @@ window.Nexus = window.Nexus || {};
         },
         true
       );
-      viewport.addEventListener("pointermove", function (event) {
-        if (!api || !Nexus.Board3D || !Nexus.Board3D.pick) {
-          return;
-        }
-        var state = api.getState();
-        if (!state || state.turnPhase !== "build") {
-          return;
-        }
-        window.clearTimeout(tipTimer);
-        tipTimer = window.setTimeout(function () {
-          var hit = Nexus.Board3D.pick(event.clientX, event.clientY);
-          if (hit && hit.blockedReason) {
-            showTip("Geht nicht", hit.blockedReason, "Bauen nur auf freien Nachbarfeldern in der Bauphase.", event.clientX, event.clientY, "link");
-          }
-        }, 280);
-      });
     }
     document.addEventListener("click", function (event) {
       if (suppressClose) {
