@@ -344,12 +344,20 @@ window.Nexus = window.Nexus || {};
     if (state.spinningOutcomes) {
       return;
     }
-    if (Nexus.Dice && Nexus.Dice.prepare && !(state._diceReady)) {
+    if (Nexus.Dice && Nexus.Dice.prepare && !state._diceReady) {
       state._diceReady = true;
       Nexus.Dice.prepare(8, 100).then(function () {
-        state._diceReady = false;
-        triggerAutoHarvest();
+        if (state.turnPhase === "produce") {
+          runHarvest();
+        }
       });
+      return;
+    }
+    runHarvest();
+  }
+
+  function runHarvest() {
+    if (state.screen !== "game" || state.turnPhase !== "produce" || state.spinningOutcomes) {
       return;
     }
     if (Nexus.remainingHarvestCount(state) === 0) {
