@@ -327,6 +327,98 @@ window.Nexus = window.Nexus || {};
         fitMapToView(false);
       });
     }
+    maybeFlow(state);
+  }
+
+  function maybeFlow(state) {
+    if (!state || state.screen !== "game" || state.turnPhase !== "build" || Nexus.isHotSeatShield(state)) {
+      return;
+    }
+    var player = Nexus.currentPlayer(state);
+    if (!player) {
+      return;
+    }
+    var token = state.round + ":" + player.id;
+    if (ui.flowToken === token) {
+      return;
+    }
+    ui.flowToken = token;
+    var gains = player.flowGain || player.lastProduction || {};
+    var losses = player.flowSpend || {};
+    var hasGain = Nexus.RESOURCE_KEYS.some(function (key) {
+      return gains[key] > 0;
+    });
+    var hasLoss = Nexus.RESOURCE_KEYS.some(function (key) {
+      return losses[key] > 0;
+    });
+    if (!hasGain && !hasLoss) {
+      return;
+    }
+    ui.flowLock = true;
+    document.body.classList.add("is-flow-lock");
+    if (hasGain) {
+      spawnFlow(state, player, gains, true);
+    }
+    window.setTimeout(function () {
+      if (hasLoss) {
+        spawnFlow(state, player, losses, false);
+      }
+      window.setTimeout(function () {
+        ui.flowLock = false;
+        document.body.classList.remove("is-flow-lock");
+      }, hasLoss ? 3000 : 0);
+    }, hasGain ? 3000 : 0);
+  }
+
+  function spawnFlow(state, player, bag, gain) {
+    var layer = document.getElementById("resource-fx-layer");
+    if (!layer) {
+      layer = document.createElement("div");
+      layer.id = "resource-fx-layer";
+      layer.className = "resource-fx-layer";
+      document.body.appendChild(layer);
+    }
+    var tuned = Nexus.Quality && Nexus.Quality.snapshot ? Nexus.Quality.snapshot() : null;
+    var count = tuned && tuned.particles === false ? 3 : 7;
+    var zones = (state.zones || []).filter(function (zone) {
+      return zone.ownerId === player.id;
+    });
+    Nexus.RESOURCE_KEYS.forEach(function (key) {
+      var amount = bag[key] || 0;
+      if (!amount) {
+        return;
+      }
+      var wallet = document.querySelector('.wallet-item[data-res="' + key + '"]');
+      if (!wallet) {
+        return;
+      }
+      var walletBox = wallet.getBoundingClientRect();
+      var zone = zones[0];
+      var projected = zone && Nexus.Board3D && Nexus.Board3D.project ? Nexus.Board3D.project(zone.q, zone.r) : null;
+      var i;
+      for (i = 0; i < count; i++) {
+        var particle = document.createElement("div");
+        particle.className = "resource-fx-particle " + (gain ? "is-gain" : "is-loss");
+        var startX = gain && projected ? projected.x : walletBox.left + walletBox.width / 2;
+        var startY = gain && projected ? projected.y : walletBox.top + walletBox.height / 2;
+        var endX = gain ? walletBox.left + walletBox.width / 2 : startX + (i - count / 2) * 18;
+        var endY = gain ? walletBox.top + walletBox.height / 2 : startY - 80 - i * 8;
+        if (!gain && projected) {
+          endX = projected.x;
+          endY = projected.y;
+        }
+        particle.style.left = startX + "px";
+        particle.style.top = startY + "px";
+        particle.style.setProperty("--fx-dx", endX - startX + "px");
+        particle.style.setProperty("--fx-dy", endY - startY + "px");
+        particle.style.animationDuration = "2.6s";
+        particle.style.animationDelay = i * 0.08 + "s";
+        layer.appendChild(particle);
+        window.setTimeout(function (node) {
+          if (node && node.parentNode) node.parentNode.removeChild(node);
+        }, 3200, particle);
+      }
+    });
   }
 
   function clearHarvestTimer() {
@@ -818,9 +910,30 @@ window.Nexus = window.Nexus || {};
       if (Nexus.Sfx) {
         Nexus.Sfx.play("roll");
       }
+      ui.riskDiceUntil = Date.now() + 2800;
       commit(Nexus.confirmRiskRoll(state), { skipAutoHarvest: true });
+      window.setTimeout(function () {
+        if (state) {
+          Nexus.render(state, ui);
+        }
+      }, 2900);
     });
   }
+
+  document.addEventListener(
+    "click",
+    function (event) {
+      if (!ui.flowLock) {
+        return;
+      }
+      if (event.target.closest("#map-viewport, .map-controls, .topbar-tools")) {
+        return;
+      }
+      event.preventDefault();
+      event.stopPropagation();
+    },
+    true
+  );
 
   document.getElementById("btn-end-round").addEventListener("click", function () {
     if (!Nexus.canEndTurn(state)) {
@@ -880,6 +993,9 @@ window.Nexus = window.Nexus || {};
   });
 
   document.getElementById("map-viewport").addEventListener("click", function (event) {
+    if (ui.flowLock) {
+      return;
+    }
     if (ui.map.moved) {
       ui.map.moved = false;
       return;

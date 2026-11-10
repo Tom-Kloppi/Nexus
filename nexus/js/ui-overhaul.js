@@ -325,9 +325,26 @@ window.Nexus = window.Nexus || {};
       fan.appendChild(button);
     });
     inbox.innerHTML = "";
-    var hand = (Nexus.currentPlayer(state) && Nexus.currentPlayer(state).handCards) || [];
+    var shield = Nexus.isHotSeatShield(state);
+    var hand = shield ? [] : (Nexus.currentPlayer(state) && Nexus.currentPlayer(state).handCards) || [];
+    var spread = hand.length > 1 ? 28 / (hand.length - 1) : 0;
     hand.forEach(function (card, index) {
-      var button = el("button", "project-card", card.name);
+      var button = document.createElement("button");
+      button.type = "button";
+      button.className = "uno-card cat-" + (card.category || "general");
+      var tilt = hand.length === 1 ? 0 : -14 + index * spread;
+      button.style.setProperty("--tilt", tilt.toFixed(1) + "deg");
+      var effects = card.effects || {};
+      var bits = [];
+      Object.keys(effects).forEach(function (key) {
+        if (!effects[key]) return;
+        var sign = effects[key] > 0 ? "+" : "";
+        bits.push("<b>" + sign + effects[key] + "</b> " + key);
+      });
+      button.innerHTML = "<strong>" + card.name + "</strong><span class=\"uno-fx\">" + bits.join(" ") + "</span>";
+      button.setAttribute("data-help-title", card.name);
+      button.setAttribute("data-help", card.text || "");
+      button.title = card.text || card.name;
       button.addEventListener("click", function () {
         var next = Nexus.playInnovationCard(api.getState(), index);
         if (next !== api.getState()) {
@@ -469,7 +486,8 @@ window.Nexus = window.Nexus || {};
       "<p><button type='button' id='btn-save'>Speichern</button> <button type='button' id='btn-load'>Laden</button></p>";
     fan = el("div", "project-fan");
     fan.id = "project-fan";
-    inbox = el("div", "inbox-fan");
+    inbox = el("div", "hand-fan");
+    inbox.id = "hand-fan";
     chapter = el("div", "chapter-chip");
     chapter.hidden = true;
     document.body.appendChild(menu);
@@ -478,8 +496,8 @@ window.Nexus = window.Nexus || {};
     var tray = document.querySelector(".tray-grid");
     if (tray) {
       tray.insertBefore(fan, tray.firstChild);
-      tray.insertBefore(inbox, fan.nextSibling);
     }
+    document.body.appendChild(inbox);
     var top = document.querySelector(".topbar-row--main");
     if (top) {
       top.insertBefore(chapter, top.querySelector(".wallet"));

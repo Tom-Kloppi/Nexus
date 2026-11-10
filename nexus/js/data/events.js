@@ -335,6 +335,24 @@ Nexus.EVENT_DECK_SPEC = [
   { id: "standard-split", count: 1 }
 ];
 
+Nexus.EVENT_LESSONS = {
+  "software-update": "Sofort patchen kostet Bandbreite, Warten lässt das Risiko im Netz.",
+  "power-outage": "Cloud fällt mit dem Netz aus, lokal bleibt der Betrieb stehen.",
+  "data-leak": "Offenlegen schützt Vertrauen, Vertuschen spart Kosten und erhöht das Risiko.",
+  bandwidth: "Priorität hält Cloud am Laufen, Drosseln schont Energie und bremst Dienste.",
+  "local-hub-funding": "Förderung verbilligt lokale Technik, die Karte stärkt Innovation statt Betrieb.",
+  "green-grant": "Eine grüne Karte verschiebt den Fortschritt, Ablehnen lässt die Chance liegen.",
+  "evasion-update": "Insassenschutz und Rücksicht auf alle anderen lassen sich nicht gleichzeitig maximieren.",
+  investor: "Fremdes Kapital bringt Ressourcen und mehr Abhängigkeit von der Cloud.",
+  maintenance: "Wartung kostet Energie jetzt, Aufschieben wird später teurer im Risiko.",
+  overproduction: "Überschuss kann Innovation oder Speicher füttern, nicht beides.",
+  "civic-hearing": "Offene Daten bringen Image und Angriffsfläche, Schutz senkt das Risiko.",
+  "major-blackout": "Ohne eigene Erzeugung und Speicher fällt die Cloud aus, lokale Geräte nicht.",
+  "major-breach": "Viele Cloud-Geräte ohne lokale Sicherung machen einen Abfluss teuer.",
+  "major-jam": "Parkfläche ohne Linie erzeugt Stau, ÖPNV nimmt Last aus den Ringen.",
+  "standard-split": "Offen verbindet Partner, proprietär bringt Geld und schließt andere aus."
+};
+
 Nexus.EVENTS_BY_ID = {};
 Nexus.EVENTS.forEach(function (event) {
   Nexus.EVENTS_BY_ID[event.id] = event;

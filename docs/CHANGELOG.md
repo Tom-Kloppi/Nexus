@@ -4,6 +4,16 @@ Neueste Welle zuerst. Das ist die **Geschichte** des spielbaren Stands — nicht
 
 Neue spielbare Welle: hier einen Block anlegen (Datum, Branch, Warum, Regeln, Grafik). DESIGN nur ändern, wenn sich der Vertrag ändert.
 
+## Visual Fix 3 (2026-11-10)
+
+**Branch:** `visual-fix-3`. Nicht nach `main` gemergt.
+
+**Warum.** Die Stadt wurde bei jedem Klick neu aufgebaut, freie Felder blieben bunt, die Leiste zeigte Ziele doppelt.
+
+**Regeln.** Unverändert. Hot-Seat-Schild bleibt. Oben steht die öffentliche Ausrichtung, nicht das geheime Versprechen. Der genaue Fortschritt bleibt im eigenen Zielpanel; die Ringe an den Chips gehen in 25-Prozent-Schritten.
+
+**Präsentation.** Inkrementeller Neuaufbau, graue freie Felder, Spielerfarbe an eigenen Gebäuden, mehr instanzierte Fahrzeuge, Ressourcenflug, klarerer Würfel, Handfächer, schlankere Ereignisse. Bericht: [`VISUAL_FIX3_REPORT.md`](VISUAL_FIX3_REPORT.md).
+
 ## Overhaul 2 — Risiko, Markt, Mobilität, Stadt (2026-11)
 
 **Branch / Stand:** `main`. Rückkehrpunkt: Tag `pre-overhaul-2`.

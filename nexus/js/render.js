@@ -1876,24 +1876,25 @@ window.Nexus = window.Nexus || {};
             (player.risk || 0) +
             "</span></span>";
         }
+        var quarter = 0;
+        if (!shield && Nexus.computeRoleProgress) {
+          var progress = Nexus.computeRoleProgress(state, player);
+          quarter = Math.floor(((progress && progress.totalPercent) || 0) / 25) * 25;
+        }
         return (
-          '<button type="button" class="turn-chip player-card' +
+          '<div class="turn-chip player-card' +
           (isActive ? " is-active" : "") +
           '" style="--player-color:' +
           playerColor(player) +
-          '" data-player-id="' +
-          player.id +
-          '" aria-expanded="false" title="' +
+          ";--q:" +
+          quarter +
+          '%" title="' +
           player.name +
           " · " +
           colorName +
-          " · " +
-          alignment +
-          " · " +
-          zoneCount +
-          " Zone" +
-          (zoneCount === 1 ? "" : "n") +
+          (shield ? "" : " · " + alignment) +
           '">' +
+          '<span class="turn-ring" aria-hidden="true"></span>' +
           '<span class="turn-avatar player-card-avatar">' +
           avatar +
           "</span>" +
@@ -1905,7 +1906,7 @@ window.Nexus = window.Nexus || {};
           (shield ? "Verdeckt" : alignment + standardLabel) +
           "</span>" +
           stats +
-          "</span></button>"
+          "</span></div>"
         );
       })
       .join("");
@@ -1942,7 +1943,7 @@ window.Nexus = window.Nexus || {};
       return;
     }
     panel.hidden = false;
-    pill.hidden = false;
+    pill.hidden = true;
     var redactGoals = !!(ui && ui.tutorialRedact);
     document.getElementById("goal-role-name").textContent = redactGoals ? "Nur für dich" : progress.role.name;
     document.getElementById("goal-total").textContent = progress.totalPercent + "%";
@@ -3595,6 +3596,123 @@ window.Nexus = window.Nexus || {};
     }
   }
 
+  function effectIconRow(effects) {
+    effects = effects || {};
+    var bits = [];
+    var spend = effects.spend || {};
+    Object.keys(spend).forEach(function (key) {
+      if (spend[key]) {
+        bits.push({ key: key, amount: -spend[key] });
+      }
+    });
+    ["energy", "money", "bandwidth", "image", "comfort", "environment", "security", "risk"].forEach(function (key) {
+      if (effects[key]) {
+        bits.push({ key: key, amount: effects[key] });
+      }
+    });
+    if (!bits.length) {
+      return "<small>ohne Ressourcen</small>";
+    }
+    return bits
+      .map(function (bit) {
+        var markup = Nexus.RESOURCE_MARKUP && Nexus.RESOURCE_MARKUP[bit.key];
+        var icon = markup
+          ? '<svg viewBox="0 0 24 24" width="16" height="16">' + Nexus.iconGroup(bit.key, "currentColor") + "</svg>"
+          : "";
+        var sign = bit.amount > 0 ? "+" : "";
+        return (
+          '<i class="fx-bit' +
+          (bit.amount < 0 ? " is-down" : " is-up") +
+          '">' +
+          icon +
+          "<b>" +
+          sign +
+          bit.amount +
+          "</b></i>"
+        );
+      })
+      .join("");
+  }
+
+  function renderDiceStage(state, ui) {
+    var host = document.getElementById("dice-stage");
+    if (!host) {
+      host = document.createElement("div");
+      host.id = "dice-stage";
+      host.className = "dice-stage";
+      document.body.appendChild(host);
+    }
+    var spinning = state.turnPhase === "spinning" && state.spinningOutcomes;
+    var rolled = spinning
+      ? state.spinningOutcomes.filter(function (item) {
+          return !item.isHome && item.dieId !== "stable" && item.dieId !== "home";
+        })[0]
+      : null;
+    var riskShow = state.lastRiskRoll && ui && ui.riskDiceUntil && Date.now() < ui.riskDiceUntil;
+    if (!rolled && !riskShow) {
+      host.hidden = true;
+      host.innerHTML = "";
+      return;
+    }
+    host.hidden = false;
+    if (rolled) {
+      var die = null;
+      Nexus.PRODUCTION_DICE.forEach(function (item) {
+        if (item.id === rolled.dieId) {
+          die = item;
+        }
+      });
+      var amount = rolled.yield && rolled.yield.primary ? rolled.yield.primary.amount : "";
+      var sentence =
+        "Wurf " +
+        (rolled.roll || "–") +
+        " gegen Feldzahl " +
+        (rolled.fieldBase != null ? rolled.fieldBase : "–") +
+        ". " +
+        ((die && die.label) || "Ergebnis") +
+        (amount === "" ? "." : ", Ertrag " + amount + ".");
+      host.innerHTML =
+        '<div class="die-face">' +
+        (rolled.roll || "–") +
+        "</div><p>" +
+        sentence +
+        "</p>" +
+        bandRow(rolled.dieId);
+      return;
+    }
+    var risk = state.lastRiskRoll;
+    var hit =
+      risk.roll <= risk.pNeg ? "negativ" : risk.roll <= risk.pNeg + risk.pPos ? "positiv" : "kein Treffer";
+    host.innerHTML =
+      '<div class="die-face">' +
+      risk.roll +
+      "</div><p>Wurf " +
+      risk.roll +
+      " von 100 gegen die Schwellen " +
+      risk.pNeg +
+      " und " +
+      (risk.pNeg + risk.pPos) +
+      ". Folge: " +
+      hit +
+      ".</p>";
+  }
+
+  function bandRow(activeId) {
+    return (
+      '<div class="die-bands">' +
+      Nexus.PRODUCTION_DICE.map(function (die) {
+        return (
+          '<span class="' +
+          (die.id === activeId ? "is-hit" : "") +
+          '">' +
+          die.label +
+          "</span>"
+        );
+      }).join("") +
+      "</div>"
+    );
+  }
+
   function renderEventModal(state, ui) {
     var shell = document.getElementById("event-modal");
     var player = Nexus.currentPlayer(state);
@@ -3606,8 +3724,20 @@ window.Nexus = window.Nexus || {};
       }
       return;
     }
-    document.getElementById("event-title").textContent = player.name + " – " + event.title;
+    document.getElementById("event-title").textContent = event.title;
     document.getElementById("event-text").textContent = event.text;
+    var lesson = document.getElementById("event-lesson");
+    if (!lesson) {
+      lesson = document.createElement("p");
+      lesson.id = "event-lesson";
+      lesson.className = "event-lesson";
+      document.getElementById("event-text").insertAdjacentElement("afterend", lesson);
+    }
+    var lessonText =
+      event.lesson ||
+      (Nexus.EVENT_LESSONS && Nexus.EVENT_LESSONS[event.id]) ||
+      "Jede Wahl verschiebt einen Stadtwerte-Konflikt.";
+    lesson.textContent = lessonText;
     var choices = document.getElementById("event-choices");
     var pick = document.getElementById("event-resource-pick");
     var showPick = !!(ui && ui.investorAwaitingResource);
@@ -3630,15 +3760,17 @@ window.Nexus = window.Nexus || {};
         .map(function (choice) {
           var disabled = !Nexus.canChooseEventOption(state, choice.id);
           return (
-            '<button type="button" class="btn" data-choice="' +
+            '<button type="button" class="btn event-choice" data-choice="' +
             choice.id +
             '"' +
             (disabled ? " disabled" : "") +
-            ">" +
+            ' title="' +
+            escapeAttr(choice.summary || "") +
+            '"><span>' +
             choice.label +
-            "<small>" +
-            choice.summary +
-            "</small></button>"
+            "</span><span class=\"event-icons\">" +
+            effectIconRow(choice.effects) +
+            "</span></button>"
           );
         })
         .join("");
@@ -3930,6 +4062,7 @@ window.Nexus = window.Nexus || {};
     renderTradeRespondModal(state, ui);
     renderRiskModal(state);
     renderEventModal(state, ui);
+    renderDiceStage(state, ui);
     renderRoleRevealModal(state, ui);
     renderHandoffModal(state);
     renderPublicPlayerModal(state, ui);

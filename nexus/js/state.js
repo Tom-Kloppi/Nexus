@@ -674,8 +674,9 @@ window.Nexus = window.Nexus || {};
   }
 
   function rollProductionDie() {
-    if (Nexus.Dice && Nexus.Dice.consume && Nexus.Dice.mapProduction) {
-      return Nexus.Dice.mapProduction(Nexus.Dice.consume(100));
+    var roll = Nexus.Dice && Nexus.Dice.consume ? Nexus.Dice.consume(100) : 1 + Math.floor(Math.random() * 100);
+    if (Nexus.Dice && Nexus.Dice.mapProduction) {
+      return Nexus.Dice.mapProduction(roll);
     }
     var total = diceWeightTotal();
     var pick = Math.random() * total;
@@ -1497,7 +1498,7 @@ window.Nexus = window.Nexus || {};
     var next = replacePlayer(
       Object.assign({}, state, { spinningOutcomes: null }),
       player.id,
-      Object.assign({}, player, { lastProduction: emptyResources() })
+      Object.assign({}, player, { lastProduction: emptyResources(), flowGain: emptyResources(), flowSpend: emptyResources() })
     );
     return advanceAfterAllHarvest(next);
   }
@@ -1633,6 +1634,9 @@ window.Nexus = window.Nexus || {};
         zoneId: zone.id,
         dieId: dieId,
         modifier: dieId === "stable" ? 0 : die.modifier,
+        roll: die.roll || null,
+        dieLabel: die.label || "",
+        fieldBase: zonePrimaryBase(zone),
         yield: produced,
         staggerIndex: staggerIndex
       });
@@ -1662,6 +1666,7 @@ window.Nexus = window.Nexus || {};
     var scores = cloneScores(player.scores);
     var risk = player.risk || 0;
     var lastProduction = emptyResources();
+    var flowSpend = emptyResources();
     var cumulative = player.cumulativeProduction || 0;
     var cumulativeMoney = player.cumulativeMoneyProduction || 0;
     var harvestIds = {};
@@ -1693,6 +1698,7 @@ window.Nexus = window.Nexus || {};
       }
       if (outcome.yield.moneySpent) {
         resources.money = Math.max(0, resources.money - outcome.yield.moneySpent);
+        flowSpend.money += outcome.yield.moneySpent;
       }
       resources[outcome.yield.primary.resource] =
         (resources[outcome.yield.primary.resource] || 0) + outcome.yield.primary.amount;
@@ -1752,6 +1758,8 @@ window.Nexus = window.Nexus || {};
       scores: scores,
       risk: risk,
       lastProduction: lastProduction,
+      flowGain: Object.assign(emptyResources(), lastProduction),
+      flowSpend: flowSpend,
       cumulativeProduction: cumulative,
       cumulativeMoneyProduction: cumulativeMoney,
       productionHistory: markProductionHistory(player, state, lastProduction)
@@ -1876,6 +1884,16 @@ window.Nexus = window.Nexus || {};
     }
 
     var resources = subtractCost(player.resources, spend);
+    var flowSpend = Object.assign(emptyResources(), player.flowSpend || {});
+    var flowGain = Object.assign(emptyResources(), player.flowGain || player.lastProduction || {});
+    Object.keys(spend).forEach(function (key) {
+      if (spend[key]) {
+        flowSpend[key] = (flowSpend[key] || 0) + spend[key];
+      }
+    });
+    if (choice.needsResourcePick && extra.resource) {
+      flowGain[extra.resource] = (flowGain[extra.resource] || 0) + (choice.pickAmount || 0);
+    }
     if (choice.needsResourcePick) {
       resources[extra.resource] += choice.pickAmount;
     }
@@ -1883,6 +1901,7 @@ window.Nexus = window.Nexus || {};
     KEYS.forEach(function (key) {
       if (mappedGain[key]) {
         resources[key] += mappedGain[key];
+        flowGain[key] = (flowGain[key] || 0) + mappedGain[key];
       }
     });
 
@@ -1903,7 +1922,9 @@ window.Nexus = window.Nexus || {};
         cloudDisabled: !!(player.roundModifiers.cloudDisabled || effects.cloudDisabled),
         cloudHalfEffect: !!(player.roundModifiers.cloudHalfEffect || effects.cloudHalfEffect)
       },
-      pendingEvent: null
+      pendingEvent: null,
+      flowGain: flowGain,
+      flowSpend: flowSpend
     });
 
     var next = replacePlayer(state, player.id, nextPlayer);
