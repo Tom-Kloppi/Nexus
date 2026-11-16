@@ -5,6 +5,11 @@ window.Nexus = window.Nexus || {};
   var TILE_H = 1.15;
   var ROAD_W = 1.72;
   var ROAD_Y = TILE_H + 0.06;
+  /* Drei Straßen im 120°-Winkel lassen ein gleichseitiges Dreieck frei.
+     Inradius = halbe Breite / √3. FIELD_R ist das Hex innerhalb der Straßen. */
+  var JUNCTION_INSET = ROAD_W / (2 * Math.sqrt(3));
+  var FIELD_R = HEX - ROAD_W / Math.sqrt(3);
+  var junctionMat = null;
   var DECO_RINGS = 1;
   var HEX_YAW = 0;
   var CAM_DIST_MIN = 34;
@@ -730,6 +735,7 @@ window.Nexus = window.Nexus || {};
     geo.cyl6 = shareGeo(new THREE.CylinderGeometry(1, 1, 1, 6));
     geo.cyl8 = shareGeo(new THREE.CylinderGeometry(1, 1, 1, 8));
     geo.cyl12 = shareGeo(new THREE.CylinderGeometry(1, 1, 1, 12));
+    geo.junctionTri = shareGeo(new THREE.CylinderGeometry(ROAD_W / Math.sqrt(3), ROAD_W / Math.sqrt(3), 1, 3));
     geo.sphere = shareGeo(new THREE.SphereGeometry(1, 10, 8));
     geo.cone = shareGeo(new THREE.ConeGeometry(1, 1, 6));
     geo.plane = shareGeo(new THREE.PlaneGeometry(1, 1));
@@ -2067,27 +2073,53 @@ window.Nexus = window.Nexus || {};
       var e = net.edges[ek];
       var dx = e.b.x - e.a.x;
       var dz = e.b.z - e.a.z;
-      var len = Math.hypot(dx, dz) || 1;
-      var mx = (e.a.x + e.b.x) / 2;
-      var mz = (e.a.z + e.b.z) / 2;
+      var span = Math.hypot(dx, dz) || 1;
+      var ix = dx / span;
+      var iz = dz / span;
+      var insetA = e.a.next.length >= 3 ? JUNCTION_INSET : 0;
+      var insetB = e.b.next.length >= 3 ? JUNCTION_INSET : 0;
+      var len = Math.max(0.4, span - insetA - insetB);
+      var mx = e.a.x + ix * (insetA + len / 2);
+      var mz = e.a.z + iz * (insetA + len / 2);
       var heading = Math.atan2(dx, dz);
       roadPoses.push({ x: mx, y: ROAD_Y, z: mz, sx: ROAD_W, sy: 0.12, sz: len, ry: heading });
-      dashPoses.push({ x: mx, y: ROAD_Y + 0.07, z: mz, sx: 0.12, sy: 0.04, sz: len * 0.55, ry: heading });
+      dashPoses.push({ x: mx, y: ROAD_Y + 0.07, z: mz, sx: 0.12, sy: 0.04, sz: Math.max(0.3, len * 0.55), ry: heading });
     });
     var capPoses = [];
+    var triPoses = [];
     Object.keys(net.nodes).forEach(function (k) {
       var n = net.nodes[k];
+      if (n.next.length >= 3) {
+        var nb = net.nodes[n.next[0]];
+        var aim = nb ? Math.atan2(nb.x - n.x, nb.z - n.z) : 0;
+        triPoses.push({
+          x: n.x,
+          y: ROAD_Y + 0.012,
+          z: n.z,
+          sx: 1,
+          sy: 0.12,
+          sz: 1,
+          ry: aim + Math.PI
+        });
+        return;
+      }
       capPoses.push({
         x: n.x,
         y: ROAD_Y,
         z: n.z,
-        sx: ROAD_W,
+        sx: ROAD_W * 0.5,
         sy: 0.13,
-        sz: ROAD_W,
+        sz: ROAD_W * 0.5,
         ry: 0
       });
     });
     addInstances(geo.box, mats.road, roadPoses, roots.roads);
+    if (junctionMat) {
+      junctionMat.dispose();
+    }
+    junctionMat = mats.road.clone();
+    junctionMat.flatShading = true;
+    addInstances(geo.junctionTri, junctionMat, triPoses, roots.roads);
     addInstances(geo.cyl12, mats.road, capPoses, roots.roads);
     addInstances(geo.box, mats.mark, dashPoses, roots.roads);
     var lightKeys = graph.keys.filter(function (k) {
@@ -2876,7 +2908,7 @@ window.Nexus = window.Nexus || {};
       }
       var rand = seeded(slot.q, slot.r, 11);
       var padKey = "grass";
-      var padR = HEX * 0.9;
+      var padR = FIELD_R;
       var owner = null;
       var expandable = false;
       if (dist > radius) {
@@ -2982,7 +3014,7 @@ window.Nexus = window.Nexus || {};
       group.add(pad);
       if (owner) {
         var rim = new THREE.Mesh(geo.cyl6, ownerRimMat(owner.colorIndex || 0));
-        rim.scale.set(padR * 1.04, 0.12, padR * 1.04);
+        rim.scale.set(padR * 0.98, 0.12, padR * 0.98);
         rim.position.y = TILE_H + 0.06;
         rim.rotation.y = HEX_YAW;
         group.add(rim);
@@ -3009,7 +3041,7 @@ window.Nexus = window.Nexus || {};
           }
         }
         var hit = new THREE.Mesh(geo.cyl6, mats.hit);
-        hit.scale.set(HEX * 0.92, 0.18, HEX * 0.92);
+        hit.scale.set(FIELD_R, 0.18, FIELD_R);
         hit.position.set(pos.x, TILE_H + 0.1, pos.z);
         hit.rotation.y = HEX_YAW;
         hit.userData.pick = pick;
@@ -3286,8 +3318,8 @@ window.Nexus = window.Nexus || {};
       var pulse = 0.4 + (Math.sin(time * (ring.rec ? 5 : 3.2)) * 0.5 + 0.5) * 0.45;
       ring.mesh.material.opacity = pulse;
       ring.mesh.material.emissiveIntensity = 0.45 + pulse * 0.55;
-      var s = 1 + Math.sin(time * 3.5) * (ring.rec ? 0.04 : 0.025);
-      ring.mesh.scale.set(HEX * 0.9 * s, 0.1, HEX * 0.9 * s);
+      var s = 1 - (Math.sin(time * 3.5) * 0.5 + 0.5) * (ring.rec ? 0.04 : 0.025);
+      ring.mesh.scale.set(FIELD_R * s, 0.1, FIELD_R * s);
     });
     overlays.forEach(function (item) {
       if (item.type === "spin" && item.mesh) {
@@ -3588,7 +3620,7 @@ window.Nexus = window.Nexus || {};
           (zone.type === "home" && ui && ui.homeOpen && player && zone.ownerId === player.id);
         if (selected) {
           var halo = new THREE.Mesh(geo.cyl6, mats.select);
-          halo.scale.set(HEX * 0.9, 0.08, HEX * 0.9);
+          halo.scale.set(FIELD_R, 0.08, FIELD_R);
           halo.position.y = TILE_H + 0.2;
           halo.rotation.y = HEX_YAW;
           hl.add(halo);
@@ -3597,7 +3629,7 @@ window.Nexus = window.Nexus || {};
         if (Nexus.isExpandableSlot(state, q, r)) {
           var recHere = rec && rec.q === q && rec.r === r;
           var ring = new THREE.Mesh(geo.cyl6, mats.buildPulse);
-          ring.scale.set(HEX * 0.9, 0.1, HEX * 0.9);
+          ring.scale.set(FIELD_R, 0.1, FIELD_R);
           ring.position.y = TILE_H + 0.14;
           ring.rotation.y = HEX_YAW;
           hl.add(ring);
@@ -3612,7 +3644,7 @@ window.Nexus = window.Nexus || {};
           plusPins.push({ group: pin, rec: recHere, head: head });
         } else {
           var dim = new THREE.Mesh(geo.cyl6, mats.tileDim);
-          dim.scale.set(HEX * 0.9, 0.06, HEX * 0.9);
+          dim.scale.set(FIELD_R, 0.06, FIELD_R);
           dim.position.y = TILE_H + 0.12;
           dim.rotation.y = HEX_YAW;
           hl.add(dim);
