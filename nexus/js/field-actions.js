@@ -73,7 +73,7 @@ window.Nexus = window.Nexus || {};
     }
     var specs = [
       ["residential", null, "Wohnen", "Bandbreite, aber 0 ohne eigenes Rechenzentrum."],
-      ["energy", "solar", "Solar", "Würfelt Energie. Jede Ernte gibt höchstens +1 Umwelt."],
+      ["energy", "solar", "Solar", "Jede Runde +3 Energie. Die Ernte gibt höchstens +1 Umwelt."],
       ["energy", "transformer", "Umspannwerk", "Stabile Energie, 1 Geld pro Einheit."],
       ["datacenter", "secure", "Rechenzentrum", "Schaltet Wohn-Bandbreite frei. +1 Sicherheit."],
       ["datacenter", "insecure", "Rechenzentrum offen", "Billiger, hebt das Risiko."],

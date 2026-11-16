@@ -33,8 +33,8 @@ Nexus.ROLES = {
     party: "ÖZP",
     pitch: "Solar ernten und eine Linie ohne Diesel fahren.",
     subGoals: [
-      nexusRoleGoal("environment_score", "Umwelt aus Solar", "environmentScore", 6, 1),
-      nexusRoleGoal("renewable_mobility", "Halte an Öko-Linie", "renewableMobility", 2, 2)
+      nexusRoleGoal("environment_score", "Baue Felder mit Solarenergie", "environmentScore", 6, 1),
+      nexusRoleGoal("renewable_mobility", "Baue Haltestellen an einer Öko-Linie", "renewableMobility", 2, 2)
     ]
   },
   privacy: {
@@ -45,7 +45,7 @@ Nexus.ROLES = {
     party: "PPP",
     pitch: "Rechnen vor Ort, nicht in der Wolke.",
     subGoals: [
-      nexusRoleGoal("local_devices", "Lokale Geräte", "localDeviceCount", 3, 2),
+      nexusRoleGoal("local_devices", "Schalte Geräte lokal", "localDeviceCount", 3, 2),
       nexusRoleGoal("secure_dc", "Sichere Rechenzentren", "secureDatacenters", 2, 2)
     ]
   },
@@ -57,8 +57,8 @@ Nexus.ROLES = {
     party: "Wnd",
     pitch: "Tauschen, was die anderen brauchen.",
     subGoals: [
-      nexusRoleGoal("trade_volume", "Gehandelte Menge", "tradeVolume", 8, 1),
-      nexusRoleGoal("comfort_score", "Komfort", "comfortScore", 2, 1)
+      nexusRoleGoal("trade_volume", "Handle Ressourcen", "tradeVolume", 8, 1),
+      nexusRoleGoal("comfort_score", "Steigere den Komfort", "comfortScore", 2, 1)
     ]
   },
   visionary: {
@@ -69,8 +69,8 @@ Nexus.ROLES = {
     party: "PdZ",
     pitch: "Assistenz an der Linie, Komfort in der Stadt.",
     subGoals: [
-      nexusRoleGoal("sae_level", "Assistenz", "saeLevel", 3, 2),
-      nexusRoleGoal("comfort_score", "Komfort", "comfortScore", 4, 1)
+      nexusRoleGoal("sae_level", "Heb die Assistenz an der Linie", "saeLevel", 3, 2),
+      nexusRoleGoal("comfort_score", "Steigere den Komfort", "comfortScore", 4, 1)
     ]
   },
   networker: {
@@ -81,8 +81,8 @@ Nexus.ROLES = {
     party: "—",
     pitch: "Fremde Halte anbinden und handeln.",
     subGoals: [
-      nexusRoleGoal("image_score", "Image aus fremden Halten", "imageScore", 5, 1),
-      nexusRoleGoal("trade_volume", "Gehandelte Menge", "tradeVolume", 5, 1)
+      nexusRoleGoal("image_score", "Binde fremde Haltestellen an", "imageScore", 5, 1),
+      nexusRoleGoal("trade_volume", "Handle Ressourcen", "tradeVolume", 5, 1)
     ]
   },
   controller: {
@@ -93,8 +93,8 @@ Nexus.ROLES = {
     party: "AfAP",
     pitch: "Parken und Linien, die den Alltag leicht machen.",
     subGoals: [
-      nexusRoleGoal("comfort_score", "Komfort", "comfortScore", 6, 1),
-      nexusRoleGoal("parking_sites", "Parkhaus und Bahnhof", "parkingSites", 2, 2)
+      nexusRoleGoal("comfort_score", "Steigere den Komfort", "comfortScore", 6, 1),
+      nexusRoleGoal("parking_sites", "Baue Parkhaus oder Bahnhof", "parkingSites", 2, 2)
     ]
   }
 };

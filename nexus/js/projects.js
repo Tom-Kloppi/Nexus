@@ -19,12 +19,18 @@ window.Nexus = window.Nexus || {};
   }
 
   function afford(resources, cost) {
+    if (resources && resources.unlimited) {
+      return true;
+    }
     return (Nexus.RESOURCE_KEYS || []).every(function (key) {
       return (resources[key] || 0) >= (cost[key] || 0);
     });
   }
 
   function pay(resources, cost) {
+    if (resources && resources.unlimited) {
+      return Object.assign({}, resources);
+    }
     var next = Object.assign({}, resources);
     (Nexus.RESOURCE_KEYS || []).forEach(function (key) {
       next[key] = (next[key] || 0) - (cost[key] || 0);

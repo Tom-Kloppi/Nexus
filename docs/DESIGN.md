@@ -9,6 +9,8 @@
 
 **Overhaul 2** bleibt die Mechanik darunter, außer wo **UI Rework** sie ersetzt. Zahlen und Begründung: [`DESIGN_DECISIONS.md`](DESIGN_DECISIONS.md).
 
+Würfel sind raus. Produktion ist der feste Basisertrag des Gebäudes. Ein Ereignis kommt, wenn das sichtbare Risiko 8 oder höher ist, und öffnet direkt die Karte. Darunter passiert nichts.
+
 **UI Rework (schlägt Overhaul 2, wo es widerspricht).** Branch `ui-rework`. Geheimhaltung ist aus. Hot-Seat bleibt die Reihenfolge an einem Gerät, nicht ein Versteck. Rollen, Ziele, Kassen und Fortschritt sind am Tisch sichtbar. Die Übergabe sagt nur „du bist dran“.
 
 Sieg bleibt `computeRoleProgress`, aber jede Rolle hat zwei sichtbare Rechnungen und zusammen **10 Punkte**. 10 Punkte sind 100 %. Anzeige ist `haben/brauchen` und `Punkte/10`, keine Stufenleiter. Der Punkt entsteht an der Ursache und fliegt zur Rolle.

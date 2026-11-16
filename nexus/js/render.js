@@ -1957,6 +1957,16 @@ window.Nexus = window.Nexus || {};
       .join("");
   }
 
+  function goalPips(on, total) {
+    var count = Math.max(0, total || 0);
+    var html = '<span class="goal-pips" aria-label="' + (on || 0) + " von " + count + '">';
+    var i;
+    for (i = 0; i < count; i++) {
+      html += '<i class="' + (i < (on || 0) ? "is-on" : "") + '"></i>';
+    }
+    return html + "</span>";
+  }
+
   function renderGoalPanel(state, ui) {
     var panel = document.getElementById("goal-panel");
     var pill = document.getElementById("goal-pill");
@@ -2005,14 +2015,15 @@ window.Nexus = window.Nexus || {};
       pillFill.style.width = Math.min(100, progress.totalPercent) + "%";
     }
 
-    if (tracks) {
+    hideTracks();
+    if (false && tracks) {
       var scores = player.scores || {};
       var scoreChanged = false;
       if (!lastScoreSnapshot || lastPlayerId !== player.id) {
         lastScoreSnapshot = {};
       }
       if (tracksCard) {
-        tracksCard.hidden = false;
+        tracksCard.hidden = true;
       }
       tracks.innerHTML = scoreKeys()
         .map(function (key) {
@@ -2051,30 +2062,13 @@ window.Nexus = window.Nexus || {};
     } else {
     document.getElementById("goal-list").innerHTML = progress.subGoals
         .map(function (goal) {
-          var bar = goal.need ? Math.round((goal.have / goal.need) * 100) : 0;
           return (
             '<li class="goal-item">' +
-            '<div class="goal-item-head"><span>' +
+            '<p class="goal-order">' +
             goal.label +
-            "</span><strong>" +
-            goal.have +
-            "/" +
-            goal.need +
-            "</strong></div>" +
-            '<div class="goal-bar"><span style="width:' +
-            bar +
-            '%"></span></div>' +
-            '<p class="goal-meta">zählt ' +
-            goal.worth +
-            " · " +
-            goal.points +
-            "/" +
-            goal.maxPoints +
-            " zum Ziel " +
-            progress.points +
-            "/" +
-            progress.target +
-            "</p></li>"
+            "</p>" +
+            goalPips(goal.points, goal.maxPoints) +
+            "</li>"
           );
         })
         .join("");
@@ -2125,7 +2119,7 @@ window.Nexus = window.Nexus || {};
               "</p>" +
               personProgress.subGoals
                 .map(function (goal) {
-                  return "<p><strong>" + goal.have + "/" + goal.need + "</strong> " + goal.label + " · zählt " + goal.worth + "</p>";
+                  return "<p>" + goalPips(goal.points, goal.maxPoints) + " " + goal.label + "</p>";
                 })
                 .join("") +
               "<p><strong>" +
@@ -2319,7 +2313,7 @@ window.Nexus = window.Nexus || {};
       if (changed) {
         spawnResourceFly(key, player.resources[key] - lastResourceSnapshot[key]);
       }
-      setDigitGroup(el, player.resources[key], changed);
+      setDigitGroup(el, player.resources.unlimited ? "∞" : player.resources[key], changed && !player.resources.unlimited);
       var expect = document.getElementById("expect-" + key);
       if (expect) {
         expect.textContent = "~" + formatNumber(expected[key]);
@@ -2722,7 +2716,7 @@ window.Nexus = window.Nexus || {};
       return player.name + " erntet.";
     }
     if (state.turnPhase === "risk") {
-      return "Eine Zahl, dann würfeln.";
+      return "Risiko ab 8 bringt ein Ereignis.";
     }
     if (state.turnPhase === "event") {
       return "Wähle eine Seite. Beides kostet etwas.";
@@ -3613,7 +3607,16 @@ window.Nexus = window.Nexus || {};
       .join("");
   }
 
-  function renderDiceStage(state, ui) {
+  function renderDiceStage() {
+    var host = document.getElementById("dice-stage");
+    if (host) {
+      host.hidden = true;
+      host.innerHTML = "";
+    }
+    return;
+  }
+
+  function renderDiceStageOff(state, ui) {
     var host = document.getElementById("dice-stage");
     if (!host) {
       host = document.createElement("div");
@@ -4046,12 +4049,28 @@ window.Nexus = window.Nexus || {};
     }
   }
 
+  function fitTopbar() {
+    var row = document.querySelector(".topbar-row--main");
+    if (!row) {
+      return;
+    }
+    row.style.zoom = "1";
+    var scale = 1;
+    var guard = 0;
+    while (row.scrollWidth > row.clientWidth + 2 && scale > 0.68 && guard < 8) {
+      scale = Math.round((scale - 0.05) * 100) / 100;
+      row.style.zoom = String(scale);
+      guard += 1;
+    }
+  }
+
   Nexus.render = function (state, ui) {
     if (!state || state.screen !== "game") {
       return;
     }
     renderTurnRow(state);
     renderScoreFlights(state);
+    fitTopbar();
     renderWallet(state);
     renderGoalPanel(state, ui);
     renderDistrict(state, ui);

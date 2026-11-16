@@ -13,6 +13,7 @@ window.Nexus = window.Nexus || {};
   var tipTimer = 0;
   var holdTimer = 0;
   var lineDraft = [];
+  var devRun = false;
   var difficulty = "normal";
   var beginner = false;
   var audio;
@@ -92,15 +93,11 @@ window.Nexus = window.Nexus || {};
     return "<svg class='nx-fig' viewBox='0 0 24 24' aria-hidden='true'><path d='" + d + "'/></svg>";
   }
 
-  function showTip(title, body, example, x, y, figure) {
-    tip.hidden = false;
-    tip.innerHTML = figureMarkup(figure || "bolt");
-    tip.appendChild(el("strong", "", title));
-    tip.appendChild(el("p", "", body));
-    if (example) {
-      tip.appendChild(el("p", "ex", example));
+  function showTip() {
+    if (tip) {
+      tip.hidden = true;
     }
-    place(tip, x + 14, y + 16);
+    return;
   }
 
   function hideTip() {
@@ -134,6 +131,9 @@ window.Nexus = window.Nexus || {};
       hideTip();
     });
     document.body.addEventListener("pointerdown", function (event) {
+      if (menu && !menu.hidden && !menu.contains(event.target)) {
+        closeMenu();
+      }
       var host = event.target.closest("[data-gloss], [data-help]");
       if (!host) {
         return;
@@ -343,10 +343,12 @@ window.Nexus = window.Nexus || {};
       });
       button.className = "project-card cat-" + (card.category || "general");
       button.innerHTML =
-        "<strong>" +
+        '<span class="card-title">' +
         card.name +
-        "</strong><span class='tile-fx'>" +
-        fxMarkup(gainFx.concat(costFx)) +
+        '</span><span class="card-cost">' +
+        fxMarkup(costFx) +
+        '</span><span class="card-fx">' +
+        fxMarkup(gainFx) +
         "</span>";
       button.setAttribute("data-help-title", card.name);
       button.setAttribute("data-help", (card.text || "") + (offer.reason && !offer.allowed ? " " + offer.reason : ""));
@@ -380,7 +382,12 @@ window.Nexus = window.Nexus || {};
           handFx.push({ key: key, amount: card.effects[key] });
         }
       });
-      button.innerHTML = "<strong>" + card.name + "</strong><span class=\"uno-fx\">" + fxMarkup(handFx) + "</span>";
+      button.innerHTML =
+        '<span class="card-title">' +
+        card.name +
+        '</span><span class="card-cost"></span><span class="card-fx">' +
+        fxMarkup(handFx) +
+        "</span>";
       button.setAttribute("data-help-title", card.name);
       button.setAttribute("data-help", card.text || "");
       button.title = card.text || card.name;
@@ -504,7 +511,7 @@ window.Nexus = window.Nexus || {};
   }
 
   function setupOptions() {
-    return { difficulty: difficulty, beginner: beginner };
+    return { difficulty: difficulty, beginner: beginner, devRun: devRun };
   }
 
   function install(nextApi) {
@@ -626,10 +633,14 @@ window.Nexus = window.Nexus || {};
     }
     document.querySelectorAll(".js-board-quality").forEach(function (host) {
       host.innerHTML = "";
-      ["auto", "minimal", "low", "medium", "high", "ultra"].forEach(function (id) {
-        var button = el("button", "btn", Nexus.Quality ? Nexus.Quality.LABELS[id] : id);
+      ["auto", "minimal", "low", "medium", "high", "ultra"].forEach(function (id, i) {
+        var label = Nexus.Quality ? Nexus.Quality.LABELS[id] : id;
+        var button = el("button", "btn set-level");
         button.type = "button";
+        button.style.setProperty("--lvl", String(i + 1));
         button.setAttribute("data-board-quality", id);
+        button.setAttribute("aria-label", label);
+        button.setAttribute("aria-pressed", (localStorage.getItem("nexus-board-quality") || "auto") === id ? "true" : "false");
         var help = {
           auto: "Misst das Gerät und bleibt unter der Kalibrierungsgrenze.",
           minimal: "Wenig Verkehr, keine Kulisse, 30 FPS. Für schwache Grafik.",
@@ -707,6 +718,11 @@ window.Nexus = window.Nexus || {};
       document.querySelectorAll("#setup-difficulty .setup-choice").forEach(function (node) {
         node.classList.toggle("is-selected", node === button);
       });
+    });
+    document.getElementById("btn-dev-run").addEventListener("click", function () {
+      devRun = !devRun;
+      this.classList.toggle("is-selected", devRun);
+      this.setAttribute("aria-pressed", devRun ? "true" : "false");
     });
     document.getElementById("setup-beginner").addEventListener("change", function (event) {
       beginner = !!event.target.checked;

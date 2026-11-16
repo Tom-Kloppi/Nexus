@@ -203,7 +203,7 @@ window.Nexus = window.Nexus || {};
       threshold: hit === "neg" ? preview.pNeg : preview.pNeg + preview.pPos,
       hit: hit
     });
-    copy.text = event.text + " Wurf " + roll + ".";
+    copy.text = event.text;
     return copy;
   }
 
@@ -310,10 +310,19 @@ window.Nexus = window.Nexus || {};
     return { state: next, event: event, log: log, preview: view, hit: hit };
   }
 
+  function cityEvent(state, player) {
+    var view = preview(state, player);
+    if (!view.major && (view.total || 0) < 8) {
+      return null;
+    }
+    return chooseEvent(state, player, "neg", view, 0);
+  }
+
   Nexus.Risk = {
     factorsFor: factorsFor,
     preview: preview,
     syncState: syncState,
-    resolve: resolve
+    resolve: resolve,
+    cityEvent: cityEvent
   };
 })(window.Nexus);

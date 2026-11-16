@@ -181,16 +181,9 @@ window.Nexus = window.Nexus || {};
   function applyAppearance() {
     document.documentElement.setAttribute("data-theme", prefs.theme);
     document.documentElement.style.setProperty("--ui-scale", String(prefs.uiScale));
-    var isLight = prefs.theme === "light";
-    Array.prototype.forEach.call(document.querySelectorAll(".js-theme-toggle"), function (toggle) {
-      toggle.setAttribute("data-on", isLight ? "true" : "false");
-      toggle.setAttribute("aria-checked", isLight ? "true" : "false");
-      toggle.setAttribute("aria-label", isLight ? "Tageslicht" : "Nachtstadt");
-    });
-    Array.prototype.forEach.call(document.querySelectorAll(".settings-row > span"), function (label) {
-      if (label.textContent === "Tageslicht" || label.textContent === "Nachtstadt") {
-        label.textContent = isLight ? "Tageslicht" : "Nachtstadt";
-      }
+    Array.prototype.forEach.call(document.querySelectorAll(".js-theme-pick"), function (btn) {
+      var on = btn.getAttribute("data-theme") === prefs.theme;
+      btn.setAttribute("aria-pressed", on ? "true" : "false");
     });
     Array.prototype.forEach.call(document.querySelectorAll(".js-ui-scale"), function (slider) {
       slider.value = String(prefs.uiScale);
@@ -356,18 +349,14 @@ window.Nexus = window.Nexus || {};
     }
     ui.flowLock = true;
     document.body.classList.add("is-flow-lock");
-    if (hasGain) {
-      spawnFlow(state, player, gains, true);
-    }
+    var gainWait = hasGain ? spawnFlow(state, player, gains, true) : 0;
     window.setTimeout(function () {
-      if (hasLoss) {
-        spawnFlow(state, player, losses, false);
-      }
+      var lossWait = hasLoss ? spawnFlow(state, player, losses, false) : 0;
       window.setTimeout(function () {
         ui.flowLock = false;
         document.body.classList.remove("is-flow-lock");
-      }, hasLoss ? 3000 : 0);
-    }, hasGain ? 3000 : 0);
+      }, lossWait);
+    }, gainWait);
   }
 
   function spawnFlow(state, player, bag, gain) {
@@ -383,7 +372,12 @@ window.Nexus = window.Nexus || {};
     var zones = (state.zones || []).filter(function (zone) {
       return zone.ownerId === player.id;
     });
-    Nexus.RESOURCE_KEYS.forEach(function (key) {
+    var flight = 4.4;
+    var gap = 0.45;
+    var shown = Nexus.RESOURCE_KEYS.filter(function (key) {
+      return bag[key] > 0;
+    });
+    shown.forEach(function (key, keyIndex) {
       var amount = bag[key] || 0;
       if (!amount) {
         return;
@@ -395,10 +389,13 @@ window.Nexus = window.Nexus || {};
       var walletBox = wallet.getBoundingClientRect();
       var zone = zones[0];
       var projected = zone && Nexus.Board3D && Nexus.Board3D.project ? Nexus.Board3D.project(zone.q, zone.r) : null;
+      var icon = (Nexus.RESOURCE_ICONS && Nexus.RESOURCE_ICONS[key]) || "";
+      var startAt = keyIndex * (flight + gap);
       var i;
       for (i = 0; i < count; i++) {
         var particle = document.createElement("div");
-        particle.className = "resource-fx-particle " + (gain ? "is-gain" : "is-loss");
+        particle.className = "resource-fx-particle res-" + key + (gain ? " is-gain" : " is-loss");
+        particle.innerHTML = icon;
         var startX = gain && projected ? projected.x : walletBox.left + walletBox.width / 2;
         var startY = gain && projected ? projected.y : walletBox.top + walletBox.height / 2;
         var endX = gain ? walletBox.left + walletBox.width / 2 : startX + (i - count / 2) * 18;
@@ -407,18 +404,21 @@ window.Nexus = window.Nexus || {};
           endX = projected.x;
           endY = projected.y;
         }
+        var delay = startAt + i * 0.16;
         particle.style.left = startX + "px";
         particle.style.top = startY + "px";
         particle.style.setProperty("--fx-dx", endX - startX + "px");
         particle.style.setProperty("--fx-dy", endY - startY + "px");
-        particle.style.animationDuration = "2.6s";
-        particle.style.animationDelay = i * 0.08 + "s";
+        particle.style.animationDuration = flight + "s";
+        particle.style.animationDelay = delay + "s";
         layer.appendChild(particle);
         window.setTimeout(function (node) {
           if (node && node.parentNode) node.parentNode.removeChild(node);
-        }, 3200, particle);
+        }, (delay + flight + 0.2) * 1000, particle);
       }
     });
+    var tail = shown.length ? (shown.length - 1) * (flight + gap) + flight + (count - 1) * 0.16 : 0;
+    return tail * 1000;
   }
 
   function clearHarvestTimer() {
@@ -948,43 +948,6 @@ window.Nexus = window.Nexus || {};
     commit(Nexus.endTurn(state), { skipAutoHarvest: true });
   });
 
-  document.getElementById("map-viewport").addEventListener("pointermove", function (event) {
-    var tip = document.getElementById("board-hover-tip");
-    if (!tip || !Nexus.Board3D || !Nexus.Board3D.pick) {
-      return;
-    }
-    if (ui.map.dragging || ui.map.panning) {
-      tip.hidden = true;
-      return;
-    }
-    var hit = Nexus.Board3D.pick(event.clientX, event.clientY);
-    if (!hit) {
-      tip.hidden = true;
-      return;
-    }
-    var text = "";
-    if (hit.kind === "empty" && hit.open) {
-      text = "Bebaubar — tippen zum Bauen";
-    } else if (hit.kind === "empty" && hit.blockedReason) {
-      text = hit.blockedReason;
-    } else if (hit.kind === "owned") {
-      text = hit.mine ? "Dein Feld" : "Fremdes Feld";
-    } else if (hit.kind === "home") {
-      text = hit.mine ? "Dein Kontrollbüro" : "Kontrollbüro";
-    }
-    if (!text) {
-      tip.hidden = true;
-      return;
-    }
-    tip.hidden = false;
-    tip.textContent = text;
-    tip.classList.toggle("is-ok", !!(hit.kind === "empty" && hit.open));
-    tip.classList.toggle("is-blocked", !!(hit.kind === "empty" && !hit.open));
-    var rect = document.getElementById("map-viewport").getBoundingClientRect();
-    tip.style.left = event.clientX - rect.left + 14 + "px";
-    tip.style.top = event.clientY - rect.top + 14 + "px";
-  });
-
   document.getElementById("map-viewport").addEventListener("pointerleave", function () {
     var tip = document.getElementById("board-hover-tip");
     if (tip) {
@@ -1349,10 +1312,9 @@ window.Nexus = window.Nexus || {};
     });
   });
 
-  Array.prototype.forEach.call(document.querySelectorAll(".js-theme-toggle"), function (toggle) {
-    toggle.addEventListener("click", function () {
-      this.classList.add("is-init");
-      prefs.theme = prefs.theme === "light" ? "dark" : "light";
+  Array.prototype.forEach.call(document.querySelectorAll(".js-theme-pick"), function (btn) {
+    btn.addEventListener("click", function () {
+      prefs.theme = btn.getAttribute("data-theme") === "dark" ? "dark" : "light";
       applyAppearance();
     });
   });

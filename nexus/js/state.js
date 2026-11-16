@@ -57,6 +57,9 @@ window.Nexus = window.Nexus || {};
     KEYS.forEach(function (key) {
       next[key] = resources[key] || 0;
     });
+    if (resources && resources.unlimited) {
+      next.unlimited = true;
+    }
     return next;
   }
 
@@ -114,6 +117,9 @@ window.Nexus = window.Nexus || {};
   }
 
   function canAfford(resources, cost) {
+    if (resources && resources.unlimited) {
+      return true;
+    }
     cost = normalizeCost(cost);
     return KEYS.every(function (key) {
       return (resources[key] || 0) >= (cost[key] || 0);
@@ -121,6 +127,9 @@ window.Nexus = window.Nexus || {};
   }
 
   function subtractCost(resources, cost) {
+    if (resources && resources.unlimited) {
+      return cloneResources(resources);
+    }
     var next = cloneResources(resources);
     cost = normalizeCost(cost);
     KEYS.forEach(function (key) {
@@ -675,20 +684,13 @@ window.Nexus = window.Nexus || {};
   }
 
   function rollProductionDie() {
-    var roll = Nexus.Dice && Nexus.Dice.consume ? Nexus.Dice.consume(100) : 1 + Math.floor(Math.random() * 100);
-    if (Nexus.Dice && Nexus.Dice.mapProduction) {
-      return Nexus.Dice.mapProduction(roll);
-    }
-    var total = diceWeightTotal();
-    var pick = Math.random() * total;
     var i;
     for (i = 0; i < Nexus.PRODUCTION_DICE.length; i++) {
-      pick -= Nexus.PRODUCTION_DICE[i].weight;
-      if (pick <= 0) {
+      if (Nexus.PRODUCTION_DICE[i].modifier === 0) {
         return Nexus.PRODUCTION_DICE[i];
       }
     }
-    return Nexus.PRODUCTION_DICE[Nexus.PRODUCTION_DICE.length - 1];
+    return { id: "normal", modifier: 0, label: "Normal", weight: 1 };
   }
 
   function yieldAmount(base, modifier) {
@@ -1381,16 +1383,27 @@ window.Nexus = window.Nexus || {};
     var i;
     for (i = 0; i < playerCount; i++) {
       var id = "p" + (i + 1);
-      var starter = createEmptyPlayer(id, "Spieler " + (i + 1), i, roleIds[i]);
+      var roleIndex = Nexus.ALL_ROLE_IDS ? Nexus.ALL_ROLE_IDS.indexOf(roleIds[i]) : i;
+      if (roleIndex < 0) {
+        roleIndex = i;
+      }
+      var starter = createEmptyPlayer(id, "Spieler " + (i + 1), roleIndex, roleIds[i]);
       var startAmount = C.START_RESOURCES;
       if (options.difficulty === "easy") {
         startAmount = 5;
       } else if (options.difficulty === "hard") {
         startAmount = 2;
       }
-      KEYS.forEach(function (key) {
-        starter.resources[key] = startAmount;
-      });
+      if (options.devRun) {
+        KEYS.forEach(function (key) {
+          starter.resources[key] = 999;
+        });
+        starter.resources.unlimited = true;
+      } else {
+        KEYS.forEach(function (key) {
+          starter.resources[key] = startAmount;
+        });
+      }
       players.push(starter);
       var homePos = homes[i];
       zones.push({
@@ -1427,6 +1440,7 @@ window.Nexus = window.Nexus || {};
       winnerId: null,
       difficulty: options.difficulty || "normal",
       beginner: !!options.beginner,
+      devRun: !!options.devRun,
       busLines: [],
       projectMarket: [],
       undoStack: [],
@@ -1539,26 +1553,14 @@ window.Nexus = window.Nexus || {};
     }
     if (Nexus.Risk) {
       next = Nexus.Risk.syncState(next, { decay: false });
-      var preview = Nexus.Risk.preview(next, currentPlayer(next));
-      next.turnPhase = "risk";
-      next.riskPreview = {
-        summary: preview.summary,
-        pNeg: preview.pNeg,
-        pPos: preview.pPos,
-        total: preview.total,
-        major: preview.major,
-        factors: preview.factors.map(function (factor) {
-          return {
-            id: factor.id,
-            label: factor.label,
-            value: factor.value,
-            why: factor.why,
-            counter: factor.counter
-          };
-        })
-      };
-      next.log = addLog(next, player.name, preview.summary);
-      return next;
+      var cityEvent = Nexus.Risk.cityEvent(next, currentPlayer(next));
+      if (cityEvent) {
+        var riskPlayer = currentPlayer(next);
+        next = replacePlayer(next, riskPlayer.id, Object.assign({}, riskPlayer, { pendingEvent: cityEvent }));
+        next.turnPhase = "event";
+        next.log = addLog(next, riskPlayer.name, "Ereignis: " + cityEvent.title + ". Risiko " + (riskPlayer.risk || 0) + ".");
+        return next;
+      }
     }
     if (state.round % C.EVENT_EVERY_N_TURNS === 0) {
       var drawnEvent = pickEventForPlayer(next, player);

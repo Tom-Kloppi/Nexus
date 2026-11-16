@@ -3,7 +3,7 @@ window.Nexus = window.Nexus || {};
 (function (Nexus) {
   var HEX = 10;
   var TILE_H = 1.15;
-  var ROAD_W = 1.72;
+  var ROAD_W = 2.06;
   var ROAD_Y = TILE_H + 0.06;
   /* Drei Straßen im 120°-Winkel lassen ein gleichseitiges Dreieck frei.
      Inradius = halbe Breite / √3. FIELD_R ist das Hex innerhalb der Straßen. */
@@ -120,6 +120,8 @@ window.Nexus = window.Nexus || {};
 
   var graph = { nodes: {}, keys: [] };
   var cars = [];
+  var blinkMesh = null;
+  var brakeMesh = null;
   var carMesh = null;
   var carCabin = null;
   var pedMesh = null;
@@ -485,10 +487,13 @@ window.Nexus = window.Nexus || {};
     g.drawImage(img, 0, 0);
     var data = g.getImageData(0, 0, c.width, c.height);
     var d = data.data;
+    var flat = 226;
     var i;
     for (i = 0; i < d.length; i += 4) {
-      var y = d[i] * 0.2126 + d[i + 1] * 0.7152 + d[i + 2] * 0.0722;
-      d[i] = d[i + 1] = d[i + 2] = y;
+      if (d[i + 3] === 0) {
+        continue;
+      }
+      d[i] = d[i + 1] = d[i + 2] = flat;
     }
     g.putImageData(data, 0, 0);
     var tex = new THREE.CanvasTexture(c);
@@ -705,6 +710,27 @@ window.Nexus = window.Nexus || {};
     return copy;
   }
 
+  function roadTexture() {
+    var canvas = document.createElement("canvas");
+    canvas.width = 64;
+    canvas.height = 128;
+    var g = canvas.getContext("2d");
+    g.fillStyle = "#5c636b";
+    g.fillRect(0, 0, 64, 128);
+    g.fillStyle = "#4e555c";
+    g.fillRect(0, 0, 6, 128);
+    g.fillRect(58, 0, 6, 128);
+    g.fillStyle = "#e6e0d4";
+    g.fillRect(29, 16, 6, 22);
+    g.fillRect(29, 70, 6, 22);
+    var tex = new THREE.CanvasTexture(canvas);
+    tex.wrapS = THREE.RepeatWrapping;
+    tex.wrapT = THREE.RepeatWrapping;
+    tex.colorSpace = THREE.SRGBColorSpace;
+    tex.needsUpdate = true;
+    return tex;
+  }
+
   function lambert(color, opts) {
     opts = opts || {};
     return new THREE.MeshLambertMaterial({
@@ -805,16 +831,21 @@ window.Nexus = window.Nexus || {};
       axleWheel(-0.42, 0.7, 0.18), axleWheel(0.42, 0.7, 0.18), axleWheel(-0.42, -0.7, 0.18), axleWheel(0.42, -0.7, 0.18)
     ]));
     geo.vehBus = shareGeo(mergeParts([
-      { geo: box, y: 0.7, sx: 1.05, sy: 0.95, sz: 3.1, color: "#f0c36a" },
-      { geo: box, y: 0.86, z: 0.05, sx: 0.92, sy: 0.42, sz: 2.15, color: "#d5e6f2" },
-      { geo: box, y: 0.45, z: 1.35, sx: 0.55, sy: 0.7, sz: 0.06, color: "#5c5348" },
-      axleWheel(-0.5, 0.95, 0.22), axleWheel(0.5, 0.95, 0.22), axleWheel(-0.5, -0.85, 0.22), axleWheel(0.5, -0.85, 0.22)
+      { geo: box, y: 0.78, sx: 1.15, sy: 1.05, sz: 3.6, color: "#f2d56b" },
+      { geo: box, y: 0.95, z: 0.05, sx: 1.02, sy: 0.48, sz: 2.5, color: "#d7ebf6" },
+      { geo: box, y: 1.22, z: 1.45, sx: 1.05, sy: 0.16, sz: 0.28, color: "#2c3440" },
+      { geo: box, y: 0.42, z: 1.72, sx: 0.7, sy: 0.55, sz: 0.08, color: "#3a342c" },
+      axleWheel(-0.55, 1.15, 0.24), axleWheel(0.55, 1.15, 0.24), axleWheel(-0.55, -1.05, 0.24), axleWheel(0.55, -1.05, 0.24)
     ]));
     geo.vehBike = shareGeo(mergeParts([
       { geo: box, y: 0.32, sx: 0.1, sy: 0.08, sz: 0.72, color: "#3d4a55" },
       axleWheel(0, 0.28, 0.14), axleWheel(0, -0.28, 0.14)
     ]));
-    geo.headCone = shareGeo(new THREE.ConeGeometry(0.22, 1.5, 7, 1, true));
+    geo.headCone = shareGeo((function () {
+      var cone = new THREE.ConeGeometry(0.5, 0.52, 18, 1, true);
+      cone.rotateX(-Math.PI / 2);
+      return cone;
+    })());
   }
 
   function buildMaterials() {
@@ -861,8 +892,12 @@ window.Nexus = window.Nexus || {};
     mats.hill = lambert(css("--lu-hill-top", "#b7c0b4"));
     mats.ridge = lambert(css("--lu-ridge-side", "#8a7d6a"));
     mats.snow = lambert(css("--lu-ridge-top", "#c4b8a4"));
-    mats.road = lambert(night ? "#2a2e33" : "#5c636b");
-    mats.mark = lambert(css("--marking", "#f4e7bb"));
+    mats.road = lambert("#1a1c20");
+    mats.mark = lambert("#f4f4f2");
+    mats.signYellow = lambert("#f0c43a");
+    mats.signYield = lambert("#e24b3a");
+    mats.signRound = lambert("#f7f7f5");
+    mats.brake = basic("#ff3030");
     mats.kerb = lambert(night ? "#6a6e74" : "#c5c0b6");
     mats.glass = lambert(css("--glass", "#8bb0c9"), {
       emissive: css("--window-lit", "#ffd88a"),
@@ -898,40 +933,40 @@ window.Nexus = window.Nexus || {};
     mats.gizmoCool = lambert("#3ee0c4", { emissive: "#1aa890", emissiveIntensity: night ? 1.05 : 0.42 });
     function ownerPadOf(hex) {
       var c = new THREE.Color(hex);
-      var wash = new THREE.Color(night ? "#1a2430" : "#ffffff");
-      c.lerp(wash, night ? 0.18 : 0.12);
+      if (night) {
+        c.lerp(new THREE.Color("#1a2430"), 0.28);
+      }
       return lambert(c, {
-        emissive: hex,
-        emissiveIntensity: night ? 0.55 : 0.28
+        emissive: c,
+        emissiveIntensity: night ? 0.18 : 0.05
       });
     }
     function ownerRimOf(hex) {
       return lambert(hex, {
         emissive: hex,
-        emissiveIntensity: night ? 0.85 : 0.45,
+        emissiveIntensity: night ? 0.35 : 0.12,
         transparent: true,
-        opacity: 0.85
+        opacity: 0.9
       });
     }
     function ownerTintOf(hex) {
-      var c = new THREE.Color(hex);
-      c.lerp(new THREE.Color(night ? "#3a4450" : "#e8e0d8"), 0.45);
-      return lambert(c);
+      return lambert(hex);
     }
-    (Nexus.PLAYER_COLORS || []).forEach(function (hex, index) {
+    var pastels = Nexus.PLAYER_PASTELS || Nexus.PLAYER_COLORS || [];
+    pastels.forEach(function (hex, index) {
       mats["ownerPad" + index] = ownerPadOf(hex);
       mats["ownerRim" + index] = ownerRimOf(hex);
       mats["ownerTint" + index] = ownerTintOf(hex);
-      [-0.22, -0.06, 0.14, 0.32].forEach(function (t, shade) {
+      [-0.08, 0, 0.06, 0.12].forEach(function (t, shade) {
         var c = new THREE.Color(hex);
-        c.lerp(new THREE.Color(t < 0 ? "#3a342e" : "#f3efe6"), Math.abs(t));
+        c.lerp(new THREE.Color(t < 0 ? "#9a9a9e" : "#ffffff"), Math.abs(t));
         mats["shade" + index + "_" + shade] = lambert(c);
       });
     });
     if (!mats.ownerPad0) {
-      mats.ownerPad0 = ownerPadOf("#009E73");
-      mats.ownerRim0 = ownerRimOf("#009E73");
-      mats.ownerTint0 = ownerTintOf("#009E73");
+      mats.ownerPad0 = ownerPadOf(pastels[0] || "#C9E8CF");
+      mats.ownerRim0 = ownerRimOf(pastels[0] || "#C9E8CF");
+      mats.ownerTint0 = ownerTintOf(pastels[0] || "#C9E8CF");
     }
     mats.hit = basic("#ffffff", { transparent: true, opacity: 0, depthWrite: false });
     mats.bin = lambert(night ? "#3c444c" : "#6b737a");
@@ -1244,13 +1279,11 @@ window.Nexus = window.Nexus || {};
     grayMats = {};
     Object.keys(mats).forEach(function (key) {
       var src = mats[key];
-      if (!src || !src.color) {
+      if (!src || !src.color || src.opacity === 0) {
         grayMats[key] = src;
         return;
       }
-      var y = src.color.r * 0.2126 + src.color.g * 0.7152 + src.color.b * 0.0722;
-      y = Math.max(0.38, Math.min(0.7, y));
-      grayMats[key] = lambert(new THREE.Color(y, y, y * 0.99), {
+      grayMats[key] = lambert(Nexus.UNCLAIMED_GRAY || "#E2E2E2", {
         transparent: !!src.transparent,
         opacity: src.opacity == null ? 1 : src.opacity,
         depthWrite: src.depthWrite !== false
@@ -1305,16 +1338,49 @@ window.Nexus = window.Nexus || {};
     return mesh;
   }
 
-  function tree(parent, x, z, s, alt) {
-    ensureSprites();
-    var map = alt && spriteTextures.tree2 ? spriteTextures.tree2 : spriteTextures.tree;
-    if (map) {
-      addBillboard(parent, map, x, TILE_H + 1.05 * s, z, 1.6 * s, 2.1 * s, 1);
+  function dropProp(parent, kind, variant, x, z, s, gray) {
+    var leaf = gray ? mats.neutral : mats.tree;
+    var leaf2 = gray ? mats.neutralRoof : mats.grassDeep;
+    var wood = gray ? mats.neutral : mats.roof;
+    var metal = gray ? mats.neutral : mats.slate;
+    s = s || 1;
+    variant = variant % 3;
+    if (kind === "bush") {
+      if (variant === 0) {
+        addSphere(parent, leaf, 0.42 * s, x, TILE_H + 0.32 * s, z);
+        addSphere(parent, leaf2, 0.26 * s, x + 0.22 * s, TILE_H + 0.24 * s, z + 0.08 * s);
+      } else if (variant === 1) {
+        addSphere(parent, leaf2, 0.3 * s, x - 0.16 * s, TILE_H + 0.26 * s, z);
+        addSphere(parent, leaf, 0.3 * s, x + 0.16 * s, TILE_H + 0.3 * s, z + 0.06 * s);
+        addSphere(parent, leaf, 0.18 * s, x, TILE_H + 0.48 * s, z);
+      } else {
+        addCyl(parent, wood, 0.07 * s, 0.09 * s, 0.28 * s, x, TILE_H, z, 6);
+        addSphere(parent, leaf, 0.36 * s, x, TILE_H + 0.42 * s, z);
+        addSphere(parent, leaf2, 0.18 * s, x + 0.16 * s, TILE_H + 0.34 * s, z - 0.1 * s);
+      }
       return;
     }
-    addCyl(parent, mats.trunk, 0.18 * s, 0.22 * s, 0.9 * s, x, TILE_H, z, 8);
-    addSphere(parent, alt ? mats.tree2 : mats.tree, 0.7 * s, x, TILE_H + 1.15 * s, z);
-    addSphere(parent, alt ? mats.tree : mats.tree2, 0.48 * s, x + 0.35 * s, TILE_H + 0.85 * s, z - 0.1 * s);
+    if (kind === "bin") {
+      var yaw = variant * 0.6;
+      addBox(parent, metal, 0.32, 0.46, 0.28, x, TILE_H + 0.23, z, yaw);
+      addBox(parent, wood, 0.34, 0.06, 0.3, x, TILE_H + 0.48, z, yaw);
+      if (variant === 2) {
+        addBox(parent, metal, 0.22, 0.34, 0.2, x + 0.28, TILE_H + 0.17, z + 0.08, yaw);
+      }
+      return;
+    }
+    if (kind === "bench") {
+      addBox(parent, wood, 1.05, 0.08, 0.34, x, TILE_H + 0.28, z, 0);
+      addBox(parent, wood, 0.08, 0.28, 0.34, x - 0.46, TILE_H + 0.28, z, 0);
+      addBox(parent, wood, 0.08, 0.28, 0.34, x + 0.46, TILE_H + 0.28, z, 0);
+      if (variant !== 1) {
+        addBox(parent, wood, 1.05, 0.28, 0.06, x, TILE_H + 0.46, z - 0.14, 0);
+      }
+    }
+  }
+
+  function tree(parent, x, z, s, alt) {
+    dropProp(parent, "bush", alt ? 2 : 0, x, z, s || 1, false);
   }
 
   function lampPost(parent, x, z, tall) {
@@ -1705,22 +1771,24 @@ window.Nexus = window.Nexus || {};
     var rand = seeded(q, r, 55);
     var count = propBudget(budget || 4);
     if (Nexus.Fillers && Nexus.Fillers.scatter) {
-      Nexus.Fillers.scatter(group, zoneKey, q, r, count, rand, TILE_H);
+      Nexus.Fillers.scatter(group, zoneKey, q, r, count, rand, TILE_H, grayMode ? (Nexus.UNCLAIMED_GRAY || "#E2E2E2") : "#c8c2b8");
     }
     if (Props) {
-      var sprites = Props.cacheAll();
-      var list = Props.ZONE_PROPS[zoneKey] || Props.ZONE_PROPS.empty;
       var i;
       var n = Math.max(1, Math.min(count, 1 + Math.floor(rand() * count)));
+      var kinds = ["bush", "bin", "bench"];
       for (i = 0; i < n; i++) {
-        var type = Props.pickProp(list, rand);
-        var map = Props.mapFor(sprites, type, Math.floor(rand() * 8));
-        var sc = Props.propScale(type);
         var ang = rand() * Math.PI * 2;
-        var dist = 1.4 + rand() * 3.4;
-        var x = Math.cos(ang) * dist;
-        var z = Math.sin(ang) * dist;
-        addBillboard(group, map, x, TILE_H + sc.sy * 0.45, z, sc.sx, sc.sy, 1);
+        var dist = 1.5 + rand() * 3.2;
+        dropProp(
+          group,
+          kinds[i % kinds.length],
+          Math.floor(rand() * 3),
+          Math.cos(ang) * dist,
+          Math.sin(ang) * dist,
+          0.85 + rand() * 0.35,
+          !!grayMode
+        );
       }
     }
     var clutter = Math.max(1, Math.min(4, Math.round(count / 2)));
@@ -1983,8 +2051,10 @@ window.Nexus = window.Nexus || {};
         }
         var ek = ka < kb ? ka + "|" + kb : kb + "|" + ka;
         if (!edges[ek]) {
-          edges[ek] = { a: nodes[ka], b: nodes[kb] };
+          edges[ek] = { a: nodes[ka], b: nodes[kb], tiles: [] };
         }
+        var center = axial(tile.q, tile.r);
+        edges[ek].tiles.push({ x: center.x, z: center.z, q: tile.q, r: tile.r });
       }
     });
     return { edges: edges, nodes: nodes };
@@ -2066,10 +2136,17 @@ window.Nexus = window.Nexus || {};
     lights = [];
     lamps = [];
     var net = uniqueEdges(playTiles);
+    edgeTiles = {};
+    Object.keys(net.edges).forEach(function (ek) {
+      edgeTiles[ek] = net.edges[ek].tiles || [];
+    });
     graph.nodes = net.nodes;
     graph.keys = Object.keys(net.nodes);
+    refreshHull();
+    indexCityTiles(playTiles);
     var roadPoses = [];
     var dashPoses = [];
+    var stopPoses = [];
     Object.keys(net.edges).forEach(function (ek) {
       var e = net.edges[ek];
       var dx = e.b.x - e.a.x;
@@ -2084,7 +2161,45 @@ window.Nexus = window.Nexus || {};
       var mz = e.a.z + iz * (insetA + len / 2);
       var heading = Math.atan2(dx, dz);
       roadPoses.push({ x: mx, y: ROAD_Y, z: mz, sx: ROAD_W, sy: 0.12, sz: len, ry: heading });
-      dashPoses.push({ x: mx, y: ROAD_Y + 0.07, z: mz, sx: 0.12, sy: 0.04, sz: Math.max(0.3, len * 0.55), ry: heading });
+      var dash = 0.46;
+      var gap = 0.62;
+      var cursor = insetA + 0.35;
+      while (cursor + dash < span - insetB - 0.2) {
+        dashPoses.push({
+          x: e.a.x + ix * (cursor + dash * 0.5),
+          y: ROAD_Y + 0.075,
+          z: e.a.z + iz * (cursor + dash * 0.5),
+          sx: 0.13,
+          sy: 0.02,
+          sz: dash,
+          ry: heading
+        });
+        cursor += dash + gap;
+      }
+      if (e.b.next.length >= 3) {
+        var backB = insetB + 0.2;
+        stopPoses.push({
+          x: e.b.x - ix * backB + -iz * ROAD_W * 0.22,
+          y: ROAD_Y + 0.08,
+          z: e.b.z - iz * backB + ix * ROAD_W * 0.22,
+          sx: ROAD_W * 0.4,
+          sy: 0.02,
+          sz: 0.09,
+          ry: heading
+        });
+      }
+      if (e.a.next.length >= 3) {
+        var backA = insetA + 0.2;
+        stopPoses.push({
+          x: e.a.x + ix * backA + iz * ROAD_W * 0.22,
+          y: ROAD_Y + 0.08,
+          z: e.a.z + iz * backA + -ix * ROAD_W * 0.22,
+          sx: ROAD_W * 0.4,
+          sy: 0.02,
+          sz: 0.09,
+          ry: heading
+        });
+      }
     });
     var capPoses = [];
     var triPoses = [];
@@ -2115,23 +2230,36 @@ window.Nexus = window.Nexus || {};
       });
     });
     addInstances(geo.box, mats.road, roadPoses, roots.roads);
-    if (junctionMat) {
-      junctionMat.dispose();
-    }
-    junctionMat = mats.road.clone();
-    junctionMat.flatShading = true;
-    addInstances(geo.junctionTri, junctionMat, triPoses, roots.roads);
+    addInstances(geo.junctionTri, mats.road, triPoses, roots.roads);
     addInstances(geo.cyl12, mats.road, capPoses, roots.roads);
     addInstances(geo.box, mats.mark, dashPoses, roots.roads);
-    var lightKeys = graph.keys.filter(function (k) {
-      return graph.nodes[k].next.length >= 3 && keyRand(k, 19) < 0.32;
+    addInstances(geo.box, mats.mark, stopPoses, roots.roads);
+    placeEuroSigns(net);
+    var lightKeys = takeHashed(
+      graph.keys
+        .filter(function (k) {
+          return graph.nodes[k].next.length >= 3 && String(k).indexOf("rim-") !== 0;
+        })
+        .map(function (k) {
+          return { key: k };
+        }),
+      Math.max(6, Math.min(MAX_LIGHTS || 8, 10)),
+      19
+    ).map(function (item) {
+      return item.key;
     });
     var i;
-    for (i = 0; i < lightKeys.length && lights.length < MAX_LIGHTS; i++) {
+    for (i = 0; i < lightKeys.length; i++) {
       var n = graph.nodes[lightKeys[i]];
+      var arm = graph.nodes[n.next[0]];
+      var fx = arm ? n.x - arm.x : 0;
+      var fz = arm ? n.z - arm.z : 1;
+      var fl = Math.hypot(fx, fz) || 1;
+      fx /= fl;
+      fz /= fl;
       var g = new THREE.Group();
-      var pull = Math.hypot(n.x, n.z) || 1;
-      g.position.set(n.x - (n.x / pull) * 1.42, 0, n.z - (n.z / pull) * 1.42);
+      g.position.set(n.x + -fz * 1.6, 0, n.z + fx * 1.6);
+      g.rotation.y = Math.atan2(-fx, -fz);
       addCyl(g, mats.lampPole, 0.08, 0.1, 3.1, 0, TILE_H, 0, 8);
       addBox(g, mats.housing, 0.38, 0.95, 0.28, 0, TILE_H + 2.85, 0, 0);
       g.userData.live = true;
@@ -2145,6 +2273,76 @@ window.Nexus = window.Nexus || {};
     if (!skipDress) {
       scatterStreetDressing(net);
     }
+  }
+
+  function placeEuroSigns(net) {
+    var placed = 0;
+    if (!hullRadius) {
+      refreshHull();
+    }
+    var limit = hullRadius - 0.15;
+    Object.keys(net.edges).forEach(function (ek) {
+      if (placed >= 52 || keyRand(ek, 91) > 0.62) {
+        return;
+      }
+      var e = net.edges[ek];
+      var dx = e.b.x - e.a.x;
+      var dz = e.b.z - e.a.z;
+      var len = Math.hypot(dx, dz) || 1;
+      var ix = dx / len;
+      var iz = dz / len;
+      var along = 0.28 + keyRand(ek, 92) * 0.44;
+      var rightOk = shoulderOnBoard(e.a.key, e.b.key);
+      var leftOk = shoulderOnBoard(e.b.key, e.a.key);
+      var side = 1;
+      if (rightOk && leftOk) {
+        side = keyRand(ek, 94) > 0.5 ? 1 : -1;
+      } else if (leftOk) {
+        side = -1;
+      } else if (!rightOk) {
+        return;
+      }
+      var off = ROAD_W * 0.5 + 0.7;
+      var x = e.a.x + dx * along + -iz * side * off;
+      var z = e.a.z + dz * along + ix * side * off;
+      if (Math.hypot(x, z) > limit) {
+        return;
+      }
+      var g = new THREE.Group();
+      g.position.set(x, 0, z);
+      var faceX = e.a.x + dx * along - x;
+      var faceZ = e.a.z + dz * along - z;
+      g.rotation.y = Math.atan2(faceX, faceZ);
+      addCyl(g, mats.steel, 0.04, 0.05, 1.5, 0, TILE_H, 0, 6);
+      var kind = Math.floor(keyRand(ek, 93) * 3);
+      if (kind === 0) {
+        var diamond = new THREE.Mesh(geo.box, mats.signYellow);
+        diamond.scale.set(0.42, 0.42, 0.04);
+        diamond.position.y = TILE_H + 1.4;
+        diamond.rotation.z = Math.PI / 4;
+        g.add(diamond);
+      } else if (kind === 1) {
+        var tri = new THREE.Mesh(geo.junctionTri, mats.signYield);
+        tri.scale.set(0.38, 0.05, 0.38);
+        tri.position.y = TILE_H + 1.42;
+        tri.rotation.x = Math.PI / 2;
+        tri.rotation.z = Math.PI;
+        g.add(tri);
+      } else {
+        var disc = new THREE.Mesh(geo.cyl12, mats.signRound);
+        disc.scale.set(0.2, 0.04, 0.2);
+        disc.position.y = TILE_H + 1.42;
+        disc.rotation.x = Math.PI / 2;
+        g.add(disc);
+        var slash = new THREE.Mesh(geo.box, mats.signYield);
+        slash.scale.set(0.28, 0.055, 0.045);
+        slash.position.y = TILE_H + 1.42;
+        slash.rotation.z = 0.75;
+        g.add(slash);
+      }
+      roots.roads.add(g);
+      placed += 1;
+    });
   }
 
   function takeHashed(items, maxCount, salt) {
@@ -2319,30 +2517,21 @@ window.Nexus = window.Nexus || {};
     var benchBacks = [];
     for (i = 0; i < treeCands.length; i++) {
       var tc = treeCands[i];
-      var tMap = tc.alt && spriteTextures.tree2 ? spriteTextures.tree2 : spriteTextures.tree;
-      if (tMap) {
-        addBillboard(roots.roads, tMap, tc.x, TILE_H + 1.05 * tc.s, tc.z, 1.6 * tc.s, 2.1 * tc.s, 1, tc.wild);
-      }
+      dropProp(roots.roads, "bush", tc.alt ? 2 : 0, tc.x, tc.z, tc.s, tc.wild);
     }
     for (i = 0; i < bushCands.length; i++) {
       var bc = bushCands[i];
-      if (spriteTextures.bush) {
-        addBillboard(roots.roads, spriteTextures.bush, bc.x, TILE_H + 0.45 * bc.s, bc.z, 1.1 * bc.s, 0.85 * bc.s, 1, bc.wild);
-      }
+      dropProp(roots.roads, "bush", 1, bc.x, bc.z, bc.s, bc.wild);
     }
     for (i = 0; i < flowerCands.length; i++) {
       var fc = flowerCands[i];
-      var fMap =
-        fc.kind === 1 ? spriteTextures.flower2 : fc.kind === 2 ? spriteTextures.flower3 : spriteTextures.flower;
-      if (fMap) {
-        addBillboard(roots.roads, fMap, fc.x, TILE_H + 0.35, fc.z, 0.55, 0.7, 1, fc.wild);
-      }
+      dropProp(roots.roads, "bin", fc.kind, fc.x, fc.z, 0.9, false);
     }
     for (i = 0; i < lampCands.length; i++) {
       lampPoles.push(lampCands[i].pole);
       lampHeads.push(lampCands[i].head);
       var lc = lampCands[i];
-      if (spriteTextures.lampGlow) {
+      if (false && spriteTextures.lampGlow) {
         addBillboard(
           roots.roads,
           spriteTextures.lampGlow,
@@ -2387,18 +2576,441 @@ window.Nexus = window.Nexus || {};
     };
   }
 
-  function pickNext(fromKey, avoidKey) {
+  function angleDelta(a, b) {
+    var d = a - b;
+    while (d > Math.PI) d -= Math.PI * 2;
+    while (d < -Math.PI) d += Math.PI * 2;
+    return d;
+  }
+
+  function chooseNext(fromKey, prevKey, agent) {
     var node = graph.nodes[fromKey];
     if (!node || !node.next.length) {
-      return avoidKey || fromKey;
+      return fromKey;
     }
-    var opts = node.next.filter(function (k) {
-      return k !== avoidKey;
-    });
-    if (!opts.length) {
-      opts = node.next;
+    var prev = prevKey && graph.nodes[prevKey];
+    var incoming = prev ? Math.atan2(node.x - prev.x, node.z - prev.z) : 0;
+    var bus = agent && agent.kind !== "bus" ? busAhead(agent) : null;
+    var pack = agent ? packOnEdge(agent) : 0;
+    var wantTurn = agent && (agent.seed || 0) % 4 === 0;
+    var best = null;
+    var bestScore = 1e9;
+    var bestDelta = 0;
+    var i;
+    for (i = 0; i < node.next.length; i++) {
+      var key = node.next[i];
+      if (String(key).indexOf("rim-") === 0) {
+        continue;
+      }
+      if (key === prevKey && node.next.length > 1) {
+        continue;
+      }
+      var next = graph.nodes[key];
+      if (!next) {
+        continue;
+      }
+      var ang = Math.atan2(next.x - node.x, next.z - node.z);
+      var delta = prev ? angleDelta(ang, incoming) : 0;
+      var mag = Math.abs(delta);
+      var score = wantTurn ? Math.abs(mag - 1.05) : mag;
+      score += edgeLoad(fromKey, key) * 1.35;
+      if (pack >= 2 && agent && key === leaderPlan(agent)) {
+        score += 2.4;
+      }
+      if (bus && key === bus.plan) {
+        score += 6;
+      }
+      score += (((agent && agent.seed) || 0) + i * 5) % 7 * 0.02;
+      if (score < bestScore) {
+        bestScore = score;
+        best = key;
+        bestDelta = delta;
+      }
     }
-    return opts[Math.floor(Math.random() * opts.length)];
+    if (!best) {
+      for (i = 0; i < node.next.length; i++) {
+        if (String(node.next[i]).indexOf("rim-") !== 0) {
+          best = node.next[i];
+          break;
+        }
+      }
+    }
+    if (agent) {
+      agent.turn = bestDelta > 0.35 ? 1 : bestDelta < -0.35 ? -1 : 0;
+    }
+    return best || prevKey || fromKey;
+  }
+
+  function edgeLoad(from, to) {
+    var n = 0;
+    var i;
+    for (i = 0; i < cars.length; i++) {
+      var car = cars[i];
+      if (car.mode === "park" || car.mode === "wait") {
+        continue;
+      }
+      if (car.from === from && car.to === to) {
+        n += 1;
+      }
+    }
+    return n;
+  }
+
+  function busAhead(agent) {
+    var found = null;
+    var best = 0.5;
+    var i;
+    for (i = 0; i < cars.length; i++) {
+      var other = cars[i];
+      if (other === agent || other.kind !== "bus" || other.mode === "park" || other.mode === "wait") {
+        continue;
+      }
+      if (other.from === agent.from && other.to === agent.to && other.u > agent.u + 0.02) {
+        var gap = other.u - agent.u;
+        if (gap < best) {
+          best = gap;
+          found = other;
+        }
+      }
+    }
+    return found;
+  }
+
+  function packOnEdge(agent) {
+    var n = 0;
+    var i;
+    for (i = 0; i < cars.length; i++) {
+      var other = cars[i];
+      if (other.mode === "park" || other.mode === "wait") {
+        continue;
+      }
+      if (other.from === agent.from && other.to === agent.to && Math.abs(other.u - agent.u) < 0.55) {
+        n += 1;
+      }
+    }
+    return n;
+  }
+
+  function leaderPlan(agent) {
+    var leader = null;
+    var u = -1;
+    var i;
+    for (i = 0; i < cars.length; i++) {
+      var other = cars[i];
+      if (other === agent || other.mode === "park" || other.mode === "wait") {
+        continue;
+      }
+      if (other.from === agent.from && other.to === agent.to && other.u > u) {
+        u = other.u;
+        leader = other;
+      }
+    }
+    return leader ? leader.plan : null;
+  }
+
+  function carGap(agent) {
+    var best = 1;
+    var i;
+    for (i = 0; i < cars.length; i++) {
+      var other = cars[i];
+      if (other === agent || other.mode === "park" || other.mode === "wait") {
+        continue;
+      }
+      if ((other.mode === "in" || other.mode === "out") && other.lane > 1.2) {
+        continue;
+      }
+      if (other.from === agent.from && other.to === agent.to) {
+        var ahead = other.u - agent.u;
+        if (ahead > 0.02 && ahead < best) {
+          best = ahead;
+        }
+      } else if (agent.u > 0.72 && other.from === agent.to && other.u < 0.28) {
+        var across = 1 - agent.u + other.u;
+        if (across < best) {
+          best = across;
+        }
+      }
+    }
+    return best;
+  }
+
+  function edgeKey(a, b) {
+    return a < b ? a + "|" + b : b + "|" + a;
+  }
+
+  function nodeOuter(node) {
+    if (!node) {
+      return true;
+    }
+    if (String(node.key).indexOf("rim-") === 0) {
+      return true;
+    }
+    var i;
+    for (i = 0; i < node.next.length; i++) {
+      if (String(node.next[i]).indexOf("rim-") === 0) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  var edgeUses = {};
+  var edgeTiles = {};
+  var cityTiles = [];
+  var hullRadius = 0;
+
+  function refreshHull() {
+    var max = 0;
+    var i;
+    for (i = 0; i < graph.keys.length; i++) {
+      var key = graph.keys[i];
+      if (String(key).indexOf("rim-") === 0) {
+        continue;
+      }
+      var node = graph.nodes[key];
+      if (!node) {
+        continue;
+      }
+      var radius = Math.hypot(node.x, node.z);
+      if (radius > max) {
+        max = radius;
+      }
+    }
+    hullRadius = max;
+  }
+
+  function assignEdgeUse(from, to, use) {
+    var id = edgeKey(from, to);
+    if (!use) {
+      delete edgeUses[id];
+      return;
+    }
+    edgeUses[id] = use;
+  }
+
+  function edgeUse(from, to) {
+    return edgeUses[edgeKey(from, to)] || null;
+  }
+
+  function shoulderOnBoard(fromKey, toKey) {
+    if (!fromKey || !toKey || String(fromKey).indexOf("rim-") === 0 || String(toKey).indexOf("rim-") === 0) {
+      return false;
+    }
+    var tiles = edgeTiles[edgeKey(fromKey, toKey)];
+    var a = graph.nodes[fromKey];
+    var b = graph.nodes[toKey];
+    if (!tiles || !tiles.length || !a || !b) {
+      return false;
+    }
+    var dx = b.x - a.x;
+    var dz = b.z - a.z;
+    var len = Math.hypot(dx, dz) || 1;
+    var rx = -dz / len;
+    var rz = dx / len;
+    var mx = (a.x + b.x) / 2;
+    var mz = (a.z + b.z) / 2;
+    var facing = null;
+    var best = 0.4;
+    var i;
+    for (i = 0; i < tiles.length; i++) {
+      var vx = tiles[i].x - mx;
+      var vz = tiles[i].z - mz;
+      var dot = vx * rx + vz * rz;
+      if (dot > best) {
+        best = dot;
+        facing = tiles[i];
+      }
+    }
+    if (!facing) {
+      return false;
+    }
+    var pose = placeOnEdge(fromKey, toKey, 0.5, parkLane("car"));
+    var mid = placeOnEdge(fromKey, toKey, 0.5, 0);
+    if (!pose || !mid) {
+      return false;
+    }
+    var atTile = Math.hypot(pose.x - facing.x, pose.z - facing.z);
+    var roadTile = Math.hypot(mid.x - facing.x, mid.z - facing.z);
+    return atTile < roadTile - 0.25;
+  }
+
+  function shoulderOk(from, to) {
+    var use = edgeUse(from, to);
+    if (use === "closed") {
+      return false;
+    }
+    return shoulderOnBoard(from, to);
+  }
+
+  function parkHeading(a, b) {
+    if (shoulderOnBoard(a, b)) {
+      return { from: a, to: b };
+    }
+    if (shoulderOnBoard(b, a)) {
+      return { from: b, to: a };
+    }
+    return null;
+  }
+
+  function driveLane(kind) {
+    if (kind === "bus") {
+      return ROAD_W / 4;
+    }
+    if (kind === "van") {
+      return 0.36;
+    }
+    return 0.42;
+  }
+
+  function parkLane(kind) {
+    if (kind === "bus") {
+      return 1.62;
+    }
+    if (kind === "van") {
+      return 1.52;
+    }
+    return 1.48;
+  }
+
+  function turnWindow(kind) {
+    if (kind === "bus") {
+      return { inU: 0.8, outU: 0.36 };
+    }
+    if (kind === "van") {
+      return { inU: 0.82, outU: 0.28 };
+    }
+    return { inU: 0.84, outU: 0.26 };
+  }
+
+  function bayOf(id) {
+    var carsN = 0;
+    var bus = false;
+    var i;
+    for (i = 0; i < cars.length; i++) {
+      if (cars[i].bay !== id) {
+        continue;
+      }
+      if (cars[i].kind === "bus") {
+        bus = true;
+      } else {
+        carsN += 1;
+      }
+    }
+    return { cars: carsN, bus: bus };
+  }
+
+  function claimBay(agent) {
+    if (!shoulderOk(agent.from, agent.to)) {
+      return false;
+    }
+    var id = edgeKey(agent.from, agent.to);
+    var use = edgeUses[id] || null;
+    if (use === "stop" && agent.kind !== "bus") {
+      return false;
+    }
+    if (use === "lot" && agent.kind === "bus") {
+      return false;
+    }
+    var occ = bayOf(id);
+    if (agent.kind === "bus" || use === "stop") {
+      if (occ.bus || occ.cars) {
+        return false;
+      }
+      agent.bay = id;
+      agent.bayU = 0.5;
+      return true;
+    }
+    if (occ.bus || occ.cars >= 2) {
+      return false;
+    }
+    var used = {};
+    var i;
+    for (i = 0; i < cars.length; i++) {
+      if (cars[i].bay === id) {
+        used[cars[i].bayU] = true;
+      }
+    }
+    agent.bay = id;
+    agent.bayU = used[0.3] ? 0.72 : 0.3;
+    return true;
+  }
+
+  function laneClear(agent) {
+    var i;
+    for (i = 0; i < cars.length; i++) {
+      var other = cars[i];
+      if (other === agent || other.mode === "park" || other.mode === "wait" || other.mode === "in") {
+        continue;
+      }
+      var same = other.from === agent.from && other.to === agent.to;
+      var opp = other.from === agent.to && other.to === agent.from;
+      if (!same && !opp) {
+        continue;
+      }
+      var ou = same ? other.u : 1 - other.u;
+      if (Math.abs(ou - agent.u) < 0.4 && other.lane < 1.15) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  function bendPose(fromA, toA, uA, fromB, toB, uB, t, lane) {
+    var p0 = placeOnEdge(fromA, toA, uA, lane);
+    var p1 = placeOnEdge(fromB, toB, uB, lane);
+    if (!p0 || !p1) {
+      return null;
+    }
+    var turn = Math.abs(angleDelta(p1.ang, p0.ang));
+    if (turn < 0.22) {
+      return null;
+    }
+    var dist = Math.hypot(p1.x - p0.x, p1.z - p0.z) || 1;
+    var handle = Math.max(0.55, Math.min(dist * 0.46, 0.7 + turn * 1.25));
+    var c0x = p0.x + Math.sin(p0.ang) * handle;
+    var c0z = p0.z + Math.cos(p0.ang) * handle;
+    var c1x = p1.x - Math.sin(p1.ang) * handle;
+    var c1z = p1.z - Math.cos(p1.ang) * handle;
+    var s = Math.max(0, Math.min(1, t));
+    var o = 1 - s;
+    var x = o * o * o * p0.x + 3 * o * o * s * c0x + 3 * o * s * s * c1x + s * s * s * p1.x;
+    var z = o * o * o * p0.z + 3 * o * o * s * c0z + 3 * o * s * s * c1z + s * s * s * p1.z;
+    var tx = 3 * o * o * (c0x - p0.x) + 6 * o * s * (c1x - c0x) + 3 * s * s * (p1.x - c1x);
+    var tz = 3 * o * o * (c0z - p0.z) + 6 * o * s * (c1z - c0z) + 3 * s * s * (p1.z - c1z);
+    return {
+      x: x,
+      z: z,
+      ang: Math.hypot(tx, tz) > 0.02 ? Math.atan2(tx, tz) : p1.ang
+    };
+  }
+
+  function poseAgent(agent) {
+    var lane = agent.lane;
+    var u = Math.max(0, Math.min(0.999, agent.u));
+    if (agent.mode === "in" || agent.mode === "out") {
+      var steered = placeOnEdge(agent.from, agent.to, u, lane);
+      if (!steered) {
+        return null;
+      }
+      steered.ang += agent.yaw || 0;
+      return steered;
+    }
+    var driving = !agent.mode || agent.mode === "drive";
+    var win = turnWindow(agent.kind);
+    var span = (1 - win.inU) + win.outU;
+    if (driving && agent.plan && String(agent.plan).indexOf("rim-") !== 0 && u >= win.inU) {
+      var bent = bendPose(agent.from, agent.to, win.inU, agent.to, agent.plan, win.outU, (u - win.inU) / span, lane);
+      if (bent) {
+        return bent;
+      }
+    }
+    if (driving && agent.prevKey && String(agent.prevKey).indexOf("rim-") !== 0 && u < win.outU) {
+      var bentOut = bendPose(agent.prevKey, agent.from, win.inU, agent.from, agent.to, win.outU, ((1 - win.inU) + u) / span, lane);
+      if (bentOut) {
+        return bentOut;
+      }
+    }
+    return placeOnEdge(agent.from, agent.to, u, lane);
   }
 
   function densityMul() {
@@ -2441,15 +3053,11 @@ window.Nexus = window.Nexus || {};
   }
 
   function vehicleKind(index) {
-    var slot = index % 7;
-    if (slot === 0) {
+    if (index % 8 === 0) {
       return "bus";
     }
-    if (slot === 1) {
+    if (index % 8 === 3) {
       return "van";
-    }
-    if (slot === 2) {
-      return "bike";
     }
     return "car";
   }
@@ -2473,6 +3081,14 @@ window.Nexus = window.Nexus || {};
       headMesh.parent.remove(headMesh);
     }
     headMesh = null;
+    if (blinkMesh && blinkMesh.parent) {
+      blinkMesh.parent.remove(blinkMesh);
+    }
+    blinkMesh = null;
+    if (brakeMesh && brakeMesh.parent) {
+      brakeMesh.parent.remove(brakeMesh);
+    }
+    brakeMesh = null;
     if (carMesh && carMesh.parent) carMesh.parent.remove(carMesh);
     if (carCabin && carCabin.parent) carCabin.parent.remove(carCabin);
     if (pedMesh && pedMesh.parent) pedMesh.parent.remove(pedMesh);
@@ -2488,45 +3104,116 @@ window.Nexus = window.Nexus || {};
     if (!graph.keys.length || !geo.vehCar) {
       return;
     }
-    var count = Math.max(6, Math.round(CAR_COUNT * densityMul()));
-    var pedCount = Math.max(0, Math.round(count * 0.35));
+    refreshHull();
+    var count = Math.max(24, Math.round((CAR_COUNT || 16) * densityMul())) * 4;
+    var pedCount = Math.min(10, Math.round(count * 0.05));
     var share = evShare();
-    var rim = graph.keys.filter(function (key) {
-      var node = graph.nodes[key];
-      return node && node.next && node.next.length <= 2;
+    var pool = graph.keys.filter(function (key) {
+      return String(key).indexOf("rim-") !== 0 && graph.nodes[key] && graph.nodes[key].next.length;
     });
-    var pool = rim.length ? rim : graph.keys;
+    if (!pool.length) {
+      pool = graph.keys.slice();
+    }
     var buckets = { car: [], van: [], bus: [], bike: [] };
-    var i;
-    for (i = 0; i < count; i++) {
-      var from = pool[i % pool.length];
-      var kind = vehicleKind(i);
-      var parked = i % 3 !== 2;
-      var sign = i % 2 === 0 ? 1 : -1;
-      var color = new THREE.Color();
-      if (Math.random() < share) {
-        color.setHSL(0.28, 0.35, isNight() ? 0.55 : 0.72);
-      } else {
-        color.setHSL((i % 6) * 0.07, 0.28, isNight() ? 0.45 : 0.62);
+    var bays = [];
+    var seenBay = {};
+    pool.forEach(function (key) {
+      var node = graph.nodes[key];
+      if (!node) {
+        return;
       }
+      node.next.forEach(function (nb) {
+        var id = edgeKey(key, nb);
+        if (seenBay[id]) {
+          return;
+        }
+        var dir = parkHeading(key, nb);
+        if (!dir) {
+          return;
+        }
+        seenBay[id] = true;
+        bays.push({ a: dir.from, b: dir.to, id: id, use: edgeUses[id] || null });
+      });
+    });
+    var order = [];
+    var i;
+    for (i = 0; i < bays.length; i++) {
+      order.push(i);
+    }
+    for (i = order.length - 1; i > 0; i--) {
+      var j = Math.floor(Math.random() * (i + 1));
+      var swap = order[i];
+      order[i] = order[j];
+      order[j] = swap;
+    }
+    var parkedGoal = Math.ceil(count * 0.72);
+    var parked = 0;
+    var made = [];
+    function paint() {
+      var color = new THREE.Color();
+      color.setHSL(Math.random(), 0.5, isNight() ? 0.45 : 0.55);
+      return color;
+    }
+    function pushCar(kind, from, to, u, lane, mode, bay, bayU) {
       var agent = {
         from: from,
-        to: pickNext(from, null),
-        u: 0.16 + (i % 5) * 0.12,
-        speed: 0,
-        cruise: kind === "bike" ? 0.16 : kind === "bus" ? 0.18 : 0.26 + (i % 3) * 0.03,
+        to: to,
+        u: u,
+        speed: mode === "drive" ? 0.2 : 0,
+        cruise: kind === "bus" ? 0.15 : 0.22 + Math.random() * 0.06,
         hold: 0,
         kind: kind,
-        lane: parked ? 0.98 * sign : 0.38 * sign,
-        laneSign: sign,
-        mode: parked ? "park" : "drive",
-        parkLeft: 1.4 + (i % 5) * 0.8,
-        driveT: 4 + (i % 4),
+        lane: lane,
+        laneSign: 1,
+        mode: mode,
+        parkLeft: 8 + Math.random() * 36,
+        brakeHold: mode === "park" ? 0 : 0,
+        driveT: 32 + Math.random() * 40,
         slot: buckets[kind].length,
-        color: color
+        color: paint(),
+        seed: made.length * 13 + 3,
+        turn: 0,
+        yaw: 0,
+        legs: 0,
+        bay: bay,
+        bayU: bayU,
+        prevKey: null,
+        plan: null,
+        edgePlanned: false
       };
+      agent.plan = chooseNext(agent.to, agent.from, agent);
       cars.push(agent);
       buckets[kind].push(agent);
+      made.push(agent);
+      return agent;
+    }
+    var bi;
+    for (bi = 0; bi < order.length && parked < parkedGoal; bi++) {
+      var bay = bays[order[bi]];
+      if (bay.use === "stop") {
+        if (parked >= parkedGoal) {
+          continue;
+        }
+        pushCar("bus", bay.a, bay.b, 0.5, parkLane("bus"), "park", bay.id, 0.5);
+        parked += 1;
+        continue;
+      }
+      var wantBus = bay.use !== "lot" && Math.random() < 0.16 && parked + 1 <= parkedGoal;
+      if (wantBus) {
+        pushCar("bus", bay.a, bay.b, 0.5, parkLane("bus"), "park", bay.id, 0.5);
+        parked += 1;
+        continue;
+      }
+      var nCars = Math.random() < 0.45 ? 1 : 2;
+      if (parked + nCars > parkedGoal) {
+        nCars = 1;
+      }
+        pushCar("car", bay.a, bay.b, 0.3, parkLane("car"), "park", bay.id, 0.3);
+        parked += 1;
+        if (nCars === 2 && parked < parkedGoal) {
+          pushCar("car", bay.a, bay.b, 0.72, parkLane("car"), "park", bay.id, 0.72);
+        parked += 1;
+      }
     }
     dummy = dummy || new THREE.Object3D();
     var mat = mats.vehicle || mats.car;
@@ -2554,16 +3241,28 @@ window.Nexus = window.Nexus || {};
       headMesh.visible = isNight();
       roots.cars.add(headMesh);
     }
+    if (cars.length && geo.box && mats.signYellow) {
+      blinkMesh = new THREE.InstancedMesh(geo.box, mats.signYellow, cars.length);
+      blinkMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+      blinkMesh.frustumCulled = false;
+      roots.cars.add(blinkMesh);
+    }
+    if (cars.length && geo.box && mats.brake) {
+      brakeMesh = new THREE.InstancedMesh(geo.box, mats.brake, cars.length);
+      brakeMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+      brakeMesh.frustumCulled = false;
+      roots.cars.add(brakeMesh);
+    }
     if (pedCount) {
       pedMesh = new THREE.InstancedMesh(geo.box, mats.slate, pedCount);
       pedMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
       pedMesh.frustumCulled = false;
       roots.cars.add(pedMesh);
       for (i = 0; i < pedCount; i++) {
-        var pf = pool[i % pool.length];
+        var pf = pool[(i * 3) % pool.length];
         peds.push({
           from: pf,
-          to: pickNext(pf, null),
+          to: chooseNext(pf, null, { seed: i + 9 }),
           u: Math.random(),
           speed: 0.08,
           cruise: 0.08 + (i % 3) * 0.02,
@@ -2573,6 +3272,7 @@ window.Nexus = window.Nexus || {};
         });
       }
     }
+    updateCars(0, 0);
   }
 
   function lightIsRed(nodeKey, time) {
@@ -2646,7 +3346,7 @@ window.Nexus = window.Nexus || {};
     var dx = b.x - a.x;
     var dz = b.z - a.z;
     var len = Math.hypot(dx, dz) || 1;
-    var ang = Math.atan2(dx, dz) + Math.PI;
+    var ang = Math.atan2(dx, dz);
     return {
       x: a.x + dx * u + (-dz / len) * lane,
       z: a.z + dz * u + (dx / len) * lane,
@@ -2654,38 +3354,272 @@ window.Nexus = window.Nexus || {};
     };
   }
 
-  function stepAgent(agent, dt, time, slow) {
-    var node = graph.nodes[agent.to];
-    var red = lightIsRed(agent.to, time) && agent.u > 0.72;
-    var yieldTurn = node && node.next.length >= 3 && agent.u > 0.84 && Math.floor(time * 2 + agent.u * 5) % 4 === 0;
-    if (agent.hold > 0) {
-      agent.hold -= dt;
-      agent.speed = Math.max(0, agent.speed - dt * 1.2);
-      return;
+  function indexCityTiles(playTiles) {
+    cityTiles = [];
+    var map = {};
+    (playTiles || []).forEach(function (tile) {
+      var c = axial(tile.q, tile.r);
+      var rec = { q: tile.q, r: tile.r, x: c.x, z: c.z, edges: [] };
+      map[tile.q + "," + tile.r] = rec;
+      cityTiles.push(rec);
+    });
+    Object.keys(edgeTiles).forEach(function (id) {
+      var bits = id.split("|");
+      (edgeTiles[id] || []).forEach(function (t) {
+        var rec = map[t.q + "," + t.r];
+        if (!rec) {
+          return;
+        }
+        var dir = parkHeading(bits[0], bits[1]);
+        if (!dir) {
+          return;
+        }
+        var a = graph.nodes[dir.from];
+        var b = graph.nodes[dir.to];
+        if (!a || !b) {
+          return;
+        }
+        var dx = b.x - a.x;
+        var dz = b.z - a.z;
+        var len = Math.hypot(dx, dz) || 1;
+        var rx = -dz / len;
+        var rz = dx / len;
+        var mx = (a.x + b.x) / 2;
+        var mz = (a.z + b.z) / 2;
+        if ((t.x - mx) * rx + (t.z - mz) * rz < 0.4) {
+          return;
+        }
+        rec.edges.push({ from: dir.from, to: dir.to, id: id });
+      });
+    });
+  }
+
+  function hexDistTiles(a, b) {
+    if (!a || !b) {
+      return 99;
     }
-    if (red || (yieldTurn && !slow)) {
-      agent.speed = Math.max(0, agent.speed - dt * 1.3);
-      if (agent.u > 0.93) {
-        agent.u = 0.9;
-        agent.hold = red ? 0.55 : 0.28;
+    var dq = a.q - b.q;
+    var dr = a.r - b.r;
+    return (Math.abs(dq) + Math.abs(dr) + Math.abs(dq + dr)) / 2;
+  }
+
+  function tileForAgent(agent) {
+    var tiles = edgeTiles[edgeKey(agent.from, agent.to)] || [];
+    var a = graph.nodes[agent.from];
+    var b = graph.nodes[agent.to];
+    if (!a || !b) {
+      return null;
+    }
+    var mx = (a.x + b.x) / 2;
+    var mz = (a.z + b.z) / 2;
+    var dx = b.x - a.x;
+    var dz = b.z - a.z;
+    var len = Math.hypot(dx, dz) || 1;
+    var rx = -dz / len;
+    var rz = dx / len;
+    var best = null;
+    var bestD = 1e9;
+    var i;
+    for (i = 0; i < tiles.length; i++) {
+      var t = tiles[i];
+      if ((t.x - mx) * rx + (t.z - mz) * rz < 0.2) {
+        continue;
+      }
+      var d = (t.x - mx) * (t.x - mx) + (t.z - mz) * (t.z - mz);
+      if (d < bestD) {
+        bestD = d;
+        best = t;
+      }
+    }
+    if (!best) {
+      return null;
+    }
+    for (i = 0; i < cityTiles.length; i++) {
+      if (cityTiles[i].q === best.q && cityTiles[i].r === best.r) {
+        return cityTiles[i];
+      }
+    }
+    return null;
+  }
+
+  function pickGoal(agent) {
+    var here = tileForAgent(agent);
+    var options = [];
+    var i;
+    for (i = 0; i < cityTiles.length; i++) {
+      var tile = cityTiles[i];
+      if (!tile.edges.length) {
+        continue;
+      }
+      if (here && hexDistTiles(here, tile) < 2) {
+        continue;
+      }
+      options.push(tile);
+    }
+    if (!options.length) {
+      for (i = 0; i < cityTiles.length; i++) {
+        if (cityTiles[i].edges.length && cityTiles[i] !== here) {
+          options.push(cityTiles[i]);
+        }
+      }
+    }
+    if (!options.length) {
+      return null;
+    }
+    var tile = options[Math.floor(Math.random() * options.length)];
+    var edge = tile.edges[Math.floor(Math.random() * tile.edges.length)];
+    return { from: edge.from, to: edge.to, id: edge.id, q: tile.q, r: tile.r };
+  }
+
+  function distToNode(target) {
+    var dist = {};
+    var queue = [target];
+    dist[target] = 0;
+    var head = 0;
+    while (head < queue.length) {
+      var key = queue[head];
+      head += 1;
+      var node = graph.nodes[key];
+      if (!node) {
+        continue;
+      }
+      var n;
+      for (n = 0; n < node.next.length; n++) {
+        var nb = node.next[n];
+        if (String(nb).indexOf("rim-") === 0 || dist[nb] != null) {
+          continue;
+        }
+        dist[nb] = dist[key] + 1;
+        queue.push(nb);
+      }
+    }
+    return dist;
+  }
+
+  function nextToward(atKey, prevKey, goal) {
+    if (!goal) {
+      return chooseNext(atKey, prevKey, null);
+    }
+    if (atKey === goal.from) {
+      return goal.to;
+    }
+    var dist = distToNode(goal.from);
+    var node = graph.nodes[atKey];
+    if (!node) {
+      return chooseNext(atKey, prevKey, null);
+    }
+    var best = null;
+    var bestD = 1e9;
+    var i;
+    for (i = 0; i < node.next.length; i++) {
+      var nb = node.next[i];
+      if (String(nb).indexOf("rim-") === 0) {
+        continue;
+      }
+      if (nb === prevKey && node.next.length > 1) {
+        continue;
+      }
+      var d = dist[nb];
+      if (d == null || d >= bestD) {
+        continue;
+      }
+      bestD = d;
+      best = nb;
+    }
+    return best || chooseNext(atKey, prevKey, null);
+  }
+
+  function activeCap() {
+    return Math.max(6, Math.round((CAR_COUNT || 16) * densityMul()));
+  }
+
+  function activeCount() {
+    var n = 0;
+    var i;
+    for (i = 0; i < cars.length; i++) {
+      var mode = cars[i].mode;
+      if (mode === "drive" || mode === "out" || mode === "in" || (mode === "wait" && cars[i].goal)) {
+        n += 1;
+      }
+    }
+    return n;
+  }
+
+  function stepAgent(agent, dt, time, slow) {
+    if (!slow && String(agent.to).indexOf("rim-") === 0) {
+      agent.to = chooseNext(agent.from, agent.prevKey, agent);
+      agent.plan = chooseNext(agent.to, agent.from, agent);
+      agent.edgePlanned = false;
+    }
+    var dest = graph.nodes[agent.to];
+    var red = !slow && dest && dest.next.length >= 3 && lightIsRed(agent.to, time);
+    var gap = slow ? 1 : carGap(agent);
+    var win = turnWindow(agent.kind);
+    var holdAt = win.inU - 0.035;
+    if (red && agent.u >= holdAt - 0.16 && agent.u < win.inU) {
+      if (agent.u >= holdAt - 0.008) {
+        agent.speed = 0;
         return;
       }
+      agent.speed = 0.07;
+      agent.u = Math.min(holdAt, agent.u + agent.speed * dt);
+      return;
+    }
+    if (gap < 0.2) {
+      agent.speed = Math.max(0, (agent.speed || 0) - dt * 2.4);
     } else {
-      var cruise = agent.cruise || agent.speed || 0.2;
-      agent.speed += (cruise - agent.speed) * Math.min(1, dt * 1.8);
+      var cruise = agent.cruise || 0.22;
+      agent.speed = (agent.speed || 0) + (cruise - (agent.speed || 0)) * Math.min(1, dt * 2);
     }
-    agent.u += Math.max(0.02, agent.speed) * dt;
-    var hops = 0;
-    while (agent.u >= 1 && hops < 8) {
-      agent.u -= 1;
-      hops += 1;
-      var prev = agent.from;
-      agent.from = agent.to;
-      agent.to = pickNext(agent.from, prev);
-    }
+    agent.u += Math.max(0, agent.speed) * dt;
     if (agent.u >= 1) {
-      agent.u = 0;
+      var keptTurn = agent.turn || 0;
+      agent.prevKey = agent.from;
+      agent.u = 0.004;
+      agent.legs = (agent.legs || 0) + 1;
+      agent.from = agent.to;
+      if (agent.goal && agent.legs > 24) {
+        agent.goal = pickGoal(agent);
+        agent.legs = 0;
+      }
+      if (agent.goal) {
+        agent.to = nextToward(agent.from, agent.prevKey, agent.goal);
+        agent.plan = nextToward(agent.to, agent.from, agent.goal);
+      } else {
+        agent.to = agent.plan || chooseNext(agent.from, agent.prevKey, agent);
+        if (String(agent.to).indexOf("rim-") === 0) {
+          agent.to = chooseNext(agent.from, agent.prevKey, agent);
+        }
+        agent.plan = chooseNext(agent.to, agent.from, agent);
+      }
+      agent.turn = keptTurn;
+      agent.edgePlanned = false;
     }
+  }
+
+  function advanceManeuver(car, dt, intoPark) {
+    var dur = intoPark ? 2.6 : 2.3;
+    car.maneuver = Math.min(1, (car.maneuver || 0) + dt / dur);
+    var s = car.maneuver;
+    var swept = s < 0.34 ? (s / 0.34) * 0.1 : 0.1 + 0.9 * ((s - 0.34) / 0.66);
+    swept = Math.max(0, Math.min(1, swept));
+    var fromLane = car.maneuverFromLane;
+    var toLane = intoPark ? parkLane(car.kind) : driveLane(car.kind);
+    car.lane = fromLane + (toLane - fromLane) * swept;
+    var gain = intoPark ? 0.11 : 0.2;
+    car.u = Math.max(0.05, Math.min(0.93, (car.maneuverFromU || car.u) + s * gain));
+    car.yaw = (intoPark ? -1 : 1) * Math.sin(s * Math.PI) * 0.95;
+    car.turn = intoPark ? 1 : -1;
+    return s >= 1;
+  }
+
+  function beginManeuver(car, mode) {
+    car.mode = mode;
+    car.maneuver = 0;
+    car.maneuverFromU = car.u;
+    car.maneuverFromLane = car.lane;
+    car.yaw = 0;
+    car.speed = mode === "in" ? Math.min(car.speed || 0.12, 0.14) : 0.08;
   }
 
   function updateCars(dt, time) {
@@ -2698,40 +3632,99 @@ window.Nexus = window.Nexus || {};
     }
     var lit = 0;
     var i;
+    var pending = [];
+    for (i = 0; i < cars.length; i++) {
+      var ahead = cars[i];
+      if (ahead.mode === "drive" && !ahead.edgePlanned && ahead.u > 0.36 && ahead.u < 0.72) {
+        pending.push(ahead);
+      }
+    }
+    pending.sort(function (a, b) { return b.u - a.u; });
+    for (i = 0; i < pending.length; i++) {
+      if (pending[i].goal) {
+        pending[i].plan = nextToward(pending[i].to, pending[i].from, pending[i].goal);
+      } else {
+        pending[i].plan = chooseNext(pending[i].to, pending[i].from, pending[i]);
+      }
+      pending[i].edgePlanned = true;
+    }
     for (i = 0; i < cars.length; i++) {
       var car = cars[i];
       if (car.mode === "park") {
         car.parkLeft -= dt;
         car.speed = 0;
+        car.lane = parkLane(car.kind);
+        if (car.brakeHold > 0) {
+          car.brakeHold -= dt;
+        }
         if (car.parkLeft <= 0) {
-          car.mode = "out";
-          car.laneTarget = 0.38 * car.laneSign;
+          if (activeCount() >= activeCap()) {
+            car.parkLeft = 3 + Math.random() * 6;
+          } else {
+            car.goal = pickGoal(car);
+            if (!car.goal) {
+              car.parkLeft = 8;
+            } else {
+              car.mode = "wait";
+              car.turn = -1;
+              car.yaw = 0;
+            }
+          }
+        }
+      } else if (car.mode === "wait") {
+        car.speed = 0;
+        car.turn = -1;
+        car.yaw = 0;
+        car.lane = parkLane(car.kind);
+        if (laneClear(car)) {
+          beginManeuver(car, "out");
         }
       } else if (car.mode === "out") {
-        car.lane += ((car.laneTarget || 0) - car.lane) * Math.min(1, dt * 2.6);
-        stepAgent(car, dt * 0.45, time, car.kind === "bike");
-        if (Math.abs(car.lane - car.laneTarget) < 0.05) {
+        if ((car.maneuver || 0) < 0.14 && !laneClear(car)) {
+          car.mode = "wait";
+          car.lane = parkLane(car.kind);
+          car.u = car.maneuverFromU || car.u;
+          car.yaw = 0;
+          car.turn = -1;
+        } else if (advanceManeuver(car, dt, false)) {
           car.mode = "drive";
-          car.driveT = 5 + (car.slot % 4);
+          car.lane = driveLane(car.kind);
+          car.yaw = 0;
+          car.bay = null;
+          car.speed = car.cruise || 0.16;
+          car.turn = 0;
+          car.edgePlanned = false;
+          car.legs = 0;
+          if (!car.goal) {
+            car.goal = pickGoal(car);
+          }
+          car.plan = car.goal ? nextToward(car.to, car.from, car.goal) : chooseNext(car.to, car.from, car);
         }
       } else if (car.mode === "in") {
-        var curb = 0.98 * car.laneSign;
-        car.lane += (curb - car.lane) * Math.min(1, dt * 2.6);
-        car.speed = Math.max(0, car.speed - dt * 1.4);
-        if (Math.abs(car.lane - curb) < 0.06) {
+        car.speed = Math.max(0.04, (car.speed || 0.1) * 0.92);
+        if (advanceManeuver(car, dt, true)) {
           car.mode = "park";
-          car.parkLeft = 2.2 + (car.slot % 5);
-          car.lane = curb;
+          car.lane = parkLane(car.kind);
+          car.yaw = 0;
           car.speed = 0;
+          car.parkLeft = 26 + Math.random() * 34;
+          car.brakeHold = 1.6;
+          car.turn = 0;
         }
       } else {
-        stepAgent(car, dt, time, car.kind === "bike");
-        car.driveT = (car.driveT || 5) - dt;
-        if (car.driveT <= 0 && car.u > 0.18 && car.u < 0.62 && car.kind !== "bus") {
-          car.mode = "in";
+        stepAgent(car, dt, time, false);
+        car.yaw = 0;
+        if (car.goal && car.from === car.goal.from && car.to === car.goal.to && car.u > 0.32 && car.u < 0.78) {
+          if (claimBay(car)) {
+            beginManeuver(car, "in");
+          } else {
+            car.goal = pickGoal(car);
+            car.plan = car.goal ? nextToward(car.to, car.from, car.goal) : car.plan;
+            car.edgePlanned = true;
+          }
         }
       }
-      var spot = placeOnEdge(car.from, car.to, car.u, car.lane);
+      var spot = poseAgent(car);
       var mesh = fleet[car.kind];
       if (!spot || !mesh) {
         continue;
@@ -2741,14 +3734,59 @@ window.Nexus = window.Nexus || {};
       dummy.scale.set(1, 1, 1);
       dummy.updateMatrix();
       mesh.setMatrixAt(car.slot, dummy.matrix);
-      if (night && headMesh && car.kind !== "bike") {
+      if (blinkMesh) {
+        var blinking = car.turn && (car.u > 0.48 || car.u < 0.3 || car.mode === "in" || car.mode === "out" || car.mode === "wait") && Math.floor(time * 3.2) % 2 === 0;
+        if (!blinking) {
+          dummy.scale.set(0.001, 0.001, 0.001);
+          dummy.updateMatrix();
+          blinkMesh.setMatrixAt(i, dummy.matrix);
+        } else {
+          var nose = Math.sin(spot.ang);
+          var noseZ = Math.cos(spot.ang);
+          var side = car.turn > 0 ? 1 : -1;
+          dummy.position.set(
+            spot.x + -noseZ * side * 0.42 + nose * 0.85,
+            ROAD_Y + 0.48,
+            spot.z + nose * side * 0.42 + noseZ * 0.85
+          );
+          dummy.rotation.set(0, spot.ang, 0);
+          dummy.scale.set(0.14, 0.08, 0.16);
+          dummy.updateMatrix();
+          blinkMesh.setMatrixAt(i, dummy.matrix);
+        }
+      }
+      if (brakeMesh) {
+        var braking =
+          car.mode === "in" ||
+          car.mode === "wait" ||
+          (car.mode === "park" && car.brakeHold > 0) ||
+          (car.mode === "drive" && car.speed < (car.cruise || 0.2) * 0.62);
+        if (!braking) {
+          dummy.scale.set(0.001, 0.001, 0.001);
+          dummy.updateMatrix();
+          brakeMesh.setMatrixAt(i, dummy.matrix);
+        } else {
+          var rear = car.kind === "bus" ? 1.92 : car.kind === "van" ? 1.12 : 0.96;
+          dummy.position.set(
+            spot.x - Math.sin(spot.ang) * rear,
+            ROAD_Y + 0.58,
+            spot.z - Math.cos(spot.ang) * rear
+          );
+          dummy.rotation.set(0, spot.ang, 0);
+          dummy.scale.set(car.kind === "bus" ? 0.95 : 0.62, 0.2, 0.18);
+          dummy.updateMatrix();
+          brakeMesh.setMatrixAt(i, dummy.matrix);
+        }
+      }
+      if (night && headMesh && car.kind !== "bike" && car.mode !== "park" && car.mode !== "wait") {
+        var nose = car.kind === "bus" ? 1.15 : 0.72;
         dummy.position.set(
-          spot.x + Math.sin(spot.ang) * 1.35,
-          ROAD_Y + 0.42,
-          spot.z + Math.cos(spot.ang) * 1.35
+          spot.x + Math.sin(spot.ang) * nose,
+          ROAD_Y + 0.36,
+          spot.z + Math.cos(spot.ang) * nose
         );
-        dummy.rotation.set(Math.PI / 2, 0, spot.ang + Math.PI);
-        dummy.scale.set(1, 1.8, 1);
+        dummy.rotation.set(0, spot.ang, 0);
+        dummy.scale.set(1, 1, 1);
         dummy.updateMatrix();
         headMesh.setMatrixAt(lit, dummy.matrix);
         lit += 1;
@@ -2757,6 +3795,12 @@ window.Nexus = window.Nexus || {};
     Object.keys(fleet).forEach(function (kind) {
       if (fleet[kind]) fleet[kind].instanceMatrix.needsUpdate = true;
     });
+    if (blinkMesh) {
+      blinkMesh.instanceMatrix.needsUpdate = true;
+    }
+    if (brakeMesh) {
+      brakeMesh.instanceMatrix.needsUpdate = true;
+    }
     if (headMesh) {
       dummy.scale.set(0.001, 0.001, 0.001);
       dummy.updateMatrix();
@@ -3382,7 +4426,12 @@ window.Nexus = window.Nexus || {};
       return;
     }
     if (cityPhase && cityPhase !== "done" && lastState) {
-      stepCity(lastState, lastUi || {});
+      try {
+        stepCity(lastState, lastUi || {});
+      } catch (err) {
+        Nexus._cityError = String((err && err.stack) || err);
+        cityPhase = "done";
+      }
     }
     var dt = Math.min(0.05, clock.getDelta());
     var time = clock.elapsedTime;
@@ -4000,6 +5049,95 @@ window.Nexus = window.Nexus || {};
 
   Nexus.Board3D = {
     sync: sync,
+    pump: function (steps, carFrames) {
+      var n = steps || 30;
+      var i;
+      for (i = 0; i < n; i++) {
+        if (!cityPhase || cityPhase === "done" || !lastState) {
+          break;
+        }
+        stepCity(lastState, lastUi || {});
+      }
+      try {
+        var frames = carFrames == null ? 50 : carFrames;
+        var t = 0;
+        var s;
+        for (s = 0; s < frames; s++) {
+          updateCars(0.05, t);
+          t += 0.05;
+        }
+      } catch (err) {
+        Nexus._carError = String((err && err.stack) || err);
+      }
+      if (renderer && scene && camera) {
+        renderer.render(scene, camera);
+      }
+      return cityPhase;
+    },
+    trafficReport: function () {
+      var modes = { park: 0, wait: 0, out: 0, "in": 0, drive: 0 };
+      var rim = 0;
+      var offShoulder = 0;
+      var mix = {};
+      var offBoard = 0;
+      var goals = 0;
+      cars.forEach(function (c) {
+        if (c.goal) goals += 1;
+        modes[c.mode] = (modes[c.mode] || 0) + 1;
+        if (String(c.from).indexOf("rim-") === 0 || String(c.to).indexOf("rim-") === 0) {
+          rim += 1;
+        }
+        if ((c.mode === "park" || c.mode === "wait" || c.mode === "in") && !shoulderOk(c.from, c.to)) {
+          offShoulder += 1;
+        }
+        if (c.mode === "park" || c.mode === "wait") {
+          if (!shoulderOnBoard(c.from, c.to)) {
+            offBoard += 1;
+          }
+        }
+        if (c.bay) {
+          mix[c.bay] = mix[c.bay] || { cars: 0, bus: 0 };
+          if (c.kind === "bus") mix[c.bay].bus += 1;
+          else mix[c.bay].cars += 1;
+        }
+      });
+      var badBay = 0;
+      Object.keys(mix).forEach(function (id) {
+        var b = mix[id];
+        if ((b.bus && b.cars) || b.bus > 1 || b.cars > 2) badBay += 1;
+      });
+      return {
+        n: cars.length,
+        modes: modes,
+        rim: rim,
+        offShoulder: offShoulder,
+        offBoard: offBoard,
+        badBay: badBay,
+        bays: Object.keys(mix).length,
+        active: activeCount(),
+        cap: activeCap(),
+        goals: goals
+      };
+    },
+    setEdgeUse: function (fromKey, toKey, use) {
+      assignEdgeUse(fromKey, toKey, use);
+    },
+    edgeUse: function (fromKey, toKey) {
+      return edgeUse(fromKey, toKey);
+    },
+    snapView: function (distance) {
+      if (distance) {
+        cam.distance = distance;
+        cam.targetDistance = distance;
+      }
+      cam.polar = cam.targetPolar;
+      cam.panX = cam.targetPanX;
+      cam.panZ = cam.targetPanZ;
+      applyCamera();
+      if (renderer && scene && camera) {
+        renderer.render(scene, camera);
+      }
+    },
     projectCause: projectCause,
     setPitch: function (value) {
       cam.pitchSlider = Math.max(0, Math.min(100, Number(value) || 58));

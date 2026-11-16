@@ -107,28 +107,26 @@ window.Nexus = window.Nexus || {};
     return "";
   }
 
+  var ROLE_PORTRAIT = {
+    climate: "assets/portraits/mira.webp",
+    privacy: "assets/portraits/isabella.webp",
+    investor: "assets/portraits/maria.webp",
+    visionary: "assets/portraits/juergen.webp",
+    networker: "assets/portraits/thomas.webp",
+    controller: "assets/portraits/heinz.webp"
+  };
+
   Nexus.roleAvatarSvg = function (roleId, size) {
-    var conf = ROLE_AVATAR[roleId] || ROLE_AVATAR.controller;
+    var src = ROLE_PORTRAIT[roleId] || ROLE_PORTRAIT.climate;
     var s = size || 48;
     return (
-      '<svg class="role-avatar-svg" viewBox="4 2 44 44" width="' +
+      '<img class="role-avatar-svg" src="' +
+      src +
+      '" width="' +
       s +
       '" height="' +
       s +
-      '" aria-hidden="true">' +
-      '<circle cx="26" cy="24" r="20" fill="' +
-      conf.accent +
-      '" opacity="0.45"/>' +
-      '<circle cx="26" cy="26" r="12" fill="' +
-      conf.skin +
-      '"/>' +
-      '<path d="M14 24 Q26 8 38 24 Q33 16 26 16 Q19 16 14 24Z" fill="' +
-      conf.hair +
-      '"/>' +
-      '<circle cx="22" cy="26" r="1.3" fill="#2a241c"/>' +
-      '<circle cx="30" cy="26" r="1.3" fill="#2a241c"/>' +
-      accessoryMarkup(conf.accessory, conf.accent) +
-      "</svg>"
+      '" alt="" />'
     );
   };
 

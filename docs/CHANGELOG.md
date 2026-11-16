@@ -4,6 +4,14 @@ Neueste Welle zuerst. Das ist die **Geschichte** des spielbaren Stands — nicht
 
 Neue spielbare Welle: hier einen Block anlegen (Datum, Branch, Warum, Regeln, Grafik). DESIGN nur ändern, wenn sich der Vertrag ändert.
 
+## UI Rework — Flächen weg, kein Würfel (2026-11-16)
+
+Straßen sind etwas breiter, die Fläche um die Gebäude schrumpft, die Gebäude selbst bleiben. Schilder stehen dichter und nur auf dem Brett. Kurven beginnen vor der Kreuzung und folgen dem Bogen. Ausparken lenkt im S auf die Spur, statt seitlich zu rutschen. Am Rand parkt nur die Spur ins Feld. Parkzeiten und Fahrstrecken sind länger, mehr Autos stehen. Kanten können als Haltestelle oder Parkplatz reserviert werden.
+
+Karten stehen hochkant in drei Blöcken: Titel, Kosten, Effekt. Spieler tragen die gezeichneten Porträts, rund beschnitten. Ziele sind Anweisungen mit Punkten. Darstellung nutzt Flächen für Licht und Untergrund und eine Stufenleiste für die Grafik.
+
+Die Leisten oben, rechts und unten sind keine Flächen mehr. Karten und der Zugknopf schweben. Die obere Reihe skaliert, bis sie in die Breite passt. Sprites auf der Straße sind Mini-Modelle (Busch, Tonne, Bank, je drei Varianten), die Straße hat eine Textur, es fahren mehr Autos und Busse. Der Würfelwurf ist raus: Ertrag ist der feste Basiswert, ein Ereignis kommt bei Risiko ab 8 und heißt beim Namen.
+
 ## UI Rework (2026-11-16)
 
 **Branch:** `ui-rework`, von `visual-fix-3` (`f115965`). Nicht nach `main` gemergt.

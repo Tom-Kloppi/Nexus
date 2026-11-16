@@ -30,7 +30,7 @@ window.Nexus = window.Nexus || {};
     version: 1,
     meshes: {},
     geometry: geometry,
-    scatter: function (group, zoneKey, q, r, count, rand, tileH) {
+    scatter: function (group, zoneKey, q, r, count, rand, tileH, color) {
       var names = Object.keys(Nexus.Fillers.meshes);
       if (!names.length || typeof THREE === "undefined") {
         return;
@@ -43,7 +43,7 @@ window.Nexus = window.Nexus || {};
         if (!geo) {
           continue;
         }
-        var mesh = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ color: "#c8c2b8" }));
+        var mesh = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ color: color || "#c8c2b8" }));
         var ang = rand() * Math.PI * 2;
         var dist = 1.6 + rand() * 2.2;
         mesh.position.set(Math.cos(ang) * dist, tileH || 0, Math.sin(ang) * dist);

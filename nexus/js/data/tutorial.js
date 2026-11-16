@@ -58,9 +58,9 @@ Nexus.TUTORIAL_STEPS = [
     section: "setup",
     scene: "setup",
     settings: "setup",
-    target: "#setup-screen .js-theme-toggle",
-    title: "Tageslicht",
-    body: "Der Schalter wechselt zwischen Tageslicht und Nachtstadt. Es ändern sich die Farben, keine verdeckten Angaben."
+    target: "#setup-screen .js-theme-pick",
+    title: "Licht",
+    body: "Tag und Nacht sind zwei Flächen. Es ändern sich die Farben, keine verdeckten Angaben."
   },
   {
     id: "setup-scale",

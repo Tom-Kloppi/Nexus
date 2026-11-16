@@ -123,9 +123,12 @@ Nexus.PRODUCTION_DICE = [
   { id: "boom", modifier: 2, weight: 1, label: "Boom", color: "#b89a6a" }
 ];
 
-/* Farbenblindfreundliche, klar getrennte Spielerfarben (Okabe–Ito-nah) */
-Nexus.PLAYER_COLORS = ["#009E73", "#E69F00", "#D55E00", "#0072B2", "#CC79A7", "#56B4E9"];
-Nexus.PLAYER_COLOR_NAMES = ["Grün", "Orange", "Rost", "Blau", "Rosa", "Himmel"];
+/* Themenfarben der Figuren, in derselben Reihenfolge wie ALL_ROLE_IDS.
+   Mira grün, Isabella rot, Maria gelb, Weiß weiß, Smurf blau, Heinz schwarz. */
+Nexus.PLAYER_COLORS = ["#3FAE5A", "#D4534A", "#E0B33A", "#F7F4EC", "#3A78D8", "#2B2B2E"];
+Nexus.PLAYER_PASTELS = ["#C9E8CF", "#F3C9C6", "#F6E6B8", "#F7F5F1", "#C9DCF6", "#C4C4CA"];
+Nexus.PLAYER_COLOR_NAMES = ["Grün", "Rot", "Gelb", "Weiß", "Blau", "Schwarz"];
+Nexus.UNCLAIMED_GRAY = "#E2E2E2";
 
 Nexus.GAME_LENGTHS = [
   { id: "short", label: "Kurz", rounds: 15 },
