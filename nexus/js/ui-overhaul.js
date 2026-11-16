@@ -212,21 +212,61 @@ window.Nexus = window.Nexus || {};
     api.commit(next);
   }
 
+  function fxMarkup(bits) {
+    return (bits || [])
+      .map(function (bit) {
+        var sign = bit.amount > 0 ? "+" : "";
+        var icon = Nexus.iconGroup
+          ? '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">' + Nexus.iconGroup(bit.key, "currentColor") + "</svg>"
+          : "";
+        return '<i class="fx-bit' + (bit.amount < 0 ? " is-down" : " is-up") + '">' + icon + "<b>" + sign + bit.amount + "</b></i>";
+      })
+      .join("");
+  }
+
+  function paintAction(action, onClick) {
+    var button = document.createElement("button");
+    button.type = "button";
+    button.className = "menu-tile";
+    button.disabled = !action.enabled;
+    var help = action.enabled ? action.why || "" : action.reason || action.why || "";
+    button.setAttribute("data-help-title", action.label);
+    button.setAttribute("data-help", help);
+    button.innerHTML =
+      "<strong>" +
+      action.label +
+      "</strong><span class='tile-fx'>" +
+      (action.fx && action.fx.length ? fxMarkup(action.fx) : action.enabled ? "" : "<em>" + (action.reason || "Geht nicht") + "</em>") +
+      "</span>";
+    button.addEventListener("click", function (event) {
+      event.stopPropagation();
+      onClick();
+    });
+    menu.appendChild(button);
+  }
+
   function openPropulsion(action) {
     menu.innerHTML = "";
-    ["diesel", "electric", "renewable"].forEach(function (mode) {
-      var button = el("button", "", mode === "diesel" ? "Diesel" : mode === "electric" ? "Elektro" : "Elektro, erneuerbar");
-      button.addEventListener("click", function () {
-        applyAction({
-          id: "line",
-          enabled: true,
-          stops: lineDraft.slice(),
-          propulsion: mode,
-          zoneId: action.zoneId
-        });
-      });
-      menu.appendChild(button);
+    var choices = [
+      { mode: "diesel", label: "Diesel", fx: [{ key: "comfort", amount: 1 }], why: "Gibt der Linie +1 Komfort." },
+      { mode: "electric", label: "Elektro", fx: [{ key: "image", amount: 1 }], why: "Gibt +1 Image. Braucht Stromfläche, Ladesäule oder Parkhaus." },
+      { mode: "renewable", label: "Öko-Linie", fx: [{ key: "environment", amount: 1 }], why: "Gibt +1 Umwelt. Braucht Solar oder Speicher. Halte zählen für Mira." }
+    ];
+    choices.forEach(function (choice) {
+      paintAction(
+        { label: choice.label, enabled: true, why: choice.why, fx: choice.fx },
+        function () {
+          applyAction({
+            id: "line",
+            enabled: true,
+            stops: lineDraft.slice(),
+            propulsion: choice.mode,
+            zoneId: action.zoneId
+          });
+        }
+      );
     });
+    menu.hidden = false;
   }
 
   function openDeviceMenu() {
@@ -237,23 +277,9 @@ window.Nexus = window.Nexus || {};
       return;
     }
     offers.forEach(function (action) {
-      var button = document.createElement("button");
-      button.disabled = !action.enabled;
-      button.appendChild(document.createTextNode(action.label));
-      if (action.why || action.reason) {
-        button.appendChild(el("span", "why", action.enabled ? action.why : action.reason));
-      }
-      button.addEventListener("click", function (event) {
-        event.stopPropagation();
-        if (action.id === "devices-home") {
-          api.getUi().homeOpen = true;
-          api.commit(api.getState());
-          closeMenu();
-          return;
-        }
+      paintAction(action, function () {
         applyAction(action);
       });
-      menu.appendChild(button);
     });
     menu.hidden = false;
   }
@@ -265,24 +291,33 @@ window.Nexus = window.Nexus || {};
       return;
     }
     actions.forEach(function (action) {
-      var button = document.createElement("button");
-      button.disabled = !action.enabled;
-      button.innerHTML = "";
-      button.appendChild(document.createTextNode(action.label));
-      if (action.why || action.reason) {
-        button.appendChild(el("span", "why", action.enabled ? action.why : action.reason));
-      }
-      button.addEventListener("click", function (event) {
-        event.stopPropagation();
+      paintAction(action, function () {
         action.hit = hit;
         var zone = Nexus.FieldActions.zoneAtHit(api.getState(), hit);
         action.zoneId = zone && zone.id;
         applyAction(action);
       });
-      menu.appendChild(button);
     });
     menu.hidden = false;
-    place(menu, x, y);
+    placeMenu(x, y);
+  }
+
+  function placeMenu(x, y) {
+    menu.style.left = "0px";
+    menu.style.top = "0px";
+    var width = Math.min(menu.offsetWidth || 420, window.innerWidth - 24);
+    var height = menu.offsetHeight || 88;
+    var left = Math.min(window.innerWidth - width - 12, Math.max(8, x - width / 2));
+    var top = y - height - 14;
+    var floor = window.innerHeight - 118 - height;
+    if (top > floor) {
+      top = Math.max(72, floor);
+    }
+    if (top < 64) {
+      top = 64;
+    }
+    menu.style.left = left + "px";
+    menu.style.top = top + "px";
   }
 
   function renderFan(state) {
@@ -294,22 +329,27 @@ window.Nexus = window.Nexus || {};
       button.className = "project-card";
       button.style.setProperty("--tilt", (index - 1) * 4 + "deg");
       button.disabled = !offer.allowed;
-      var costBits = [];
+      var costFx = [];
       Object.keys(offer.cost || {}).forEach(function (key) {
         if (offer.cost[key]) {
-          costBits.push(offer.cost[key] + " " + (Nexus.RESOURCE_SHORT[key] || key));
+          costFx.push({ key: key, amount: -offer.cost[key] });
         }
       });
+      var gainFx = [];
+      Object.keys(card.effects || {}).forEach(function (key) {
+        if (card.effects[key]) {
+          gainFx.push({ key: key, amount: card.effects[key] });
+        }
+      });
+      button.className = "project-card cat-" + (card.category || "general");
       button.innerHTML =
         "<strong>" +
         card.name +
-        "</strong><small>" +
-        (card.text || "") +
-        "</small><span class='project-cost'>" +
-        (costBits.join(", ") || "kostenlos") +
+        "</strong><span class='tile-fx'>" +
+        fxMarkup(gainFx.concat(costFx)) +
         "</span>";
       button.setAttribute("data-help-title", card.name);
-      button.setAttribute("data-help", (card.text || "") + (offer.reason ? " " + offer.reason : ""));
+      button.setAttribute("data-help", (card.text || "") + (offer.reason && !offer.allowed ? " " + offer.reason : ""));
       button.addEventListener("click", function () {
         if (!offer.allowed) {
           Nexus.Sfx.play("error");
@@ -334,14 +374,13 @@ window.Nexus = window.Nexus || {};
       button.className = "uno-card cat-" + (card.category || "general");
       var tilt = hand.length === 1 ? 0 : -14 + index * spread;
       button.style.setProperty("--tilt", tilt.toFixed(1) + "deg");
-      var effects = card.effects || {};
-      var bits = [];
-      Object.keys(effects).forEach(function (key) {
-        if (!effects[key]) return;
-        var sign = effects[key] > 0 ? "+" : "";
-        bits.push("<b>" + sign + effects[key] + "</b> " + key);
+      var handFx = [];
+      Object.keys(card.effects || {}).forEach(function (key) {
+        if (card.effects[key]) {
+          handFx.push({ key: key, amount: card.effects[key] });
+        }
       });
-      button.innerHTML = "<strong>" + card.name + "</strong><span class=\"uno-fx\">" + bits.join(" ") + "</span>";
+      button.innerHTML = "<strong>" + card.name + "</strong><span class=\"uno-fx\">" + fxMarkup(handFx) + "</span>";
       button.setAttribute("data-help-title", card.name);
       button.setAttribute("data-help", card.text || "");
       button.title = card.text || card.name;
@@ -364,7 +403,7 @@ window.Nexus = window.Nexus || {};
     var player = Nexus.currentPlayer(state);
     var mark = player ? Nexus.Arc.milestone(state, player) : null;
     chapter.hidden = false;
-    chapter.innerHTML = "<strong>" + (state.chapterIndex || "") + " " + (state.chapterTitle || "") + "</strong> " + (mark ? mark.text : "");
+    chapter.innerHTML = "<strong>" + (state.chapterIndex || "") + "</strong> " + (state.chapterTitle || "");
   }
 
   function renderEnd(state) {

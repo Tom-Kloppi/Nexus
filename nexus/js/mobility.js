@@ -442,7 +442,7 @@ window.Nexus = window.Nexus || {};
     } else if (propulsion === "diesel") {
       scores = bump(scores, { comfort: 1 });
     } else {
-      scores = bump(scores, { environment: 0 });
+      scores = bump(scores, { image: 1 });
     }
     if (foreign > 0) {
       scores = bump(scores, { image: 1 });

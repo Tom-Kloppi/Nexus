@@ -109,6 +109,10 @@ window.Nexus = window.Nexus || {};
         return player.saeLevel || 0;
       case "localDeviceCount":
         return localDeviceCount(player);
+      case "secureDatacenters":
+        return (state.zones || []).filter(function (zone) {
+          return zone.ownerId === player.id && zone.type === "datacenter" && zone.variant === "secure";
+        }).length;
       case "innovationCardsTotal":
         return player.innovationCardsTotal || 0;
       case "openStandardStreak":
@@ -147,13 +151,8 @@ window.Nexus = window.Nexus || {};
     standardsBonusVolume: 1.2
   };
 
-  function metricScaleForPlayerCount(metricKey, playerCount) {
-    if (playerCount <= 2) {
-      return TWO_PLAYER_METRIC_SCALE[metricKey] || 1;
-    }
-    if (playerCount >= 5) {
-      return HIGH_PLAYER_METRIC_SCALE[metricKey] || 1;
-    }
+  function metricScaleForPlayerCount() {
+    /* Die Zahl auf der Karte ist die Zahl. Kein stiller 2p-/6p-Faktor. */
     return 1;
   }
 
@@ -172,27 +171,25 @@ window.Nexus = window.Nexus || {};
   }
 
   function evaluateSubGoal(subGoal, metricValue) {
-    var stage = 0;
-    var percent = 0;
-    var i;
-    for (i = 0; i < subGoal.steps.length; i++) {
-      var step = subGoal.steps[i];
-      var met = subGoal.higherIsBetter
-        ? metricValue >= step.metricValue
-        : metricValue <= step.metricValue;
-      if (met) {
-        stage = step.stage;
-        percent = step.cumulativePercent;
-      }
-    }
+    var need = subGoal.need || subGoal.steps[subGoal.steps.length - 1].metricValue;
+    var worth = subGoal.worth || 1;
+    var haveRaw = metricValue || 0;
+    var units = Math.max(0, Math.min(haveRaw, need));
+    var points = units * worth;
+    var percent = Math.min(subGoal.maxContribution, points * 10);
     return {
       id: subGoal.id,
       label: subGoal.label,
-      metricValue: metricValue,
-      currentStage: stage,
+      metricValue: haveRaw,
+      have: units,
+      need: need,
+      worth: worth,
+      points: points,
+      maxPoints: Math.round(subGoal.maxContribution / 10),
+      currentStage: points > 0 ? 1 : 0,
       currentPercent: percent,
       maxContribution: subGoal.maxContribution,
-      higherIsBetter: subGoal.higherIsBetter
+      higherIsBetter: true
     };
   }
 
@@ -210,10 +207,15 @@ window.Nexus = window.Nexus || {};
     var totalPercent = subGoals.reduce(function (sum, goal) {
       return sum + goal.currentPercent;
     }, 0);
+    var points = subGoals.reduce(function (sum, goal) {
+      return sum + goal.points;
+    }, 0);
     return {
       role: role,
       subGoals: subGoals,
-      totalPercent: totalPercent
+      totalPercent: totalPercent,
+      points: points,
+      target: 10
     };
   }
 
@@ -231,22 +233,13 @@ window.Nexus = window.Nexus || {};
     return String(metricValue);
   }
 
-  function nextStepHint(subGoal, metricValue, playerCount) {
-    var scaled = scaledSubGoal(subGoal, playerCount || 3);
-    var i;
-    for (i = 0; i < scaled.steps.length; i++) {
-      var step = scaled.steps[i];
-      var met = scaled.higherIsBetter
-        ? metricValue >= step.metricValue
-        : metricValue <= step.metricValue;
-      if (!met) {
-        var need = scaled.higherIsBetter
-          ? step.metricValue
-          : "≤ " + step.metricValue;
-        return "Stufe " + step.stage + ": " + need;
-      }
+  function nextStepHint(subGoal, metricValue) {
+    var need = subGoal.need || subGoal.steps[subGoal.steps.length - 1].metricValue;
+    var have = Math.max(0, Math.min(metricValue || 0, need));
+    if (have >= need) {
+      return have + "/" + need + " voll";
     }
-    return "Max. Stufe erreicht";
+    return have + "/" + need + " · jeder Punkt zählt " + (subGoal.worth || 1);
   }
 
   Nexus.assignRoles = assignRoles;

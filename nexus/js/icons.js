@@ -19,7 +19,12 @@ window.Nexus = window.Nexus || {};
     data: '<ellipse cx="12" cy="6" rx="7" ry="3"/><path d="M5 6v6c0 1.7 3.1 3 7 3s7-1.3 7-3V6"/><path d="M5 12v6c0 1.7 3.1 3 7 3s7-1.3 7-3v-6"/>',
     compute: '<rect x="6" y="6" width="12" height="12" rx="2"/><path d="M9 3v3M15 3v3M9 18v3M15 18v3M3 9h3M3 15h3M18 9h3M18 15h3"/>',
     hardware: '<circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/>',
-    connectivity: '<path d="M5 12a7 7 0 0 1 14 0"/><path d="M8.5 12a3.5 3.5 0 0 1 7 0"/><circle cx="12" cy="16" r="1.2" fill="currentColor" stroke="none"/>'
+    connectivity: '<path d="M5 12a7 7 0 0 1 14 0"/><path d="M8.5 12a3.5 3.5 0 0 1 7 0"/><circle cx="12" cy="16" r="1.2" fill="currentColor" stroke="none"/>',
+    image: '<circle cx="12" cy="9" r="3"/><path d="M6 19c1.2-3 3.2-4.2 6-4.2S16.8 16 18 19"/>',
+    comfort: '<path d="M12 20s-6.5-4-6.5-8.2a3.4 3.4 0 0 1 6.5-1.6 3.4 3.4 0 0 1 6.5 1.6C18.5 16 12 20 12 20z"/>',
+    environment: '<path d="M12 20V9"/><path d="M12 13c-3-.6-5-3-4-6 3 .2 4.5 2 4 6z"/><path d="M12 11c3-.6 5-2.6 4-5.5-3 .2-4.6 2-4 5.5z"/>',
+    security: '<path d="M12 3l7 3v6c0 4-3 6.2-7 8-4-1.8-7-4-7-8V6z"/>',
+    risk: '<path d="M12 4l8 14H4z"/><path d="M12 10v4"/>'
   };
 
   Nexus.iconGroup = function (key, stroke) {

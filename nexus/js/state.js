@@ -657,7 +657,8 @@ window.Nexus = window.Nexus || {};
       playedCards: (player.playedCards || []).concat([card])
     });
     return Object.assign({}, replacePlayer(state, player.id, nextPlayer), {
-      log: addLog(state, player.name, "Innovationskarte ausgespielt: " + card.name + ".")
+      log: addLog(state, player.name, "Karte ausgespielt: " + card.name + "."),
+      lastScoreCause: { kind: "card", label: card.name }
     });
   }
 
@@ -942,6 +943,7 @@ window.Nexus = window.Nexus || {};
     if (Nexus.Risk) {
       next = Nexus.Risk.syncState(next, { decay: false });
     }
+    next.lastScoreCause = { q: q, r: r, label: label };
     return next;
   }
 
@@ -1454,15 +1456,11 @@ window.Nexus = window.Nexus || {};
     if (state.turnPhase !== "role_reveal") {
       return state;
     }
-    var nextIndex = state.roleRevealIndex + 1;
-    if (nextIndex >= state.players.length) {
-      return Object.assign({}, state, {
-        turnPhase: "produce",
-        roleRevealIndex: state.players.length,
-        log: addLog(state, null, state.players[0].name + " beginnt.")
-      });
-    }
-    return Object.assign({}, state, { roleRevealIndex: nextIndex });
+    return Object.assign({}, state, {
+      turnPhase: "produce",
+      roleRevealIndex: state.players.length,
+      log: addLog(state, null, state.players[0].name + " beginnt.")
+    });
   }
 
   function roleRevealPlayer(state) {
@@ -1472,9 +1470,9 @@ window.Nexus = window.Nexus || {};
     return state.players[state.roleRevealIndex] || null;
   }
 
-  function isHotSeatShield(state) {
-    /* Reveal/Handoff: Rolle, Wallet, Versprechen-Details verdeckt. Geräte auf dem Brett sind öffentlich. */
-    return state.turnPhase === "role_reveal" || state.turnPhase === "handoff";
+  function isHotSeatShield() {
+    /* Geheimhaltung ist aufgehoben. Hot-Seat bleibt die Reihenfolge, nicht das Versteck. */
+    return false;
   }
 
   function remainingHarvestCount(state) {
@@ -1739,8 +1737,19 @@ window.Nexus = window.Nexus || {};
     if (envFromHarvest < -1) {
       envFromHarvest = -1;
     }
+    var harvestCause = null;
     if (envFromHarvest) {
       scores = bumpScores(scores, { environment: envFromHarvest });
+      state.spinningOutcomes.forEach(function (outcome) {
+        if (harvestCause || !outcome.yield || !outcome.yield.scoreHint || !outcome.yield.scoreHint.environment) {
+          return;
+        }
+        state.zones.forEach(function (zone) {
+          if (zone.id === outcome.zoneId) {
+            harvestCause = { q: zone.q, r: zone.r, label: "Ernte" };
+          }
+        });
+      });
     }
 
     var zones = state.zones.map(function (zone) {
@@ -1777,9 +1786,12 @@ window.Nexus = window.Nexus || {};
         next.log = addLog(
           next,
           player.name,
-          "Boom: Innovationskarte „" + boomGrant.cards[0].name + "“."
+          "Boom: Karte „" + boomGrant.cards[0].name + "“."
         );
       }
+    }
+    if (harvestCause) {
+      next.lastScoreCause = harvestCause;
     }
     return advanceAfterAllHarvest(next);
   }
@@ -2025,6 +2037,10 @@ window.Nexus = window.Nexus || {};
       }
     }
     next.log = addLog(next, player.name, logText);
+    var home = playerHomeZone(state, player.id);
+    next.lastScoreCause = home
+      ? { q: home.q, r: home.r, label: device.shortName }
+      : { kind: "card", label: device.shortName };
     return next;
   }
 
@@ -2218,22 +2234,10 @@ window.Nexus = window.Nexus || {};
   }
 
   function canTradeWith(fromPlayer, toPlayer) {
-    if (!fromPlayer.standardsChoice || !toPlayer.standardsChoice) {
-      return { allowed: false, reason: "Beide Spieler brauchen eine Standards-Wahl." };
+    if (!fromPlayer || !toPlayer) {
+      return { allowed: false, reason: "Partner fehlt." };
     }
-    if (fromPlayer.standardsChoice === "open" && toPlayer.standardsChoice === "open") {
-      return { allowed: true, reason: "" };
-    }
-    if (
-      fromPlayer.standardsChoice === "proprietary" &&
-      toPlayer.standardsChoice === "proprietary"
-    ) {
-      return { allowed: true, reason: "" };
-    }
-    return {
-      allowed: false,
-      reason: "Unterschiedliche Standards blockieren den Handel."
-    };
+    return { allowed: true, reason: "" };
   }
 
   function recordBlockedTradeAttempt(state, partnerId) {
@@ -2355,14 +2359,10 @@ window.Nexus = window.Nexus || {};
       offer.reason = "bad_amount";
       return offer;
     }
-    var givePremium = !hasRecentProduction(player, giveKey, state.round);
-    offer.flags.premiumSurcharge = givePremium;
-    offer.giveCost = tradeGiveAmount(giveAmount, givePremium);
+    offer.flags.premiumSurcharge = false;
+    offer.flags.openDiscount = false;
+    offer.giveCost = giveAmount;
     offer.wantGain = wantAmount;
-    if (player.standardsChoice === "open" && partner.standardsChoice === "open" && givePremium) {
-      offer.giveCost = Math.max(wantAmount, offer.giveCost - C.OPEN_STANDARD_DISCOUNT);
-      offer.flags.openDiscount = offer.giveCost < tradeGiveAmount(giveAmount, true);
-    }
     var spend = {};
     spend[giveKey] = offer.giveCost;
     if (!canAfford(player.resources, spend)) {
@@ -2605,6 +2605,7 @@ window.Nexus = window.Nexus || {};
       return failed;
     }
     var settled = settleStoredTrade(state, offer);
+    settled.lastScoreCause = { kind: "trade", label: "Handel" };
     return closeTradeResponse(settled, offerId, "accepted");
   }
 
@@ -2612,31 +2613,8 @@ window.Nexus = window.Nexus || {};
     return proposeTrade(state, partnerId, giveKey, giveAmount, wantKey, wantAmount);
   }
 
-  function setStandardsChoice(state, choice) {
-    if (state.turnPhase !== "build") {
-      return state;
-    }
-    if (state.beginner && choice === "proprietary") {
-      return state;
-    }
-    if (choice !== "open" && choice !== "proprietary") {
-      return state;
-    }
-    var player = currentPlayer(state);
-    if (player.standardsChoice === choice) {
-      return state;
-    }
-    var nextPlayer = Object.assign({}, player, {
-      standardsChoice: choice,
-      standardStreak: 0
-    });
-    var next = replacePlayer(state, player.id, nextPlayer);
-    next.log = addLog(
-      next,
-      player.name,
-      choice === "open" ? "Offener Standard gewählt." : "Proprietäres System gewählt."
-    );
-    return next;
+  function setStandardsChoice(state) {
+    return state;
   }
 
   function getSaeUpgradeCost(level, player) {
@@ -2982,24 +2960,62 @@ window.Nexus = window.Nexus || {};
   Nexus.confirmRiskRoll = confirmRiskRoll;
   Nexus.undo = undo;
   Nexus.pushUndo = pushUndo;
+  function stampCause(next, state, cause) {
+    if (!next || next === state || !cause) {
+      return next;
+    }
+    next.lastScoreCause = cause;
+    return next;
+  }
+
   Nexus.takeProject = function (state, index) {
     if (!Nexus.Projects) {
       return state;
     }
     var next = Nexus.Projects.take(state, index);
-    return next === state || !Nexus.Risk ? next : Nexus.Risk.syncState(next, { decay: false });
+    if (next !== state && Nexus.Risk) {
+      next = Nexus.Risk.syncState(next, { decay: false });
+    }
+    return stampCause(next, state, { kind: "card", label: "Karte" });
   };
   Nexus.placeBusStop = function (state, zoneId) {
     var next = Nexus.Mobility ? Nexus.Mobility.placeBusStop(state, zoneId) : state;
-    return next === state || !Nexus.Risk ? next : Nexus.Risk.syncState(next, { decay: false });
+    if (next !== state && Nexus.Risk) {
+      next = Nexus.Risk.syncState(next, { decay: false });
+    }
+    var zone = null;
+    (state.zones || []).forEach(function (item) {
+      if (item.id === zoneId) {
+        zone = item;
+      }
+    });
+    return stampCause(next, state, zone ? { q: zone.q, r: zone.r, label: "Halt" } : null);
   };
   Nexus.setTrafficMode = function (state, zoneId, mode) {
     var next = Nexus.Mobility ? Nexus.Mobility.setTrafficMode(state, zoneId, mode) : state;
-    return next === state || !Nexus.Risk ? next : Nexus.Risk.syncState(next, { decay: false });
+    if (next !== state && Nexus.Risk) {
+      next = Nexus.Risk.syncState(next, { decay: false });
+    }
+    var zone = null;
+    (state.zones || []).forEach(function (item) {
+      if (item.id === zoneId) {
+        zone = item;
+      }
+    });
+    return stampCause(next, state, zone ? { q: zone.q, r: zone.r, label: mode === "garage" ? "Parkhaus" : "Busbahnhof" } : null);
   };
   Nexus.openBusLine = function (state, stopZoneIds, propulsion) {
     var next = Nexus.Mobility ? Nexus.Mobility.openLine(state, stopZoneIds, propulsion) : state;
-    return next === state || !Nexus.Risk ? next : Nexus.Risk.syncState(next, { decay: false });
+    if (next !== state && Nexus.Risk) {
+      next = Nexus.Risk.syncState(next, { decay: false });
+    }
+    var zone = null;
+    (state.zones || []).forEach(function (item) {
+      if (stopZoneIds && item.id === stopZoneIds[0]) {
+        zone = item;
+      }
+    });
+    return stampCause(next, state, zone ? { q: zone.q, r: zone.r, label: "Linie" } : { kind: "line", label: "Linie" });
   };
   Nexus.canBuyDevice = canBuyDevice;
   Nexus.getInnovationDrawOffer = getInnovationDrawOffer;
@@ -3199,6 +3215,17 @@ window.Nexus = window.Nexus || {};
         throw new Error("role cap " + id + " " + sum);
       }
     });
+    var partialPlayer = {
+      id: "partial",
+      roleId: "climate",
+      scores: { image: 0, comfort: 0, environment: 3, security: 0 },
+      devices: {},
+      risk: 0
+    };
+    var partial = Nexus.computeRoleProgress({ players: [partialPlayer, { id: "other" }], zones: [], busLines: [] }, partialPlayer);
+    if (!partial || partial.points !== 3) {
+      throw new Error("partial goal " + (partial && partial.points));
+    }
     var fresh = startGame(3, "short");
     if (!fresh.projectMarket || fresh.projectMarket.length !== 3) {
       throw new Error("project market");

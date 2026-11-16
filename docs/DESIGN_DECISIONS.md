@@ -59,6 +59,18 @@ Mehrere Solarfarmen liefern weiter jeweils Energie. Die Umwelt-Spur bekommt dara
 
 Eine eigene Linie mit mindestens einem fremden Halt gibt +1 Image pro Zug, solange Image unter 8 liegt. Die fünfte Stufe des Gemeinwohl-Versprechens liegt bei 8, also genau an dieser Decke. Frühere Stufen bleiben bei 1, 2, 4 und 5.
 
+## UI Rework — sichtbar und kürzer
+
+Geheimhaltung ist aus. `isHotSeatShield` ist immer falsch. Die Rollenwahl ist eine gemeinsame Karte, die Übergabe ein Satz.
+
+Jede Rolle hat zwei Rechnungen und 10 Punkte. Ein Punkt ist 10 % in `computeRoleProgress`, damit der alte Siegpfad bleibt. Die Anzeige zeigt `haben/brauchen` und `Punkte/10`. Teilfortschritt ist linear, nicht mehr eine Stufe, die erst am Ende aufspringt. Der 2p-/6p-Faktor auf die Schwellen ist weg: die Zahl auf der Karte ist die Zahl.
+
+Ausbau und Abriss sind aus dem Feldmenü. Offen/proprietär ist aus: Handel geht immer, ohne Aufpreis und ohne Rabatt. Elektro gibt beim Linienbau +1 Image, Diesel +1 Komfort, erneuerbar +1 Umwelt. Assistenz bleibt die SAE-Leiter, heißt am Tisch Assistenz, und die Stufe steht als Pfosten auf der Linie. Die Linie selbst ist ein Streifen auf der gemeinsamen Kante, der Bus fährt auf diesem Streifen.
+
+Risiko rechnet weiter aus vier Ursachen. Die Fläche zeigt nur die größte und die Schwelle. Ereignisse hängen den Ursachenstapel nicht mehr an den Satz.
+
+Ein Punktflug dauert unter einer Sekunde, friert den Tisch nicht ein und nennt Spur und Menge. Ursache ist das Feld, die Karte oder der Handel.
+
 ## Was bewusst nicht gebaut wurde
 
 Kein Multiplayer. Der Server würfelt nur und liefert die Dateien aus. Keine neue Frontend-Bibliothek: Three bleibt vendored, UI bleibt HTML/CSS/JS. Neue Geräte-IDs gibt es nicht.

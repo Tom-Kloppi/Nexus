@@ -9,18 +9,18 @@ Diese Datei beschreibt, was das Spiel **im Code tun soll** laut [`DESIGN.md`](DE
 - 2 bis 6 Spieler, ein Gerät (Hot-Seat). Ab 4 Spielern Hex-Radius 4 statt 3; Homes auf den Ecken, nicht überlappend.
 - Spiellänge: Kurz 15 / Standard 20 / Lang 25 Runden.
 - Start: 3× Energie, Geld, Bandbreite; **Kontrollbüro** in einer Hex-Ecke; Startcoupon (erstes Feld kostenlos, muss im ersten Zug).
-- Sechs Wahlversprechen werden gemischt; nacheinander geheim anschauen, dann Spieler 1.
+- Sechs Rollen werden gemischt und einmal offen gezeigt. Danach beginnt Spieler 1.
 
 ## Ziel
 
-Kein Spurensummen-Rennen. Jedes Versprechen hat Unterziele (u. a. auf Image, Komfort, Umwelt, Sicherheit und abgeleiteten Metriken). Fortschritt in **Prozent**. ≥ 100 % nach voller Runde = Sofortsieg. Sonst höchster Prozentwert nach letzter Runde.
+Kein Spurensummen-Rennen. Jede Rolle hat zwei Rechnungen, zusammen 10 Punkte. Die Leiste zeigt `haben/brauchen` und `Punkte/10`. 10 Punkte nach einer vollen Runde = Sofortsieg. Sonst die meisten Punkte nach der letzten Runde.
 
 ## Ablauf eines Zugs
 
-1. Zugübergabe (private Infos verdeckt)
+1. „Du bist dran.“ Rollen, Ziele und Kassen bleiben sichtbar.
 2. Produktion automatisch zu Zugbeginn (eigene Fabriken + Home)
-3. Risiko: vier abgeleitete Zahlen, dann offener d100. Ereignis erklärt Ursache und Gegenmaßnahme. Im letzten Kapitel kann ein Großereignis kommen.
-4. Bauphase: Feldmenü (bauen, ausbauen, abreißen, Halt, Parkhaus, Busbahnhof, Linie, Cloud/lokal), drei offene Projektkarten, **Handelsangebot**, Standard, SAE, Zugende
+3. Risiko: eine Zahl, die größte Ursache, ein Satz. Dann der offene Wurf. Trifft er, ein Ereignis mit einer Lage, zwei Wahlen und einem Satz zum Zielkonflikt.
+4. Bauphase: Kacheln am Feld (Typ, Preis, Ertrag), drei offene Projektkarten, **Handelsangebot** mit beiden Kassen, Assistenz am Leitstand, Zugende. Kein Ausbau, kein Abriss, kein Standard.
 
 Cloud-Upkeep in Bandbreite. Ohne Zahlung: Cloud-Effekte in der Auswertung aus.
 
@@ -48,9 +48,7 @@ Radius 3 (2–3 Spieler) bzw. 4 (4–6 Spieler). Homes auf den Hex-Ecken (`homeP
 
 Solar nutzt PRODUCTION_DICE (Ausfall…Boom). Boom → grüne Innovationskarte. Neu gebautes Feld produziert erst nächste Runde.
 
-**Ausbau:** jedes eigene Feld Stufe 0–2. Jede Stufe +1 auf den Primärertrag (Home auf alle drei). Kosten laut `ZONE_UPGRADE_*`. Sichtbar am 3D-Gebäude.
-
-**Abriss:** Nicht-Home, Geld-Rückzahlung, nur wenn das restliche eigene Netz am Home hängt.
+**Ausbau und Abriss** sind nicht im Zug.
 
 **Brett-Rand:** Gewerbe / Hügel / Berge, kein Wasser-Catan. Ein Großbauwerk pro Kachel, Autos auf dem **geteilten Kantennetz** (von Feld zu Feld, nicht im Kreis um eine Parzelle). Ampeln an Kreuzungen sind Präsentation.
 
@@ -60,10 +58,11 @@ Cloud vs. lokal (Kosten nur noch in den 3 Ressourcen). Lokal → Risiko runter /
 
 ## Karten, Handel, Standards, SAE
 
-Projektmarkt: drei offene Karten, Kauf wirkt sofort, keine Pflicht-Hand. Förderkarten bleiben im Posteingang. SAE 0–5 mit Technik-Toren (Sensor, Datenzentrum, V2X, lokal ab Stufe 5). Handel ist ein **Angebot** (Kurs + Menge), Annahme/Ablehnung im Partnerzug oder als Unterbrechung — kein Sofort-Tausch.
+Projektmarkt: drei offene Karten. Kategorie ist die Farbe, Wirkung ist Icon plus Vorzeichen plus Menge, der Satz nur beim Halten. Kauf wirkt sofort. Förderkarten bleiben im Posteingang und spielen sich genauso.
 
-**Offen:** mit anderem Offen handelbar; Rabatt `OPEN_STANDARD_DISCOUNT` auf den Aufpreis nicht selbst produzierter Ware; Tausch füllt `standardsBonusVolume`.  
-**Proprietär:** nur mit anderem Proprietär; kein Rabatt; gemischte Paare blockieren (Versuch gegen Proprietär → `blockedTradesCaused`).
+Assistenz 0–5 mit denselben Toren wie bisher (Sensor, Datenzentrum, V2X, lokal ab Stufe 5). Die Stufe steht an der eigenen Linie. Diesel gibt beim Bau +1 Komfort, Elektro +1 Image, erneuerbar +1 Umwelt. Die Linie liegt als Streifen auf den Kanten zwischen ihren Feldern, der Bus fährt darauf.
+
+Handel ist ein **Angebot** mit Gegenstand und Menge. Beide Kassen sind vorher sichtbar. Kein Aufpreis, kein Rabatt, keine Standardsperre. Annahme oder Ablehnung, kein Sofort-Tausch.
 
 ## Wahlversprechen
 
@@ -71,8 +70,7 @@ IDs: climate, privacy, investor, visionary, networker, controller — Labels/Cas
 
 ## Öffentlich vs. privat
 
-Öffentlich: Name, Ausrichtung, Standard, SAE, Zonenzahl, **alle** gebauten Geräte, Feld-Ausbau.  
-Privat: Ressourcen, Spuren, Hand, Versprechen-Details, Risiko. Nacht/Handoff leakt Rolle und Wallet nicht.
+Am Tisch sichtbar: Name, Gesicht, Rolle, Zielstand, Kasse, Risiko, Hand der Person am Zug, alle gebauten Geräte. Nacht und Übergabe blenden das nicht aus.
 
 **Anleitung:** Overlay, keine eigene Zugphase. Copy in `data/tutorial.js`.
 

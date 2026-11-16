@@ -499,11 +499,12 @@ window.Nexus = window.Nexus || {};
     return tex;
   }
 
-  function addBillboard(parent, map, x, y, z, sx, sy, opacity) {
-    var use = grayMode ? grayMap(map) : map;
+  function addBillboard(parent, map, x, y, z, sx, sy, opacity, forceGray) {
+    var useGray = !!(forceGray || grayMode);
+    var use = useGray ? grayMap(map) : map;
     var mat = spriteMat(use, {
       opacity: opacity === undefined ? 1 : opacity,
-      color: grayMode ? 0xb4b4b0 : 0xffffff
+      color: useGray ? 0xb4b4b0 : 0xffffff
     });
     var spr = new THREE.Sprite(mat);
     if (propMode) {
@@ -2164,6 +2165,35 @@ window.Nexus = window.Nexus || {};
     return out;
   }
 
+  function slotOwned(x, z) {
+    if (!lastState || !Nexus.allSlots) {
+      return false;
+    }
+    var radius = lastState.hexRadius || (Nexus.CONSTANTS && Nexus.CONSTANTS.HEX_RADIUS) || 3;
+    var slots = Nexus.allSlots(radius);
+    var best = 1e12;
+    var slot = null;
+    var i;
+    for (i = 0; i < slots.length; i++) {
+      var p = axial(slots[i].q, slots[i].r);
+      var d = (p.x - x) * (p.x - x) + (p.z - z) * (p.z - z);
+      if (d < best) {
+        best = d;
+        slot = slots[i];
+      }
+    }
+    if (!slot || best > HEX * HEX) {
+      return false;
+    }
+    var owned = false;
+    (lastState.zones || []).forEach(function (zone) {
+      if (zone.q === slot.q && zone.r === slot.r) {
+        owned = true;
+      }
+    });
+    return owned;
+  }
+
   function scatterStreetDressing(net, from, to) {
     var treeCands = [];
     var lampCands = [];
@@ -2201,7 +2231,10 @@ window.Nexus = window.Nexus || {};
       var px = e.a.x + dx * along;
       var pz = e.a.z + dz * along;
       var heading = Math.atan2(dx, dz);
-      if (roll < 0.18) {
+      var sideA = slotOwned(px + nx * HEX * 0.85, pz + nz * HEX * 0.85);
+      var sideB = slotOwned(px - nx * HEX * 0.85, pz - nz * HEX * 0.85);
+      var wild = !sideA && !sideB;
+      if (roll < 0.28) {
         var s = 0.55 + keyRand(ek, 73) * 0.4;
         var tx = px + nx * (kerb + 0.45);
         var tz = pz + nz * (kerb + 0.45);
@@ -2210,9 +2243,10 @@ window.Nexus = window.Nexus || {};
           x: tx,
           z: tz,
           s: s,
-          alt: keyRand(ek, 74) < 0.5
+          alt: keyRand(ek, 74) < 0.5,
+          wild: wild
         });
-      } else if (roll < 0.3) {
+      } else if (roll < 0.4) {
         var lx = px + nx * kerb;
         var lz = pz + nz * kerb;
         var h = 2.25 + keyRand(ek, 75) * 0.25;
@@ -2224,7 +2258,7 @@ window.Nexus = window.Nexus || {};
           z: lz,
           h: h
         });
-      } else if (roll < 0.4) {
+      } else if (roll < 0.5) {
         binCands.push({
           key: ek,
           pose: {
@@ -2237,21 +2271,23 @@ window.Nexus = window.Nexus || {};
             ry: heading
           }
         });
-      } else if (roll < 0.52) {
+      } else if (roll < 0.64) {
         bushCands.push({
           key: ek,
           x: px + nx * (kerb + 0.2),
           z: pz + nz * (kerb + 0.2),
-          s: 0.7 + keyRand(ek, 76) * 0.4
+          s: 0.7 + keyRand(ek, 76) * 0.4,
+          wild: wild
         });
-      } else if (roll < 0.62) {
+      } else if (roll < 0.76) {
         flowerCands.push({
           key: ek,
           x: px + nx * (kerb + 0.35),
           z: pz + nz * (kerb + 0.35),
-          kind: Math.floor(keyRand(ek, 77) * 3)
+          kind: Math.floor(keyRand(ek, 77) * 3),
+          wild: wild
         });
-      } else if (roll > 0.975) {
+      } else if (roll > 0.94) {
         var bx = px + nx * (kerb + 0.2);
         var bz = pz + nz * (kerb + 0.2);
         benchCands.push({
@@ -2285,13 +2321,13 @@ window.Nexus = window.Nexus || {};
       var tc = treeCands[i];
       var tMap = tc.alt && spriteTextures.tree2 ? spriteTextures.tree2 : spriteTextures.tree;
       if (tMap) {
-        addBillboard(roots.roads, tMap, tc.x, TILE_H + 1.05 * tc.s, tc.z, 1.6 * tc.s, 2.1 * tc.s, 1);
+        addBillboard(roots.roads, tMap, tc.x, TILE_H + 1.05 * tc.s, tc.z, 1.6 * tc.s, 2.1 * tc.s, 1, tc.wild);
       }
     }
     for (i = 0; i < bushCands.length; i++) {
       var bc = bushCands[i];
       if (spriteTextures.bush) {
-        addBillboard(roots.roads, spriteTextures.bush, bc.x, TILE_H + 0.45 * bc.s, bc.z, 1.1 * bc.s, 0.85 * bc.s, 1);
+        addBillboard(roots.roads, spriteTextures.bush, bc.x, TILE_H + 0.45 * bc.s, bc.z, 1.1 * bc.s, 0.85 * bc.s, 1, bc.wild);
       }
     }
     for (i = 0; i < flowerCands.length; i++) {
@@ -2299,7 +2335,7 @@ window.Nexus = window.Nexus || {};
       var fMap =
         fc.kind === 1 ? spriteTextures.flower2 : fc.kind === 2 ? spriteTextures.flower3 : spriteTextures.flower;
       if (fMap) {
-        addBillboard(roots.roads, fMap, fc.x, TILE_H + 0.35, fc.z, 0.55, 0.7, 1);
+        addBillboard(roots.roads, fMap, fc.x, TILE_H + 0.35, fc.z, 0.55, 0.7, 1, fc.wild);
       }
     }
     for (i = 0; i < lampCands.length; i++) {
@@ -2759,6 +2795,7 @@ window.Nexus = window.Nexus || {};
       busMesh.parent.remove(busMesh);
       busMesh = null;
     }
+    paintLineRibbons(state);
     if (!busAgents.length || !geo.vehBus) {
       return;
     }
@@ -2773,6 +2810,73 @@ window.Nexus = window.Nexus || {};
     roots.cars.add(busMesh);
   }
 
+  function worldOfKey(key) {
+    if (!key) {
+      return null;
+    }
+    if (graph.nodes[key]) {
+      return graph.nodes[key];
+    }
+    var parts = String(key).split(",");
+    if (parts.length !== 2 || isNaN(Number(parts[0]))) {
+      return null;
+    }
+    var p = axial(Number(parts[0]), Number(parts[1]));
+    return { x: p.x, z: p.z, key: key };
+  }
+
+  function edgePose(keyA, keyB) {
+    var a = worldOfKey(keyA);
+    var b = worldOfKey(keyB);
+    if (!a || !b) {
+      return null;
+    }
+    var dx = b.x - a.x;
+    var dz = b.z - a.z;
+    return {
+      x: (a.x + b.x) / 2,
+      z: (a.z + b.z) / 2,
+      ang: Math.atan2(dx, dz) + Math.PI / 2
+    };
+  }
+
+  function paintLineRibbons(state) {
+    if (!roots.lines) {
+      return;
+    }
+    clearGroup(roots.lines);
+    var colors = [0x2a6fdb, 0xd06a22, 0x2f9a62, 0xc4a23a, 0x7a45c4, 0xc43a5a];
+    (state.busLines || []).forEach(function (line) {
+      var owner = (state.players || []).filter(function (player) {
+        return player.id === line.ownerId;
+      })[0];
+      var color = colors[(owner && owner.colorIndex) || 0];
+      var mat = lambert(new THREE.Color(color));
+      var keys = line.pathKeys || [];
+      var i;
+      for (i = 0; i < keys.length - 1; i++) {
+        var pose = edgePose(keys[i], keys[i + 1]);
+        if (!pose) {
+          continue;
+        }
+        var box = new THREE.Mesh(geo.box, mat);
+        box.scale.set(HEX * 0.86, 0.1, 0.36);
+        box.position.set(pose.x, TILE_H + 0.22, pose.z);
+        box.rotation.y = pose.ang;
+        roots.lines.add(box);
+      }
+      var first = keys.length > 1 ? edgePose(keys[0], keys[1]) : null;
+      if (!first) {
+        return;
+      }
+      var sae = (owner && owner.saeLevel) || 0;
+      var post = new THREE.Mesh(geo.box, mat);
+      post.scale.set(0.28, 0.4 + sae * 0.32, 0.28);
+      post.position.set(first.x, TILE_H + 0.45 + sae * 0.16, first.z);
+      roots.lines.add(post);
+    });
+  }
+
   function updateBuses(dt) {
     if (!busMesh || !dummy) {
       return;
@@ -2784,13 +2888,10 @@ window.Nexus = window.Nexus || {};
       bus.u += bus.speed * dt;
       if (bus.u >= span) bus.u = 0;
       var index = Math.min(span - 1, Math.floor(bus.u));
-      var local = bus.u - index;
-      var a = worldOfKey(bus.keys[index]);
-      var b = worldOfKey(bus.keys[index + 1]);
-      if (!a || !b) continue;
-      var ang = Math.atan2(b.x - a.x, b.z - a.z) + Math.PI;
-      dummy.position.set(a.x + (b.x - a.x) * local, ROAD_Y + 0.02, a.z + (b.z - a.z) * local);
-      dummy.rotation.set(0, ang, 0);
+      var pose = edgePose(bus.keys[index], bus.keys[index + 1]);
+      if (!pose) continue;
+      dummy.position.set(pose.x, ROAD_Y + 0.28, pose.z);
+      dummy.rotation.set(0, pose.ang, 0);
       dummy.scale.set(1, 1, 1);
       dummy.updateMatrix();
       busMesh.setMatrixAt(i, dummy.matrix);
@@ -3399,11 +3500,13 @@ window.Nexus = window.Nexus || {};
     buildMaterials();
     roots.static = new THREE.Group();
     roots.roads = new THREE.Group();
+    roots.lines = new THREE.Group();
     roots.tiles = new THREE.Group();
     roots.picks = new THREE.Group();
     roots.cars = new THREE.Group();
     scene.add(roots.static);
     scene.add(roots.roads);
+    scene.add(roots.lines);
     scene.add(roots.tiles);
     scene.add(roots.picks);
     scene.add(roots.cars);
@@ -3471,6 +3574,7 @@ window.Nexus = window.Nexus || {};
     clearGroup(roots.tiles);
     clearGroup(roots.picks);
     clearGroup(roots.roads);
+    clearGroup(roots.lines);
     clearGroup(roots.cars);
     clearGroup(roots.static);
     clearGroup(roots.batches);
@@ -3520,11 +3624,20 @@ window.Nexus = window.Nexus || {};
   }
 
   function lineSignature(state) {
-    return (state.busLines || [])
-      .map(function (line) {
-        return line.id + ":" + (line.propulsion || "") + ":" + (line.pathKeys || []).join(".");
+    var sae = (state.players || [])
+      .map(function (player) {
+        return player.id + ":" + (player.saeLevel || 0);
       })
-      .join("|");
+      .join(",");
+    return (
+      sae +
+      "|" +
+      (state.busLines || [])
+        .map(function (line) {
+          return line.id + ":" + (line.propulsion || "") + ":" + (line.pathKeys || []).join(".");
+        })
+        .join("|")
+    );
   }
 
   function dropSlot(key) {
@@ -3871,8 +3984,23 @@ window.Nexus = window.Nexus || {};
     return null;
   }
 
+  function projectCause(cause) {
+    if (!cause || cause.q == null || !camera || !renderer) {
+      return null;
+    }
+    var p = axial(Number(cause.q), Number(cause.r));
+    var v = new THREE.Vector3(p.x, TILE_H + 1.6, p.z);
+    v.project(camera);
+    var rect = renderer.domElement.getBoundingClientRect();
+    return {
+      x: rect.left + (v.x * 0.5 + 0.5) * rect.width,
+      y: rect.top + (-v.y * 0.5 + 0.5) * rect.height
+    };
+  }
+
   Nexus.Board3D = {
     sync: sync,
+    projectCause: projectCause,
     setPitch: function (value) {
       cam.pitchSlider = Math.max(0, Math.min(100, Number(value) || 58));
       cam.targetPolar = polarFromSlider(cam.pitchSlider);

@@ -4,6 +4,16 @@ Neueste Welle zuerst. Das ist die **Geschichte** des spielbaren Stands — nicht
 
 Neue spielbare Welle: hier einen Block anlegen (Datum, Branch, Warum, Regeln, Grafik). DESIGN nur ändern, wenn sich der Vertrag ändert.
 
+## UI Rework (2026-11-16)
+
+**Branch:** `ui-rework`, von `visual-fix-3` (`f115965`). Nicht nach `main` gemergt.
+
+**Warum.** Ein Zug war eine Notiz. Rollen waren versteckt, Ziele eine Prozentleiter, das Feldmenü ein schwarzer Textkasten, Linien ohne Bild auf der Straße.
+
+**Regeln.** Geheimhaltung aus. Zwei Rechnungen pro Rolle, zusammen 10 Punkte, angezeigt als haben/brauchen. Ausbau, Abriss und offen/proprietär aus dem Zug. Handel ohne Aufpreis, beide Kassen vorher sichtbar. Elektro-Linie +1 Image. Assistenz bleibt die SAE-Leiter und steht an der Linie. Risiko zeigt eine Ursache und die Schwelle. Punkte fliegen von der Ursache zur Rolle. Bericht: [`UI_REWORK_REPORT.md`](UI_REWORK_REPORT.md).
+
+**Präsentation.** Kacheln statt Fließtext. Gesichter im Kreis, auch bei der Übergabe. Graue Props auf unbebauten Feldern. Mehr Straßen-Props über die bestehenden Stufen.
+
 ## Visual Fix 3 (2026-11-10)
 
 **Branch:** `visual-fix-3`. Nicht nach `main` gemergt.

@@ -174,21 +174,18 @@ window.Nexus = window.Nexus || {};
       top: top,
       demand: pack.demand,
       supply: pack.supply,
-      summary:
-        "Cyber " +
-        pack.cyber.value +
-        " · Netz " +
-        pack.grid.value +
-        " · Abhängigkeit " +
-        pack.dependency.value +
-        " · Verkehr " +
-        pack.traffic.value +
-        (shock ? " · Schock " + shock : "") +
-        ". Negativ bei ≤ " +
-        neg +
-        ", positiv zusätzlich bis ≤ " +
-        (neg + pos) +
-        " (d100)."
+      summary: (function () {
+        var name = {
+          cyber: "Angriffe auf Geräte",
+          grid: "Dünnes Stromnetz",
+          dependency: "Abhängigkeit",
+          traffic: "Verkehr ohne Linie"
+        }[top.id] || top.label;
+        if (!top.value) {
+          return "Risiko niedrig. Unter " + neg + " trifft der Wurf trotzdem.";
+        }
+        return name + " " + top.value + ". Unter " + neg + " trifft der Wurf.";
+      })()
     };
   }
 
@@ -206,16 +203,7 @@ window.Nexus = window.Nexus || {};
       threshold: hit === "neg" ? preview.pNeg : preview.pNeg + preview.pPos,
       hit: hit
     });
-    copy.text =
-      copy.text +
-      " Wurf " +
-      roll +
-      "/100, Schwelle " +
-      copy.threshold +
-      ". Warum: " +
-      copy.cause +
-      " Geholfen hätte: " +
-      copy.counter;
+    copy.text = event.text + " Wurf " + roll + ".";
     return copy;
   }
 

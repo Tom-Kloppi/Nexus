@@ -111,23 +111,22 @@ window.Nexus = window.Nexus || {};
     var conf = ROLE_AVATAR[roleId] || ROLE_AVATAR.controller;
     var s = size || 48;
     return (
-      '<svg class="role-avatar-svg" viewBox="0 0 52 56" width="' +
+      '<svg class="role-avatar-svg" viewBox="4 2 44 44" width="' +
       s +
       '" height="' +
-      Math.round(s * 1.08) +
+      s +
       '" aria-hidden="true">' +
-      '<circle cx="26" cy="26" r="24" fill="' +
+      '<circle cx="26" cy="24" r="20" fill="' +
       conf.accent +
-      '" opacity="0.35"/>' +
-      '<ellipse cx="26" cy="48" rx="16" ry="10" fill="' +
-      conf.shirt +
-      '"/>' +
-      '<circle cx="26" cy="24" r="12" fill="' +
+      '" opacity="0.45"/>' +
+      '<circle cx="26" cy="26" r="12" fill="' +
       conf.skin +
       '"/>' +
-      '<path d="M12 22 Q26 6 40 22 Q34 14 26 14 Q18 14 12 22Z" fill="' +
+      '<path d="M14 24 Q26 8 38 24 Q33 16 26 16 Q19 16 14 24Z" fill="' +
       conf.hair +
       '"/>' +
+      '<circle cx="22" cy="26" r="1.3" fill="#2a241c"/>' +
+      '<circle cx="30" cy="26" r="1.3" fill="#2a241c"/>' +
       accessoryMarkup(conf.accessory, conf.accent) +
       "</svg>"
     );
@@ -139,56 +138,56 @@ window.Nexus = window.Nexus || {};
   Nexus.GOAL_GLOSSARY = {
     spur: {
       title: "Spur",
-      text: "Eine von vier öffentlichen Stadtspuren: Image, Komfort, Umwelt, Sicherheit. Werte steigen durch Bauen, Karten und Ereignisse."
+      text: "Image, Komfort, Umwelt oder Sicherheit. Die Zahl steht an der Person, die sie bekommt."
     },
     stufe: {
-      title: "Stufe",
-      text: "Jedes Unterziel hat bis zu 5 Stufen. Erreichst du den Schwellenwert einer Stufe, zählt der zugehörige Prozentanteil."
+      title: "Ziel",
+      text: "Haben / brauchen. Jeder Schritt zählt die Zahl auf der Karte. Zehn Punkte gewinnen."
     },
     prozent: {
-      title: "Prozent",
-      text: "Dein Wahlversprechen-Fortschritt (0–100 %). Summe der Beiträge aller Unterziele. Bei ≥ 100 % nach einer vollen Runde gewinnst du."
+      title: "Stand",
+      text: "Punkte / 10. Zehn Punkte sind der Sieg nach einer vollen Runde, sonst die meisten Punkte."
     },
     unterziel: {
-      title: "Unterziel",
-      text: "Privater Baustein deines Versprechens. Misst eine Spur oder eine abgeleitete Metrik (z. B. lokaler Geräteanteil)."
+      title: "Rechnung",
+      text: "Eine Spur oder eine Tat. Du siehst, wie viel du hast und wie viel fehlt."
     },
     sieg: {
       title: "Sieg",
-      text: "Sofortsieg bei ≥ 100 % nach einer vollen Runde, sonst höchster Prozentstand am Rundenende."
+      text: "Zehn Punkte nach einer vollen Runde, sonst die meisten Punkte am Ende."
     }
   };
 
   Nexus.ROLE_DOSSIERS = {
     climate: {
-      blurb: "Macht die Stadt grüner und sichtbarer nachhaltig.",
-      strength: "Umwelt- und Image-Spuren, grüne Karten",
-      special: "Belohnt Solar, Parks und grüne Innovationen"
+      blurb: "Solar ernten und eine Linie ohne Diesel fahren.",
+      strength: "Umwelt 6, Öko-Halte 2",
+      special: "Jeder Solar-Zug gibt 1 Umwelt"
     },
     privacy: {
-      blurb: "Schützt Daten und hält das Risiko niedrig.",
-      strength: "Sicherheits-Spur, lokale Geräte",
-      special: "Lokale Verarbeitung und geringes Risiko zahlen sich aus"
+      blurb: "Rechnen vor Ort, nicht in der Wolke.",
+      strength: "3 lokale Geräte, 2 sichere Rechenzentren",
+      special: "Lokal zählt 2, die Wolke zählt nicht"
     },
     investor: {
-      blurb: "Maximaler Geldfluss und wirtschaftliches Image.",
-      strength: "Geld-Durchsatz, Image",
-      special: "Handel und Erträge füllen die Kasse"
+      blurb: "Tauschen, was die anderen brauchen.",
+      strength: "Handel 8, Komfort 2",
+      special: "Die Menge im Handel ist der Punkt"
     },
     visionary: {
-      blurb: "Mobilität und SAE-Ausbau stehen im Mittelpunkt.",
-      strength: "Komfort, Verkehr, SAE",
-      special: "V2X, Ladenetz und SAE-Stufen"
+      blurb: "Assistenz an der Linie, Komfort in der Stadt.",
+      strength: "Assistenz 3, Komfort 4",
+      special: "Die Zahl steht an der Linie"
     },
     networker: {
-      blurb: "Vernetzt Spieler und Standards.",
-      strength: "Handelspartner, offene Standards",
-      special: "Offene Standards und viele Partner"
+      blurb: "Fremde Halte anbinden und handeln.",
+      strength: "Image 5, Handel 5",
+      special: "Ein fremder Halt gibt Image"
     },
     controller: {
-      blurb: "Kontrolliert Flächen und zentrale Infrastruktur.",
-      strength: "Feldkontrolle, Datenzentren",
-      special: "Viele eigene Felder und sichere Rechenzentren"
+      blurb: "Parken und Linien, die den Alltag leicht machen.",
+      strength: "Komfort 6, Parken 2",
+      special: "Parkhaus zählt 2"
     }
   };
 
@@ -210,8 +209,6 @@ window.Nexus = window.Nexus || {};
     if (!goal) {
       return "";
     }
-    var dir = goal.higherIsBetter === false ? "Niedriger Wert ist besser." : "Höherer Wert ist besser.";
-    var max = goal.maxContribution != null ? " Bis zu " + goal.maxContribution + " % am Versprechen." : "";
-    return dir + max + " Stufen schalten Prozentanteile frei, sobald die Metrik den Schwellenwert erreicht.";
+    return (goal.label || "Ziel") + ": du hast die Zahl, du brauchst " + (goal.need || "?") + ", jeder Schritt zählt " + (goal.worth || 1) + ".";
   };
 })(window.Nexus);

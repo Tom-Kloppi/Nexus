@@ -4,14 +4,14 @@ Quelle: Charakter-PDF *Überarbeiteter Entwurf Charaktere (22.9.26)*. **Vertrag 
 
 ## Mapping
 
-| PDF | ID | Label | Ausrichtung | Unterziele im Code |
+| PDF | ID | Label | Ausrichtung | Rechnung (10 Punkte) |
 | --- | --- | --- | --- | --- |
-| Frau Prof. Dr. Mira Blüte (ÖZP, Solar/grün) | `climate` | Radikale Ökologie | Umwelt | Umwelt-Spur, grüne Karten, Image |
-| Dr. Isabella Roth (PPP, Kernenergie, Cyber) | `privacy` | Datensicherheit | Sicherheit | Sicherheits-Spur, niedriges Risiko, Lokal-% |
-| Maria Hinterberger (Wnd, Immobilien, abhängig von Handel) | `investor` | Wirtschaftswunder | Wirtschaft | Komfort, Sicherheit, Handelsvolumen |
-| Jürgen Weiß (PdZ, Wind, Eudämonismus) | `visionary` | Eudämonische Stadt | Zukunft | Image, Komfort, Umwelt, Sicherheit gleich |
-| Dr. Thomas Smurf (Wasserkraft, Bahn, Augenhöhe) | `networker` | Gemeinwohl auf Augenhöhe | Image | Image, Umwelt, Handelspartner-Anteil |
-| Heinz Kohle (AfAP, Kohle, Auto-Komfort) | `controller` | Autostadt und Komfort | Komfort | Komfort, Zonenausbau, Geld-Throughput |
+| Frau Prof. Dr. Mira Blüte (ÖZP, Solar/grün) | `climate` | Grüne Stadt | Umwelt | Umwelt 6×1, Öko-Halte 2×2 |
+| Dr. Isabella Roth (PPP, Kernenergie, Cyber) | `privacy` | Datenfestung | Sicherheit | lokale Geräte 3×2, sichere Rechenzentren 2×2 |
+| Maria Hinterberger (Wnd, Immobilien, Handel) | `investor` | Dealmacherin | Wirtschaft | Handel 8×1, Komfort 2×1 |
+| Jürgen Weiß (PdZ, Wind, Zukunft) | `visionary` | Morgenstadt | Zukunft | Assistenz 3×2, Komfort 4×1 |
+| Dr. Thomas Smurf (Bahn, Augenhöhe) | `networker` | Querverkehr | Image | Image 5×1, Handel 5×1 |
+| Heinz Kohle (AfAP, Auto-Komfort) | `controller` | Komfortzone | Komfort | Komfort 6×1, Parkhaus/Bahnhof 2×2 |
 
 Partei-Kürzel liegen als `party` / `character` auf dem Rollenobjekt (nur Reveal, nicht Turn-Chip).
 
@@ -30,5 +30,4 @@ Partei-Kürzel liegen als `party` / `character` auf dem Rollenobjekt (nur Reveal
 
 ## 2p / 6p Skalierung
 
-- 2p: `tradeVolume` ×0,55, `zoneControlCount` ×0,75; `tradePartnerRatio` bleibt in `roles.js` für 1 Gegner gedämpft.
-- 5–6p: `tradeVolume` ×1,25, `zoneControlCount` ×1,15 (größerer Handel, etwas mehr Zonenbedarf).
+Die Zahl auf der Karte gilt für 2 bis 6 Personen. Der stille Faktor auf Handels- und Zonenschwellen ist weg, weil er die angezeigte Rechnung verändert hätte.

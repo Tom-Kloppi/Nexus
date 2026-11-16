@@ -21,15 +21,49 @@ window.Nexus = window.Nexus || {};
     return null;
   }
 
-  function item(id, label, enabled, reason, why, payload) {
+  function item(id, label, enabled, reason, why, payload, fx) {
     return {
       id: id,
       label: label,
       enabled: !!enabled,
       reason: reason || "",
       why: why || "",
-      payload: payload || null
+      payload: payload || null,
+      fx: fx || []
     };
+  }
+
+  function costFx(cost) {
+    var bits = [];
+    ["money", "energy", "bandwidth"].forEach(function (key) {
+      if (cost && cost[key]) {
+        bits.push({ key: key, amount: -cost[key] });
+      }
+    });
+    return bits;
+  }
+
+  function buildFx(state, zoneType, variant, cost) {
+    var bits = costFx(cost);
+    var preview = Nexus.describeZoneBuild ? Nexus.describeZoneBuild(state, zoneType, variant) : null;
+    if (preview && preview.production && preview.production.amount) {
+      var amount = preview.production.amount;
+      if (zoneType === "residential" && preview.flags && preview.flags.residentialNeedsDc) {
+        amount = 0;
+      }
+      bits.push({ key: preview.production.resource, amount: amount });
+    }
+    if (preview && preview.onBuild) {
+      ["image", "comfort", "environment", "security"].forEach(function (key) {
+        if (preview.onBuild[key]) {
+          bits.push({ key: key, amount: preview.onBuild[key] });
+        }
+      });
+    }
+    if (preview && preview.riskOnBuild) {
+      bits.push({ key: "risk", amount: preview.riskOnBuild });
+    }
+    return bits;
   }
 
   function forEmpty(state, hit) {
@@ -38,16 +72,24 @@ window.Nexus = window.Nexus || {};
       return actions;
     }
     var specs = [
-      ["residential", null, "Wohnen bauen", Nexus.WHY && Nexus.WHY.residential],
-      ["energy", "solar", "Solar bauen", Nexus.WHY && Nexus.WHY.solar],
-      ["energy", "transformer", "Umspannwerk", Nexus.WHY && Nexus.WHY.transformer],
-      ["datacenter", "secure", "Datenzentrum gesichert", Nexus.WHY && Nexus.WHY.secure],
-      ["datacenter", "insecure", "Datenzentrum offen", Nexus.WHY && Nexus.WHY.insecure],
-      ["traffic", null, "Verkehrsfläche", Nexus.WHY && Nexus.WHY.traffic]
+      ["residential", null, "Wohnen", "Bandbreite, aber 0 ohne eigenes Rechenzentrum."],
+      ["energy", "solar", "Solar", "Würfelt Energie. Jede Ernte gibt höchstens +1 Umwelt."],
+      ["energy", "transformer", "Umspannwerk", "Stabile Energie, 1 Geld pro Einheit."],
+      ["datacenter", "secure", "Rechenzentrum", "Schaltet Wohn-Bandbreite frei. +1 Sicherheit."],
+      ["datacenter", "insecure", "Rechenzentrum offen", "Billiger, hebt das Risiko."],
+      ["traffic", null, "Parkplatz", "Erstes Verkehrsfeld +1 Komfort. Danach Halt, Bahnhof oder Linie."]
     ];
     specs.forEach(function (spec) {
       var offer = Nexus.getExpandOffer ? Nexus.getExpandOffer(state, Number(hit.q), Number(hit.r), spec[0], spec[1]) : { allowed: false, reason: "" };
-      actions.push(item("build", spec[2], offer.allowed, offer.reason, spec[3], { type: spec[0], variant: spec[1], q: Number(hit.q), r: Number(hit.r) }));
+      actions.push(item(
+        "build",
+        spec[2],
+        offer.allowed,
+        offer.reason,
+        spec[3],
+        { type: spec[0], variant: spec[1], q: Number(hit.q), r: Number(hit.r) },
+        buildFx(state, spec[0], spec[1], offer.cost)
+      ));
     });
     return actions;
   }
@@ -57,19 +99,12 @@ window.Nexus = window.Nexus || {};
     var player = Nexus.currentPlayer(state);
     var mine = player && zone.ownerId === player.id;
     if (!mine) {
-      actions.push(item("look", "Fremdes Feld", false, "Du baust nur auf deinen Feldern.", "Besitz ist öffentlich, die Kasse nicht."));
       if (zone.busStop) {
-        actions.push(item("line-foreign", "Halt liegt an deiner möglichen Linie", true, "", "Fremde Halte zählen fürs Gemeinwohl, wenn du sie anbindest."));
+        actions.push(item("line-add", "Halt an die Linie", state.turnPhase === "build", "", "Fremder Halt gibt Image, wenn die Linie ihn mitnimmt."));
+      } else {
+        actions.push(item("look", "Fremdes Feld", false, "Du baust nur auf deinen Feldern.", "Besitz und Ziel sind offen. Bauen darfst du hier nicht."));
       }
       return actions;
-    }
-    if (Nexus.describeZoneUpgrade) {
-      var up = Nexus.describeZoneUpgrade(state, zone.id);
-      actions.push(item("upgrade", "Ausbauen", up.allowed, up.reason, "Jede Stufe hebt den Ertrag des Feldes um 1."));
-    }
-    if (zone.type !== "home" && Nexus.describeDemolish) {
-      var down = Nexus.describeDemolish(state, zone.id);
-      actions.push(item("demolish", "Abreißen", down.allowed, down.reason, "Nur wenn der Rest am Leitstand hängen bleibt."));
     }
     if (zone.type !== "home" && !zone.busStop) {
       var stopCost = state.beginner ? 1 : 2;
@@ -77,42 +112,73 @@ window.Nexus = window.Nexus || {};
       actions.push(
         item(
           "bus-stop",
-          "Haltestelle (" + stopCost + " Geld)",
+          "Halt",
           state.turnPhase === "build" && money >= stopCost,
-          money >= stopCost ? "" : "Geld fehlt.",
-          "Ohne Halt keine Linie und kein Verkehrsabzug."
+          money >= stopCost ? "" : "Dafür fehlt Geld.",
+          "Ohne Halt keine Linie.",
+          null,
+          [{ key: "money", amount: -stopCost }]
         )
       );
     }
     if (zone.type === "traffic" && zone.trafficMode !== "depot" && !player.hasDepot) {
+      var depotOk = (player.resources.money || 0) >= 3 && (player.resources.bandwidth || 0) >= 1;
       actions.push(
         item(
           "depot",
           "Busbahnhof",
-          state.turnPhase === "build",
-          "",
-          "Schaltet Linien frei. Kostet 3 Geld und 1 Bandbreite."
+          state.turnPhase === "build" && depotOk,
+          depotOk ? "" : "Dafür fehlen Geld oder Bandbreite.",
+          "Erst der Bahnhof schaltet Linien frei.",
+          null,
+          [{ key: "money", amount: -3 }, { key: "bandwidth", amount: -1 }]
         )
       );
     }
     if (zone.type === "traffic" && zone.trafficMode !== "garage") {
+      var garageOk = (player.resources.money || 0) >= 4 && (player.resources.energy || 0) >= 2;
       actions.push(
         item(
           "garage",
-          "Parkhaus mit Solardach",
-          state.turnPhase === "build",
-          "",
-          "Ladesäulen und Dach-Solar. Kostet 4 Geld und 2 Energie, +1 Komfort und +1 Umwelt."
+          "Parkhaus",
+          state.turnPhase === "build" && garageOk,
+          garageOk ? "" : "Dafür fehlen Geld oder Energie.",
+          "Solardach und Ladesäule. Einmal +1 Komfort und +1 Umwelt.",
+          null,
+          [{ key: "money", amount: -4 }, { key: "energy", amount: -2 }, { key: "comfort", amount: 1 }, { key: "environment", amount: 1 }]
         )
       );
     }
     if (zone.busStop || zone.trafficMode === "depot") {
-      actions.push(item("line-add", "In Linie aufnehmen", state.turnPhase === "build" && !!player.hasDepot, player.hasDepot ? "" : "Zuerst einen Busbahnhof bauen.", "Zwei Halte verbinden, Antrieb wählen."));
+      actions.push(item(
+        "line-add",
+        "An die Linie",
+        state.turnPhase === "build" && !!player.hasDepot,
+        player.hasDepot ? "" : "Zuerst einen Busbahnhof.",
+        "Zwei Halte, dann Antrieb. Die Linie liegt danach auf der Straße.",
+        null,
+        []
+      ));
     }
     if (zone.type === "home") {
-      actions.push(item("devices", "Cloud oder lokal", true, "", Nexus.WHY && Nexus.WHY.cloud));
-      var sae = Nexus.Mobility ? Nexus.Mobility.saeOffer(state, player) : { allowed: false, reason: "SAE fehlt.", why: "" };
-      actions.push(item("sae", "SAE " + ((player.saeLevel || 0) + 1), sae.allowed, sae.reason, sae.why));
+      actions.push(item("devices", "Gerät", true, "", "Cloud fällt bei Stromausfall aus. Lokal bleibt und gibt Sicherheit.", null, []));
+      var sae = Nexus.Mobility ? Nexus.Mobility.saeOffer(state, player) : { allowed: false, reason: "Assistenz fehlt.", why: "", cost: {} };
+      var saeFx = costFx(sae.cost);
+      if (sae.next === 2 || sae.next === 4 || sae.next === 5) {
+        saeFx.push({ key: "comfort", amount: 1 });
+      }
+      if (sae.next >= 4) {
+        saeFx.push({ key: "risk", amount: 1 });
+      }
+      actions.push(item(
+        "sae",
+        "Assistenz " + (sae.next || ((player.saeLevel || 0) + 1)),
+        sae.allowed,
+        sae.reason,
+        "Die Zahl steht an deiner Linie. Ab 4 wird der Ausfall riskanter.",
+        null,
+        saeFx
+      ));
     }
     return actions;
   }
@@ -144,7 +210,17 @@ window.Nexus = window.Nexus || {};
         if (!offer.allowed && current !== "cloud") {
           return;
         }
-        var why = mode === "local" ? (Nexus.WHY && Nexus.WHY.local) : (Nexus.WHY && Nexus.WHY.cloud);
+        var why = mode === "local"
+          ? "Bleibt bei Stromausfall an. " + (device.effectText || "")
+          : "Fällt bei Stromausfall aus und hebt das Risiko. " + (device.effectText || "");
+        var fx = costFx(offer.cost);
+        if (mode === "local" && device.scoreGain) {
+          Object.keys(device.scoreGain).forEach(function (key) {
+            if (device.scoreGain[key]) {
+              fx.push({ key: key, amount: device.scoreGain[key] });
+            }
+          });
+        }
         actions.push(
           item(
             "device",
@@ -152,13 +228,13 @@ window.Nexus = window.Nexus || {};
             offer.allowed,
             offer.reason,
             why,
-            { deviceId: device.id, mode: mode }
+            { deviceId: device.id, mode: mode },
+            fx
           )
         );
         shown += 1;
       });
     });
-    actions.push(item("devices-home", "Alle Geräte im Leitstand", true, "", "Dort stehen Voraussetzungen und Kosten vollständig."));
     return actions;
   }
 

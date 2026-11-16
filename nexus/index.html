@@ -18,9 +18,9 @@
       href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800&family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="transitions.css?v=63" />
-    <link rel="stylesheet" href="style.css?v=66" />
-    <link rel="stylesheet" href="overhaul.css?v=70" />
+    <link rel="stylesheet" href="transitions.css?v=74" />
+    <link rel="stylesheet" href="style.css?v=74" />
+    <link rel="stylesheet" href="overhaul.css?v=74" />
   </head>
   <body>
     <div class="modal-shell t-modal-backdrop" id="setup-screen">
@@ -70,7 +70,7 @@
         <p class="modal-kicker">NEXUS · Stadtteil</p>
         <h2>Neue Partie</h2>
         <p>Hot-Seat: Stadtteilmanager wechseln sich am selben Gerät ab.</p>
-        <p class="setup-note">2–6 Stadtteilmanager, ein Gerät. Bei 2 Spielern werden Handelsziele angepasst; ab 4 Spielern ist der Distrikt um einen Hex-Ring größer. Geräte und Ausbau der anderen sind öffentlich — Ressourcen und Wahlversprechen bleiben privat.</p>
+        <p class="setup-note">2–6 Personen, ein Gerät, nacheinander am Zug. Rollen, Ziele und Kassen bleiben am Tisch sichtbar. Ab 4 Personen ist der Distrikt einen Ring größer.</p>
 
         <p class="setup-label">Spielerzahl</p>
         <div class="pick-row" id="setup-player-count">
@@ -94,7 +94,7 @@
           <button type="button" class="btn setup-choice is-selected" data-difficulty="normal">Normal</button>
           <button type="button" class="btn setup-choice" data-difficulty="hard">Schwer</button>
         </div>
-        <label class="setup-note"><input type="checkbox" id="setup-beginner" /> Einsteiger: weniger Standards, billigere erste Linie</label>
+        <label class="setup-note"><input type="checkbox" id="setup-beginner" /> Einsteiger: billigere erste Linie und erste Assistenz</label>
 
         <div class="setup-actions">
           <button type="button" class="btn" id="btn-tutorial">Anleitung</button>
@@ -447,7 +447,7 @@
         <p class="modal-kicker">Öffentlich sichtbar</p>
         <h2 id="public-player-name"></h2>
         <p id="public-player-meta" class="role-reveal-hint"></p>
-        <p class="public-device-note">Geräte sind öffentlich (Cloud und lokal). Wahlversprechen und Ressourcen bleiben privat.</p>
+        <p class="public-device-note">Rollen, Ziele, Kassen und Geräte sind am Tisch sichtbar.</p>
         <div id="public-player-devices" class="public-device-grid"></div>
         <button type="button" class="btn ghost" id="btn-public-player-close">Schließen</button>
       </div>
@@ -478,7 +478,7 @@
     <div id="goal-help-modal" class="modal-shell t-modal-backdrop" hidden>
       <div class="modal-card t-modal piece goal-help-card" role="dialog" aria-modal="true" aria-labelledby="goal-help-title">
         <p class="modal-kicker">Regelhilfe</p>
-        <h2 id="goal-help-title">Spuren, Stufen, Prozent</h2>
+        <h2 id="goal-help-title">Ziele am Tisch</h2>
         <div class="goal-help-flow" aria-hidden="true">
           <span>Spur / Metrik</span>
           <span class="goal-help-arrow">→</span>
@@ -502,34 +502,34 @@
       </div>
     </div>
 
-    <script src="vendor/three.min.js?v=63"></script>
-    <script src="js/data/constants.js?v=63"></script>
-    <script src="js/data/tiles.js?v=63"></script>
-    <script src="js/data/devices.js?v=63"></script>
-    <script src="js/data/events.js?v=68"></script>
-    <script src="js/data/cards.js?v=63"></script>
-    <script src="js/data/roles.js?v=63"></script>
-    <script src="js/data/tutorial.js?v=64"></script>
-    <script src="js/icons.js?v=63"></script>
-    <script src="js/glossary.js?v=63"></script>
-    <script src="js/dice.js?v=64"></script>
-    <script src="js/quality.js?v=68"></script>
-    <script src="js/risk.js?v=63"></script>
-    <script src="js/mobility.js?v=63"></script>
-    <script src="js/projects.js?v=63"></script>
-    <script src="js/arc.js?v=63"></script>
-    <script src="js/dialog.js?v=63"></script>
-    <script src="js/field-actions.js?v=63"></script>
-    <script src="js/role-avatars.js?v=63"></script>
-    <script src="js/roles.js?v=63"></script>
-    <script src="js/state.js?v=68"></script>
-    <script src="js/board-look.js?v=63"></script>
-    <script src="js/board-props.js?v=63"></script>
-    <script src="js/board-kit.js?v=63"></script>
-    <script src="js/data/fillers.js?v=68"></script>
-    <script src="js/board3d.js?v=73"></script>
-    <script src="js/render.js?v=68"></script>
-    <script src="js/ui-overhaul.js?v=68"></script>
-    <script src="js/main.js?v=68"></script>
+    <script src="vendor/three.min.js?v=74"></script>
+    <script src="js/data/constants.js?v=74"></script>
+    <script src="js/data/tiles.js?v=74"></script>
+    <script src="js/data/devices.js?v=74"></script>
+    <script src="js/data/events.js?v=74"></script>
+    <script src="js/data/cards.js?v=74"></script>
+    <script src="js/data/roles.js?v=74"></script>
+    <script src="js/data/tutorial.js?v=74"></script>
+    <script src="js/icons.js?v=74"></script>
+    <script src="js/glossary.js?v=74"></script>
+    <script src="js/dice.js?v=74"></script>
+    <script src="js/quality.js?v=74"></script>
+    <script src="js/risk.js?v=74"></script>
+    <script src="js/mobility.js?v=74"></script>
+    <script src="js/projects.js?v=74"></script>
+    <script src="js/arc.js?v=74"></script>
+    <script src="js/dialog.js?v=74"></script>
+    <script src="js/field-actions.js?v=74"></script>
+    <script src="js/role-avatars.js?v=74"></script>
+    <script src="js/roles.js?v=74"></script>
+    <script src="js/state.js?v=74"></script>
+    <script src="js/board-look.js?v=74"></script>
+    <script src="js/board-props.js?v=74"></script>
+    <script src="js/board-kit.js?v=74"></script>
+    <script src="js/data/fillers.js?v=74"></script>
+    <script src="js/board3d.js?v=74"></script>
+    <script src="js/render.js?v=74"></script>
+    <script src="js/ui-overhaul.js?v=74"></script>
+    <script src="js/main.js?v=74"></script>
   </body>
 </html>

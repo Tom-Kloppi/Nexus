@@ -7,7 +7,13 @@
 **Concept-Review:** Tom hat die Defaults in `docs/UPDATE_CONCEPT.md` (Anhang B, §3.5, §9) akzeptiert. Akzeptierte Sätze stehen hier. Die Review-Datei bleibt Begründung — **kein** zweiter Vertrag.  
 **Grafik-Nachzug (schlägt ältere Konzept-Defaults):** Straßen auf **Kanten**; `traffic` = Busbahnhof/Parkplatz/Parkhaus (**nicht** die Straße); WebGL-Stadt mit echten Volumen (Three.js, vendored), Gewerbe-/Hügel-Rand, Orbit-Kamera; Feld-Ausbau, Abriss nur wenn verbunden, Handel = Angebot.
 
-**Overhaul 2 (schlägt die Sätze unten, wo sie widersprechen):** [`DESIGN_DECISIONS.md`](DESIGN_DECISIONS.md). Kurz: Risiko ist aus Cyber, Netzstress, Abhängigkeit und Verkehrslast abgeleitet und wird vor einem offenen d100 angezeigt. Projektkarten liegen zu dritt offen, Aktionen am Feld. Mobilität ist ein Graph mit Haltestellen, Busbahnhof, Linien, Antrieb und SAE-Toren. Vier Kapitel, Schlussauswertung. Würfel bevorzugt über `server/app.py` (`/api/roll`, `/ws`), sonst lokal markiert. Umwelt aus der Ernte höchstens ±1 pro Zug. Eine Linie mit fremdem Halt gibt Image, gedeckelt bei 8.
+**Overhaul 2** bleibt die Mechanik darunter, außer wo **UI Rework** sie ersetzt. Zahlen und Begründung: [`DESIGN_DECISIONS.md`](DESIGN_DECISIONS.md).
+
+**UI Rework (schlägt Overhaul 2, wo es widerspricht).** Branch `ui-rework`. Geheimhaltung ist aus. Hot-Seat bleibt die Reihenfolge an einem Gerät, nicht ein Versteck. Rollen, Ziele, Kassen und Fortschritt sind am Tisch sichtbar. Die Übergabe sagt nur „du bist dran“.
+
+Sieg bleibt `computeRoleProgress`, aber jede Rolle hat zwei sichtbare Rechnungen und zusammen **10 Punkte**. 10 Punkte sind 100 %. Anzeige ist `haben/brauchen` und `Punkte/10`, keine Stufenleiter. Der Punkt entsteht an der Ursache und fliegt zur Rolle.
+
+Gestrichen aus dem Zug: Ausbau, Abriss, offen/proprietär. Handel ist die Menge, die beide vor dem Ja sehen. Beide Kassen stehen im Angebot. Elektro-Linie gibt +1 Image. Assistenz (bisher SAE) ist eine Zahl an der Linie. Risiko zeigt eine Ursache, die Schwelle und einen Satz. Feldwahl, Projektkarten und Handkarten sind Kacheln: Icon, kurzer Name, Vorzeichen und Menge. Der Satz dazu nur bei Halten.
 
 ## Setting
 
@@ -17,12 +23,12 @@ Spieler = Stadtteilmanager (Testgebiet). Geheimes **Wahlversprechen** statt alte
 
 ### Harte Kernregeln (nicht aufweichen)
 
-- Geheimes Wahlversprechen; **Ausrichtung öffentlich** (Turn-Chip), Versprechen-Details privat.
-- Hot-Seat-Schild + Handoff-Ritual **jetzt** hart (`role_reveal` / `handoff`, Board dimmen). Nacht darf **keine** Rolle, kein Wallet und keine Versprechen-Details verraten.
+- Rollen, Ziele, Kassen und Punkte sind am Tisch sichtbar. `role_reveal` zeigt alle Personen auf einmal. `handoff` ist nur „du bist dran“ und dimmt das Brett nicht.
+- Nacht versteckt keine Rolle, keine Kasse und kein Ziel.
 - Produktion **automatisch zu Zugbeginn**.
 - Bandbreite aus Wohnen nur mit **eigenem** Datenzentrum.
 - 2-Spieler: Metrik-Skalierung in `roles.js` bleibt; 5–6 Spieler leichte Hochskalierung von Handel/Zonen.
-- Sieg = `computeRoleProgress` (Sofort ≥ 100 % nach voller Runde, sonst höchste %). Keine Spurensumme, **keine Catch-up-Regel**.
+- Sieg = `computeRoleProgress`. Jede Rolle hat zwei Rechnungen, zusammen 10 Punkte. 10 Punkte = 100 %. Sofort bei 10 nach voller Runde, sonst die meisten Punkte. Keine Spurensumme, **keine Catch-up-Regel**. Die Zahl auf der Karte ist die Zahl, ohne stillen 2p-/6p-Faktor.
 - Geräte und Feld-Ausbau sind **öffentlich** (Cloud und lokal). Cloud vs lokal bleibt nur als Mechanik (Risiko, Upkeep, lokal %).
 - Vanilla HTML/CSS/JS für Regeln und App-Chrome; **kein** React/Vue, keine Accounts, kein Spiel-Backend. Erlaubt ist nur der Würfelserver. Das **Distrikt-Board** darf eine vendored 3D-Engine (Three.js) oder Canvas nutzen — nur Präsentation, keine Regeln.
 
@@ -77,19 +83,19 @@ Beim Expand wählt der Spieler Typ; bei `energy`/`datacenter` zusätzlich die Va
 
 ### Feld-Ausbau (alle Typen)
 
-Jedes eigene Feld hat `upgradeLevel` 0–2 (Konstante `ZONE_UPGRADE_MAX`). Kosten: `money` = `ZONE_UPGRADE_MONEY_BASE + level × ZONE_UPGRADE_MONEY_STEP`, ab Stufe 1 zusätzlich `energy`. **Ertrag:** `primaryBase + upgradeLevel` (Home: `HOME_BASE_YIELD + upgradeLevel` auf allen drei Ressourcen). Transformator-Aufwand skaliert mit der neuen Energiemenge. Geräte bleiben separat (alle gebauten Gadgets öffentlich, Cloud und lokal). Ausbau ist am Gebäude lesbar (Höhe, Flügel, Dachtechnik, Kameras) — keine parallele Tech-Tree.
+Ausbau und Abriss sind nicht mehr im Zug. Die Funktionen bleiben im Code, damit alte Pfade nicht brechen, das Menü bietet sie nicht an. Ein Feld ist Typ, Preis, Ertrag. Das steht auf der Kachel und am Haus.
 
 ### Abriss
 
-Eigenes Nicht-Home-Feld darf gegen Geld abgerissen werden (`DEMOLISH_REFUND_MONEY + upgradeLevel × DEMOLISH_REFUND_PER_LEVEL`), **nur** wenn das restliche Netz des Spielers über Nachbarschaft zum Home verbunden bleibt. UI zeigt Rückzahlung vs. verlorenen Ertrag.
+Abriss ist nicht im Menü. Die Regel im Code bleibt für den Smoke-Check, der Zug bietet sie nicht an.
 
 ### Handel = Angebot
 
-Kein Sofort-Tausch. Spieler A bietet **Kurs + Menge** (geben/wollen), 1:1 auf **einem** Gerät. Spieler B nimmt an oder lehnt ab — im eigenen Zug oder als Hot-Seat-Unterbrechung (Zugübergabe, dann zurück). Ressourcen wechseln erst bei Annahme. Hot-Seat: keine Rollen/Wallets der anderen Person zeigen. Keine Multi-Resource-Deals, keine Partner-Bestätigung auf einem zweiten Gerät.
+Kein Sofort-Tausch. Spieler A bietet Menge gegen Menge, 1:1 auf einem Gerät. Beide sehen Gegenstand, Menge und beide Kassen, bevor sie ja oder nein sagen. Spieler B nimmt an oder lehnt ab. Ressourcen wechseln erst bei Annahme. Keine Multi-Resource-Deals. Kein Aufpreis, kein Rabatt: die getippte Menge ist die Menge.
 
-### Offen vs. proprietär (bestehende Semantik, klarer)
+### Offen vs. proprietär
 
-Gleiche Wahl = handelbar. **Offen+Offen:** `OPEN_STANDARD_DISCOUNT` auf den Aufpreis, wenn die abgegebene Ressource nicht kürzlich selbst produziert wurde; erfolgreicher Tausch zählt `standardsBonusVolume`. **Proprietär+Proprietär:** handelbar, kein Rabatt. **Gemischt:** blockiert. Versuch gegen ein proprietäres Gegenüber erhöht dessen `blockedTradesCaused`. Streak zählt Runden auf derselben Wahl.
+Gestrichen. Jeder kann mit jedem handeln. Die Wahl hatte am Tisch keine Folge, die man vor dem Klick sah. `setStandardsChoice` ändert nichts mehr.
 
 ### Geräte / Karten
 
@@ -122,7 +128,7 @@ Event-Themen (Förderung, Engpass, Abgabe) höchstens später im **bestehenden**
 
 ## Wahlversprechen (Rollen)
 
-Sechs IDs: `climate`, `privacy`, `investor`, `visionary`, `networker`, `controller`. **Ausrichtung öffentlich** (Turn-Chip); Unterziele privat. Mapping, Cuts, 2p/6p-Skalierung: nur [`CAST_22_9.md`](CAST_22_9.md) und `nexus/js/data/roles.js` — hier nicht duplizieren.
+Sechs IDs: `climate`, `privacy`, `investor`, `visionary`, `networker`, `controller`. Figur, Rechnung und Stand sind für alle sichtbar. Schwellen: `nexus/js/data/roles.js`. Namen: [`CAST_22_9.md`](CAST_22_9.md).
 
 ## Agent-Ownership
 
