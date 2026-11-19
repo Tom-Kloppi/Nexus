@@ -124,9 +124,9 @@ Nexus.PRODUCTION_DICE = [
 ];
 
 /* Themenfarben der Figuren, in derselben Reihenfolge wie ALL_ROLE_IDS.
-   Mira grün, Isabella rot, Maria gelb, Weiß weiß, Smurf blau, Heinz schwarz. */
-Nexus.PLAYER_COLORS = ["#3FAE5A", "#D4534A", "#E0B33A", "#F7F4EC", "#3A78D8", "#2B2B2E"];
-Nexus.PLAYER_PASTELS = ["#C9E8CF", "#F3C9C6", "#F6E6B8", "#F7F5F1", "#C9DCF6", "#C4C4CA"];
+   Mira grün, Isabella rot, Maria gelb, Weiß weiß, Smurf blau, Heinz schwarz.
+   Kräftig / gesättigt — keine Pastells. */
+Nexus.PLAYER_COLORS = ["#1FA83A", "#E02020", "#F0C000", "#F7F4EC", "#1560E0", "#141416"];
 Nexus.PLAYER_COLOR_NAMES = ["Grün", "Rot", "Gelb", "Weiß", "Blau", "Schwarz"];
 Nexus.UNCLAIMED_GRAY = "#E2E2E2";
 

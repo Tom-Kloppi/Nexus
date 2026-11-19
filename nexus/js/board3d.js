@@ -20,7 +20,7 @@ window.Nexus = window.Nexus || {};
   var FOG_NEAR = 220;
   var FOG_FAR = 520;
   var PLATE_RADIUS = HEX * 42;
-  var CAR_COUNT = 16;
+  var CAR_COUNT = 26;
   var MAX_LIGHTS = 16;
   var MAX_LAMPS = 18;
   var MAX_TREES = 28;
@@ -39,7 +39,7 @@ window.Nexus = window.Nexus || {};
       renderScale: 1,
       antialias: true,
       rafStep: 1,
-      carCount: 16,
+      carCount: 26,
       maxLights: 16,
       maxLamps: 18,
       maxTrees: 28,
@@ -54,7 +54,7 @@ window.Nexus = window.Nexus || {};
       renderScale: 0.92,
       antialias: true,
       rafStep: 1,
-      carCount: 12,
+      carCount: 18,
       maxLights: 10,
       maxLamps: 12,
       maxTrees: 16,
@@ -69,7 +69,7 @@ window.Nexus = window.Nexus || {};
       renderScale: 0.8,
       antialias: false,
       rafStep: 2,
-      carCount: 6,
+      carCount: 10,
       maxLights: 6,
       maxLamps: 8,
       maxTrees: 8,
@@ -126,6 +126,8 @@ window.Nexus = window.Nexus || {};
   var carCabin = null;
   var pedMesh = null;
   var peds = [];
+  var walkSites = [];
+  var zebraEdges = {};
   var busMesh = null;
   var busAgents = [];
   var birds = [];
@@ -934,40 +936,52 @@ window.Nexus = window.Nexus || {};
     function ownerPadOf(hex) {
       var c = new THREE.Color(hex);
       if (night) {
-        c.lerp(new THREE.Color("#1a2430"), 0.28);
+        c.lerp(new THREE.Color("#1a2430"), 0.14);
       }
       return lambert(c, {
-        emissive: c,
-        emissiveIntensity: night ? 0.18 : 0.05
+        emissive: hex,
+        emissiveIntensity: night ? 0.28 : 0.14
       });
     }
     function ownerRimOf(hex) {
       return lambert(hex, {
         emissive: hex,
-        emissiveIntensity: night ? 0.35 : 0.12,
+        emissiveIntensity: night ? 0.45 : 0.22,
         transparent: true,
-        opacity: 0.9
+        opacity: 0.95
       });
     }
     function ownerTintOf(hex) {
-      return lambert(hex);
+      return lambert(hex, {
+        emissive: hex,
+        emissiveIntensity: night ? 0.16 : 0.06
+      });
     }
-    var pastels = Nexus.PLAYER_PASTELS || Nexus.PLAYER_COLORS || [];
-    pastels.forEach(function (hex, index) {
+    var themeColors = Nexus.PLAYER_COLORS || [];
+    themeColors.forEach(function (hex, index) {
+      /* Pads und Gebäude: volle Figurenfarbe, kaum Auswaschen. */
       mats["ownerPad" + index] = ownerPadOf(hex);
       mats["ownerRim" + index] = ownerRimOf(hex);
       mats["ownerTint" + index] = ownerTintOf(hex);
-      [-0.08, 0, 0.06, 0.12].forEach(function (t, shade) {
+      [-0.06, 0, 0.04, 0.09].forEach(function (t, shade) {
         var c = new THREE.Color(hex);
-        c.lerp(new THREE.Color(t < 0 ? "#9a9a9e" : "#ffffff"), Math.abs(t));
-        mats["shade" + index + "_" + shade] = lambert(c);
+        if (t !== 0) {
+          c.lerp(new THREE.Color(t < 0 ? "#0e0e10" : "#ffffff"), Math.abs(t));
+        }
+        mats["shade" + index + "_" + shade] = lambert(c, {
+          emissive: hex,
+          emissiveIntensity: night ? 0.12 : 0.05
+        });
       });
     });
     if (!mats.ownerPad0) {
-      mats.ownerPad0 = ownerPadOf(pastels[0] || "#C9E8CF");
-      mats.ownerRim0 = ownerRimOf(pastels[0] || "#C9E8CF");
-      mats.ownerTint0 = ownerTintOf(pastels[0] || "#C9E8CF");
+      mats.ownerPad0 = ownerPadOf(themeColors[0] || "#1FA83A");
+      mats.ownerRim0 = ownerRimOf(themeColors[0] || "#1FA83A");
+      mats.ownerTint0 = ownerTintOf(themeColors[0] || "#1FA83A");
     }
+    mats.path = lambert(night ? "#8a7f72" : "#d9cfc0");
+    mats.zebra = basic("#ffffff");
+    mats.pedCloth = lambert("#6b7c8c");
     mats.hit = basic("#ffffff", { transparent: true, opacity: 0, depthWrite: false });
     mats.bin = lambert(night ? "#3c444c" : "#6b737a");
     mats.bench = lambert(night ? "#5a4634" : "#b08962");
@@ -2270,10 +2284,151 @@ window.Nexus = window.Nexus || {};
       lights.push({ node: n.key, red: red, yel: yel, gre: gre, phase: i * 1.37, shown: "", night: null });
     }
     lastRoadNet = net;
+    buildWalkways(playTiles, net);
     if (!skipDress) {
       scatterStreetDressing(net);
     }
   }
+
+  function buildWalkways(playTiles, net) {
+    walkSites = [];
+    zebraEdges = {};
+    if (!net || !net.edges || !playTiles || !playTiles.length) {
+      return;
+    }
+    var pathPoses = [];
+    var zebraPoses = [];
+    var pathY = TILE_H + 0.04;
+    playTiles.forEach(function (tile) {
+      var dist = axialDist(tile.q, tile.r);
+      var radius = (Nexus.CONSTANTS && Nexus.CONSTANTS.HEX_RADIUS) || 3;
+      if (dist > radius) {
+        return;
+      }
+      var center = axial(tile.q, tile.r);
+      var edgeI = Math.floor(seeded(tile.q, tile.r, 73)() * 6) % 6;
+      var a = corner(tile.q, tile.r, edgeI);
+      var b = corner(tile.q, tile.r, (edgeI + 1) % 6);
+      var mx = (a.x + b.x) * 0.5;
+      var mz = (a.z + b.z) * 0.5;
+      var ex = mx - center.x;
+      var ez = mz - center.z;
+      var el = Math.hypot(ex, ez) || 1;
+      ex /= el;
+      ez /= el;
+      var doorR = FIELD_R * (0.22 + seeded(tile.q, tile.r, 74)() * 0.16);
+      var door = {
+        x: center.x + ex * doorR,
+        z: center.z + ez * doorR
+      };
+      var curbInset = ROAD_W * 0.48 + 0.18;
+      var curb = {
+        x: mx - ex * curbInset,
+        z: mz - ez * curbInset
+      };
+      var ka = vkey(a.x, a.z);
+      var kb = vkey(b.x, b.z);
+      var ek = ka < kb ? ka + "|" + kb : kb + "|" + ka;
+      var dx = curb.x - door.x;
+      var dz = curb.z - door.z;
+      var span = Math.hypot(dx, dz) || 1;
+      var heading = Math.atan2(dx, dz);
+      /* Leicht eingesunkener Fußweg: dünn über dem Pad, dunkler als Asphalt-Rand. */
+      pathPoses.push({
+        x: (door.x + curb.x) * 0.5,
+        y: pathY,
+        z: (door.z + curb.z) * 0.5,
+        sx: 0.95,
+        sy: 0.05,
+        sz: span,
+        ry: heading
+      });
+      pathPoses.push({
+        x: curb.x,
+        y: pathY + 0.01,
+        z: curb.z,
+        sx: 1.05,
+        sy: 0.05,
+        sz: 1.05,
+        ry: heading
+      });
+      var site = {
+        key: tile.q + "," + tile.r,
+        q: tile.q,
+        r: tile.r,
+        door: door,
+        curb: curb,
+        edge: ek,
+        a: ka,
+        b: kb,
+        nx: ex,
+        nz: ez,
+        side: 1
+      };
+      walkSites.push(site);
+      if (seeded(tile.q, tile.r, 75)() < 0.55 && !zebraEdges[ek]) {
+        zebraEdges[ek] = true;
+        var rdx = b.x - a.x;
+        var rdz = b.z - a.z;
+        var rlen = Math.hypot(rdx, rdz) || 1;
+        var ix = rdx / rlen;
+        var iz = rdz / rlen;
+        var roadHeading = Math.atan2(rdx, rdz);
+        var s;
+        for (s = 0; s < 6; s++) {
+          var along = (s - 2.5) * 0.28;
+          zebraPoses.push({
+            x: mx + ix * along,
+            y: ROAD_Y + 0.085,
+            z: mz + iz * along,
+            sx: ROAD_W * 0.92,
+            sy: 0.025,
+            sz: 0.17,
+            ry: roadHeading
+          });
+        }
+      }
+    });
+    if (pathPoses.length && mats.path) {
+      addInstances(geo.box, mats.path, pathPoses, roots.roads);
+    }
+    if (zebraPoses.length && mats.zebra) {
+      addInstances(geo.box, mats.zebra, zebraPoses, roots.roads);
+    }
+  }
+
+  /* Neutrale Randfelder — Modelle vorbereitet, noch nicht gesetzt. */
+  function artNeutralSupermarket(group, rand) {
+    addBox(group, mats.concrete, 4.2, 2.2, 3.4, 0, TILE_H, 0, 0);
+    addBox(group, mats.roof, 4.4, 0.28, 3.6, 0, TILE_H + 2.2, 0, 0);
+    addBox(group, mats.glass || mats.cabin, 3.2, 1.1, 0.12, 0, TILE_H + 0.9, 1.72, 0);
+  }
+  function artNeutralParking(group, rand) {
+    addBox(group, mats.asphalt || mats.road, 5.2, 0.18, 5.2, 0, TILE_H, 0, 0);
+    addCyl(group, mats.steel, 0.12, 0.12, 2.4, -1.6, TILE_H, -1.6, 8);
+    addCyl(group, mats.steel, 0.12, 0.12, 2.4, 1.6, TILE_H, 1.6, 8);
+  }
+  function artNeutralPark(group, rand) {
+    artPark(group, rand || seeded(0, 0, 1));
+  }
+  function artNeutralGas(group, rand) {
+    addBox(group, mats.concrete, 2.4, 1.6, 2.2, 0, TILE_H, 0, 0);
+    addBox(group, mats.roof, 3.6, 0.2, 3.2, 0, TILE_H + 2.4, 0, 0);
+    addCyl(group, mats.steel, 0.1, 0.1, 2.4, -1.2, TILE_H, 0.8, 8);
+    addCyl(group, mats.steel, 0.1, 0.1, 2.4, 1.2, TILE_H, 0.8, 8);
+  }
+  function artNeutralPlaza(group, rand) {
+    addBox(group, mats.path || mats.concrete, 5.4, 0.12, 5.4, 0, TILE_H, 0, 0);
+    addCyl(group, mats.bench || mats.concrete, 0.35, 0.35, 0.45, 0, TILE_H, 0, 8);
+  }
+  Nexus.Board3DArt = Nexus.Board3DArt || {};
+  Nexus.Board3DArt.neutral = {
+    supermarket: artNeutralSupermarket,
+    parking: artNeutralParking,
+    park: artNeutralPark,
+    gas: artNeutralGas,
+    plaza: artNeutralPlaza
+  };
 
   function placeEuroSigns(net) {
     var placed = 0;
@@ -3097,6 +3252,221 @@ window.Nexus = window.Nexus || {};
     pedMesh = null;
   }
 
+
+  function pedClothes(i) {
+    var palette = ["#1f6feb", "#e85d04", "#2a9d8f", "#9b2226", "#7b2cbf", "#ca6702", "#0077b6", "#bc4749"];
+    return new THREE.Color(palette[i % palette.length]);
+  }
+
+  function pickWalkGoal(fromIndex) {
+    if (!walkSites.length) {
+      return fromIndex;
+    }
+    var tries = 0;
+    var to = fromIndex;
+    while (tries < 12) {
+      to = Math.floor(Math.random() * walkSites.length);
+      if (to !== fromIndex) {
+        return to;
+      }
+      tries += 1;
+    }
+    return (fromIndex + 1) % walkSites.length;
+  }
+
+  function makePedWaypoints(fromSite, toSite) {
+    var pts = [];
+    if (!fromSite || !toSite) {
+      return pts;
+    }
+    pts.push({ x: fromSite.door.x, z: fromSite.door.z, y: TILE_H + 0.55, kind: "door" });
+    pts.push({ x: fromSite.curb.x, z: fromSite.curb.z, y: TILE_H + 0.42, kind: "curb" });
+    if (fromSite.key !== toSite.key) {
+      var midX = (fromSite.curb.x + toSite.curb.x) * 0.5;
+      var midZ = (fromSite.curb.z + toSite.curb.z) * 0.5;
+      var shared = fromSite.edge === toSite.edge;
+      var touch =
+        fromSite.a === toSite.a ||
+        fromSite.a === toSite.b ||
+        fromSite.b === toSite.a ||
+        fromSite.b === toSite.b;
+      if (shared || touch) {
+        pts.push({
+          x: midX,
+          z: midZ,
+          y: ROAD_Y + 0.35,
+          kind: "cross",
+          edge: fromSite.edge,
+          a: fromSite.a,
+          b: fromSite.b
+        });
+      } else {
+        pts.push({
+          x: midX,
+          z: midZ,
+          y: TILE_H + 0.4,
+          kind: "walk",
+          edge: fromSite.edge,
+          a: fromSite.a,
+          b: fromSite.b
+        });
+        pts.push({
+          x: (midX + toSite.curb.x) * 0.5,
+          z: (midZ + toSite.curb.z) * 0.5,
+          y: ROAD_Y + 0.35,
+          kind: "cross",
+          edge: toSite.edge,
+          a: toSite.a,
+          b: toSite.b
+        });
+      }
+    }
+    pts.push({ x: toSite.curb.x, z: toSite.curb.z, y: TILE_H + 0.42, kind: "curb" });
+    pts.push({ x: toSite.door.x, z: toSite.door.z, y: TILE_H + 0.55, kind: "door" });
+    return pts;
+  }
+
+  function carsNearEdge(a, b, radius) {
+    var na = graph.nodes[a];
+    var nb = graph.nodes[b];
+    if (!na || !nb) {
+      return false;
+    }
+    var mx = (na.x + nb.x) * 0.5;
+    var mz = (na.z + nb.z) * 0.5;
+    var i;
+    for (i = 0; i < cars.length; i++) {
+      var car = cars[i];
+      if (car.mode === "park" || car.mode === "wait") {
+        continue;
+      }
+      var spot = placeOnEdge(car.from, car.to, car.u, car.lane || 0);
+      if (!spot) {
+        continue;
+      }
+      if (Math.hypot(spot.x - mx, spot.z - mz) < (radius || 3.4)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  function pedCanCross(pt, time) {
+    if (!pt || pt.kind !== "cross") {
+      return true;
+    }
+    var red = lightIsRed(pt.a, time) || lightIsRed(pt.b, time);
+    if (red) {
+      return true;
+    }
+    return !carsNearEdge(pt.a, pt.b, 3.6);
+  }
+
+  function spawnPedestrians(pedCount) {
+    if (!pedCount || !walkSites.length || !geo.box) {
+      return;
+    }
+    var colorMat = new THREE.MeshLambertMaterial({
+      color: "#ffffff",
+      vertexColors: true
+    });
+    pedMesh = new THREE.InstancedMesh(geo.box, colorMat, pedCount);
+    pedMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    pedMesh.frustumCulled = false;
+    roots.cars.add(pedMesh);
+    var i;
+    for (i = 0; i < pedCount; i++) {
+      var fromI = i % walkSites.length;
+      var toI = pickWalkGoal(fromI);
+      var path = makePedWaypoints(walkSites[fromI], walkSites[toI]);
+      var color = pedClothes(i);
+      pedMesh.setColorAt(i, color);
+      var start = path[0] || { x: 0, y: TILE_H, z: 0 };
+      peds.push({
+        fromI: fromI,
+        toI: toI,
+        path: path,
+        wi: Math.floor(Math.random() * Math.max(1, path.length - 1)),
+        u: Math.random() * 0.4,
+        speed: 0.7 + (i % 4) * 0.12,
+        wait: 0,
+        color: color,
+        x: start.x,
+        y: start.y,
+        z: start.z,
+        ang: 0,
+        dwell: Math.random() * 0.6
+      });
+    }
+    if (pedMesh.instanceColor) {
+      pedMesh.instanceColor.needsUpdate = true;
+    }
+  }
+
+  function retargetPed(ped) {
+    if (!walkSites.length) {
+      return;
+    }
+    ped.fromI = ped.toI;
+    ped.toI = pickWalkGoal(ped.fromI);
+    ped.path = makePedWaypoints(walkSites[ped.fromI], walkSites[ped.toI]);
+    ped.wi = 0;
+    ped.u = 0;
+    ped.wait = 0;
+    ped.dwell = 0.5 + Math.random() * 1.6;
+  }
+
+  function stepPedestrian(ped, dt, time) {
+    if (!ped.path || ped.path.length < 2) {
+      retargetPed(ped);
+      return;
+    }
+    if (ped.dwell > 0) {
+      ped.dwell -= dt;
+      return;
+    }
+    var a = ped.path[ped.wi];
+    var b = ped.path[Math.min(ped.wi + 1, ped.path.length - 1)];
+    if (!a || !b) {
+      retargetPed(ped);
+      return;
+    }
+    if (b.kind === "cross" && ped.u < 0.08 && !pedCanCross(b, time)) {
+      ped.wait += dt;
+      if (ped.wait < 8) {
+        return;
+      }
+    }
+    ped.wait = 0;
+    var dx = b.x - a.x;
+    var dz = b.z - a.z;
+    var dist = Math.hypot(dx, dz) || 0.001;
+    var pace = ped.speed * (b.kind === "cross" ? 0.85 : 1);
+    ped.u += (pace * dt) / dist;
+    if (ped.u >= 1) {
+      ped.u = 0;
+      ped.wi += 1;
+      if (ped.wi >= ped.path.length - 1) {
+        ped.x = b.x;
+        ped.y = b.y;
+        ped.z = b.z;
+        retargetPed(ped);
+        return;
+      }
+      a = ped.path[ped.wi];
+      b = ped.path[ped.wi + 1];
+    }
+    if (!a || !b) {
+      return;
+    }
+    var t = ped.u;
+    var s = t * t * (3 - 2 * t);
+    ped.x = a.x + (b.x - a.x) * s;
+    ped.z = a.z + (b.z - a.z) * s;
+    ped.y = a.y + (b.y - a.y) * s;
+    ped.ang = Math.atan2(b.x - a.x, b.z - a.z);
+  }
+
   function spawnCars() {
     cars = [];
     peds = [];
@@ -3105,8 +3475,8 @@ window.Nexus = window.Nexus || {};
       return;
     }
     refreshHull();
-    var count = Math.max(24, Math.round((CAR_COUNT || 16) * densityMul())) * 4;
-    var pedCount = Math.min(10, Math.round(count * 0.05));
+    var count = Math.max(36, Math.round((CAR_COUNT || 26) * densityMul())) * 4;
+    var pedCount = Math.min(18, Math.max(8, Math.round(walkSites.length * 0.55)));
     var share = evShare();
     var pool = graph.keys.filter(function (key) {
       return String(key).indexOf("rim-") !== 0 && graph.nodes[key] && graph.nodes[key].next.length;
@@ -3146,7 +3516,7 @@ window.Nexus = window.Nexus || {};
       order[i] = order[j];
       order[j] = swap;
     }
-    var parkedGoal = Math.ceil(count * 0.72);
+    var parkedGoal = Math.ceil(count * 0.4);
     var parked = 0;
     var made = [];
     function paint() {
@@ -3215,6 +3585,20 @@ window.Nexus = window.Nexus || {};
         parked += 1;
       }
     }
+    var driveGoal = Math.min(activeCap(), Math.max(6, Math.round(activeCap() * 0.85)));
+    var driving = 0;
+    for (bi = 0; bi < order.length && driving < driveGoal; bi++) {
+      var rollBay = bays[order[bi]];
+      if (!rollBay || rollBay.use === "lot") {
+        continue;
+      }
+      var kind = Math.random() < 0.12 ? "bus" : Math.random() < 0.18 ? "van" : "car";
+      var lane = kind === "bus" ? 0 : driving % 2 === 0 ? 0.42 : -0.42;
+      var roller = pushCar(kind, rollBay.a, rollBay.b, Math.random() * 0.7, lane, "drive", null, null);
+      roller.goal = pickGoal(roller);
+      roller.driveT = 40 + Math.random() * 50;
+      driving += 1;
+    }
     dummy = dummy || new THREE.Object3D();
     var mat = mats.vehicle || mats.car;
     Object.keys(buckets).forEach(function (kind) {
@@ -3253,25 +3637,7 @@ window.Nexus = window.Nexus || {};
       brakeMesh.frustumCulled = false;
       roots.cars.add(brakeMesh);
     }
-    if (pedCount) {
-      pedMesh = new THREE.InstancedMesh(geo.box, mats.slate, pedCount);
-      pedMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-      pedMesh.frustumCulled = false;
-      roots.cars.add(pedMesh);
-      for (i = 0; i < pedCount; i++) {
-        var pf = pool[(i * 3) % pool.length];
-        peds.push({
-          from: pf,
-          to: chooseNext(pf, null, { seed: i + 9 }),
-          u: Math.random(),
-          speed: 0.08,
-          cruise: 0.08 + (i % 3) * 0.02,
-          hold: 0,
-          side: i % 2 === 0 ? 1.15 : -1.15,
-          bike: i % 4 === 0
-        });
-      }
-    }
+    spawnPedestrians(pedCount);
     updateCars(0, 0);
   }
 
@@ -3530,7 +3896,7 @@ window.Nexus = window.Nexus || {};
   }
 
   function activeCap() {
-    return Math.max(6, Math.round((CAR_COUNT || 16) * densityMul()));
+    return Math.max(10, Math.round((CAR_COUNT || 26) * densityMul() * 1.15));
   }
 
   function activeCount() {
@@ -3814,12 +4180,10 @@ window.Nexus = window.Nexus || {};
     }
     for (i = 0; i < peds.length; i++) {
       var ped = peds[i];
-      stepAgent(ped, dt, time, true);
-      var foot = placeOnEdge(ped.from, ped.to, ped.u, ped.side);
-      if (!foot) continue;
-      dummy.position.set(foot.x, ROAD_Y + (ped.bike ? 0.35 : 0.45), foot.z);
-      dummy.rotation.set(0, foot.ang, 0);
-      dummy.scale.set(ped.bike ? 0.55 : 0.22, ped.bike ? 0.35 : 0.7, ped.bike ? 0.9 : 0.22);
+      stepPedestrian(ped, dt, time);
+      dummy.position.set(ped.x, ped.y + 0.12, ped.z);
+      dummy.rotation.set(0, ped.ang || 0, 0);
+      dummy.scale.set(0.34, 0.95, 0.34);
       dummy.updateMatrix();
       pedMesh.setMatrixAt(i, dummy.matrix);
     }
@@ -4727,10 +5091,10 @@ window.Nexus = window.Nexus || {};
   }
 
   function playerPastel(player) {
-    var colors = Nexus.PLAYER_COLORS || ["#8fd0c4"];
+    var colors = Nexus.PLAYER_COLORS || ["#1FA83A"];
     var hex = colors[(player && player.colorIndex) || 0] || colors[0];
     var c = new THREE.Color(hex);
-    c.lerp(new THREE.Color("#f6f1e8"), 0.62);
+    c.lerp(new THREE.Color("#f6f1e8"), 0.12);
     return c;
   }
 
@@ -5116,7 +5480,10 @@ window.Nexus = window.Nexus || {};
         bays: Object.keys(mix).length,
         active: activeCount(),
         cap: activeCap(),
-        goals: goals
+        goals: goals,
+        peds: peds.length,
+        walkSites: walkSites.length,
+        zebras: Object.keys(zebraEdges).length
       };
     },
     setEdgeUse: function (fromKey, toKey, use) {
