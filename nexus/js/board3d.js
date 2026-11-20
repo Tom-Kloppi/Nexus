@@ -1858,9 +1858,11 @@ window.Nexus = window.Nexus || {};
 
   function artPark(group, rand) {
     addBox(group, mats.concrete, 1.6, 1.2, 1.4, 1.1, TILE_H, -0.4, 0.2);
-    tree(group, -2.2, 1.4, 1.05, false);
-    tree(group, 0.3, 2.0, 0.8, true);
-    tree(group, 2.1, 0.6, 0.7, false);
+    if (!kenneyPropsOk()) {
+      tree(group, -2.2, 1.4, 1.05, false);
+      tree(group, 0.3, 2.0, 0.8, true);
+      tree(group, 2.1, 0.6, 0.7, false);
+    }
     if (rand() < 0.4) {
       addCyl(group, mats.glass, 1.4, 1.4, 0.08, 0.8, TILE_H, 1.3, 12);
     }
@@ -1895,18 +1897,71 @@ window.Nexus = window.Nexus || {};
     );
   }
 
+  /**
+   * Kleine Baumgruppe an einer Hex-Ecke — außerhalb Gebäude-/Asphaltfläche,
+   * innen vor der Straße (FIELD_R). mode: built | open | park | parking
+   */
+  function plantTreeCluster(group, rand, mode) {
+    propMode += 1;
+    var spots = [];
+    var i;
+    if (mode === "parking") {
+      var parkSpots = [
+        { x: 3.55, z: 3.2 },
+        { x: -3.55, z: 3.2 },
+        { x: 3.45, z: -3.25 },
+        { x: -3.45, z: -3.25 }
+      ];
+      var base = parkSpots[Math.floor(rand() * parkSpots.length) % parkSpots.length];
+      spots.push(base);
+      if (rand() < 0.55) {
+        var ox = (rand() < 0.5 ? 1 : -1) * (0.45 + rand() * 0.25);
+        var oz = (rand() < 0.5 ? 1 : -1) * (0.35 + rand() * 0.2);
+        spots.push({ x: base.x + ox * (base.x > 0 ? 1 : -1) * 0.15 + ox, z: base.z + oz });
+      }
+    } else {
+      var corner = Math.floor(rand() * 6);
+      var ang = corner * (Math.PI / 3) + Math.PI / 6;
+      var rMin;
+      var rMax;
+      var n;
+      if (mode === "built") {
+        /* Gebäude ~±5, Feldkante ~FIELD_R — Cluster nur im schmalen Grünring. */
+        rMin = 6.35;
+        rMax = 7.65;
+        n = 2 + (rand() < 0.4 ? 1 : 0);
+      } else if (mode === "park") {
+        rMin = 4.0;
+        rMax = 6.9;
+        n = 3;
+      } else {
+        rMin = 3.6;
+        rMax = 6.4;
+        n = 2 + (rand() < 0.45 ? 1 : 0);
+      }
+      var r = rMin + rand() * (rMax - rMin);
+      for (i = 0; i < n; i++) {
+        var a2 = ang + (i - (n - 1) / 2) * 0.2 + (rand() - 0.5) * 0.06;
+        var rr = r + (rand() - 0.5) * 0.3;
+        if (mode === "built") {
+          rr = Math.max(6.2, Math.min(7.8, rr));
+        } else {
+          rr = Math.max(rMin - 0.15, Math.min(Math.min(rMax + 0.2, FIELD_R - 0.85), rr));
+        }
+        spots.push({ x: Math.cos(a2) * rr, z: Math.sin(a2) * rr });
+      }
+    }
+    for (i = 0; i < spots.length; i++) {
+      tree(group, spots[i].x, spots[i].z, 0.82 + (i % 2) * 0.08, i % 2 === 1);
+    }
+    propMode = Math.max(0, propMode - 1);
+  }
+
   /** Uncontrolled playable tiles: already built city fabric, no owner tint. */
   function artUncontrolled(group, rand, q, r) {
     var roll = rand();
-    /* Kenney: keine Filler-Gebäude — kleine Baumgruppen statt Box-/GLB-Props. */
+    /* Kenney: keine Filler-Gebäude — Bäume kommen über dressTileProps-Cluster. */
     if (kenneyPropsOk()) {
-      var n = 2 + Math.floor(rand() * 3);
-      var i;
-      for (i = 0; i < n; i++) {
-        var ang = rand() * Math.PI * 2;
-        var dist = 0.6 + rand() * 2.4;
-        tree(group, Math.cos(ang) * dist, Math.sin(ang) * dist, 0.85, rand() < 0.3);
-      }
       if (rand() < 0.35) {
         lampPost(group, 2.2 + rand() * 0.4, -2.0, 2.2);
       }
@@ -1955,27 +2010,21 @@ window.Nexus = window.Nexus || {};
   }
 
   function dressTileProps(group, zoneKey, q, r, budget) {
-    propMode += 1;
     var rand = seeded(q, r, 55);
-    var count = Math.max(1, Math.min(3, propBudget(budget || 4)));
-    var i;
-    for (i = 0; i < count; i++) {
-      var ang = rand() * Math.PI * 2;
-      var dist = 1.8 + rand() * 2.6;
-      tree(group, Math.cos(ang) * dist, Math.sin(ang) * dist, 0.9, rand() < 0.35);
+    var mode = "open";
+    if (zoneKey === "park") {
+      mode = "park";
+    } else if (zoneKey === "traffic") {
+      mode = "parking";
+    } else if (zoneKey && zoneKey !== "empty") {
+      mode = "built";
     }
-    propMode = Math.max(0, propMode - 1);
+    plantTreeCluster(group, rand, mode);
   }
 
   function artWarehouse(group, rand) {
     if (kenneyPropsOk()) {
-      var n = 2 + Math.floor(rand() * 2);
-      var i;
-      for (i = 0; i < n; i++) {
-        var ang = rand() * Math.PI * 2;
-        var dist = 0.8 + rand() * 2.0;
-        tree(group, Math.cos(ang) * dist, Math.sin(ang) * dist, 0.9, i % 2 === 0);
-      }
+      plantTreeCluster(group, rand, "open");
       return;
     }
     if (tryKenneyFiller(group, rand)) {
@@ -2670,17 +2719,31 @@ window.Nexus = window.Nexus || {};
       var sideB = slotOwned(px - nx * HEX * 0.85, pz - nz * HEX * 0.85);
       var wild = !sideA && !sideB;
       if (roll < 0.28) {
+        /* Straßenbäume: etwas weiter vom Fahrbahnrand, nicht in benachbarte Felder. */
         var s = 0.55 + keyRand(ek, 73) * 0.4;
-        var tx = px + nx * (kerb + 0.45);
-        var tz = pz + nz * (kerb + 0.45);
-        treeCands.push({
-          key: ek,
-          x: tx,
-          z: tz,
-          s: s,
-          alt: keyRand(ek, 74) < 0.5,
-          wild: wild
-        });
+        var treeOff = kerb + (sideA || sideB ? 0.85 : 0.55);
+        var tx = px + nx * treeOff;
+        var tz = pz + nz * treeOff;
+        if (!(sideA || sideB) || keyRand(ek, 78) > 0.22) {
+          treeCands.push({
+            key: ek,
+            x: tx,
+            z: tz,
+            s: s,
+            alt: keyRand(ek, 74) < 0.5,
+            wild: wild
+          });
+          if (keyRand(ek, 79) > 0.62) {
+            treeCands.push({
+              key: ek + "|b",
+              x: tx + nx * 0.4 + (-dz / len) * 0.55,
+              z: tz + nz * 0.4 + (dx / len) * 0.55,
+              s: s * 0.9,
+              alt: !!(keyRand(ek, 74) >= 0.5),
+              wild: wild
+            });
+          }
+        }
       } else if (roll < 0.4) {
         var lx = px + nx * kerb;
         var lz = pz + nz * kerb;
