@@ -1960,8 +1960,15 @@ window.Nexus = window.Nexus || {};
   /** Uncontrolled playable tiles: already built city fabric, no owner tint. */
   function artUncontrolled(group, rand, q, r) {
     var roll = rand();
-    /* Kenney: keine Filler-Gebäude — Bäume kommen über dressTileProps-Cluster. */
+    /* Kenney-Modus: nie Box-Filler — Gebäude oder Baumgruppe. */
     if (kenneyPropsOk()) {
+      if (roll < 0.9 && tryKenneyFiller(group, rand)) {
+        if (rand() < 0.55) {
+          plantTreeCluster(group, rand, "built");
+        }
+      } else {
+        plantTreeCluster(group, rand, "open");
+      }
       if (rand() < 0.35) {
         lampPost(group, 2.2 + rand() * 0.4, -2.0, 2.2);
       }
@@ -2011,12 +2018,16 @@ window.Nexus = window.Nexus || {};
 
   function dressTileProps(group, zoneKey, q, r, budget) {
     var rand = seeded(q, r, 55);
+    /* Leere Felder: Filler+Bäume kommen aus artUncontrolled — hier nicht nochmal. */
+    if (zoneKey === "empty") {
+      return;
+    }
     var mode = "open";
     if (zoneKey === "park") {
       mode = "park";
     } else if (zoneKey === "traffic") {
       mode = "parking";
-    } else if (zoneKey && zoneKey !== "empty") {
+    } else if (zoneKey) {
       mode = "built";
     }
     plantTreeCluster(group, rand, mode);
@@ -2024,7 +2035,13 @@ window.Nexus = window.Nexus || {};
 
   function artWarehouse(group, rand) {
     if (kenneyPropsOk()) {
-      plantTreeCluster(group, rand, "open");
+      if (tryKenneyFiller(group, rand)) {
+        if (rand() < 0.5) {
+          plantTreeCluster(group, rand, "built");
+        }
+      } else {
+        plantTreeCluster(group, rand, "open");
+      }
       return;
     }
     if (tryKenneyFiller(group, rand)) {
@@ -5071,11 +5088,10 @@ window.Nexus = window.Nexus || {};
           dressDevices(group, zone.type === "home" ? "home" : zone.type, giz);
         }
         var tKind = zone.type === "traffic" ? trafficKind(slot.q, slot.r, zone) : null;
-        var wantKitParking = tKind === "parking" || tKind === "garage";
-        /* High/Kenney: keine Box-Häuser — nur Parkplatz/Garage noch BoardKit/art. */
+        /* Kenney deckt Parkplatz/Parkhaus ab — BoardKit nur als Fallback. */
         var kitBuilt =
           !kenneyBuilt &&
-          (!kenneyReady || wantKitParking) &&
+          !kenneyReady &&
           Nexus.BoardKit &&
           Nexus.BoardKit.build &&
           Nexus.BoardKit.build(group, {
@@ -5094,8 +5110,6 @@ window.Nexus = window.Nexus || {};
           });
         if (kitBuilt || kenneyBuilt) {
           /* Kenney oder Baukasten hat das Feld gesetzt. */
-        } else if (kenneyReady && zone.type !== "traffic") {
-          /* Kenney aktiv: kein artHome/artResidential-Fallback. */
         } else if (zone.type === "home") {
           artHome(group, level, giz, slot.q, slot.r);
         } else if (zone.type === "residential") {

@@ -14,11 +14,13 @@ Sichtbarkeit: **alle** gebauten Gadgets (`Nexus.boardGadgetsFor`).
 | --- | --- | --- |
 | Wohnen | Commercial L | Commercial J |
 | Solar | 4 Portrait-Panels (Gruppe) | 8 = zwei Gruppen |
-| Umspannwerk | Industriehalle mit Tanks | + großer Tank |
-| Datenzentrum | Skyscraper E | Skyscraper D |
+| Umspannwerk | Industrial E | Industrial C |
+| Datenzentrum | Skyscraper A (secure: C) | Skyscraper B (secure: D) |
 | Busbahnhof | Industrial A | Industrial P (zwei Tore) |
-| Leitstand | kleines Büro (a) | größeres Büro (f) |
-| Filler | Kenney-Bäume (klein), keine Filler-Gebäude | — |
+| Parkplatz | Industrial H | Industrial H (Doppelt) |
+| Parkhaus | Industrial S (Garagenreihe) | Industrial T |
+| Leitstand (Basistile) | Skyscraper E | Commercial F |
+| Filler | Suburban + Industrial (kein Box-Fallback bei Kenney) | — |
 | Straßen | Kenney Laterne + Schilder (scaled) | — |
 
 | Gerät | Modell | Wo |

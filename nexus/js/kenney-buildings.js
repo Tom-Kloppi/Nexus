@@ -13,42 +13,50 @@ window.Nexus = window.Nexus || {};
     }
     return "vendor/kenney/";
   })();
-  /* Fußmaße: KEEP = Upgrade/Trafo (passt), BUILD = Basis-Selbstbau (nachziehen). */
+  /* Fußmaße: KEEP = Upgrade/Trafo/Parken (passt). BUILD = Basis, leicht größer — nicht sprengen. */
   var ZONE_KEEP = 7.6;
-  /* Basis-Selbstbau (Wohnen/Leitstand/Solar/DC/Depot) — Upgrades/Trafo bleiben KEEP. */
-  var ZONE_BUILD = 10.2;
+  var ZONE_BUILD = 8.15;
+  var ZONE_SOLAR = 7.2;
+  /* Wohnen-Basis + DC: native Footprint klein → sonst ~2× zu groß. */
+  var ZONE_SLIM = 4.05;
   var FILLER_FOOT = 5.4;
   var PROP_FOOT = 0.72;
   var HEX_FIT = 0.94;
 
   /*
    * Zone → Basis / Upgrade (eine Stufe).
-   * Parkplatz/Garage: kein Kenney (BoardKit/artParking).
-   * DC-Basis: Skyscraper E; Upgrade: D.
+   * Leitstand-Basis: Skyscraper E. DC: A/B bzw. C/D.
+   * Parkplatz: Industrial H. Parkhaus: Industrial S → T.
    */
   var CATALOG = {
-    "home|0": { path: "commercial/building-a.glb", yaw: 0, foot: ZONE_BUILD },
+    "home|0": { path: "commercial/building-skyscraper-e.glb", yaw: 0.15, foot: ZONE_SLIM },
     "home|1": { path: "commercial/building-f.glb", yaw: 0, foot: ZONE_KEEP },
-    "residential|0": { path: "commercial/building-l.glb", yaw: Math.PI / 6, foot: ZONE_BUILD },
+    "residential|0": { path: "commercial/building-l.glb", yaw: Math.PI / 6, foot: ZONE_SLIM },
     "residential|1": { path: "commercial/building-j.glb", yaw: Math.PI / 6, foot: ZONE_KEEP },
-    "energy-solar|0": { path: "industrial/solar-panel-portrait-group.glb", yaw: 0.15, foot: ZONE_BUILD },
+    "energy-solar|0": { path: "industrial/solar-panel-portrait-group.glb", yaw: 0.15, foot: ZONE_SOLAR },
     "energy-solar|1": {
       path: "industrial/solar-panel-portrait-group.glb",
       yaw: 0.15,
-      foot: ZONE_KEEP,
-      extras: [{ path: "industrial/solar-panel-portrait-group.glb", x: 3.4, z: 0, yaw: 0.15 }]
+      foot: ZONE_SOLAR,
+      extras: [{ path: "industrial/solar-panel-portrait-group.glb", x: 2.8, z: 0, yaw: 0.15 }]
     },
-    "energy-transformer|0": { path: "industrial/building-c.glb", yaw: -0.35, foot: ZONE_KEEP },
-    "energy-transformer|1": {
-      path: "industrial/building-c.glb",
-      yaw: -0.35,
-      foot: ZONE_KEEP,
-      extras: [{ path: "industrial/detail-tank-large.glb", x: 2.9, z: 1.5 }]
-    },
-    "datacenter|0": { path: "commercial/building-skyscraper-e.glb", yaw: 0.2, foot: ZONE_BUILD },
-    "datacenter|1": { path: "commercial/building-skyscraper-d.glb", yaw: 0.2, foot: ZONE_KEEP },
+    "energy-transformer|0": { path: "industrial/building-e.glb", yaw: -0.35, foot: ZONE_KEEP },
+    "energy-transformer|1": { path: "industrial/building-c.glb", yaw: -0.35, foot: ZONE_KEEP },
+    "datacenter|0": { path: "commercial/building-skyscraper-a.glb", yaw: 0.2, foot: ZONE_SLIM },
+    "datacenter|1": { path: "commercial/building-skyscraper-b.glb", yaw: 0.2, foot: ZONE_SLIM },
+    "datacenter-secure|0": { path: "commercial/building-skyscraper-c.glb", yaw: 0.2, foot: ZONE_SLIM },
+    "datacenter-secure|1": { path: "commercial/building-skyscraper-d.glb", yaw: 0.2, foot: ZONE_SLIM },
     "traffic|0": { path: "industrial/building-a.glb", yaw: 0.1, foot: ZONE_BUILD },
-    "traffic|1": { path: "industrial/building-p.glb", yaw: 0.1, foot: ZONE_KEEP }
+    "traffic|1": { path: "industrial/building-p.glb", yaw: 0.1, foot: ZONE_KEEP },
+    "traffic-parking|0": { path: "industrial/building-h.glb", yaw: 0.2, foot: ZONE_KEEP },
+    "traffic-parking|1": {
+      path: "industrial/building-h.glb",
+      yaw: 0.2,
+      foot: ZONE_KEEP,
+      extras: [{ path: "industrial/building-h.glb", x: 3.1, z: 1.2, yaw: -0.4 }]
+    },
+    "traffic-garage|0": { path: "industrial/building-s.glb", yaw: 0.05, foot: ZONE_KEEP },
+    "traffic-garage|1": { path: "industrial/building-t.glb", yaw: 0.1, foot: ZONE_KEEP }
   };
 
   /* Filler: Suburban-Häuser + Industrial d/f/i/j/k/o (keine Container, kein Bus-A). */
@@ -103,14 +111,20 @@ window.Nexus = window.Nexus || {};
       return "energy-" + variant + "|" + lv;
     }
     if (zone.type === "datacenter") {
+      if (zone.variant === "secure") {
+        return "datacenter-secure|" + lv;
+      }
       return "datacenter|" + lv;
     }
     if (zone.type === "traffic") {
-      /* Nur Busdepot — Parkplatz/Garage bleiben BoardKit/artParking. */
-      if (zone.trafficMode !== "depot") {
-        return null;
+      if (zone.trafficMode === "depot") {
+        return "traffic|" + lv;
       }
-      return "traffic|" + lv;
+      if (zone.trafficMode === "garage") {
+        return "traffic-garage|" + lv;
+      }
+      /* lot / parking / default → Parkplatz */
+      return "traffic-parking|" + lv;
     }
     if (zone.type === "home") {
       return "home|" + lv;
@@ -281,23 +295,32 @@ window.Nexus = window.Nexus || {};
     var jobs = collectPaths();
     return Promise.all(
       jobs.map(function (job) {
-        return loadOne(job.path, job.foot);
+        return loadOne(job.path, job.foot).then(
+          function (tpl) {
+            return { ok: true, path: job.path, foot: job.foot, tpl: tpl };
+          },
+          function (err) {
+            console.warn("NEXUS Kenney: Skip", job.path, err && err.message ? err.message : err);
+            return { ok: false, path: job.path, foot: job.foot };
+          }
+        );
       })
-    )
-      .then(function () {
-        ready = true;
-        failed = false;
-        loading = false;
-        notify();
-        return true;
-      })
-      .catch(function (err) {
-        console.warn("NEXUS Kenney: Modelle nicht geladen", err);
-        failed = true;
-        loading = false;
-        notify();
-        return false;
+    ).then(function (results) {
+      var okCount = 0;
+      results.forEach(function (r) {
+        if (r && r.ok) {
+          okCount += 1;
+        }
       });
+      ready = okCount > 0;
+      failed = okCount === 0;
+      loading = false;
+      if (failed) {
+        console.warn("NEXUS Kenney: keine Modelle geladen");
+      }
+      notify();
+      return ready;
+    });
   }
 
   function cloneTemplate(relPath, targetFoot) {
@@ -378,17 +401,22 @@ window.Nexus = window.Nexus || {};
       return false;
     }
     var roll = ctx && ctx.roll != null ? ctx.roll : Math.random();
-    var path = FILLERS[Math.floor(roll * FILLERS.length) % FILLERS.length];
-    var root = cloneTemplate(path, FILLER_FOOT);
-    if (!root) {
-      return false;
+    var start = Math.floor(roll * FILLERS.length) % FILLERS.length;
+    var i;
+    for (i = 0; i < FILLERS.length; i++) {
+      var path = FILLERS[(start + i) % FILLERS.length];
+      var root = cloneTemplate(path, FILLER_FOOT);
+      if (!root) {
+        continue;
+      }
+      root.position.y = (ctx && ctx.TILE_H) || 0;
+      root.rotation.y = (ctx && ctx.yaw) || roll * Math.PI * 2;
+      applyShadows(root, !!(ctx && ctx.shadows));
+      group.add(root);
+      group.userData.kenneyBuilt = true;
+      return true;
     }
-    root.position.y = (ctx && ctx.TILE_H) || 0;
-    root.rotation.y = (ctx && ctx.yaw) || roll * Math.PI * 2;
-    applyShadows(root, !!(ctx && ctx.shadows));
-    group.add(root);
-    group.userData.kenneyBuilt = true;
-    return true;
+    return false;
   }
 
   function placeProp(group, propId, x, y, z, opts) {
