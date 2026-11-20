@@ -4,14 +4,14 @@ Quelle: Charakter-PDF *Überarbeiteter Entwurf Charaktere (22.9.26)*. **Vertrag 
 
 ## Mapping
 
-| PDF | ID | Label | Ausrichtung | Rechnung (10 Punkte) |
+| PDF | ID | Label | Ausrichtung | Punktart (10) |
 | --- | --- | --- | --- | --- |
-| Frau Prof. Dr. Mira Blüte (ÖZP, Solar/grün) | `climate` | Grüne Stadt | Umwelt | Umwelt 6×1, Öko-Halte 2×2 |
-| Dr. Isabella Roth (PPP, Kernenergie, Cyber) | `privacy` | Datenfestung | Sicherheit | lokale Geräte 3×2, sichere Rechenzentren 2×2 |
-| Maria Hinterberger (Wnd, Immobilien, Handel) | `investor` | Dealmacherin | Wirtschaft | Handel 8×1, Komfort 2×1 |
-| Jürgen Weiß (PdZ, Wind, Zukunft) | `visionary` | Morgenstadt | Zukunft | Assistenz 3×2, Komfort 4×1 |
-| Dr. Thomas Smurf (Bahn, Augenhöhe) | `networker` | Querverkehr | Image | Image 5×1, Handel 5×1 |
-| Heinz Kohle (AfAP, Auto-Komfort) | `controller` | Komfortzone | Komfort | Komfort 6×1, Parkhaus/Bahnhof 2×2 |
+| Mira Blüte (ÖZP) | `climate` | Grüne Stadt | Umwelt | Ökopunkte |
+| Isabella Roth (PPP) | `privacy` | Datenfestung | Sicherheit | Verlässlichkeit |
+| Maria Hinterberger (Wnd) | `investor` | Dealmacherin | Wirtschaft | Finanzpunkte |
+| Jürgen Weiß (PdZ) | `visionary` | Morgenstadt | Zukunft | Innovationspunkte |
+| Thomas Smurf | `networker` | Querverkehr | Image | Imagepunkte |
+| Heinz Kohle (AfAP) | `controller` | Komfortzone | Komfort | Komfortpunkte |
 
 Partei-Kürzel liegen als `party` / `character` auf dem Rollenobjekt (nur Reveal, nicht Turn-Chip).
 

@@ -10,7 +10,7 @@ window.Nexus = window.Nexus || {};
       id: "placeholder",
       speaker: "Lotse",
       text: "Intro-Platzhalter. Hier spricht später eine Figur, mit Textblase und Markierung eines UI-Elements. Kein finaler Text.",
-      highlight: "#stat-round"
+      highlight: "#stat-days-left"
     }
   ];
 

@@ -28,8 +28,8 @@ Nexus.GLOSSARY = {
   },
   cyber: {
     title: "Cyber-Exposition",
-    short: "Zählt Cloud-Geräte ohne lokale Absicherung, unsichere Datenzentren und hohe SAE-Stufen ohne lokales V2X.",
-    example: "Zwei Cloud-Geräte (6) und ein unsicheres Rechenzentrum (4) ergeben 10, bevor Schlösser abziehen.",
+    short: "Zählt Cloud-Geräte und offene Rechenzentren; lokale Geräte und geschlossene RZ ziehen ab.",
+    example: "Zwei Cloud-Geräte und ein offenes Rechenzentrum ergeben hohe Exposition, bevor Schlösser abziehen.",
     figure: "shield"
   },
   netzstress: {
@@ -40,8 +40,8 @@ Nexus.GLOSSARY = {
   },
   abhaengigkeit: {
     title: "Abhängigkeit",
-    short: "Proprietärer Standard, nur Cloud ohne Lokalbetrieb, nur Transformator ohne Solar.",
-    example: "Proprietär und kein lokales Gerät: +8. Offener Standard und ein Home Hub ziehen das runter.",
+    short: "Nur Cloud ohne Lokalbetrieb, oder nur Transformator ohne Solar.",
+    example: "Cloud ohne lokales Gerät: +4. Ein Home Hub und etwas Solar ziehen das runter.",
     figure: "link"
   },
   verkehrslast: {
@@ -51,15 +51,15 @@ Nexus.GLOSSARY = {
     figure: "bus"
   },
   sae: {
-    title: "SAE-Stufe",
-    short: "Assistenz bis vollautomatisch, Stufen 0–5. Höher braucht Sensorik, Rechnen und V2X und wird störanfälliger.",
-    example: "Stufe 4 verlangt V2X und 2 Bandbreite. Stufe 5 zusätzlich lokales V2X oder ein gesichertes Datenzentrum.",
+    title: "Assistenz (entfernt)",
+    short: "Die alte SAE-Leiter ist aus dem Spiel. Linien und Geräte tragen den Verkehr weiter.",
+    example: "Statt Assistenz-Stufen zählen Antrieb, Halte und sichtbare Linien auf der Straße.",
     figure: "bus"
   },
   v2x: {
     title: "V2X",
     short: "Fahrzeug spricht mit Kreuzung und Netz. Cloud-V2X erhöht die Cyber-Exposition, lokales V2X nicht.",
-    example: "SAE 4 ohne V2X ist gesperrt. Mit lokalem V2X zählt die Stufe für das Teilziel „abgeschirmte Mobilität“.",
+    example: "V2X bleibt als Gerät nutzbar; es gibt keine Assistenz-Stufen mehr, die es freischalten.",
     figure: "bus"
   },
   autarkie: {
@@ -82,8 +82,8 @@ Nexus.GLOSSARY = {
   },
   komfort: {
     title: "Komfort",
-    short: "Spürbare Annehmlichkeit: Wohnlage, Bus, Parkhaus, SAE, smarte Geräte.",
-    example: "Eine neue Buslinie gibt bis zu +2 Komfort auf Wohn-Haltestellen, Diesel zusätzlich +1 für Autostadt.",
+    short: "Spürbare Annehmlichkeit: Wohnlage, Bus, Parkhaus, smarte Geräte.",
+    example: "Eine neue Buslinie und ein Parkhaus geben Komfort, den man am Tisch sieht.",
     figure: "leaf"
   },
   datenzentrum: {

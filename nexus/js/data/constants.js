@@ -130,10 +130,11 @@ Nexus.PLAYER_COLORS = ["#1FA83A", "#E02020", "#F0C000", "#F7F4EC", "#1560E0", "#
 Nexus.PLAYER_COLOR_NAMES = ["Grün", "Rot", "Gelb", "Weiß", "Blau", "Schwarz"];
 Nexus.UNCLAIMED_GRAY = "#E2E2E2";
 
+/* Probezeit in Tagen — eher Direktsieg bei 10 Punkten, Limit als Druck. */
 Nexus.GAME_LENGTHS = [
-  { id: "short", label: "Kurz", rounds: 15 },
-  { id: "standard", label: "Standard", rounds: 20 },
-  { id: "long", label: "Lang", rounds: 25 }
+  { id: "short", label: "Kurz · 10 Tage", rounds: 10 },
+  { id: "standard", label: "Standard · 14 Tage", rounds: 14 },
+  { id: "long", label: "Lang · 18 Tage", rounds: 18 }
 ];
 
 /* Sechs Hex-Ecken, Uhrzeigersinn ab Nordost. Fairer Spread: 2 gegenüber, 3 jeder zweite, 4 Raute, 5 eine Lücke, 6 alle. */

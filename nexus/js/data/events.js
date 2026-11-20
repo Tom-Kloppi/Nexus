@@ -251,8 +251,8 @@ Nexus.EVENTS = [
     id: "major-breach",
     title: "Großereignis: Datenabfluss",
     text: "Viele Cloud-Geräte ohne lokale Absicherung. Ein Abfluss trifft das Quartier.",
-    cause: "Cyber-Exposition aus Cloud-Geräten, unsicherem Rechenzentrum oder hoher SAE ohne lokales V2X.",
-    counter: "Geräte lokal stellen, Datenzentrum sichern, V2X nicht in der Cloud betreiben.",
+    cause: "Cyber-Exposition aus Cloud-Geräten und offenen Rechenzentren.",
+    counter: "Geräte lokal stellen und das Rechenzentrum schließen.",
     family: "cyber",
     major: true,
     auto: false,
@@ -299,8 +299,8 @@ Nexus.EVENTS = [
   },
   {
     id: "standard-split",
-    title: "Standard-Streit",
-    text: "Zwei Hersteller-Lager werben um dein Home-Board.",
+    title: "Protokoll-Zoff",
+    text: "Zwei Hersteller streiten ums Home-Board. Offen hält Partner, proprietär bringt Geld und Risiko.",
     auto: false,
     requiresCloudCamera: false,
     choices: [
@@ -317,22 +317,238 @@ Nexus.EVENTS = [
         effects: { money: 1, risk: 1 }
       }
     ]
+  },
+  {
+    id: "role-eco-rain",
+    title: "Regen-Dilemma (Öko)",
+    text: "Nasser Morgen. Auto wäre bequem, Rad und Bus sind sauberer. Kleine Entscheidung, sichtbare Ökopunkte.",
+    auto: false,
+    requiresCloudCamera: false,
+    choices: [
+      {
+        id: "a",
+        label: "Rad / ÖPNV",
+        summary: "+1 Ökopunkt",
+        effects: { pointKey: "eco", rolePoints: 1, environment: 1 }
+      },
+      {
+        id: "b",
+        label: "Auto nehmen",
+        summary: "−1 Ökopunkt",
+        effects: { pointKey: "eco", rolePoints: -1 }
+      }
+    ]
+  },
+  {
+    id: "role-trust-patch",
+    title: "Hacker-Alarm",
+    text: "Ein Scan zeigt Lücken. Sofort patchen kostet Bandbreite und stärkt Verlässlichkeit.",
+    auto: false,
+    requiresCloudCamera: false,
+    choices: [
+      {
+        id: "a",
+        label: "Sofort härten",
+        summary: "−1 Bandbreite, +1 Verlässlichkeit",
+        effects: { spend: { bandwidth: 1 }, pointKey: "trust", rolePoints: 1, security: 1 }
+      },
+      {
+        id: "b",
+        label: "Später",
+        summary: "−1 Verlässlichkeit, +1 Risiko",
+        effects: { pointKey: "trust", rolePoints: -1, risk: 1 }
+      }
+    ]
+  },
+  {
+    id: "role-finance-boom",
+    title: "Handelstag",
+    text: "Die Marktlage ist günstig. Wer handelt, sichert Finanzpunkte — ohne Würfelglück.",
+    auto: false,
+    requiresCloudCamera: false,
+    choices: [
+      {
+        id: "a",
+        label: "Aktiv handeln",
+        summary: "+1 Finanzpunkt (wenn Dealmacherin)",
+        effects: { pointKey: "finance", rolePoints: 1, money: 1 }
+      },
+      {
+        id: "b",
+        label: "Abwarten",
+        summary: "Kein Effekt",
+        effects: {}
+      }
+    ]
+  },
+  {
+    id: "role-innovation-demo",
+    title: "Technik-Demo",
+    text: "Die Presse will eine Zukunftsidee sehen. Linie oder Projekt zeigen = Innovationspunkt.",
+    auto: false,
+    requiresCloudCamera: false,
+    choices: [
+      {
+        id: "a",
+        label: "Demo starten",
+        summary: "−1 Geld, +1 Innovation",
+        effects: { spend: { money: 1 }, pointKey: "innovation", rolePoints: 1 }
+      },
+      {
+        id: "b",
+        label: "Absagen",
+        summary: "−1 Image",
+        effects: { image: -1 }
+      }
+    ]
+  },
+  {
+    id: "role-image-hearing",
+    title: "Bürgerversammlung",
+    text: "Minderheiten wollen gehört werden. Zuhören stärkt Imagepunkte.",
+    auto: false,
+    requiresCloudCamera: false,
+    choices: [
+      {
+        id: "a",
+        label: "Zuhören und einbinden",
+        summary: "+1 Imagepunkt",
+        effects: { pointKey: "image", rolePoints: 1, image: 1 }
+      },
+      {
+        id: "b",
+        label: "Übergehen",
+        summary: "−1 Imagepunkt",
+        effects: { pointKey: "image", rolePoints: -1 }
+      }
+    ]
+  },
+  {
+    id: "role-comfort-lanes",
+    title: "Spurstreit",
+    text: "Busspur oder mehr Parkraum? Komfort hängt davon ab, wen du bevorzugst.",
+    auto: false,
+    requiresCloudCamera: false,
+    choices: [
+      {
+        id: "a",
+        label: "Parkraum erweitern",
+        summary: "+1 Komfortpunkt",
+        effects: { pointKey: "comfort", rolePoints: 1, comfort: 1 }
+      },
+      {
+        id: "b",
+        label: "Busspur schützen",
+        summary: "+1 Umwelt, −1 Komfortpunkt",
+        effects: { environment: 1, pointKey: "comfort", rolePoints: -1 }
+      }
+    ]
+  },
+  {
+    id: "skandal",
+    title: "Skandal-Schlagzeile",
+    text: "Die Lokalpresse wittert Blut. Du kannst eine Gegenkandidatin anprangern — höchstens ein Rollenpunktverlust pro Person und Tag. So etwas bringt dich nicht auf 10.",
+    auto: false,
+    requiresCloudCamera: false,
+    choices: [
+      {
+        id: "a",
+        label: "Anprangern",
+        summary: "−1 Bandbreite; Ziel −1 Rollenpunkt",
+        needsPlayerPick: true,
+        effects: { spend: { bandwidth: 1 }, contestStripTarget: 1 }
+      },
+      {
+        id: "b",
+        label: "Schweigen",
+        summary: "Kein Effekt",
+        effects: {}
+      }
+    ]
+  },
+  {
+    id: "presse-deal",
+    title: "Presse-Deal",
+    text: "Ein Blatt bietet dir eine Story: Du opferst einen eigenen Rollenpunkt, eine andere Person verliert einen. Teuer, kein Siegpunkt daraus.",
+    auto: false,
+    requiresCloudCamera: false,
+    choices: [
+      {
+        id: "a",
+        label: "Deal machen",
+        summary: "−1 eigener Punkt, Ziel −1 Punkt, −1 Geld",
+        needsPlayerPick: true,
+        effects: { spend: { money: 1 }, spendOwnRolePoints: 1, contestStripTarget: 1 }
+      },
+      {
+        id: "b",
+        label: "Ablehnen",
+        summary: "Kein Effekt",
+        effects: {}
+      }
+    ]
+  },
+  {
+    id: "field-sabotage",
+    title: "Baustellen-Blockade",
+    text: "Irgendwo im Distrikt hängt eine Lieferung. Ein zufälliges fremdes Feld liefert den nächsten Tag nichts — kein Abriss, nur Pause.",
+    auto: false,
+    requiresCloudCamera: false,
+    choices: [
+      {
+        id: "a",
+        label: "Blockade ausnutzen",
+        summary: "Zufälliges Fremdfeld gestört",
+        effects: { sabotageForeign: true }
+      },
+      {
+        id: "b",
+        label: "Ignorieren",
+        summary: "Kein Effekt",
+        effects: {}
+      }
+    ]
+  },
+  {
+    id: "buergerprotest",
+    title: "Bürgerprotest",
+    text: "Die Straße ist voll. Unausweichlich: jede Figur verliert einen Rollenpunkt. Zusätzlich gerät die Führende unter Extra-Druck, das Schlusslicht verliert Energie.",
+    auto: true,
+    requiresCloudCamera: false,
+    choices: [
+      {
+        id: "ok",
+        label: "Aushalten",
+        summary: "Alle −1 Punkt; Führende nochmals −1; Schlusslicht −1 Energie",
+        effects: { protestSweep: true }
+      }
+    ]
   }
 ];
 
 Nexus.EVENT_DECK_SPEC = [
   { id: "software-update", count: 2 },
   { id: "power-outage", count: 2 },
-  { id: "data-leak", count: 2 },
+  { id: "data-leak", count: 1 },
   { id: "bandwidth", count: 2 },
   { id: "local-hub-funding", count: 1 },
-  { id: "green-grant", count: 2 },
+  { id: "green-grant", count: 1 },
   { id: "evasion-update", count: 1 },
   { id: "investor", count: 1 },
   { id: "maintenance", count: 2 },
   { id: "overproduction", count: 1 },
   { id: "civic-hearing", count: 1 },
-  { id: "standard-split", count: 1 }
+  { id: "standard-split", count: 1 },
+  { id: "role-eco-rain", count: 2 },
+  { id: "role-trust-patch", count: 2 },
+  { id: "role-finance-boom", count: 2 },
+  { id: "role-innovation-demo", count: 2 },
+  { id: "role-image-hearing", count: 2 },
+  { id: "role-comfort-lanes", count: 2 },
+  { id: "skandal", count: 2 },
+  { id: "presse-deal", count: 2 },
+  { id: "field-sabotage", count: 3 },
+  { id: "buergerprotest", count: 2 }
 ];
 
 Nexus.EVENT_LESSONS = {
@@ -350,7 +566,11 @@ Nexus.EVENT_LESSONS = {
   "major-blackout": "Ohne eigene Erzeugung und Speicher fällt die Cloud aus, lokale Geräte nicht.",
   "major-breach": "Viele Cloud-Geräte ohne lokale Sicherung machen einen Abfluss teuer.",
   "major-jam": "Parkfläche ohne Linie erzeugt Stau, ÖPNV nimmt Last aus den Ringen.",
-  "standard-split": "Offen verbindet Partner, proprietär bringt Geld und schließt andere aus."
+  "standard-split": "Offen verbindet Partner, proprietär bringt Geld und schließt andere aus.",
+  skandal: "Anprangern kostet Bandbreite und trifft nur einmal pro Tag. Der letzte Siegpunkt kommt nie aus Kontern.",
+  "presse-deal": "Du zahlst mit dem eigenen Stand, um jemanden zurückzuwerfen — kein Abkürzungsweg zum Amt.",
+  "field-sabotage": "Ein Tag ohne Ertrag trifft den Plan, zerstört aber keine Felder.",
+  buergerprotest: "Protest trifft alle. Wer führt, spürt mehr Druck; wer hinten liegt, verliert Ressourcen."
 };
 
 Nexus.EVENTS_BY_ID = {};

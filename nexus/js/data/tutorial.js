@@ -1,12 +1,13 @@
 window.Nexus = window.Nexus || {};
 
-/* Schritttexte der Anleitung. Ablauf und Spotlight leben in main.js / render.js.
-   section: Gruppierung für das Inhaltsverzeichnis. */
+/* Schritttexte der Anleitung. Ablauf und Spotlight: main.js / render.js.
+   Lore: Graulstedde / #GGW — angepasst an sichtbare Rollen (kein Geheimhaltungsschild). */
 Nexus.TUTORIAL_SECTIONS = [
+  { id: "story", title: "Geschichte" },
   { id: "setup", title: "Start" },
   { id: "hud", title: "Oberfläche" },
-  { id: "district", title: "Distrikt & Panel" },
-  { id: "actions", title: "Karten & Zug" },
+  { id: "district", title: "Distrikt & Ziele" },
+  { id: "actions", title: "Zug & Karten" },
   { id: "build", title: "Bauen & Geräte" },
   { id: "trade", title: "Handel & Ereignisse" },
   { id: "hotseat", title: "Übergabe & Ende" }
@@ -14,12 +15,36 @@ Nexus.TUTORIAL_SECTIONS = [
 
 Nexus.TUTORIAL_STEPS = [
   {
+    id: "story-graulstedde",
+    section: "story",
+    scene: "setup",
+    target: "#setup-screen h2",
+    title: "Graulstedde braucht Wechsel",
+    body: "Nach langer Amtszeit von Bürgermeister Günter Grotte-Wabenbauer startete #GünterGehWeg. Die Stadt wählt ein Pilotprojekt: Kandidatinnen und Kandidaten beweisen in zugelosten Stadtteilen, dass Wahlversprechen auch umgesetzt werden — Wohnen, Energie, Netze, Sicherheit und Alltag."
+  },
+  {
+    id: "story-coop",
+    section: "story",
+    scene: "setup",
+    target: "#setup-screen .setup-note",
+    title: "Diskurs am einen Tisch",
+    body: "Ihr teilt euch ein Gerät (Hot-Seat). Die Grundwerte unterscheiden sich, aber die Stadt braucht Kompromisse: handeln, Linien teilen, Risiken senken. Am Tisch sind Rolle, Ziele und Kasse sichtbar — damit Anfänger mitlernen können, nicht hinter Geheimnissen."
+  },
+  {
+    id: "story-win",
+    section: "story",
+    scene: "setup",
+    target: "#setup-length",
+    title: "Probezeit und Auswertung",
+    body: "In der Probezeit sammelt jede Person Rollenpunkte der eigenen Art. Wer zuerst 10 Punkte nach einem vollen Tag hat, wird Bürgermeister. Sonst entscheiden die verbleibenden Tage: die meisten Punkte — nicht Würfelglück."
+  },
+  {
     id: "setup-welcome",
     section: "setup",
     scene: "setup",
     target: "#setup-screen h2",
     title: "Neue Partie",
-    body: "Hier beginnt jede Partie. Die Stadtteilmanager teilen sich ein Gerät und geben es weiter. Weiter, Zurück und Beenden — oder Pfeil rechts, Enter, Pfeil links und Escape. Inhalt springt zu einem Thema."
+    body: "Hier startet jede Partie. Weiter, Zurück und Beenden — oder Pfeil rechts, Enter, Pfeil links und Escape. Inhalt springt zu einem Thema."
   },
   {
     id: "setup-count",
@@ -27,7 +52,7 @@ Nexus.TUTORIAL_STEPS = [
     scene: "setup",
     target: "#setup-player-count",
     title: "Spielerzahl",
-    body: "Wähle zwei bis sechs Personen. Bei zwei Spielern bleiben die Regeln gleich, Handels- und Blockadeziele werden nur angepasst. Ab vier Personen wird der Distrikt um einen Hex-Ring größer."
+    body: "Zwei bis sechs Personen. Ab vier Personen wird der Distrikt um einen Hex-Ring größer. Die Regeln bleiben gleich, nur Platz und Tempo wachsen."
   },
   {
     id: "setup-length",
@@ -35,15 +60,15 @@ Nexus.TUTORIAL_STEPS = [
     scene: "setup",
     target: "#setup-length",
     title: "Spiellänge",
-    body: "Kurz, Standard oder Lang legt die Rundenzahl fest. Wer zuerst 100 % des eigenen Versprechens erreicht, gewinnt früher. Sonst zählt am Ende die höchste Prozentzahl."
+    body: "Kurz, Standard oder Lang legt die Probezeit in Tagen fest (10 / 14 / 18). Punkte kommen aus Entscheidungen — nicht aus Zufallssiegen."
   },
   {
-    id: "setup-privacy",
+    id: "setup-table",
     section: "setup",
     scene: "setup",
     target: "#setup-screen .setup-note",
-    title: "Sichtbar und privat",
-    body: "Geräte der anderen sind öffentlich, Cloud und lokal. Ressourcen und Wahlversprechen sieht nur die Person, die gerade das Gerät hält."
+    title: "Was alle sehen",
+    body: "Rollen, Ziele, Kassen und gebaute Geräte sind am Tisch öffentlich. Die Übergabe sagt nur „du bist dran“. So bleibt NEXUS ein Lernspiel, kein Versteckspiel."
   },
   {
     id: "setup-gear",
@@ -51,7 +76,7 @@ Nexus.TUTORIAL_STEPS = [
     scene: "setup",
     target: "#setup-screen .js-settings-btn",
     title: "Darstellung",
-    body: "Das Zahnrad öffnet Tageslicht und UI-Größe. Beides gilt für dieses Gerät und bleibt gespeichert, auch nach dem Schließen."
+    body: "Zahnrad: Tageslicht/Nachtstadt, UI-Größe, Board-Qualität und Biom. Einstellungen bleiben auf diesem Gerät gespeichert."
   },
   {
     id: "setup-theme",
@@ -60,7 +85,7 @@ Nexus.TUTORIAL_STEPS = [
     settings: "setup",
     target: "#setup-screen .js-theme-pick",
     title: "Licht",
-    body: "Tag und Nacht sind zwei Flächen. Es ändern sich die Farben, keine verdeckten Angaben."
+    body: "Tag und Nacht ändern Farben und Stadtlicht. Zahlen und Besitz bleiben lesbar."
   },
   {
     id: "setup-scale",
@@ -69,7 +94,7 @@ Nexus.TUTORIAL_STEPS = [
     settings: "setup",
     target: "#setup-screen .settings-scale",
     title: "UI-Größe",
-    body: "Schieber oder die Stufen Klein, Normal und Groß skalieren Schriften und Knöpfe. Das Spiel selbst bleibt dasselbe."
+    body: "Klein, Normal oder Groß skaliert Schriften und Knöpfe. Die Regeln ändern sich nicht."
   },
   {
     id: "setup-start",
@@ -77,15 +102,15 @@ Nexus.TUTORIAL_STEPS = [
     scene: "setup",
     target: "#btn-start-game",
     title: "Partie starten",
-    body: "Dieser Knopf startet eine echte Partie mit Spielerzahl und Länge. Weiter öffnet nur einen Übungsdistrikt zum Umschauen. Beenden legt ihn weg und bringt dich hierher zurück."
+    body: "Startet mit Spielerzahl und Länge. Weiter in der Anleitung öffnet nur einen Übungsdistrikt. Beenden legt ihn weg."
   },
   {
     id: "hud-round",
     section: "hud",
     scene: "build",
     target: ".brand",
-    title: "Runde",
-    body: "Oben links stehen Name und die laufende Runde gegen das Limit. Nach der letzten Runde wird verglichen, falls niemand vorher gewonnen hat."
+    title: "Verbleibende Tage",
+    body: "Oben links: wie viele Tage der Probezeit noch bleiben. Am letzten Tag wird ausgewertet, falls niemand vorher 10 Punkte hat."
   },
   {
     id: "hud-turn",
@@ -93,7 +118,7 @@ Nexus.TUTORIAL_STEPS = [
     scene: "build",
     target: "#turn-row",
     title: "Wer dran ist",
-    body: "Jede Person hat einen Chip mit Farbe und öffentlicher Ausrichtung. Der aktive Zug ist hervorgehoben. Ein fremder Chip zeigt später nur öffentliche Daten, nie Geldbörse oder Versprechen."
+    body: "Jeder Chip zeigt Farbe und Figur. Der aktive Zug ist hervorgehoben. Fremde Chips zeigen öffentliche Daten — inklusive Fortschritt der Rolle."
   },
   {
     id: "hud-wallet",
@@ -101,7 +126,7 @@ Nexus.TUTORIAL_STEPS = [
     scene: "build",
     target: ".wallet",
     title: "Ressourcen",
-    body: "Energie, Geld und Bandbreite. Die große Zahl ist dein Vorrat, die kleine mit Tilde der erwartete Ertrag. In der Übergabe stehen hier Striche."
+    body: "Energie, Geld und Bandbreite. Große Zahl = Vorrat, kleine mit Tilde = erwarteter Ertrag. Produktion kommt zu Zugbeginn als Flug von den Feldern."
   },
   {
     id: "hud-risk",
@@ -109,15 +134,15 @@ Nexus.TUTORIAL_STEPS = [
     scene: "build",
     target: ".risk-pill",
     title: "Risiko",
-    body: "Vier Zahlen aus dem Stadtbild: Cyber, Netzstress, Abhängigkeit, Verkehrslast. Vor dem offenen Wurf siehst du die Chance. In der Übergabe ist die Zahl verdeckt."
+    body: "Zeigt die größte Ursache und die Schwelle. Ab Schwelle öffnet sich eine Ereigniskarte mit Wahl — die Folge steht vorher auf der Kachel."
   },
   {
     id: "hud-goal",
     section: "hud",
     scene: "build",
     target: "#goal-pill",
-    title: "Versprechen, kurz",
-    body: "Der Balken ist dein eigener Fortschritt in Prozent. Er ist nur auf deinem Zug da. Die anderen sehen ihn nicht."
+    title: "Rollenpunkte",
+    body: "Dein Fortschritt in der eigenen Punktart (Farbe/Icon). Andere Arten siehst du nicht — nur was für deine Figur zählt."
   },
   {
     id: "dock-toggle",
@@ -126,17 +151,7 @@ Nexus.TUTORIAL_STEPS = [
     target: "#dock",
     targetSheet: "#btn-dock-toggle",
     title: "Ziele und Feld",
-    body: "Auf großen Bildschirmen bleibt das Seitenpanel offen. Auf schmalen Geräten öffnet „Ziele“ dasselbe Panel über dem Brett."
-  },
-  {
-    id: "dock-close",
-    section: "district",
-    scene: "build",
-    dock: true,
-    target: "#dock",
-    targetSheet: "#btn-dock-close",
-    title: "Panel auf dem Telefon",
-    body: "„Fertig“ legt das Panel auf schmalen Bildschirmen wieder weg. Das Brett bleibt bedienbar. Auf großen Bildschirmen steht das Panel fest daneben."
+    body: "Große Bildschirme: Seitenpanel. Schmal: „Ziele“ öffnet dasselbe Panel über dem Brett."
   },
   {
     id: "map",
@@ -144,7 +159,7 @@ Nexus.TUTORIAL_STEPS = [
     scene: "build",
     target: "#map-viewport",
     title: "Distrikt",
-    body: "Das Sechseckfeld ist die Stadt. Straßen laufen an den Kanten, Gebäude stehen auf den Feldern. Ziehen verschiebt die Ansicht."
+    body: "Hex-Stadt. Straßen auf den Kanten, ein Hauptgebäude pro Feld. Rechtsziehen = Orbit, Linksziehen = Schieben, Rad = Zoom."
   },
   {
     id: "map-controls",
@@ -152,7 +167,7 @@ Nexus.TUTORIAL_STEPS = [
     scene: "build",
     target: ".map-controls",
     title: "Zoom",
-    body: "Plus und Minus holen heran oder weg. Der Kreis setzt die Ansicht zurück, damit auch Randfelder wieder im Bild sind."
+    body: "Plus/Minus und der Kreis setzen die Kamera zurück, damit Randfelder wieder im Bild sind."
   },
   {
     id: "coach",
@@ -160,7 +175,7 @@ Nexus.TUTORIAL_STEPS = [
     scene: "build",
     target: "#table-hint",
     title: "Hinweiszeile",
-    body: "Hier steht, was der Zug gerade von dir erwartet. Kurze Meldungen können zusätzlich darüber aufpoppen und verschwinden von selbst."
+    body: "Kurzer Satz, was der Zug gerade braucht. Toasts poppen darüber auf und verschwinden von selbst."
   },
   {
     id: "home-tile",
@@ -169,7 +184,7 @@ Nexus.TUTORIAL_STEPS = [
     target: "#district-canvas",
     fallback: "#map-viewport",
     title: "Kontrollbüro",
-    body: "Dein Startfeld produziert jede Runde etwas von allen drei Ressourcen. Antippen öffnet die Geräte am Leitstand."
+    body: "Dein Startfeld. Jede Runde etwas von allen drei Ressourcen. Antippen: Geräte am Leitstand."
   },
   {
     id: "expand-tile",
@@ -178,7 +193,7 @@ Nexus.TUTORIAL_STEPS = [
     target: "#district-canvas",
     fallback: "#map-viewport",
     title: "Nachbarfeld",
-    body: "Leere Nachbarfelder mit Plus kannst du bebauen. In der ersten Runde ist das erste Feld ein Startcoupon und kostet nichts. Danach kostet Bauen Ressourcen."
+    body: "Leere Nachbarn kannst du bebauen. Erstes Feld oft als Startcoupon gratis. Danach kosten Ressourcen. Jeder Typ hat einen Einzeiler, was er tut."
   },
   {
     id: "legend",
@@ -188,7 +203,7 @@ Nexus.TUTORIAL_STEPS = [
     legend: true,
     target: "#board-legend",
     title: "Landnutzung",
-    body: "Die Farben erklären Wohnen, Energie, Rechenzentrum, Verkehr und die Natur am Rand. Der farbige Rand eines Feldes zeigt den Besitzer."
+    body: "Wohnen, Energie, Rechenzentrum, Verkehr. Der farbige Rand zeigt Besitz. Gebäudetyp vor Besitzfarbe lesen."
   },
   {
     id: "goals",
@@ -197,16 +212,16 @@ Nexus.TUTORIAL_STEPS = [
     dock: true,
     target: "#goal-panel",
     title: "Wahlversprechen",
-    body: "Name und Unterziele stehen nur hier und nur für dich. Bürgermeister wird, wer 100 % erreicht oder am Ende am nächsten dran ist."
+    body: "Figur, Punktart und Stand. Punkte entstehen an der Ursache (Bau, Karte, Ereignis, Handel) und fliegen zur Rolle. Bürgermeister = 10 Punkte oder beste Punktzahl am Limit."
   },
   {
     id: "tracks",
     section: "district",
     scene: "build",
     dock: true,
-    target: "#tracks-card",
-    title: "Stadtspuren",
-    body: "Image, Komfort, Umwelt und Sicherheit. Gebäude und Karten schieben diese Werte. Gewonnen wird über das Versprechen, nicht über die Summe der Spuren."
+    target: "#goal-panel",
+    title: "Stadtwerte vs. Sieg",
+    body: "Image, Komfort, Umwelt und Sicherheit wirken weiter in Risiko und Events. Der Sieg läuft nur über deine Rollenpunkte — die Spurensumme gewinnt nicht."
   },
   {
     id: "zone",
@@ -215,32 +230,7 @@ Nexus.TUTORIAL_STEPS = [
     dock: true,
     target: "#zone-inspect",
     title: "Feld prüfen",
-    body: "Typ, Besitzer und letzter Wurf. Eigene Felder kannst du ausbauen. Abreißen geht nur, wenn der Rest mit dem Kontrollbüro verbunden bleibt. Das Büro selbst bleibt stehen."
-  },
-  {
-    id: "standards",
-    section: "actions",
-    scene: "build",
-    dock: true,
-    target: "#standards-bar",
-    title: "Standard",
-    body: "Offen oder proprietär. Gleich und gleich darf handeln, gemischt ist blockiert. Offen kann einen Rabatt geben, wenn du Ware abgibst, die du nicht selbst erzeugt hast."
-  },
-  {
-    id: "draw",
-    section: "actions",
-    scene: "build",
-    target: "#btn-draw-deck",
-    title: "Nachziehen",
-    body: "Einmal pro Bauphase eine Innovationskarte, solange die Hand nicht voll ist. Die Zahl auf dem Stapel ist der Rest."
-  },
-  {
-    id: "played",
-    section: "actions",
-    scene: "build",
-    target: "#played-pile",
-    title: "Ausgespielt",
-    body: "Gespielte Karten landen hier. Die oberste bleibt lesbar, der Zähler zeigt, wie viele schon liegen."
+    body: "Typ, Besitzer, Ertrag. Eigene Felder: Aktionen im Feldmenü. Abriss nur, wenn das Netz zum Kontrollbüro verbunden bleibt. Das Büro selbst bleibt."
   },
   {
     id: "hand",
@@ -248,16 +238,7 @@ Nexus.TUTORIAL_STEPS = [
     scene: "build",
     target: "#project-fan",
     title: "Projekte",
-    body: "Drei offene Projektkarten. Antippen kauft die Karte, wenn die Kosten da sind. Förderkarten liegen daneben."
-  },
-  {
-    id: "hand-card",
-    section: "actions",
-    scene: "cards",
-    target: "#project-fan .project-card",
-    fallback: "#project-fan",
-    title: "Projekt nehmen",
-    body: "Name, Wirkung und Kosten stehen auf der Karte. Antippen nimmt sie, wenn die Bauphase läuft und die Kosten da sind."
+    body: "Drei offene Projektkarten. Icon, Name, Vorzeichen und Menge. Langer Satz nur bei Halten. Kauf wirkt sofort und kann Rollenpunkte geben."
   },
   {
     id: "trade-btn",
@@ -265,7 +246,7 @@ Nexus.TUTORIAL_STEPS = [
     scene: "build",
     target: "#btn-trade",
     title: "Handeln",
-    body: "Öffnet ein Angebot mit Partner, Ressource und Menge. Getauscht wird erst, wenn die andere Person annimmt."
+    body: "Angebot mit Partner, Ressource und Menge. Beide Kassen sind vorher sichtbar. Getauscht wird erst bei Annahme."
   },
   {
     id: "end-btn",
@@ -273,7 +254,7 @@ Nexus.TUTORIAL_STEPS = [
     scene: "build",
     target: "#btn-end-round",
     title: "Zug beenden",
-    body: "Schließt deinen Zug. In der ersten Runde erst, nachdem der Startcoupon als Feld liegt. Danach folgt die Übergabe."
+    body: "Schließt deinen Zug. In Runde 1 erst nach dem Startcoupon. Danach Übergabe an die nächste Person."
   },
   {
     id: "expand-types",
@@ -281,15 +262,15 @@ Nexus.TUTORIAL_STEPS = [
     scene: "expand",
     target: "#expand-choices",
     title: "Feldtyp",
-    body: "Vier Typen: Wohnen, Energie, Rechenzentrum, Verkehr. Vor- und Nachteile stehen auf der Kachel. Zurück bricht den Bau ab, ohne zu bauen."
+    body: "Wohnen (Bandbreite, braucht Rechenzentrum), Solar/Umspannwerk, ein Rechenzentrum (offen oder geschlossen), Parkplatz/Verkehr. Einzeiler auf der Kachel erklärt den Sinn."
   },
   {
     id: "expand-variant",
     section: "build",
     scene: "expand-variant",
     target: "#expand-variants",
-    title: "Variante",
-    body: "Energie und Rechenzentrum brauchen eine zweite Wahl, etwa Solar oder Trafo, günstig oder abgesichert. Erst dann steht das Gebäude."
+    title: "Rechenzentrum",
+    body: "Pro Person nur eines. Offen = günstiger, mehr Risiko. Geschlossen = teurer, sicherer. Später kannst du den Modus gegen Kosten wechseln."
   },
   {
     id: "devices",
@@ -297,16 +278,7 @@ Nexus.TUTORIAL_STEPS = [
     scene: "home",
     target: "#device-list",
     title: "Geräte",
-    body: "Der Leitstand listet alle Geräte. Leere kannst du bauen. Cloud erzeugt Risiko, lokal kostet mehr — beide stehen öffentlich auf dem Brett."
-  },
-  {
-    id: "home-upgrade",
-    section: "build",
-    scene: "home",
-    target: "#btn-home-upgrade",
-    fallback: "#home-upgrade-wrap",
-    title: "Büro ausbauen",
-    body: "Eine höhere Stufe bringt mehr Ertrag auf allen drei Ressourcen und kostet Geld, später auch Energie. Schließen legt das Fenster weg, ohne zu bauen."
+    body: "Cloud fällt bei Stromausfall aus und hebt Risiko. Lokal bleibt und stärkt Sicherheit. Alles Gebaute ist auf dem Brett sichtbar."
   },
   {
     id: "device-modes",
@@ -314,15 +286,7 @@ Nexus.TUTORIAL_STEPS = [
     scene: "home-device",
     target: "#inspect-card",
     title: "Cloud oder lokal",
-    body: "Cloud ist günstiger, braucht Bandbreite und fällt bei einem Blackout aus. Lokal kostet mehr und läuft weiter. Beides ist auf dem Brett sichtbar. Ressourcen und Versprechen bleiben privat."
-  },
-  {
-    id: "sae",
-    section: "build",
-    scene: "sae",
-    target: "#sae-panel",
-    title: "SAE-Stufe",
-    body: "SAE 0 bis 5 am Leitstand. Höhere Stufen brauchen Sensorik, ein Datenzentrum oder lokales V2X, bringen mehr Ertrag und werden über Cyber störanfälliger."
+    body: "Cloud günstiger, braucht Bandbreite. Lokal teurer, läuft weiter. Jede Wahl braucht sichtbares Feedback am Gebäude."
   },
   {
     id: "trade-modal",
@@ -331,7 +295,7 @@ Nexus.TUTORIAL_STEPS = [
     target: "#trade-modal .trade-actions",
     fallback: "#trade-modal .modal-card",
     title: "Handelsangebot",
-    body: "Oben wählst du Partner, Gabe, Wunsch und Mengen. Angebot senden legt es hin. Jetzt übergeben reicht das Gerät sofort weiter. Abbrechen schließt nur das Fenster."
+    body: "Partner, Gabe, Wunsch, Mengen. Angebot senden legt es hin. Abbrechen schließt nur das Fenster."
   },
   {
     id: "trade-respond",
@@ -340,7 +304,7 @@ Nexus.TUTORIAL_STEPS = [
     target: "#trade-respond-modal .trade-actions",
     fallback: "#trade-respond-modal .modal-card",
     title: "Angebot prüfen",
-    body: "Die andere Person sieht nur dieses Angebot. Geldbörse und Versprechen bleiben zu. Annehmen tauscht, Ablehnen verwirft."
+    body: "Annehmen tauscht 1:1. Ablehnen verwirft. Die getippte Menge ist die Menge — kein Aufpreis."
   },
   {
     id: "event",
@@ -349,7 +313,7 @@ Nexus.TUTORIAL_STEPS = [
     target: "#event-choices",
     fallback: "#event-modal .modal-card",
     title: "Ereignis",
-    body: "Nach dem offenen Wurf erklärt die Karte, warum sie trifft und was geholfen hätte. Positive Karten gibt es auch. In der Übung wird nichts verbucht."
+    body: "Karte nennt Ursache und Wahl. Effekte treffen Ressourcen, Spuren, Risiko oder Rollenpunkte — immer mit klarem Vorzeichen. Kein reiner Glückssieg."
   },
   {
     id: "role-reveal",
@@ -357,8 +321,8 @@ Nexus.TUTORIAL_STEPS = [
     scene: "role_reveal",
     target: "#btn-role-reveal-ok",
     fallback: "#role-reveal-modal .modal-card",
-    title: "Versprechen zeigen",
-    body: "Zu Beginn liest jede Person allein ihr Versprechen und gibt das Gerät weiter. Das Brett dahinter ist abgedunkelt. In der Übung bleiben die Ziele absichtlich verdeckt."
+    title: "Rollen zeigen",
+    body: "Zu Beginn erscheinen alle Figuren und Versprechen gemeinsam. Danach weiß der Tisch, wer worauf spielt."
   },
   {
     id: "handoff",
@@ -367,7 +331,7 @@ Nexus.TUTORIAL_STEPS = [
     target: "#btn-handoff-ok",
     fallback: "#handoff-modal .modal-card",
     title: "Zugübergabe",
-    body: "Vor dem Zug bestätigt die nächste Person, dass sie dran ist. Ressourcen und Versprechen sind verdeckt, bis sie den Knopf drückt."
+    body: "Nur „du bist dran“. Kein Verdunkeln von Rolle oder Kasse — das Brett bleibt lesbar."
   },
   {
     id: "public-player",
@@ -376,7 +340,7 @@ Nexus.TUTORIAL_STEPS = [
     target: "#public-player-devices",
     fallback: "#public-player-modal .modal-card",
     title: "Öffentliche Ansicht",
-    body: "Fremde Chips zeigen Ausrichtung, Standard, Zonen und alle gebauten Geräte (Cloud und lokal). Wahlversprechen und Ressourcen bleiben privat."
+    body: "Fremde Chips: Figur, Ausrichtung, Zonen, Geräte, Rollenfortschritt. So bleibt Kooperation und Konkurrenz nachvollziehbar."
   },
   {
     id: "end-screen",
@@ -385,7 +349,7 @@ Nexus.TUTORIAL_STEPS = [
     target: "#btn-restart",
     fallback: "#end-screen .modal-card",
     title: "Spielende",
-    body: "Sofortsieg bei 100 % nach einer vollen Runde, sonst die höchste Prozentzahl. Neue Partie führt zurück zum Start. Diese Übung wertet nicht."
+    body: "Sofortsieg bei 10 Punkten nach voller Runde, sonst die meisten Rollenpunkte am Limit. Neue Partie führt zurück zum Start."
   },
   {
     id: "hud-gear",
@@ -393,7 +357,7 @@ Nexus.TUTORIAL_STEPS = [
     scene: "build",
     target: "#app .settings-wrap--hud .js-settings-btn",
     title: "Darstellung im Spiel",
-    body: "Dieselbe Wahl wie am Start, ohne die Partie zu verlassen. Das Zahnrad sitzt oben rechts neben den Zielen. Hilfe öffnet die Anleitung erneut."
+    body: "Dieselbe Wahl wie am Start, ohne die Partie zu verlassen. Hilfe öffnet die Anleitung erneut."
   },
   {
     id: "hud-settings",
@@ -402,6 +366,6 @@ Nexus.TUTORIAL_STEPS = [
     settings: "hud",
     target: "#app .settings-wrap--hud .settings-panel",
     title: "Nacht und Größe",
-    body: "Schalter und Stufen wirken sofort auf die ganze Oberfläche. Danach kannst du die Anleitung beenden oder mit Zurück noch einmal schauen."
+    body: "Schalter wirken sofort. Danach Anleitung beenden oder mit Zurück noch einmal schauen."
   }
 ];

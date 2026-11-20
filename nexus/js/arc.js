@@ -59,12 +59,12 @@ window.Nexus = window.Nexus || {};
       }) || devices >= 2;
       text = done ? "Das Quartier ist vernetzt." : "Noch kein Datenzentrum und zu wenige Geräte.";
     } else if (chapter.id === "mobility") {
-      done =
-        (player.saeLevel || 0) >= 1 ||
-        owns(state, player, function (zone) {
-          return zone.busStop || zone.type === "traffic";
-        });
-      text = done ? "Mobilität ist im Spiel." : "Haltestelle, Verkehrsfeld oder SAE 1 fehlen.";
+      done = owns(state, player, function (zone) {
+        return zone.busStop || zone.type === "traffic";
+      }) || (state.busLines || []).some(function (line) {
+        return line.ownerId === player.id;
+      });
+      text = done ? "Mobilität ist im Spiel." : "Haltestelle, Verkehrsfeld oder Linie fehlen.";
     } else {
       done = !!state.majorFired || !!player.survivedMajor;
       text = state.majorFired ? "Das Großereignis ist passiert. Die Bilanz zeigt, was gehalten hat." : "Die Resilienzprüfung kommt in diesem Kapitel.";

@@ -142,9 +142,6 @@ function tryMobility(state) {
       }
     }
   }
-  if (Nexus.canUpgradeSae(state)) {
-    return Nexus.upgradeSae(state);
-  }
   return state;
 }
 
@@ -177,9 +174,6 @@ function act(state) {
   }
   if (state.turnPhase === "spinning") {
     return Nexus.completeHarvestAll(state);
-  }
-  if (state.turnPhase === "risk") {
-    return Nexus.confirmRiskRoll(state);
   }
   if (state.turnPhase === "event") {
     var picked = choiceFor(state);

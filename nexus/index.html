@@ -19,8 +19,8 @@
       rel="stylesheet"
     />
     <link rel="stylesheet" href="transitions.css?v=75" />
-    <link rel="stylesheet" href="style.css?v=92" />
-    <link rel="stylesheet" href="overhaul.css?v=92" />
+    <link rel="stylesheet" href="style.css?v=100" />
+    <link rel="stylesheet" href="overhaul.css?v=93" />
   </head>
   <body>
     <div class="modal-shell t-modal-backdrop" id="setup-screen">
@@ -74,9 +74,9 @@
 
         <p class="setup-label">Spiellänge</p>
         <div class="pick-row" id="setup-length">
-          <button type="button" class="btn setup-choice" data-length="short">Kurz · 15</button>
-          <button type="button" class="btn setup-choice" data-length="standard">Standard · 20</button>
-          <button type="button" class="btn setup-choice" data-length="long">Lang · 25</button>
+          <button type="button" class="btn setup-choice" data-length="short">Kurz · 10 Tage</button>
+          <button type="button" class="btn setup-choice is-selected" data-length="standard">Standard · 14 Tage</button>
+          <button type="button" class="btn setup-choice" data-length="long">Lang · 18 Tage</button>
         </div>
 
         <p class="setup-label">Schwierigkeit</p>
@@ -104,8 +104,8 @@
           <div class="brand">
             <h1>NEXUS</h1>
             <p class="day-line">
-              Runde <span id="stat-round" class="t-digit-group">1</span>
-              <span class="day-max">/ 20</span>
+              Noch <span id="stat-days-left" class="t-digit-group">14</span>
+              <span class="day-max">Tage</span>
             </p>
           </div>
 
@@ -235,11 +235,6 @@
             <ul id="goal-list" class="goal-list"></ul>
           </section>
 
-          <section class="dock-card" id="tracks-card" hidden>
-            <p class="dock-card-title">Stadtspuren</p>
-            <div id="score-tracks" class="score-tracks" aria-label="Wertungsspuren"></div>
-          </section>
-
           <section class="dock-card" id="field-card">
             <p class="dock-card-title" id="dock-title">Feld</p>
             <div id="zone-inspect" class="zone-inspect" hidden>
@@ -251,17 +246,8 @@
               <div id="zone-inspect-actions" class="zone-inspect-actions"></div>
             </div>
             <p class="dock-empty" id="inspect-empty">
-              Tippe eine Kachel im Distrikt — Typ, Besitz und letzter Wurf erscheinen hier.
+              Tippe eine Kachel im Distrikt — Typ, Besitz und Ertrag erscheinen hier.
             </p>
-          </section>
-
-          <section class="dock-card standards-bar" id="standards-bar" hidden>
-            <p class="dock-card-title">Standard (öffentlich)</p>
-            <div class="pick-row">
-              <button type="button" class="btn setup-choice" id="btn-standard-open" data-standard="open">Offener Standard</button>
-              <button type="button" class="btn setup-choice" id="btn-standard-proprietary" data-standard="proprietary">Proprietärer Standard</button>
-            </div>
-            <p id="standards-hint" class="standards-hint"></p>
           </section>
 
           <details class="dock-card legend" id="board-legend" open>
@@ -278,15 +264,6 @@
       <footer class="tray">
         <div class="tray-grid">
           <div class="card-piles">
-            <button type="button" class="card-pile draw-pile" id="btn-draw-deck" hidden disabled>
-              <span class="pile-stack" aria-hidden="true">
-                <span class="pile-layer"></span>
-                <span class="pile-layer"></span>
-                <span class="pile-layer pile-back"></span>
-              </span>
-              <span class="pile-count" id="draw-count">0</span>
-              <span class="pile-caption">Nachziehen</span>
-            </button>
             <div class="card-pile played-pile" id="played-pile">
               <span class="pile-stack" id="played-stack" aria-hidden="true"></span>
               <span class="pile-count" id="played-count">0</span>
@@ -295,7 +272,7 @@
           </div>
           <div class="action-buttons">
             <button type="button" class="btn" id="btn-trade" disabled>Handeln</button>
-            <button type="button" class="btn" id="btn-undo">Rückgängig</button>
+            <button type="button" class="btn ghost" id="btn-flow-skip" hidden>Überspringen</button>
             <button type="button" class="btn" id="btn-guide">Überblick</button>
             <button type="button" class="btn primary" id="btn-end-round" disabled>Zug beenden</button>
           </div>
@@ -356,10 +333,6 @@
             </button>
           </div>
         </div>
-        <div id="sae-panel" class="sae-panel" hidden>
-          <p class="setup-label">Mobilität · SAE <strong id="sae-level">0</strong>/5</p>
-          <button type="button" class="btn" id="btn-sae-upgrade">SAE ausbauen</button>
-        </div>
         <button type="button" class="btn ghost" id="btn-home-close">Schließen</button>
       </div>
     </div>
@@ -388,22 +361,13 @@
       </div>
     </div>
 
-    <div id="risk-modal" class="modal-shell t-modal-backdrop" hidden>
-      <div class="modal-card t-modal piece" role="dialog" aria-modal="true" aria-labelledby="risk-summary">
-        <p class="modal-kicker">Risiko, bevor der Würfel fällt</p>
-        <h3>Transparenter Wurf</h3>
-        <p id="risk-summary"></p>
-        <ul id="risk-factors" class="goal-help-list"></ul>
-        <button type="button" class="btn primary" id="btn-risk-roll">Würfeln (d100)</button>
-      </div>
-    </div>
-
     <div id="event-modal" class="modal-shell t-modal-backdrop" hidden>
       <div class="modal-card t-modal piece" role="dialog" aria-modal="true">
         <h3 id="event-title">Ereignis</h3>
         <p id="event-text"></p>
         <div id="event-choices" class="choice-stack"></div>
         <div id="event-resource-pick" class="pick-row" hidden></div>
+        <div id="event-player-pick" class="pick-row" hidden></div>
       </div>
     </div>
 
@@ -487,35 +451,35 @@
     </div>
 
     <script src="vendor/three.min.js?v=75"></script>
-    <script src="js/data/constants.js?v=97"></script>
+    <script src="js/data/constants.js?v=100"></script>
     <script src="js/data/neutral-sites.js?v=97"></script>
     <script src="js/data/tiles.js?v=75"></script>
     <script src="js/data/devices.js?v=75"></script>
-    <script src="js/data/events.js?v=75"></script>
-    <script src="js/data/cards.js?v=75"></script>
-    <script src="js/data/roles.js?v=88"></script>
-    <script src="js/data/tutorial.js?v=88"></script>
+    <script src="js/data/events.js?v=101"></script>
+    <script src="js/data/cards.js?v=100"></script>
+    <script src="js/data/roles.js?v=100"></script>
+    <script src="js/data/tutorial.js?v=100"></script>
     <script src="js/icons.js?v=75"></script>
-    <script src="js/glossary.js?v=75"></script>
+    <script src="js/glossary.js?v=100"></script>
     <script src="js/dice.js?v=75"></script>
     <script src="js/quality.js?v=75"></script>
-    <script src="js/risk.js?v=75"></script>
-    <script src="js/mobility.js?v=89"></script>
+    <script src="js/risk.js?v=100"></script>
+    <script src="js/mobility.js?v=100"></script>
     <script src="js/projects.js?v=89"></script>
-    <script src="js/arc.js?v=75"></script>
-    <script src="js/dialog.js?v=75"></script>
-    <script src="js/field-actions.js?v=75"></script>
+    <script src="js/arc.js?v=100"></script>
+    <script src="js/dialog.js?v=100"></script>
+    <script src="js/field-actions.js?v=98"></script>
     <script src="js/role-avatars.js?v=88"></script>
-    <script src="js/roles.js?v=75"></script>
-    <script src="js/state.js?v=93"></script>
+    <script src="js/roles.js?v=101"></script>
+    <script src="js/state.js?v=101"></script>
     <script src="js/board-look.js?v=75"></script>
     <script src="js/board-props.js?v=75"></script>
     <script src="js/board-kit.js?v=75"></script>
     <script src="js/data/fillers.js?v=93"></script>
-    <script src="js/board3d.js?v=97"></script>
-    <script src="js/render.js?v=89"></script>
-    <script src="js/ui-overhaul.js?v=90"></script>
+    <script src="js/board3d.js?v=100"></script>
+    <script src="js/render.js?v=101"></script>
+    <script src="js/ui-overhaul.js?v=100"></script>
     <script src="js/phone.js?v=93"></script>
-    <script src="js/main.js?v=91"></script>
+    <script src="js/main.js?v=101"></script>
   </body>
 </html>

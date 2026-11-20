@@ -1,109 +1,110 @@
 window.Nexus = window.Nexus || {};
 
+/* Projektkarten: kurz, spielbar, Kategorie steuert Rollenpunkt beim Kauf. */
 Nexus.INNOVATION_CARDS = [
   {
     id: "heat-pump",
-    name: "Wärmepumpen-Pilot",
+    name: "Wärmepumpen-Party",
     category: "green",
-    text: "Quartierswärme senkt den Verbrauch.",
-    effects: { environment: 4 }
+    text: "Das Quartier heizt mit Strom statt Öl. Weniger Schornstein, mehr Applaus.",
+    effects: { environment: 2, energy: 1 }
   },
   {
     id: "pv-facade",
-    name: "PV-Fassade",
+    name: "Sonnige Fassade",
     category: "green",
-    text: "Gebäudehülle erzeugt Strom.",
-    effects: { energy: 2, environment: 2 }
+    text: "Die Hauswand verdient mit. Energie und Umwelt in einem Zug.",
+    effects: { energy: 2, environment: 1 }
   },
   {
     id: "green-ppa",
-    name: "Grünstrom-PPA",
+    name: "Grünstrom-Deal",
     category: "green",
-    text: "Langfristiger Ökostromvertrag.",
+    text: "Langfristig Ökostrom — planbar statt Würfelwetter.",
     effects: { energy: 3, environment: 1 }
   },
   {
     id: "storage-dispatch",
-    name: "Speicher-Dispatch",
+    name: "Speicher-Trick",
     category: "green",
-    text: "Batterien glätten Lastspitzen.",
+    text: "Batterien schlucken Spitzen. Das Netz atmet durch.",
     effects: { environment: 2, energy: 1 }
   },
   {
     id: "load-shift",
-    name: "Lastverschiebung",
+    name: "Nachtverbrauch",
     category: "green",
-    text: "Verbrauch wandert in Schwachlastzeiten.",
+    text: "Waschmaschine um 2 Uhr? Die Last wandert, die Umwelt freut sich.",
     effects: { environment: 2 }
   },
   {
     id: "zero-trust",
-    name: "Zero-Trust-Architektur",
+    name: "Zero-Trust-Zaun",
     category: "privacy",
-    text: "Zugriffe werden streng segmentiert.",
+    text: "Jeder Zugriff braucht Ausweis. Hacker stehen vor der Tür.",
     effects: { risk: -2, security: 1 }
   },
   {
     id: "on-device-ai",
-    name: "On-Device-KI",
+    name: "Hirn im Gerät",
     category: "privacy",
-    text: "Auswertung bleibt auf dem Gerät.",
+    text: "Auswertung bleibt lokal. Weniger Cloud, mehr Verlässlichkeit.",
     effects: { risk: -1, energy: 1, security: 1 }
   },
   {
     id: "data-minimization",
-    name: "Datensparsamkeit",
+    name: "Weniger ist sicher",
     category: "privacy",
-    text: "Nur nötige Daten werden erhoben.",
-    effects: { risk: -2 }
+    text: "Nur nötige Daten speichern. Kleiner Angriffsraum.",
+    effects: { risk: -2, security: 1 }
   },
   {
     id: "v2g-pilot",
-    name: "V2G-Pilot",
+    name: "Auto als Batterie",
     category: "mobility",
-    text: "Fahrzeuge speisen ins Netz zurück.",
-    effects: { energy: 1, bandwidth: 1 }
+    text: "Parkende E-Autos speisen zurück. Zukunft, die man sieht.",
+    effects: { energy: 1, bandwidth: 1, comfort: 1 }
   },
   {
-    id: "sae-software",
-    name: "SAE-Softwarestack",
+    id: "line-software",
+    name: "Linien-Software",
     category: "mobility",
-    text: "Gemeinsame Software für Assistenzstufen.",
+    text: "Gemeinsame Software für Busse und Halte. Weniger Chaos an der Kreuzung.",
     effects: { bandwidth: 2, comfort: 1 }
   },
   {
     id: "maas",
-    name: "Mobility-as-a-Service",
+    name: "Alles-Ticket",
     category: "mobility",
-    text: "Verkehrsmittel werden gebündelt gebucht.",
+    text: "Bahn, Bus, Rad in einer App. Image und Bandbreite.",
     effects: { bandwidth: 2, image: 1 }
   },
   {
     id: "open-hub",
-    name: "Open-Source-Hub",
+    name: "Offener Werkzeugkasten",
     category: "general",
-    text: "Offene Firmware für Heimgeräte.",
+    text: "Firmware frei für Heimgeräte. Partner können andocken.",
     effects: { money: 1, bandwidth: 1 }
   },
   {
     id: "civic-tech",
-    name: "Civic-Tech-Plattform",
+    name: "Mitmach-App",
     category: "general",
-    text: "Beteiligung der Stadtgesellschaft.",
+    text: "Bürger melden Löcher und Ideen. Image steigt, wenn du zuhörst.",
     effects: { bandwidth: 2, image: 1 }
   },
   {
     id: "campus-5g",
-    name: "5G-Campusnetz",
+    name: "Campus-Funk",
     category: "general",
-    text: "Lokales Netz für Wohnen und Datenzentren.",
+    text: "Lokales Netz für Wohnen und Rechenzentrum. Bandbreite ohne Drama.",
     effects: { bandwidth: 2 }
   },
   {
     id: "digital-twin",
-    name: "Digitaler Zwilling",
+    name: "Stadt-Doppelgänger",
     category: "general",
-    text: "Das Quartier wird als Modell simuliert.",
+    text: "Das Quartier als Modell. Du testest, bevor du baust.",
     effects: { bandwidth: 1, energy: 1 }
   }
 ];

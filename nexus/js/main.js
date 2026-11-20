@@ -323,6 +323,29 @@ window.Nexus = window.Nexus || {};
     maybeFlow(state);
   }
 
+  var flowTimers = [];
+
+  function clearFlowTimers() {
+    flowTimers.forEach(function (id) {
+      window.clearTimeout(id);
+    });
+    flowTimers = [];
+  }
+
+  function endFlowLock() {
+    clearFlowTimers();
+    ui.flowLock = false;
+    document.body.classList.remove("is-flow-lock");
+    var skip = document.getElementById("btn-flow-skip");
+    if (skip) {
+      skip.hidden = true;
+    }
+    var layer = document.getElementById("resource-fx-layer");
+    if (layer) {
+      layer.innerHTML = "";
+    }
+  }
+
   function maybeFlow(state) {
     if (!state || state.screen !== "game" || state.turnPhase !== "build" || Nexus.isHotSeatShield(state)) {
       return;
@@ -347,16 +370,32 @@ window.Nexus = window.Nexus || {};
     if (!hasGain && !hasLoss) {
       return;
     }
+    clearFlowTimers();
     ui.flowLock = true;
     document.body.classList.add("is-flow-lock");
+    var skip = document.getElementById("btn-flow-skip");
+    if (skip) {
+      skip.hidden = false;
+    }
     var gainWait = hasGain ? spawnFlow(state, player, gains, true) : 0;
-    window.setTimeout(function () {
-      var lossWait = hasLoss ? spawnFlow(state, player, losses, false) : 0;
+    flowTimers.push(
       window.setTimeout(function () {
-        ui.flowLock = false;
-        document.body.classList.remove("is-flow-lock");
-      }, lossWait);
-    }, gainWait);
+        var lossWait = hasLoss ? spawnFlow(state, player, losses, false) : 0;
+        flowTimers.push(
+          window.setTimeout(function () {
+            endFlowLock();
+          }, lossWait)
+        );
+      }, gainWait)
+    );
+  }
+
+  function originForResource(player, key, fallbackZones) {
+    var origins = (player.flowOrigins && player.flowOrigins[key]) || [];
+    if (origins.length) {
+      return origins[Math.floor(Math.random() * origins.length)];
+    }
+    return fallbackZones[0] || null;
   }
 
   function spawnFlow(state, player, bag, gain) {
@@ -387,7 +426,7 @@ window.Nexus = window.Nexus || {};
         return;
       }
       var walletBox = wallet.getBoundingClientRect();
-      var zone = zones[0];
+      var zone = originForResource(player, key, zones);
       var projected = zone && Nexus.Board3D && Nexus.Board3D.project ? Nexus.Board3D.project(zone.q, zone.r) : null;
       var icon = (Nexus.RESOURCE_ICONS && Nexus.RESOURCE_ICONS[key]) || "";
       var startAt = keyIndex * (flight + gap);
@@ -395,7 +434,7 @@ window.Nexus = window.Nexus || {};
       for (i = 0; i < count; i++) {
         var particle = document.createElement("div");
         particle.className = "resource-fx-particle res-" + key + (gain ? " is-gain" : " is-loss");
-        particle.innerHTML = icon;
+        particle.innerHTML = "<span class=\"resource-fx-chip\">" + icon + "</span>";
         var startX = gain && projected ? projected.x : walletBox.left + walletBox.width / 2;
         var startY = gain && projected ? projected.y : walletBox.top + walletBox.height / 2;
         var endX = gain ? walletBox.left + walletBox.width / 2 : startX + (i - count / 2) * 18;
@@ -412,9 +451,11 @@ window.Nexus = window.Nexus || {};
         particle.style.animationDuration = flight + "s";
         particle.style.animationDelay = delay + "s";
         layer.appendChild(particle);
-        window.setTimeout(function (node) {
-          if (node && node.parentNode) node.parentNode.removeChild(node);
-        }, (delay + flight + 0.2) * 1000, particle);
+        flowTimers.push(
+          window.setTimeout(function (node) {
+            if (node && node.parentNode) node.parentNode.removeChild(node);
+          }, (delay + flight + 0.2) * 1000, particle)
+        );
       }
     });
     var tail = shown.length ? (shown.length - 1) * (flight + gap) + flight + (count - 1) * 0.16 : 0;
@@ -883,42 +924,8 @@ window.Nexus = window.Nexus || {};
     commit(Nexus.respondTrade(state, id, false));
   });
 
-  document.getElementById("btn-standard-open").addEventListener("click", function () {
-    commit(Nexus.setStandardsChoice(state, "open"));
-  });
 
-  document.getElementById("btn-standard-proprietary").addEventListener("click", function () {
-    commit(Nexus.setStandardsChoice(state, "proprietary"));
-  });
 
-  document.getElementById("btn-sae-upgrade").addEventListener("click", function () {
-    var next = Nexus.upgradeSae(state);
-    if (next !== state) {
-      commit(next);
-    } else {
-      triggerControlShake(document.getElementById("btn-sae-upgrade"));
-      Nexus.pushToast("SAE: erst V2X oder Ladenetz auf einem Verkehrsfeld.");
-    }
-  });
-
-  var riskRollButton = document.getElementById("btn-risk-roll");
-  if (riskRollButton) {
-    riskRollButton.addEventListener("click", function () {
-      if (state.turnPhase !== "risk") {
-        return;
-      }
-      if (Nexus.Sfx) {
-        Nexus.Sfx.play("roll");
-      }
-      ui.riskDiceUntil = Date.now() + 2800;
-      commit(Nexus.confirmRiskRoll(state), { skipAutoHarvest: true });
-      window.setTimeout(function () {
-        if (state) {
-          Nexus.render(state, ui);
-        }
-      }, 2900);
-    });
-  }
 
   document.addEventListener(
     "click",
@@ -926,7 +933,7 @@ window.Nexus = window.Nexus || {};
       if (!ui.flowLock) {
         return;
       }
-      if (event.target.closest("#map-viewport, .map-controls, .topbar-tools")) {
+      if (event.target.closest("#map-viewport, .map-controls, .topbar-tools, #btn-flow-skip")) {
         return;
       }
       event.preventDefault();
@@ -935,7 +942,14 @@ window.Nexus = window.Nexus || {};
     true
   );
 
-  document.getElementById("btn-end-round").addEventListener("click", function () {
+    var flowSkip = document.getElementById("btn-flow-skip");
+  if (flowSkip) {
+    flowSkip.addEventListener("click", function () {
+      endFlowLock();
+    });
+  }
+
+document.getElementById("btn-end-round").addEventListener("click", function () {
     if (!Nexus.canEndTurn(state)) {
       triggerControlShake(document.getElementById("btn-end-round"));
       Nexus.pushToast("Startcoupon: erst ein Nachbarfeld platzieren.");
@@ -1171,9 +1185,20 @@ window.Nexus = window.Nexus || {};
       })[0];
     if (choice && choice.needsResourcePick) {
       ui.investorAwaitingResource = true;
+      ui.eventAwaitingPlayer = false;
+      ui.eventPendingChoice = null;
       Nexus.render(state, ui);
       return;
     }
+    if (choice && choice.needsPlayerPick) {
+      ui.eventAwaitingPlayer = true;
+      ui.eventPendingChoice = choiceId;
+      ui.investorAwaitingResource = false;
+      Nexus.render(state, ui);
+      return;
+    }
+    ui.eventAwaitingPlayer = false;
+    ui.eventPendingChoice = null;
     commit(Nexus.applyEventChoice(state, choiceId));
   });
 
@@ -1182,16 +1207,28 @@ window.Nexus = window.Nexus || {};
     if (!button) {
       return;
     }
+    ui.investorAwaitingResource = false;
     commit(Nexus.applyEventChoice(state, "a", { resource: button.getAttribute("data-resource") }));
   });
 
-  document.getElementById("btn-draw-deck").addEventListener("click", function () {
-    var next = Nexus.drawInnovationCard(state);
-    if (next === state) {
-      return;
-    }
-    commit(next);
-  });
+  var eventPlayerPick = document.getElementById("event-player-pick");
+  if (eventPlayerPick) {
+    eventPlayerPick.addEventListener("click", function (event) {
+      var button = event.target.closest("[data-target-player]");
+      if (!button || !ui.eventPendingChoice) {
+        return;
+      }
+      var choiceId = ui.eventPendingChoice;
+      ui.eventAwaitingPlayer = false;
+      ui.eventPendingChoice = null;
+      commit(
+        Nexus.applyEventChoice(state, choiceId, {
+          playerId: button.getAttribute("data-target-player")
+        })
+      );
+    });
+  }
+
 
   var handFan = document.getElementById("hand-fan");
   if (handFan) {
@@ -1486,7 +1523,7 @@ window.Nexus = window.Nexus || {};
     if (step.dock) {
       return true;
     }
-    return /goal-panel|tracks-card|zone-inspect|standards-bar|board-legend|btn-dock-close/.test(sel);
+    return /goal-panel|zone-inspect|board-legend|btn-dock-close/.test(sel);
   }
 
   function ensurePracticeBase() {
@@ -1556,7 +1593,7 @@ window.Nexus = window.Nexus || {};
         }
       }
     }
-    if (step.scene === "home" || step.scene === "home-device" || step.scene === "sae") {
+    if (step.scene === "home" || step.scene === "home-device") {
       ui.homeOpen = true;
     }
     if (step.scene === "home-device") {

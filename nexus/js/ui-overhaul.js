@@ -180,7 +180,7 @@ window.Nexus = window.Nexus || {};
       openPropulsion(action);
       return;
     }
-    var base = Nexus.pushUndo ? Nexus.pushUndo(state) : state;
+    var base = state;
     var next = base;
     if (action.id === "build") {
       next = Nexus.buyZone(base, action.payload.q, action.payload.r, action.payload.type, action.payload.variant);
@@ -192,8 +192,8 @@ window.Nexus = window.Nexus || {};
       next = Nexus.placeBusStop(base, action.zoneId);
     } else if (action.id === "depot" || action.id === "garage") {
       next = Nexus.setTrafficMode(base, action.zoneId, action.id);
-    } else if (action.id === "sae") {
-      next = Nexus.upgradeSae(base);
+    } else if (action.id === "dc-mode") {
+      next = Nexus.setDatacenterMode(base, action.payload.zoneId || action.zoneId, action.payload.variant);
     } else if (action.id === "devices") {
       openDeviceMenu();
       return;
@@ -357,7 +357,7 @@ window.Nexus = window.Nexus || {};
           Nexus.Sfx.play("error");
           return;
         }
-        var base = Nexus.pushUndo(api.getState());
+        var base = api.getState();
         var next = Nexus.takeProject(base, index);
         if (next !== base) {
           Nexus.Sfx.play("card");
@@ -440,7 +440,7 @@ window.Nexus = window.Nexus || {};
       risiko:
         "Vier Zahlen vor dem Wurf: Cyber, Netz, Abhängigkeit, Verkehr. Der d100 ist offen. Die Karte sagt, warum es dich trifft und was geholfen hätte.",
       mobil:
-        "Haltestelle, Busbahnhof, dann eine Linie wie ein Ticket. Diesel, Elektro oder erneuerbar. Höhere SAE braucht Technik und ist störanfälliger."
+        "Haltestelle, Busbahnhof, dann eine Linie wie ein Ticket. Diesel, Elektro oder erneuerbar. Antrieb und Halte machen die Linie lesbar."
     };
     body.textContent = pages[which] || pages.bogen;
   }
@@ -486,10 +486,6 @@ window.Nexus = window.Nexus || {};
       Nexus.Sfx.play("roll");
     }
     lastPhase = state.turnPhase || "";
-    var undo = document.getElementById("btn-undo");
-    if (undo) {
-      undo.disabled = !(state.undoStack && state.undoStack.length) || state.turnPhase !== "build";
-    }
     if (debugPanel && !debugPanel.hidden && Nexus.Board3D && Nexus.Board3D.debugSnapshot) {
       var snap = Nexus.Board3D.debugSnapshot();
       var fps = document.getElementById("debug-fps");
@@ -755,12 +751,6 @@ window.Nexus = window.Nexus || {};
           return;
         }
         api.commit(JSON.parse(saved));
-      }
-    });
-    document.getElementById("btn-undo").addEventListener("click", function () {
-      var next = Nexus.undo(api.getState());
-      if (next !== api.getState()) {
-        api.commit(next);
       }
     });
     document.addEventListener("keydown", function (event) {

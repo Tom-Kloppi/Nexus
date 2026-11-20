@@ -13,9 +13,13 @@ Würfel sind raus. Produktion ist der feste Basisertrag des Gebäudes. Ein Ereig
 
 **UI Rework (schlägt Overhaul 2, wo es widerspricht).** Branch `ui-rework`. Geheimhaltung ist aus. Hot-Seat bleibt die Reihenfolge an einem Gerät, nicht ein Versteck. Rollen, Ziele, Kassen und Fortschritt sind am Tisch sichtbar. Die Übergabe sagt nur „du bist dran“.
 
-Sieg bleibt `computeRoleProgress`, aber jede Rolle hat zwei sichtbare Rechnungen und zusammen **10 Punkte**. 10 Punkte sind 100 %. Anzeige ist `haben/brauchen` und `Punkte/10`, keine Stufenleiter. Der Punkt entsteht an der Ursache und fliegt zur Rolle.
+Sieg bleibt `computeRoleProgress`: **eine Punktart pro Rolle** (Öko / Verlässlichkeit / Finanz / Innovation / Image / Komfort), Ziel **10 Punkte**. Anzeige nur die eigenen Punkte. Punkte entstehen an der Ursache und fliegen zum Rollenchip — **kein RNG-Sieg**. Probezeit in **Tagen** (10 / 14 / 18); Direktsieg bei 10 nach vollem Tag, sonst meiste Punkte wenn die Tage aus sind.
 
-Gestrichen aus dem Zug: Ausbau, Abriss, offen/proprietär. Handel ist die Menge, die beide vor dem Ja sehen. Beide Kassen stehen im Angebot. Elektro-Linie gibt +1 Image. Assistenz (bisher SAE) ist eine Zahl an der Linie. Risiko zeigt eine Ursache, die Schwelle und einen Satz. Feldwahl, Projektkarten und Handkarten sind Kacheln: Icon, kurzer Name, Vorzeichen und Menge. Der Satz dazu nur bei Halten.
+**Feedback-Regel:** Jedes spielbare Element braucht Sinn und sichtbares Feedback (Icon, Partikel, One-Liner oder Brettänderung). Keine Feature-Leichen für Anfänger.
+
+**Konter:** Skandal, Presse-Deal, Sabotage und Bürgerprotest können Progress drücken. Gezielter Punktverlust höchstens 1× pro Person und Tag. **Der letzte Siegpunkt (10) kommt nie aus Kontern** — Contest-Gewinne sind bei 9 gedeckelt.
+
+Gestrichen: Assistenz/SAE-Leiter, offen/proprietär, Ausbau im Zug. **Abriss** wieder im Feldmenü (Netz muss verbunden bleiben). **Ein** Rechenzentrum pro Person (offen/geschlossen umschaltbar). Handel = Angebot mit beiden Kassen. Elektro-Linie +1 Image. Risiko zeigt Ursache und Schwelle. Kacheln: Icon, Name, Vorzeichen, Menge; Satz nur bei Halten.
 
 ## Setting
 
@@ -30,7 +34,7 @@ Spieler = Stadtteilmanager (Testgebiet). Geheimes **Wahlversprechen** statt alte
 - Produktion **automatisch zu Zugbeginn**.
 - Bandbreite aus Wohnen nur mit **eigenem** Datenzentrum.
 - 2-Spieler: Metrik-Skalierung in `roles.js` bleibt; 5–6 Spieler leichte Hochskalierung von Handel/Zonen.
-- Sieg = `computeRoleProgress`. Jede Rolle hat zwei Rechnungen, zusammen 10 Punkte. 10 Punkte = 100 %. Sofort bei 10 nach voller Runde, sonst die meisten Punkte. Keine Spurensumme, **keine Catch-up-Regel**. Die Zahl auf der Karte ist die Zahl, ohne stillen 2p-/6p-Faktor.
+- Sieg = `computeRoleProgress`. Eine Punktart pro Rolle, 10 Punkte = 100 %. Sofort bei 10 nach voller Runde, sonst die meisten Punkte am Rundenlimit. Keine Spurensumme, **keine Catch-up-Regel**, kein Würfel-Gewinn.
 - Geräte und Feld-Ausbau sind **öffentlich** (Cloud und lokal). Cloud vs lokal bleibt nur als Mechanik (Risiko, Upkeep, lokal %).
 - Vanilla HTML/CSS/JS für Regeln und App-Chrome; **kein** React/Vue, keine Accounts, kein Spiel-Backend. Erlaubt ist nur der Würfelserver. Das **Distrikt-Board** darf eine vendored 3D-Engine (Three.js) oder Canvas nutzen — nur Präsentation, keine Regeln.
 
@@ -75,21 +79,21 @@ Sieg = `computeRoleProgress` gegen das Wahlversprechen (Unterziele auf diesen Sp
 
 | Typ | Varianten / Regel |
 | --- | --- |
-| `energy` | `solar`: Würfel-Produktion (bestehende PRODUCTION_DICE). `transformer`: stabile Produktion, kostet `money` pro Ertragseinheit (Konstante `TRANSFORMER_MONEY_PER_ENERGY`). Optional: Bau kann `environment` geben (Solar) oder kosten (Transformer). |
-| `datacenter` | `insecure` günstig / unsicher (+Risiko). `secure` teurer / sicher. **Ohne eigenes Datenzentrum:** Spieler hat keinen Zugriff auf Bandbreiten-Ertrag aus Wohnfeldern (Wallet-`bandwidth` aus Residential = 0 bis DC existiert). |
+| `energy` | `solar`: fester Basisertrag. `transformer`: stabile Produktion, kostet `money` pro Ertragseinheit (`TRANSFORMER_MONEY_PER_ENERGY`). Optional: Bau kann `environment` geben (Solar) oder kosten (Transformer). |
+| `datacenter` | Pro Person **höchstens eines**. `insecure` (offen) günstig / Risiko. `secure` (geschlossen) teurer / sicher. Umschalten kostet Ressourcen. **Ohne eigenes DC:** Wohn-Bandbreite = 0. |
 | `residential` | Produziert Bandbreite (Basis). Geräte (Kamera, Schloss, …) bleiben Gadgets im Device-Menü. **Feld-Ausbau** `upgradeLevel` 0–2 ist Monopoly-artig und sichtbar am 3D-Gebäude. Nachbar-Bonus: optional später; MVP = nur eigenes Feld. |
-| `traffic` | Parkplatz, Parkhaus oder Busbahnhof. Erstes Feld +1 Komfort. Linien und SAE: `mobility.js`, Zahlen in DESIGN_DECISIONS. |
+| `traffic` | Parkplatz, Parkhaus oder Busbahnhof. Erstes Feld +1 Komfort. Linien (Diesel/Elektro/erneuerbar): `mobility.js`. |
 | `home` | Startfeld **Kontrollbüro**; Basis +1 aller 3 Ressourcen / Runde, plus +1 je `upgradeLevel`. |
 
 Beim Expand wählt der Spieler Typ; bei `energy`/`datacenter` zusätzlich die Variante. UI: Typwahl **2×2**. Optional: empfohlenes Feld/Typ leuchtet aus den **eigenen** Engpässen (Ressourcen / Versprechen) — kein Leak fremder Privatinfos.
 
 ### Feld-Ausbau (alle Typen)
 
-Ausbau und Abriss sind nicht mehr im Zug. Die Funktionen bleiben im Code, damit alte Pfade nicht brechen, das Menü bietet sie nicht an. Ein Feld ist Typ, Preis, Ertrag. Das steht auf der Kachel und am Haus.
+Ausbau ist nicht mehr im Zug (Logik bleibt für Smoke). Abriss ist im Feldmenü, wenn das Netz verbunden bleibt. Ein Feld ist Typ, Preis, Ertrag — auf der Kachel und am Haus.
 
 ### Abriss
 
-Abriss ist nicht im Menü. Die Regel im Code bleibt für den Smoke-Check, der Zug bietet sie nicht an.
+Abriss im Feldmenü auf eigenen Nicht-Home-Feldern, wenn das Netz zum Kontrollbüro verbunden bleibt. Refund wie bisher.
 
 ### Handel = Angebot
 
@@ -108,9 +112,9 @@ Keine neuen Geräte-IDs in diesem Zyklus; Loop über Feedback und Copy. Karten/E
 - Hex Radius 3 bei 2–3 Spielern, Radius 4 bei 4–6; Homes fair auf Hex-Ecken; Adjacent-Expand
 - Hot-Seat / Role-Reveal / Handoff
 - Cloud vs lokal bei Geräten als **Mechanik** (lokaler Anteil → `security`); Sichtbarkeit: alle eigenen Gadgets öffentlich
-- Offen / Proprietär Standard + Handels**angebot** (Ressourcen = die 3 neuen; Annahme/Ablehnung, kein Sofort-Tausch)
+- Handels**angebot** (3 Ressourcen; Annahme/Ablehnung, kein Sofort-Tausch). Offen/proprietär **gestrichen**
 - Innovationskarten + Ereignisse (Effekte nur noch auf 3 Ressourcen + 4 Spuren + Risiko)
-- SAE-Level als Mobilitätszahl (Visionär/Verkehr); Kosten in `money`+`bandwidth`
+- Linien mit Antrieb (Diesel/Elektro/erneuerbar); Assistenz/SAE **entfernt**
 
 ## Was bewusst fehlt (nicht bauen)
 
@@ -119,7 +123,7 @@ Keine neuen Geräte-IDs in diesem Zyklus; Loop über Feedback und Copy. Karten/E
 - Umweltsteuer als eigener Screen
 - Amortisierung über Runden
 - Public-fields / exclusive districts
-- Autonomes Fahren als vom Rest getrenntes Mini-Spiel (SAE bleibt Teil der Mobilität und des Risikos)
+- Autonomes Fahren / Assistenz-Leiter (SAE entfernt)
 - Nachbarschafts-Smart-Home-Miete
 - LAN/WLAN-Multiplayer bis Gate nach Hot-Seat
 - Neue Geräte-IDs, neue Ressourcen, vierte Spur, neue Event-Engine

@@ -17,166 +17,13 @@ window.Nexus = window.Nexus || {};
     return shuffle(Nexus.ALL_ROLE_IDS).slice(0, playerCount);
   }
 
-  function localDeviceCount(player) {
-    var count = 0;
-    Nexus.DEVICES.forEach(function (device) {
-      if (player.devices[device.id] === "local") {
-        count += 1;
-      }
-    });
-    return count;
-  }
-
-  function tradePartnerRatio(state, player) {
-    var others = state.players.length - 1;
-    if (others <= 0) {
-      return 0;
-    }
-    var partners = (player.tradePartners || []).length;
-    var ratio = Math.round((partners / others) * 100);
-    if (others === 1) {
-      return Math.floor(ratio * 0.5);
-    }
-    return ratio;
-  }
-
-  function builtDeviceCount(player) {
-    var count = 0;
-    Nexus.DEVICES.forEach(function (device) {
-      if (player.devices[device.id]) {
-        count += 1;
-      }
-    });
-    return count;
-  }
-
-  function localDeviceRatio(player) {
-    var built = builtDeviceCount(player);
-    if (built === 0) {
-      return 0;
-    }
-    var local = 0;
-    Nexus.DEVICES.forEach(function (device) {
-      if (player.devices[device.id] === "local") {
-        local += 1;
-      }
-    });
-    return Math.round((local / built) * 100);
-  }
-
-  function zoneControlCount(state, playerId) {
-    return Nexus.playerFactoryZones(state, playerId).length;
-  }
-
-  function scoreOf(player, key) {
-    return (player.scores && player.scores[key]) || 0;
-  }
-
-  function readMetric(state, player, metricKey) {
-    switch (metricKey) {
-      case "environmentScore":
-        return scoreOf(player, "environment");
-      case "securityScore":
-        return scoreOf(player, "security");
-      case "imageScore":
-        return scoreOf(player, "image");
-      case "comfortScore":
-        return scoreOf(player, "comfort");
-      case "localProcessingRatio":
-        return localDeviceRatio(player);
-      case "greenInnovationCards":
-        return player.greenInnovationCards || 0;
-      case "ownRiskScore":
-        /* Leere Stadt zählt nicht als „sicher“. Erst mit Substanz ist niedriges Risiko ein Verdienst. */
-        var assets = Nexus.playerFactoryZones(state, player.id).length;
-        Nexus.DEVICES.forEach(function (device) {
-          if (player.devices && player.devices[device.id]) {
-            assets += 1;
-          }
-        });
-        return (player.risk || 0) + Math.max(0, 6 - assets);
-      case "privacyShieldEvents":
-        return player.privacyShieldEvents || 0;
-      case "totalResourceThroughput":
-        return player.cumulativeProduction || 0;
-      case "moneyThroughput":
-        return player.cumulativeMoneyProduction || 0;
-      case "tradeVolume":
-        return player.tradeVolume || 0;
-      case "zoneControlCount":
-        return zoneControlCount(state, player.id);
-      case "saeLevel":
-        return player.saeLevel || 0;
-      case "localDeviceCount":
-        return localDeviceCount(player);
-      case "secureDatacenters":
-        return (state.zones || []).filter(function (zone) {
-          return zone.ownerId === player.id && zone.type === "datacenter" && zone.variant === "secure";
-        }).length;
-      case "innovationCardsTotal":
-        return player.innovationCardsTotal || 0;
-      case "openStandardStreak":
-        return player.standardsChoice === "open" ? player.standardStreak || 0 : 0;
-      case "proprietaryStandardStreak":
-        return player.standardsChoice === "proprietary" ? player.standardStreak || 0 : 0;
-      case "tradePartnerRatio":
-        return tradePartnerRatio(state, player);
-      case "standardsBonusVolume":
-        return player.standardsBonusVolume || 0;
-      case "zoneMonopolyCount":
-        return Nexus.countResourceMonopolies(state, player.id);
-      case "blockedTradesCaused":
-        return player.blockedTradesCaused || 0;
-      case "renewableMobility":
-      case "commerceServed":
-      case "linkPartnerRatio":
-      case "parkingSites":
-      case "shieldedSae":
-        return Nexus.Mobility ? Nexus.Mobility.metrics(state, player)[metricKey] || 0 : 0;
-      default:
-        return 0;
-    }
-  }
-
-  var TWO_PLAYER_METRIC_SCALE = {
-    tradeVolume: 0.55,
-    blockedTradesCaused: 0.5,
-    standardsBonusVolume: 0.6,
-    zoneControlCount: 0.75
-  };
-
-  var HIGH_PLAYER_METRIC_SCALE = {
-    tradeVolume: 1.25,
-    zoneControlCount: 1.15,
-    standardsBonusVolume: 1.2
-  };
-
-  function metricScaleForPlayerCount() {
-    /* Die Zahl auf der Karte ist die Zahl. Kein stiller 2p-/6p-Faktor. */
-    return 1;
-  }
-
-  function scaledSubGoal(subGoal, playerCount) {
-    var factor = metricScaleForPlayerCount(subGoal.metricKey, playerCount);
-    if (factor === 1) {
-      return subGoal;
-    }
-    return Object.assign({}, subGoal, {
-      steps: subGoal.steps.map(function (step) {
-        return Object.assign({}, step, {
-          metricValue: Math.max(1, Math.round(step.metricValue * factor))
-        });
-      })
-    });
-  }
-
   function evaluateSubGoal(subGoal, metricValue) {
-    var need = subGoal.need || subGoal.steps[subGoal.steps.length - 1].metricValue;
+    var need = subGoal.need || (subGoal.steps && subGoal.steps[subGoal.steps.length - 1].metricValue) || 10;
     var worth = subGoal.worth || 1;
     var haveRaw = metricValue || 0;
     var units = Math.max(0, Math.min(haveRaw, need));
     var points = units * worth;
-    var percent = Math.min(subGoal.maxContribution, points * 10);
+    var percent = Math.min(subGoal.maxContribution || 100, points * 10);
     return {
       id: subGoal.id,
       label: subGoal.label,
@@ -185,67 +32,95 @@ window.Nexus = window.Nexus || {};
       need: need,
       worth: worth,
       points: points,
-      maxPoints: Math.round(subGoal.maxContribution / 10),
+      maxPoints: Math.round((subGoal.maxContribution || 100) / 10),
       currentStage: points > 0 ? 1 : 0,
       currentPercent: percent,
-      maxContribution: subGoal.maxContribution,
+      maxContribution: subGoal.maxContribution || 100,
       higherIsBetter: true
     };
+  }
+
+  function replacePlayerSafe(state, playerId, nextPlayer) {
+    return Object.assign({}, state, {
+      players: (state.players || []).map(function (item) {
+        return item.id === playerId ? nextPlayer : item;
+      })
+    });
+  }
+
+  function awardRolePoints(state, playerId, amount, reason, opts) {
+    if (!amount) {
+      return state;
+    }
+    opts = opts || {};
+    var player = null;
+    (state.players || []).forEach(function (item) {
+      if (item.id === playerId) {
+        player = item;
+      }
+    });
+    if (!player) {
+      return state;
+    }
+    var target = Nexus.ROLE_POINT_TARGET || 10;
+    /* Konten/Skandal/Protest: kein letzter Siegpunkt durch so etwas. */
+    var cap = opts.contest && amount > 0 ? target - 1 : target;
+    var have = player.rolePoints || 0;
+    var nextPts = Math.max(0, Math.min(cap, have + amount));
+    var delta = nextPts - have;
+    if (!delta) {
+      return state;
+    }
+    return replacePlayerSafe(
+      state,
+      playerId,
+      Object.assign({}, player, {
+        rolePoints: nextPts,
+        lastRolePointDelta: delta,
+        lastRolePointReason: reason || "",
+        contestHitRound: amount < 0 ? (state && state.round) || player.contestHitRound : player.contestHitRound
+      })
+    );
   }
 
   function computeRoleProgress(state, player) {
     var role = Nexus.ROLES_BY_ID[player.roleId];
     if (!role) {
-      return { role: null, subGoals: [], totalPercent: 0 };
+      return { role: null, subGoals: [], totalPercent: 0, points: 0, target: 10 };
     }
-    var playerCount = state.players.length;
-    var subGoals = role.subGoals.map(function (subGoal) {
-      var scaled = scaledSubGoal(subGoal, playerCount);
-      var metricValue = readMetric(state, player, subGoal.metricKey);
-      return evaluateSubGoal(scaled, metricValue);
+    var target = Nexus.ROLE_POINT_TARGET || 10;
+    var points = Math.max(0, Math.min(target, player.rolePoints || 0));
+    var subGoals = (role.subGoals || []).map(function (subGoal) {
+      return evaluateSubGoal(subGoal, points);
     });
-    var totalPercent = subGoals.reduce(function (sum, goal) {
-      return sum + goal.currentPercent;
-    }, 0);
-    var points = subGoals.reduce(function (sum, goal) {
-      return sum + goal.points;
-    }, 0);
     return {
       role: role,
       subGoals: subGoals,
-      totalPercent: totalPercent,
+      totalPercent: points * 10,
       points: points,
-      target: 10
+      target: target,
+      pointKey: role.pointKey,
+      pointLabel: role.pointLabel,
+      pointColor: role.pointColor
     };
   }
 
   function formatMetricValue(subGoal, metricValue) {
-    if (
-      subGoal.id === "local_processing_ratio" ||
-      subGoal.id === "distinct_trade_partners" ||
-      subGoal.id === "linked_districts"
-    ) {
-      return metricValue + "%";
-    }
-    if (subGoal.id === "own_risk_score") {
-      return String(metricValue);
-    }
     return String(metricValue);
   }
 
   function nextStepHint(subGoal, metricValue) {
-    var need = subGoal.need || subGoal.steps[subGoal.steps.length - 1].metricValue;
+    var need = subGoal.need || 10;
     var have = Math.max(0, Math.min(metricValue || 0, need));
     if (have >= need) {
       return have + "/" + need + " voll";
     }
-    return have + "/" + need + " · jeder Punkt zählt " + (subGoal.worth || 1);
+    return have + "/" + need;
   }
 
   Nexus.assignRoles = assignRoles;
   Nexus.computeRoleProgress = computeRoleProgress;
+  Nexus.awardRolePoints = awardRolePoints;
   Nexus.formatMetricValue = formatMetricValue;
   Nexus.nextStepHint = nextStepHint;
-  Nexus.scaledSubGoal = scaledSubGoal;
-  Nexus.localDeviceRatio = localDeviceRatio;
 })(window.Nexus);

@@ -7,20 +7,20 @@ Diese Datei beschreibt, was das Spiel **im Code tun soll** laut [`DESIGN.md`](DE
 ## Setup
 
 - 2 bis 6 Spieler, ein Gerät (Hot-Seat). Ab 4 Spielern Hex-Radius 4 statt 3; Homes auf den Ecken, nicht überlappend.
-- Spiellänge: Kurz 15 / Standard 20 / Lang 25 Runden.
+- Probezeit: Kurz 10 / Standard 14 / Lang 18 **Tage** (Anzeige: verbleibende Tage).
 - Start: 3× Energie, Geld, Bandbreite; **Kontrollbüro** in einer Hex-Ecke; Startcoupon (erstes Feld kostenlos, muss im ersten Zug).
 - Sechs Rollen werden gemischt und einmal offen gezeigt. Danach beginnt Spieler 1.
 
 ## Ziel
 
-Kein Spurensummen-Rennen. Jede Rolle hat zwei Rechnungen, zusammen 10 Punkte. Die Leiste zeigt `haben/brauchen` und `Punkte/10`. 10 Punkte nach einer vollen Runde = Sofortsieg. Sonst die meisten Punkte nach der letzten Runde.
+Kein Spurensummen-Rennen. Jede Rolle hat **eine Punktart** (Öko / Verlässlichkeit / Finanz / Innovation / Image / Komfort). Ziel 10 Punkte. Sofortsieg bei 10 nach voller Runde, sonst die meisten am Rundenlimit. Punkte aus Bau, Linie, Handel, Projekt, Ereignis — nicht aus Würfelglück.
 
 ## Ablauf eines Zugs
 
 1. „Du bist dran.“ Rollen, Ziele und Kassen bleiben sichtbar.
 2. Produktion automatisch zu Zugbeginn (eigene Fabriken + Home)
 3. Risiko: eine Zahl, die größte Ursache, ein Satz. Dann der offene Wurf. Trifft er, ein Ereignis mit einer Lage, zwei Wahlen und einem Satz zum Zielkonflikt.
-4. Bauphase: Kacheln am Feld (Typ, Preis, Ertrag), drei offene Projektkarten, **Handelsangebot** mit beiden Kassen, Assistenz am Leitstand, Zugende. Kein Ausbau, kein Abriss, kein Standard.
+4. Bauphase: Kacheln am Feld (Typ, Preis, Ertrag, One-Liner), drei Projektkarten, Handel, Abriss wenn Netz verbunden, Zugende. Max. ein Rechenzentrum (offen/geschlossen). Kein Ausbau, keine Assistenz/SAE, kein Standard.
 
 Cloud-Upkeep in Bandbreite. Ohne Zahlung: Cloud-Effekte in der Auswertung aus.
 
@@ -39,16 +39,15 @@ Radius 3 (2–3 Spieler) bzw. 4 (4–6 Spieler). Homes auf den Hex-Ecken (`homeP
 | Feld | Variante | Ertrag / Regel |
 | --- | --- | --- |
 | Wohngebiet | — | Bandbreite; **0**, solange kein eigenes Datenzentrum |
-| Energie | Solar | Energie mit Würfel-Mod |
+| Energie | Solar | feste Energie (+3 Basis) |
 | Energie | Transformator | stabile Energie, kostet Geld pro Einheit |
-| Datenzentrum | Unsicher | günstig, erhöht Risiko |
-| Datenzentrum | Sicher | teurer, stärkt Sicherheit |
-| Verkehr | Parkplatz / Parkhaus / Busbahnhof | Erstes Feld +1 Komfort. Haltestelle, Linie (Diesel, Elektro, erneuerbar), SAE mit Technik-Toren. Straßen auf den Kanten plus Randring. |
-| Kontrollbüro | — | +1 aller drei Ressourcen, kein Würfel; +1 je Ausbaustufe |
+| Datenzentrum | offen / geschlossen | **max. 1**; offen = Risiko, geschlossen = sicherer; umschaltbar |
+| Verkehr | Parkplatz / Parkhaus / Busbahnhof | Erstes Feld +1 Komfort. Halt, Linie (Diesel/Elektro/erneuerbar). |
+| Kontrollbüro | — | +1 aller drei Ressourcen |
 
-Solar nutzt PRODUCTION_DICE (Ausfall…Boom). Boom → grüne Innovationskarte. Neu gebautes Feld produziert erst nächste Runde.
+Neu gebautes Feld produziert erst nächste Runde.
 
-**Ausbau und Abriss** sind nicht im Zug.
+**Abriss** im Feldmenü, wenn das Netz zum Büro verbunden bleibt. **Ausbau** nicht im Zug.
 
 **Brett-Rand:** Gewerbe / Hügel / Berge, kein Wasser-Catan. Ein Großbauwerk pro Kachel, Autos auf dem **geteilten Kantennetz** (von Feld zu Feld, nicht im Kreis um eine Parzelle). Ampeln an Kreuzungen sind Präsentation.
 
@@ -56,13 +55,13 @@ Solar nutzt PRODUCTION_DICE (Ausfall…Boom). Boom → grüne Innovationskarte. 
 
 Cloud vs. lokal (Kosten nur noch in den 3 Ressourcen). Lokal → Risiko runter / lokal-%. Upkeep in Bandbreite. **Sichtbarkeit:** jedes gebaute Gerät ist auf dem Brett und in der öffentlichen Spieleransicht sichtbar.
 
-## Karten, Handel, Standards, SAE
+## Karten, Handel, Linien
 
-Projektmarkt: drei offene Karten. Kategorie ist die Farbe, Wirkung ist Icon plus Vorzeichen plus Menge, der Satz nur beim Halten. Kauf wirkt sofort. Förderkarten bleiben im Posteingang und spielen sich genauso.
+Projektmarkt: drei offene Karten. Kategorie gibt passende Rollenpunkte beim Kauf. Satz nur beim Halten.
 
-Assistenz 0–5 mit denselben Toren wie bisher (Sensor, Datenzentrum, V2X, lokal ab Stufe 5). Die Stufe steht an der eigenen Linie. Diesel gibt beim Bau +1 Komfort, Elektro +1 Image, erneuerbar +1 Umwelt. Die Linie liegt als Streifen auf den Kanten zwischen ihren Feldern, der Bus fährt darauf.
+Linien: Diesel +Komfort, Elektro +Image, erneuerbar +Umwelt; Streifen auf der Kante, Bus darauf. Assistenz/SAE entfernt.
 
-Handel ist ein **Angebot** mit Gegenstand und Menge. Beide Kassen sind vorher sichtbar. Kein Aufpreis, kein Rabatt, keine Standardsperre. Annahme oder Ablehnung, kein Sofort-Tausch.
+Handel = **Angebot**. Beide Kassen vorher sichtbar. Kein Aufpreis, keine Standardsperre.
 
 ## Wahlversprechen
 

@@ -266,6 +266,157 @@ window.Nexus = window.Nexus || {};
     });
   }
 
+  /* Rollenpunkte nur für die eigene Punktart — kein RNG-Sieg. */
+  function rolePointKeyFor(player) {
+    var role = Nexus.ROLES_BY_ID && Nexus.ROLES_BY_ID[player.roleId];
+    return role && role.pointKey ? role.pointKey : null;
+  }
+
+  function awardTypedRolePoints(state, playerId, pointKey, amount, reason, opts) {
+    if (!amount || !pointKey || !Nexus.awardRolePoints) {
+      return state;
+    }
+    var player = null;
+    (state.players || []).forEach(function (item) {
+      if (item.id === playerId) {
+        player = item;
+      }
+    });
+    if (!player || rolePointKeyFor(player) !== pointKey) {
+      return state;
+    }
+    return Nexus.awardRolePoints(state, playerId, amount, reason, opts);
+  }
+
+  function stripRolePoints(state, playerId, amount, reason, opts) {
+    if (!amount || !Nexus.awardRolePoints) {
+      return state;
+    }
+    opts = opts || {};
+    var player = null;
+    (state.players || []).forEach(function (item) {
+      if (item.id === playerId) {
+        player = item;
+      }
+    });
+    if (!player) {
+      return state;
+    }
+    /* Skandal/Presse: höchstens ein gezielter Punktverlust pro Person und Tag. */
+    if (opts.oncePerDay && player.contestHitRound === state.round) {
+      return state;
+    }
+    return Nexus.awardRolePoints(state, playerId, -Math.abs(amount), reason || "Konter");
+  }
+
+  function rankPlayersByRolePoints(state) {
+    return (state.players || [])
+      .slice()
+      .sort(function (a, b) {
+        var da = (b.rolePoints || 0) - (a.rolePoints || 0);
+        if (da) {
+          return da;
+        }
+        return String(a.id).localeCompare(String(b.id));
+      });
+  }
+
+  function disruptForeignZone(state, actorId) {
+    var candidates = (state.zones || []).filter(function (zone) {
+      return (
+        zone.ownerId &&
+        zone.ownerId !== actorId &&
+        zone.type !== "home" &&
+        !zone.disrupted
+      );
+    });
+    if (!candidates.length) {
+      return { state: state, zone: null };
+    }
+    var pick = candidates[Math.floor(Math.random() * candidates.length)];
+    var zones = state.zones.map(function (zone) {
+      return zone.id === pick.id ? Object.assign({}, zone, { disrupted: true }) : zone;
+    });
+    return {
+      state: Object.assign({}, state, { zones: zones }),
+      zone: pick
+    };
+  }
+
+  function awardBuildRolePoints(state, playerId, zoneType, variant) {
+    var map = {
+      "energy:solar": { key: "eco", amount: 1, reason: "Solarfeld" },
+      "energy:transformer": { key: "finance", amount: 1, reason: "Umspannwerk" },
+      "residential:": { key: "comfort", amount: 1, reason: "Wohnen" },
+      "datacenter:secure": { key: "trust", amount: 2, reason: "Sicheres RZ" },
+      "datacenter:insecure": { key: "trust", amount: 1, reason: "Offenes RZ" },
+      "traffic:": { key: "comfort", amount: 1, reason: "Verkehrsfeld" }
+    };
+    var spec = map[zoneType + ":" + (variant || "")] || map[zoneType + ":"];
+    if (!spec) {
+      return state;
+    }
+    return awardTypedRolePoints(state, playerId, spec.key, spec.amount, spec.reason);
+  }
+
+  function setDatacenterMode(state, zoneId, variant) {
+    var player = currentPlayer(state);
+    if (!player || state.turnPhase !== "build") {
+      return state;
+    }
+    if (variant !== "secure" && variant !== "insecure") {
+      return state;
+    }
+    var zone = null;
+    (state.zones || []).forEach(function (item) {
+      if (item.id === zoneId) {
+        zone = item;
+      }
+    });
+    if (!zone || zone.ownerId !== player.id || zone.type !== "datacenter") {
+      return state;
+    }
+    if (zone.variant === variant) {
+      return state;
+    }
+    var cost = variant === "secure" ? { money: 2, bandwidth: 1 } : { money: 1 };
+    if (!canAfford(player.resources, cost)) {
+      return state;
+    }
+    var scores = cloneScores(player.scores);
+    var risk = player.risk || 0;
+    if (variant === "secure") {
+      scores = bumpScores(scores, { security: 1 });
+    } else {
+      risk += 2;
+    }
+    var zones = state.zones.map(function (item) {
+      return item.id === zoneId ? Object.assign({}, item, { variant: variant }) : item;
+    });
+    var nextPlayer = Object.assign({}, player, {
+      resources: subtractCost(player.resources, cost),
+      scores: scores,
+      risk: risk
+    });
+    var next = replacePlayer(Object.assign({}, state, { zones: zones }), player.id, nextPlayer);
+    next = awardTypedRolePoints(
+      next,
+      player.id,
+      "trust",
+      variant === "secure" ? 1 : 0,
+      variant === "secure" ? "RZ geschlossen" : "RZ geöffnet"
+    );
+    next.log = addLog(
+      next,
+      player.name,
+      "Rechenzentrum jetzt " + (variant === "secure" ? "geschlossen" : "offen") + " · " + formatCost(cost) + "."
+    );
+    if (Nexus.Risk) {
+      next = Nexus.Risk.syncState(next, { decay: false });
+    }
+    return next;
+  }
+
   function zoneUpgradeLevel(zone) {
     if (!zone) {
       return 0;
@@ -616,38 +767,6 @@ window.Nexus = window.Nexus || {};
     return maybeAutoDrawInnovation(next);
   }
 
-  function confirmRiskRoll(state, forcedRoll) {
-    if (!state || state.turnPhase !== "risk") {
-      return state;
-    }
-    var player = currentPlayer(state);
-    if (!player || !Nexus.Risk) {
-      return enterBuildPhase(state);
-    }
-    var roll = forcedRoll;
-    if (!roll) {
-      roll = Nexus.Dice ? Nexus.Dice.consume(100) : 1 + Math.floor(Math.random() * 100);
-    }
-    var resolved = Nexus.Risk.resolve(state, player, roll);
-    var next = resolved.state;
-    next.lastRiskRoll = {
-      roll: roll,
-      sides: 100,
-      pNeg: resolved.preview.pNeg,
-      pPos: resolved.preview.pPos,
-      hit: resolved.hit,
-      source: Nexus.Dice ? Nexus.Dice.peekSource() : "local"
-    };
-    next.log = addLog(next, player.name, resolved.log);
-    if (resolved.event) {
-      var fresh = currentPlayer(next);
-      next = replacePlayer(next, player.id, Object.assign({}, fresh, { pendingEvent: resolved.event }));
-      next.turnPhase = "event";
-      return next;
-    }
-    return enterBuildPhase(next);
-  }
-
   function playInnovationCard(state, index) {
     if (state.turnPhase !== "build") {
       return state;
@@ -865,6 +984,10 @@ window.Nexus = window.Nexus || {};
       offer.reason = "Nicht genug Ressourcen.";
       return offer;
     }
+    if (zoneType === "datacenter" && playerHasZoneType(state, player.id, "datacenter")) {
+      offer.reason = "Du hast schon ein Rechenzentrum. Wechsle offen/geschlossen am Feld.";
+      return offer;
+    }
     offer.allowed = true;
     offer.variant = variant || null;
     return offer;
@@ -932,6 +1055,7 @@ window.Nexus = window.Nexus || {};
       label += " (" + variantDef.label + ")";
     }
     var next = replacePlayer(Object.assign({}, state, { zones: zones }), player.id, nextPlayer);
+    next = awardBuildRolePoints(next, player.id, zoneType, resolvedVariant);
     var whyKey =
       zoneType === "energy" ? resolvedVariant || "solar" : zoneType === "datacenter" ? resolvedVariant || "insecure" : zoneType;
     var why = Nexus.WHY && Nexus.WHY[whyKey] ? " " + Nexus.WHY[whyKey] : "";
@@ -1343,7 +1467,7 @@ window.Nexus = window.Nexus || {};
       standardsBonusVolume: 0,
       blockedTradesCaused: 0,
       blockedTradeKeysThisTurn: [],
-      saeLevel: 0,
+      rolePoints: 0,
       innovationCardsTotal: 0,
       handCards: [],
       playedCards: [],
@@ -1354,7 +1478,9 @@ window.Nexus = window.Nexus || {};
       localHardwareDiscountPending: false,
       roundModifiers: { cloudDisabled: false, cloudHalfEffect: false },
       pendingEvent: null,
-      lastProduction: emptyResources()
+      lastProduction: emptyResources(),
+      flowOrigins: { energy: [], money: [], bandwidth: [] },
+      survivedMajor: false
     };
   }
 
@@ -1443,14 +1569,13 @@ window.Nexus = window.Nexus || {};
       devRun: !!options.devRun,
       busLines: [],
       projectMarket: [],
-      undoStack: [],
       majorArmed: false,
       majorFired: false,
       log: [
         {
           round: 1,
           playerName: null,
-          text: "Neues Spiel: " + playerCount + " Spieler, " + gameLength.rounds + " Runden. Jeder hat einen Startcoupon für ein kostenloses Feld."
+          text: "Neues Spiel: " + playerCount + " Spieler, " + gameLength.rounds + " Tage Probezeit. Jeder hat einen Startcoupon für ein kostenloses Feld."
         }
       ]
     };
@@ -1562,17 +1687,7 @@ window.Nexus = window.Nexus || {};
         return next;
       }
     }
-    if (state.round % C.EVENT_EVERY_N_TURNS === 0) {
-      var drawnEvent = pickEventForPlayer(next, player);
-      next.eventDeck = drawnEvent.eventDeck;
-      next.eventDiscard = drawnEvent.eventDiscard;
-      if (drawnEvent.event) {
-        next = replacePlayer(next, player.id, Object.assign({}, player, { pendingEvent: drawnEvent.event }));
-        next.turnPhase = "event";
-        next.log = addLog(next, player.name, "Ereignis: " + drawnEvent.event.title + ".");
-        return next;
-      }
-    }
+    /* Periodischer Deck-Draw entfernt: Ereignisse nur über Risiko-Schwelle (DESIGN). */
     return enterBuildPhase(next);
   }
 
@@ -1582,15 +1697,30 @@ window.Nexus = window.Nexus || {};
       return state;
     }
     var pending = playerFactoryZones(state, player.id).filter(function (zone) {
-      return !zone.harvested;
+      return !zone.harvested && !zone.disrupted;
     });
     var homePending = playerHomeNeedsHarvest(state, player.id);
     if (!pending.length && !homePending) {
-      return skipEmptyProduce(state);
+      /* Gestörte Felder trotzdem freigeben, sonst bleiben sie ewig tot. */
+      var clearedOnly = state.zones.map(function (zone) {
+        if (zone.ownerId === player.id && zone.disrupted) {
+          return Object.assign({}, zone, { disrupted: false, harvested: true, lastYield: null });
+        }
+        return zone;
+      });
+      return skipEmptyProduce(Object.assign({}, state, { zones: clearedOnly }));
     }
 
     var outcomes = [];
     var zones = state.zones.map(function (zone) {
+      if (zone.ownerId === player.id && zone.disrupted && !zone.harvested) {
+        return Object.assign({}, zone, {
+          disrupted: false,
+          harvested: true,
+          lastYield: null,
+          lastDieId: "sabotage"
+        });
+      }
       if (zone.type === "home" && zone.ownerId === player.id && !zone.harvested) {
         var homeYield = homeBaseProduction(zone);
         outcomes.push({
@@ -1667,6 +1797,7 @@ window.Nexus = window.Nexus || {};
     var risk = player.risk || 0;
     var lastProduction = emptyResources();
     var flowSpend = emptyResources();
+    var flowOrigins = { energy: [], money: [], bandwidth: [] };
     var cumulative = player.cumulativeProduction || 0;
     var cumulativeMoney = player.cumulativeMoneyProduction || 0;
     var harvestIds = {};
@@ -1682,6 +1813,12 @@ window.Nexus = window.Nexus || {};
         if (!bundle) {
           return;
         }
+        var homeZone = null;
+        state.zones.forEach(function (zone) {
+          if (zone.id === outcome.zoneId) {
+            homeZone = zone;
+          }
+        });
         KEYS.forEach(function (key) {
           var amount = bundle[key] || 0;
           resources[key] += amount;
@@ -1689,6 +1826,9 @@ window.Nexus = window.Nexus || {};
           cumulative += amount;
           if (key === "money") {
             cumulativeMoney += amount;
+          }
+          if (amount && homeZone && flowOrigins[key]) {
+            flowOrigins[key].push({ q: homeZone.q, r: homeZone.r });
           }
         });
         return;
@@ -1700,6 +1840,12 @@ window.Nexus = window.Nexus || {};
         resources.money = Math.max(0, resources.money - outcome.yield.moneySpent);
         flowSpend.money += outcome.yield.moneySpent;
       }
+      var originZone = null;
+      state.zones.forEach(function (zone) {
+        if (zone.id === outcome.zoneId) {
+          originZone = zone;
+        }
+      });
       resources[outcome.yield.primary.resource] =
         (resources[outcome.yield.primary.resource] || 0) + outcome.yield.primary.amount;
       lastProduction[outcome.yield.primary.resource] =
@@ -1707,6 +1853,9 @@ window.Nexus = window.Nexus || {};
       cumulative += outcome.yield.primary.amount;
       if (outcome.yield.primary.resource === "money") {
         cumulativeMoney += outcome.yield.primary.amount;
+      }
+      if (originZone && outcome.yield.primary.amount && flowOrigins[outcome.yield.primary.resource]) {
+        flowOrigins[outcome.yield.primary.resource].push({ q: originZone.q, r: originZone.r });
       }
       if (outcome.yield.secondary) {
         resources[outcome.yield.secondary.resource] =
@@ -1716,6 +1865,9 @@ window.Nexus = window.Nexus || {};
         cumulative += outcome.yield.secondary.amount;
         if (outcome.yield.secondary.resource === "money") {
           cumulativeMoney += outcome.yield.secondary.amount;
+        }
+        if (originZone && outcome.yield.secondary.amount && flowOrigins[outcome.yield.secondary.resource]) {
+          flowOrigins[outcome.yield.secondary.resource].push({ q: originZone.q, r: originZone.r });
         }
       }
       if (outcome.yield.scoreHint) {
@@ -1771,6 +1923,7 @@ window.Nexus = window.Nexus || {};
       lastProduction: lastProduction,
       flowGain: Object.assign(emptyResources(), lastProduction),
       flowSpend: flowSpend,
+      flowOrigins: flowOrigins,
       cumulativeProduction: cumulative,
       cumulativeMoneyProduction: cumulativeMoney,
       productionHistory: markProductionHistory(player, state, lastProduction)
@@ -1831,7 +1984,7 @@ window.Nexus = window.Nexus || {};
     var reasonText =
       winReason === "instant"
         ? winnerName + " hat 100 % erreicht!"
-        : "Fallback nach " + state.maxRounds + " Runden.";
+        : "Auswertung nach " + state.maxRounds + " Tagen Probezeit.";
     return Object.assign({}, state, {
       turnPhase: "gameover",
       winnerId: winnerId,
@@ -1890,11 +2043,19 @@ window.Nexus = window.Nexus || {};
     if (choice.needsResourcePick && !extra.resource) {
       return state;
     }
+    if (choice.needsPlayerPick && !extra.playerId) {
+      return state;
+    }
 
     var effects = choice.effects || {};
     var spend = effects.spend || {};
     if (!canAfford(player.resources, spend)) {
       return state;
+    }
+    if (effects.spendOwnRolePoints) {
+      if ((player.rolePoints || 0) < effects.spendOwnRolePoints) {
+        return state;
+      }
     }
 
     var resources = subtractCost(player.resources, spend);
@@ -1938,8 +2099,14 @@ window.Nexus = window.Nexus || {};
       },
       pendingEvent: null,
       flowGain: flowGain,
-      flowSpend: flowSpend
+      flowSpend: flowSpend,
+      survivedMajor: !!(player.survivedMajor || event.major)
     });
+    if (effects.spendOwnRolePoints) {
+      nextPlayer.rolePoints = Math.max(0, (nextPlayer.rolePoints || 0) - effects.spendOwnRolePoints);
+      nextPlayer.lastRolePointDelta = -effects.spendOwnRolePoints;
+      nextPlayer.lastRolePointReason = event.title || "Presse-Deal";
+    }
 
     var next = replacePlayer(state, player.id, nextPlayer);
     var greenDraws = effects.greenInnovation || 0;
@@ -1953,6 +2120,74 @@ window.Nexus = window.Nexus || {};
       var anyGrant = grantInnovationCards(next, nextPlayer, anyDraws, null);
       next = replacePlayer(anyGrant.state, player.id, anyGrant.player);
       nextPlayer = anyGrant.player;
+    }
+    if (effects.rolePoints && effects.pointKey) {
+      next = awardTypedRolePoints(
+        next,
+        player.id,
+        effects.pointKey,
+        effects.rolePoints,
+        event.title || "Ereignis",
+        effects.contest ? { contest: true } : null
+      );
+    }
+    if (effects.contestStripTarget && extra.playerId && extra.playerId !== player.id) {
+      next = stripRolePoints(
+        next,
+        extra.playerId,
+        effects.contestStripTarget,
+        event.title || "Skandal",
+        { oncePerDay: true }
+      );
+      var targetName = "";
+      (next.players || []).forEach(function (item) {
+        if (item.id === extra.playerId) {
+          targetName = item.name;
+        }
+      });
+      next.log = addLog(next, player.name, "Konter gegen " + (targetName || "Mitspieler") + ".");
+    }
+    if (effects.sabotageForeign) {
+      var hit = disruptForeignZone(next, player.id);
+      next = hit.state;
+      if (hit.zone) {
+        next.log = addLog(
+          next,
+          player.name,
+          "Sabotage: Feld " + hit.zone.q + "," + hit.zone.r + " liefert einen Tag nichts."
+        );
+      } else {
+        next.log = addLog(next, player.name, "Sabotage: kein fremdes Feld gefunden.");
+      }
+    }
+    if (effects.protestSweep) {
+      var ranked = rankPlayersByRolePoints(next);
+      ranked.forEach(function (item) {
+        next = stripRolePoints(next, item.id, 1, "Bürgerprotest");
+      });
+      if (ranked[0]) {
+        next = stripRolePoints(next, ranked[0].id, 1, "Protest · Führende");
+        next.log = addLog(next, ranked[0].name, "Als Führende*r zusätzlich unter Druck.");
+      }
+      if (ranked.length > 1) {
+        var weak = ranked[ranked.length - 1];
+        next = replacePlayer(
+          next,
+          weak.id,
+          Object.assign({}, next.players.filter(function (p) { return p.id === weak.id; })[0], {
+            resources: (function () {
+              var res = cloneResources(
+                next.players.filter(function (p) {
+                  return p.id === weak.id;
+                })[0].resources
+              );
+              res.energy = Math.max(0, (res.energy || 0) - 1);
+              return res;
+            })()
+          })
+        );
+        next.log = addLog(next, weak.name, "Als Schlusslicht: −1 Energie durch den Protest.");
+      }
     }
     next.turnPhase = "build";
 
@@ -1989,7 +2224,17 @@ window.Nexus = window.Nexus || {};
     if (!choice) {
       return false;
     }
-    return canAfford(player.resources, (choice.effects && choice.effects.spend) || {});
+    var effects = choice.effects || {};
+    if (!canAfford(player.resources, effects.spend || {})) {
+      return false;
+    }
+    if (effects.spendOwnRolePoints && (player.rolePoints || 0) < effects.spendOwnRolePoints) {
+      return false;
+    }
+    if (choice.needsPlayerPick && (state.players || []).length < 2) {
+      return false;
+    }
+    return true;
   }
 
   function buildDevice(state, deviceId, mode) {
@@ -2030,6 +2275,11 @@ window.Nexus = window.Nexus || {};
     });
 
     var next = replacePlayer(state, player.id, nextPlayer);
+    if (mode === "local") {
+      next = awardTypedRolePoints(next, player.id, "trust", 1, device.shortName + " lokal");
+    } else if (isNewBuild) {
+      next = awardTypedRolePoints(next, player.id, "innovation", 1, device.shortName + " Cloud");
+    }
     var logText = device.shortName + (offer.isUpgrade ? " lokal" : " " + mode) + ".";
     if (isNewBuild && deviceId === "charger") {
       var granted = grantInnovationCards(next, nextPlayer, 1, null);
@@ -2175,7 +2425,7 @@ window.Nexus = window.Nexus || {};
       next.players = next.players.map(function (p) {
         return updateStandardStreak(p, state.round + 1);
       });
-      next.log = addLog(next, null, "Runde " + newRound + " beginnt. Gerät an " + next.players[0].name + " weitergeben.");
+      next.log = addLog(next, null, "Tag " + newRound + " beginnt. Gerät an " + next.players[0].name + " weitergeben.");
     } else {
       next.currentPlayerIndex = nextIndex;
       next.turnPhase = "handoff";
@@ -2305,8 +2555,7 @@ window.Nexus = window.Nexus || {};
       name: player.name,
       colorIndex: player.colorIndex,
       alignment: role ? role.alignment : "—",
-      standardsChoice: player.standardsChoice,
-      saeLevel: player.saeLevel || 0,
+      rolePoints: player.rolePoints || 0,
       zoneCount: playerZones(state, player.id).length,
       factoryCount: playerFactoryZones(state, player.id).length,
       devices: devices
@@ -2547,6 +2796,8 @@ window.Nexus = window.Nexus || {};
     });
     var next = replacePlayer(state, from.id, nextFrom);
     next = replacePlayer(next, to.id, nextTo);
+    next = awardTypedRolePoints(next, from.id, "finance", 1, "Handel");
+    next = awardTypedRolePoints(next, to.id, "finance", 1, "Handel");
     next.log = addLog(
       next,
       to.name,
@@ -2617,64 +2868,6 @@ window.Nexus = window.Nexus || {};
 
   function setStandardsChoice(state) {
     return state;
-  }
-
-  function getSaeUpgradeCost(level, player) {
-    if (Nexus.Mobility && player) {
-      var offer = Nexus.Mobility.saeOffer(
-        { turnPhase: "build", players: [player], currentPlayerIndex: 0, zones: [], beginner: false },
-        player
-      );
-      if (offer && offer.cost && (player.saeLevel || 0) === level) {
-        return offer.cost;
-      }
-    }
-    var cost = {
-      bandwidth: level === 0 ? 0 : level,
-      money: 2 + level,
-      energy: level >= 2 ? 1 : 0
-    };
-    if (player && player.devices && player.devices.charging_network) {
-      cost.bandwidth = Math.max(
-        0,
-        cost.bandwidth - (C.SAE_NETWORK_BANDWIDTH_DISCOUNT || C.SAE_NETWORK_CONNECTIVITY_DISCOUNT || 0)
-      );
-    }
-    return cost;
-  }
-
-  function canUpgradeSae(state) {
-    if (Nexus.Mobility) {
-      return Nexus.Mobility.saeOffer(state).allowed;
-    }
-    var player = currentPlayer(state);
-    if (state.turnPhase !== "build" || !player) {
-      return false;
-    }
-    if ((player.saeLevel || 0) >= C.SAE_MAX_LEVEL) {
-      return false;
-    }
-    return canAfford(player.resources, getSaeUpgradeCost(player.saeLevel || 0, player));
-  }
-
-  function upgradeSae(state) {
-    if (Nexus.Mobility) {
-      var upgraded = Nexus.Mobility.applySae(state);
-      return upgraded === state ? state : Nexus.Risk ? Nexus.Risk.syncState(upgraded, { decay: false }) : upgraded;
-    }
-    var player = currentPlayer(state);
-    if (!canUpgradeSae(state)) {
-      return state;
-    }
-    var level = player.saeLevel || 0;
-    var cost = getSaeUpgradeCost(level, player);
-    var nextPlayer = Object.assign({}, player, {
-      resources: subtractCost(player.resources, cost),
-      saeLevel: level + 1
-    });
-    var next = replacePlayer(state, player.id, nextPlayer);
-    next.log = addLog(next, player.name, "SAE-Level " + (level + 1) + " erreicht.");
-    return next;
   }
 
   function countResourceMonopolies(state, playerId) {
@@ -2887,7 +3080,7 @@ window.Nexus = window.Nexus || {};
         })
       });
     }
-    if (scene === "sae" && next.players[me]) {
+    if (false && scene === "sae" && next.players[me]) {
       patchAt(me, {
         devices: Object.assign({}, next.players[me].devices, { v2x: "cloud" })
       });
@@ -2917,9 +3110,6 @@ window.Nexus = window.Nexus || {};
   Nexus.respondTrade = respondTrade;
   Nexus.pendingTradeOffersFor = pendingTradeOffersFor;
   Nexus.findTradeOffer = findTradeOffer;
-  Nexus.canUpgradeSae = canUpgradeSae;
-  Nexus.upgradeSae = upgradeSae;
-  Nexus.getSaeUpgradeCost = getSaeUpgradeCost;
   Nexus.countResourceMonopolies = countResourceMonopolies;
   Nexus.beginHarvestAllSimultaneous = beginHarvestAllSimultaneous;
   Nexus.completeHarvestAll = completeHarvestAll;
@@ -2930,6 +3120,8 @@ window.Nexus = window.Nexus || {};
   Nexus.buildDevice = buildDevice;
   Nexus.getBuildOffer = getBuildOffer;
   Nexus.buyZone = buyZone;
+  Nexus.setDatacenterMode = setDatacenterMode;
+  Nexus.awardTypedRolePoints = awardTypedRolePoints;
   Nexus.getExpandOffer = getExpandOffer;
   Nexus.getExpandCost = getExpandCost;
   Nexus.isExpandableSlot = isExpandableSlot;
@@ -2937,31 +3129,10 @@ window.Nexus = window.Nexus || {};
   Nexus.zoneAt = zoneAt;
   Nexus.expectedYieldForBase = expectedYieldForBase;
   Nexus.expectedByResource = expectedByResource;
-  function undo(state) {
-    var stack = state && state.undoStack;
-    if (!stack || !stack.length) {
-      return state;
-    }
-    var prev = stack[stack.length - 1];
-    prev.undoStack = stack.slice(0, -1);
-    return prev;
-  }
 
-  function pushUndo(state) {
-    if (!state || state.turnPhase !== "build") {
-      return state;
-    }
-    var copy = JSON.parse(JSON.stringify(state));
-    copy.undoStack = [];
-    var stack = (state.undoStack || []).concat([copy]).slice(-8);
-    return Object.assign({}, state, { undoStack: stack });
-  }
 
   Nexus.endTurn = endTurn;
   Nexus.canEndTurn = canEndTurn;
-  Nexus.confirmRiskRoll = confirmRiskRoll;
-  Nexus.undo = undo;
-  Nexus.pushUndo = pushUndo;
   function stampCause(next, state, cause) {
     if (!next || next === state || !cause) {
       return next;
@@ -2974,9 +3145,25 @@ window.Nexus = window.Nexus || {};
     if (!Nexus.Projects) {
       return state;
     }
+    var card = (state.projectMarket || [])[index];
     var next = Nexus.Projects.take(state, index);
-    if (next !== state && Nexus.Risk) {
-      next = Nexus.Risk.syncState(next, { decay: false });
+    if (next !== state) {
+      var catMap = {
+        green: { key: "eco", amount: 1 },
+        privacy: { key: "trust", amount: 1 },
+        mobility: { key: "innovation", amount: 1 },
+        general: { key: "image", amount: 1 }
+      };
+      var award = card && catMap[card.category];
+      if (award) {
+        var who = currentPlayer(state);
+        if (who) {
+          next = awardTypedRolePoints(next, who.id, award.key, award.amount, card.name || "Projekt");
+        }
+      }
+      if (Nexus.Risk) {
+        next = Nexus.Risk.syncState(next, { decay: false });
+      }
     }
     return stampCause(next, state, { kind: "card", label: "Karte" });
   };
@@ -3008,8 +3195,31 @@ window.Nexus = window.Nexus || {};
   };
   Nexus.openBusLine = function (state, stopZoneIds, propulsion) {
     var next = Nexus.Mobility ? Nexus.Mobility.openLine(state, stopZoneIds, propulsion) : state;
-    if (next !== state && Nexus.Risk) {
-      next = Nexus.Risk.syncState(next, { decay: false });
+    if (next !== state) {
+      var who = currentPlayer(state);
+      if (who) {
+        if (propulsion === "renewable") {
+          next = awardTypedRolePoints(next, who.id, "eco", 1, "Öko-Linie");
+        } else if (propulsion === "electric") {
+          next = awardTypedRolePoints(next, who.id, "innovation", 1, "Elektro-Linie");
+        } else {
+          next = awardTypedRolePoints(next, who.id, "comfort", 1, "Diesel-Linie");
+        }
+        var foreign = 0;
+        (stopZoneIds || []).forEach(function (zid) {
+          (state.zones || []).forEach(function (zone) {
+            if (zone.id === zid && zone.ownerId && zone.ownerId !== who.id) {
+              foreign += 1;
+            }
+          });
+        });
+        if (foreign) {
+          next = awardTypedRolePoints(next, who.id, "image", Math.min(2, foreign), "Fremde Halte");
+        }
+      }
+      if (Nexus.Risk) {
+        next = Nexus.Risk.syncState(next, { decay: false });
+      }
     }
     var zone = null;
     (state.zones || []).forEach(function (item) {
@@ -3220,13 +3430,23 @@ window.Nexus = window.Nexus || {};
     var partialPlayer = {
       id: "partial",
       roleId: "climate",
-      scores: { image: 0, comfort: 0, environment: 3, security: 0 },
+      rolePoints: 3,
+      scores: { image: 0, comfort: 0, environment: 0, security: 0 },
       devices: {},
       risk: 0
     };
     var partial = Nexus.computeRoleProgress({ players: [partialPlayer, { id: "other" }], zones: [], busLines: [] }, partialPlayer);
-    if (!partial || partial.points !== 3) {
+    if (!partial || partial.points !== 3 || partial.pointKey !== "eco") {
       throw new Error("partial goal " + (partial && partial.points));
+    }
+    var awarded = Nexus.awardRolePoints(
+      { players: [Object.assign({}, partialPlayer)], zones: [], busLines: [], log: [] },
+      "partial",
+      2,
+      "test"
+    );
+    if ((awarded.players[0].rolePoints || 0) !== 5) {
+      throw new Error("awardRolePoints");
     }
     var fresh = startGame(3, "short");
     if (!fresh.projectMarket || fresh.projectMarket.length !== 3) {

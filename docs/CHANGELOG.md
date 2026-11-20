@@ -4,6 +4,14 @@ Neueste Welle zuerst. Das ist die **Geschichte** des spielbaren Stands — nicht
 
 Neue spielbare Welle: hier einen Block anlegen (Datum, Branch, Warum, Regeln, Grafik). DESIGN nur ändern, wenn sich der Vertrag ändert.
 
+## Abgabe-Politur — Rollenpunkte, Feedback (2026-11-20)
+
+**Warum.** Anfänger brauchen sichtbares Feedback; Sieg darf nicht an Würfel oder toten Zielen hängen.
+
+**Regeln.** Eine Punktart pro Rolle (10 Ziel). Punkte aus Bau/Linie/Handel/Projekt/Ereignis, Flug zum Chip. Assistenz/SAE, Undo, Risk-d100, Spur-UI, Standards-Bar, Draw-Deck raus. Max. 1 Rechenzentrum (offen/geschlossen). Abriss im Feldmenü. Probezeit in Tagen (10/14/18). Events nur ab Risiko 8. Feedback-Regel in DESIGN. Anleitung: Graulstedde-Lore.
+
+**Brett/UI.** Keine Fußgänger/Zebra; nur rechts parken; Scheinwerfer mit Bodenlicht; Parkplatz mit Zufahrt; Produktionspartikel mit Kontrastkreis, Skip neben Handeln.
+
 ## UI Rework — Flächen weg, kein Würfel (2026-11-16)
 
 Straßen sind etwas breiter, die Fläche um die Gebäude schrumpft, die Gebäude selbst bleiben. Schilder stehen dichter und nur auf dem Brett. Kurven beginnen vor der Kreuzung und folgen dem Bogen. Ausparken lenkt im S auf die Spur, statt seitlich zu rutschen. Am Rand parkt nur die Spur ins Feld. Parkzeiten und Fahrstrecken sind länger, mehr Autos stehen. Kanten können als Haltestelle oder Parkplatz reserviert werden.

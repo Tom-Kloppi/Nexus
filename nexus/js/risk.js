@@ -60,13 +60,10 @@ window.Nexus = window.Nexus || {};
         }
       }
     });
-    var sae = player.saeLevel || 0;
-    var v2x = player.devices && player.devices.v2x;
+    /* Assistenz/SAE und Standards-Wahl sind raus — Cyber/Abhängigkeit ohne diese Hebel. */
     var cyber =
       cloud * 3 +
-      insecure * 4 +
-      (sae >= 4 ? sae - 2 : 0) +
-      (sae >= 3 && v2x === "cloud" ? 2 : 0) -
+      insecure * 4 -
       local * 2 -
       (secure ? 3 : 0) -
       (player.devices && player.devices.hub === "local" ? 2 : 0) -
@@ -82,7 +79,6 @@ window.Nexus = window.Nexus || {};
     var grid = clamp(Math.max(0, demand - supply), 0, 12);
 
     var dependency =
-      (player.standardsChoice === "proprietary" ? 4 : 0) +
       (cloud > 0 && local === 0 ? 4 : 0) +
       (transformer > 0 && solar === 0 ? 2 : 0);
     dependency = clamp(dependency, 0, 10);

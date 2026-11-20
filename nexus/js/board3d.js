@@ -177,6 +177,10 @@ window.Nexus = window.Nexus || {};
   var batchSlot = "";
   var fleet = {};
   var headMesh = null;
+  var headPoolMesh = null;
+  var lineBusLightMesh = null;
+  var lineBusPoolMesh = null;
+  var lineBusBrakeMesh = null;
   var ownerRims = [];
 
   var cam = {
@@ -843,10 +847,11 @@ window.Nexus = window.Nexus || {};
       { geo: box, y: 0.32, sx: 0.1, sy: 0.08, sz: 0.72, color: "#3d4a55" },
       axleWheel(0, 0.28, 0.14), axleWheel(0, -0.28, 0.14)
     ]));
-    geo.headCone = shareGeo((function () {
-      var cone = new THREE.ConeGeometry(0.5, 0.52, 18, 1, true);
-      cone.rotateX(-Math.PI / 2);
-      return cone;
+    geo.headBulb = shareGeo(new THREE.BoxGeometry(0.22, 0.12, 0.1));
+    geo.headPool = shareGeo((function () {
+      var plane = new THREE.PlaneGeometry(1, 1);
+      plane.rotateX(-Math.PI / 2);
+      return plane;
     })());
   }
 
@@ -988,13 +993,22 @@ window.Nexus = window.Nexus || {};
     mats.car = lambert("#f4f0ea");
     mats.vehicle = new THREE.MeshLambertMaterial({ vertexColors: true });
     mats.headlamp = new THREE.MeshBasicMaterial({
-      color: "#fff1c2",
+      color: "#fff6d2",
       transparent: true,
-      opacity: 0.45,
-      depthWrite: false,
-      blending: THREE.AdditiveBlending,
-      side: THREE.DoubleSide
+      opacity: night ? 0.95 : 0.2,
+      depthWrite: false
     });
+    mats.headPool = new THREE.MeshBasicMaterial({
+      color: "#ffe8a8",
+      transparent: true,
+      opacity: night ? 0.55 : 0.08,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending
+    });
+    if (spriteTextures.lightPool) {
+      mats.headPool.map = spriteTextures.lightPool;
+      mats.headPool.needsUpdate = true;
+    }
     mats.cabin = lambert(css("--glass", "#8bb0c9"), {
       emissive: "#9ec4dc",
       emissiveIntensity: night ? 0.45 : 0.06
@@ -1705,17 +1719,26 @@ window.Nexus = window.Nexus || {};
   }
 
   function artParking(group, level, gizmos) {
-    addCyl(group, mats.lot, 2.6, 2.6, 0.08, 0, TILE_H, 0, 12);
-    addBox(group, mats.concrete, 1.8, 1.4 + level * 0.35, 1.6, -1.6, TILE_H, -0.6, 0);
-    charger(group, 1.6, -1.2);
-    charger(group, 2.2, 0.2);
-    if (level >= 1) {
-      charger(group, 2.2, 1.5);
+    /* Asphaltfläche + Zufahrt von der Straßenkante, damit das Feld als Parkplatz lesbar ist. */
+    addBox(group, mats.asphalt || mats.road, 5.4, 0.1, 5.0, 0, TILE_H, 0.1, 0);
+    addBox(group, mats.asphalt || mats.road, 1.5, 0.08, 2.4, 0, TILE_H + 0.01, 3.2, 0);
+    var bayMat = mats.zebra || mats.concrete;
+    var bay;
+    for (bay = 0; bay < 3; bay++) {
+      var bx = -1.8 + bay * 1.8;
+      addBox(group, bayMat, 1.35, 0.03, 0.08, bx, TILE_H + 0.06, -1.5, 0);
+      addBox(group, bayMat, 0.08, 0.03, 2.2, bx - 0.65, TILE_H + 0.06, -0.4, 0);
+      addBox(group, bayMat, 0.08, 0.03, 2.2, bx + 0.65, TILE_H + 0.06, -0.4, 0);
+      addBox(group, mats.car, 1.0, 0.32, 0.48, bx, TILE_H + 0.08, -0.35, bay % 2 ? 0.08 : -0.05);
     }
-    addBox(group, mats.car, 1.1, 0.35, 0.5, 0.4, TILE_H, 1.6, 0.4);
+    addBox(group, mats.concrete, 1.6, 1.2 + level * 0.3, 1.4, -2.0, TILE_H, 1.8, 0);
+    charger(group, 1.8, 1.4);
+    charger(group, 2.4, 2.2);
+    if (level >= 1) {
+      charger(group, 1.2, 2.4);
+    }
     if (level >= 2) {
-      addBox(group, mats.steel, 1.1, 0.35, 0.5, 1.1, TILE_H, 2.2, -0.2);
-      mast(group, -2.2, 1.4, 2.8);
+      mast(group, 2.2, -2.0, 2.8);
     }
     dressDevices(group, "traffic", gizmos);
   }
@@ -2290,111 +2313,10 @@ window.Nexus = window.Nexus || {};
     }
   }
 
-  function buildWalkways(playTiles, net) {
+  function buildWalkways() {
+    /* Fussgaenger und Zebrastreifen bewusst aus — Verkehr bleibt Strassenrand-Parking. */
     walkSites = [];
     zebraEdges = {};
-    if (!net || !net.edges || !playTiles || !playTiles.length) {
-      return;
-    }
-    var pathPoses = [];
-    var zebraPoses = [];
-    var pathY = TILE_H + 0.04;
-    playTiles.forEach(function (tile) {
-      var dist = axialDist(tile.q, tile.r);
-      var radius = (Nexus.CONSTANTS && Nexus.CONSTANTS.HEX_RADIUS) || 3;
-      if (dist > radius) {
-        return;
-      }
-      var center = axial(tile.q, tile.r);
-      var edgeI = Math.floor(seeded(tile.q, tile.r, 73)() * 6) % 6;
-      var a = corner(tile.q, tile.r, edgeI);
-      var b = corner(tile.q, tile.r, (edgeI + 1) % 6);
-      var mx = (a.x + b.x) * 0.5;
-      var mz = (a.z + b.z) * 0.5;
-      var ex = mx - center.x;
-      var ez = mz - center.z;
-      var el = Math.hypot(ex, ez) || 1;
-      ex /= el;
-      ez /= el;
-      var doorR = FIELD_R * (0.22 + seeded(tile.q, tile.r, 74)() * 0.16);
-      var door = {
-        x: center.x + ex * doorR,
-        z: center.z + ez * doorR
-      };
-      var curbInset = ROAD_W * 0.48 + 0.18;
-      var curb = {
-        x: mx - ex * curbInset,
-        z: mz - ez * curbInset
-      };
-      var ka = vkey(a.x, a.z);
-      var kb = vkey(b.x, b.z);
-      var ek = ka < kb ? ka + "|" + kb : kb + "|" + ka;
-      var dx = curb.x - door.x;
-      var dz = curb.z - door.z;
-      var span = Math.hypot(dx, dz) || 1;
-      var heading = Math.atan2(dx, dz);
-      /* Leicht eingesunkener Fußweg: dünn über dem Pad, dunkler als Asphalt-Rand. */
-      pathPoses.push({
-        x: (door.x + curb.x) * 0.5,
-        y: pathY,
-        z: (door.z + curb.z) * 0.5,
-        sx: 0.95,
-        sy: 0.05,
-        sz: span,
-        ry: heading
-      });
-      pathPoses.push({
-        x: curb.x,
-        y: pathY + 0.01,
-        z: curb.z,
-        sx: 1.05,
-        sy: 0.05,
-        sz: 1.05,
-        ry: heading
-      });
-      var site = {
-        key: tile.q + "," + tile.r,
-        q: tile.q,
-        r: tile.r,
-        door: door,
-        curb: curb,
-        edge: ek,
-        a: ka,
-        b: kb,
-        nx: ex,
-        nz: ez,
-        side: 1
-      };
-      walkSites.push(site);
-      if (seeded(tile.q, tile.r, 75)() < 0.55 && !zebraEdges[ek]) {
-        zebraEdges[ek] = true;
-        var rdx = b.x - a.x;
-        var rdz = b.z - a.z;
-        var rlen = Math.hypot(rdx, rdz) || 1;
-        var ix = rdx / rlen;
-        var iz = rdz / rlen;
-        var roadHeading = Math.atan2(rdx, rdz);
-        var s;
-        for (s = 0; s < 6; s++) {
-          var along = (s - 2.5) * 0.28;
-          zebraPoses.push({
-            x: mx + ix * along,
-            y: ROAD_Y + 0.085,
-            z: mz + iz * along,
-            sx: ROAD_W * 0.92,
-            sy: 0.025,
-            sz: 0.17,
-            ry: roadHeading
-          });
-        }
-      }
-    });
-    if (pathPoses.length && mats.path) {
-      addInstances(geo.box, mats.path, pathPoses, roots.roads);
-    }
-    if (zebraPoses.length && mats.zebra) {
-      addInstances(geo.box, mats.zebra, zebraPoses, roots.roads);
-    }
   }
 
   /* Neutrale Randfelder — Modelle vorbereitet, noch nicht gesetzt. */
@@ -3236,6 +3158,10 @@ window.Nexus = window.Nexus || {};
       headMesh.parent.remove(headMesh);
     }
     headMesh = null;
+    if (headPoolMesh && headPoolMesh.parent) {
+      headPoolMesh.parent.remove(headPoolMesh);
+    }
+    headPoolMesh = null;
     if (blinkMesh && blinkMesh.parent) {
       blinkMesh.parent.remove(blinkMesh);
     }
@@ -3593,7 +3519,8 @@ window.Nexus = window.Nexus || {};
         continue;
       }
       var kind = Math.random() < 0.12 ? "bus" : Math.random() < 0.18 ? "van" : "car";
-      var lane = kind === "bus" ? 0 : driving % 2 === 0 ? 0.42 : -0.42;
+      /* Nur rechte Spur (positiv) — linkes Parken/Fahren fuehrte zu Gegenverkehr. */
+      var lane = kind === "bus" ? driveLane("bus") : driveLane(kind);
       var roller = pushCar(kind, rollBay.a, rollBay.b, Math.random() * 0.7, lane, "drive", null, null);
       roller.goal = pickGoal(roller);
       roller.driveT = 40 + Math.random() * 50;
@@ -3618,12 +3545,19 @@ window.Nexus = window.Nexus || {};
       roots.cars.add(mesh);
     });
     var lit = cars.filter(function (car) { return car.kind !== "bike"; }).length;
-    if (lit && geo.headCone && mats.headlamp) {
-      headMesh = new THREE.InstancedMesh(geo.headCone, mats.headlamp, lit);
+    if (lit && geo.headBulb && mats.headlamp) {
+      headMesh = new THREE.InstancedMesh(geo.headBulb, mats.headlamp, lit);
       headMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
       headMesh.frustumCulled = false;
       headMesh.visible = isNight();
       roots.cars.add(headMesh);
+    }
+    if (lit && geo.headPool && mats.headPool) {
+      headPoolMesh = new THREE.InstancedMesh(geo.headPool, mats.headPool, lit);
+      headPoolMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+      headPoolMesh.frustumCulled = false;
+      headPoolMesh.visible = isNight();
+      roots.cars.add(headPoolMesh);
     }
     if (cars.length && geo.box && mats.signYellow) {
       blinkMesh = new THREE.InstancedMesh(geo.box, mats.signYellow, cars.length);
@@ -3637,7 +3571,7 @@ window.Nexus = window.Nexus || {};
       brakeMesh.frustumCulled = false;
       roots.cars.add(brakeMesh);
     }
-    spawnPedestrians(pedCount);
+    /* Fussgaenger aus */
     updateCars(0, 0);
   }
 
@@ -3996,6 +3930,9 @@ window.Nexus = window.Nexus || {};
     if (headMesh) {
       headMesh.visible = !!night;
     }
+    if (headPoolMesh) {
+      headPoolMesh.visible = !!night;
+    }
     var lit = 0;
     var i;
     var pending = [];
@@ -4144,17 +4081,31 @@ window.Nexus = window.Nexus || {};
           brakeMesh.setMatrixAt(i, dummy.matrix);
         }
       }
-      if (night && headMesh && car.kind !== "bike" && car.mode !== "park" && car.mode !== "wait") {
-        var nose = car.kind === "bus" ? 1.15 : 0.72;
-        dummy.position.set(
-          spot.x + Math.sin(spot.ang) * nose,
-          ROAD_Y + 0.36,
-          spot.z + Math.cos(spot.ang) * nose
-        );
-        dummy.rotation.set(0, spot.ang, 0);
-        dummy.scale.set(1, 1, 1);
-        dummy.updateMatrix();
-        headMesh.setMatrixAt(lit, dummy.matrix);
+      if (night && car.kind !== "bike" && car.mode !== "park" && car.mode !== "wait") {
+        var fwd = car.kind === "bus" ? 1.95 : car.kind === "van" ? 1.15 : 0.92;
+        var bulbY = car.kind === "bus" ? 0.72 : 0.48;
+        var sx = Math.sin(spot.ang);
+        var cz = Math.cos(spot.ang);
+        if (headMesh) {
+          dummy.position.set(spot.x + sx * fwd, ROAD_Y + bulbY, spot.z + cz * fwd);
+          dummy.rotation.set(0, spot.ang, 0);
+          dummy.scale.set(car.kind === "bus" ? 1.6 : 1, car.kind === "bus" ? 1.3 : 1, 1);
+          dummy.updateMatrix();
+          headMesh.setMatrixAt(lit, dummy.matrix);
+        }
+        if (headPoolMesh) {
+          var poolLen = car.kind === "bus" ? 4.2 : car.kind === "van" ? 2.6 : 2.1;
+          var poolW = car.kind === "bus" ? 1.6 : 1.1;
+          dummy.position.set(
+            spot.x + sx * (fwd + poolLen * 0.35),
+            ROAD_Y + 0.04,
+            spot.z + cz * (fwd + poolLen * 0.35)
+          );
+          dummy.rotation.set(0, spot.ang, 0);
+          dummy.scale.set(poolW, 1, poolLen);
+          dummy.updateMatrix();
+          headPoolMesh.setMatrixAt(lit, dummy.matrix);
+        }
         lit += 1;
       }
     }
@@ -4174,6 +4125,14 @@ window.Nexus = window.Nexus || {};
         headMesh.setMatrixAt(i, dummy.matrix);
       }
       headMesh.instanceMatrix.needsUpdate = true;
+    }
+    if (headPoolMesh) {
+      dummy.scale.set(0.001, 0.001, 0.001);
+      dummy.updateMatrix();
+      for (i = lit; i < headPoolMesh.count; i++) {
+        headPoolMesh.setMatrixAt(i, dummy.matrix);
+      }
+      headPoolMesh.instanceMatrix.needsUpdate = true;
     }
     if (!pedMesh) {
       return;
@@ -4203,6 +4162,12 @@ window.Nexus = window.Nexus || {};
       busMesh.parent.remove(busMesh);
       busMesh = null;
     }
+    [lineBusLightMesh, lineBusPoolMesh, lineBusBrakeMesh].forEach(function (mesh) {
+      if (mesh && mesh.parent) mesh.parent.remove(mesh);
+    });
+    lineBusLightMesh = null;
+    lineBusPoolMesh = null;
+    lineBusBrakeMesh = null;
     paintLineRibbons(state);
     if (!busAgents.length || !geo.vehBus) {
       return;
@@ -4277,10 +4242,10 @@ window.Nexus = window.Nexus || {};
       if (!first) {
         return;
       }
-      var sae = (owner && owner.saeLevel) || 0;
+      /* Linien-Marke (Assistenz-Leiter entfernt). */
       var post = new THREE.Mesh(geo.box, mat);
-      post.scale.set(0.28, 0.4 + sae * 0.32, 0.28);
-      post.position.set(first.x, TILE_H + 0.45 + sae * 0.16, first.z);
+      post.scale.set(0.28, 0.7, 0.28);
+      post.position.set(first.x, TILE_H + 0.55, first.z);
       roots.lines.add(post);
     });
   }
@@ -4289,6 +4254,7 @@ window.Nexus = window.Nexus || {};
     if (!busMesh || !dummy) {
       return;
     }
+    var night = isNight();
     var i;
     for (i = 0; i < busAgents.length; i++) {
       var bus = busAgents[i];
@@ -4303,8 +4269,52 @@ window.Nexus = window.Nexus || {};
       dummy.scale.set(1, 1, 1);
       dummy.updateMatrix();
       busMesh.setMatrixAt(i, dummy.matrix);
+      bus._pose = pose;
     }
     busMesh.instanceMatrix.needsUpdate = true;
+    if (!lineBusLightMesh && busAgents.length && geo.headBulb && mats.headlamp) {
+      lineBusLightMesh = new THREE.InstancedMesh(geo.headBulb, mats.headlamp, busAgents.length);
+      lineBusLightMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+      lineBusLightMesh.frustumCulled = false;
+      roots.cars.add(lineBusLightMesh);
+      lineBusPoolMesh = new THREE.InstancedMesh(geo.headPool, mats.headPool, busAgents.length);
+      lineBusPoolMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+      lineBusPoolMesh.frustumCulled = false;
+      roots.cars.add(lineBusPoolMesh);
+      lineBusBrakeMesh = new THREE.InstancedMesh(geo.box, mats.brake, busAgents.length);
+      lineBusBrakeMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+      lineBusBrakeMesh.frustumCulled = false;
+      roots.cars.add(lineBusBrakeMesh);
+    }
+    if (lineBusLightMesh) {
+      lineBusLightMesh.visible = !!night;
+      if (lineBusPoolMesh) lineBusPoolMesh.visible = !!night;
+      for (i = 0; i < busAgents.length; i++) {
+        var bp = busAgents[i]._pose;
+        if (!bp) continue;
+        var sx = Math.sin(bp.ang);
+        var cz = Math.cos(bp.ang);
+        if (night) {
+          dummy.position.set(bp.x + sx * 1.95, ROAD_Y + 0.72, bp.z + cz * 1.95);
+          dummy.rotation.set(0, bp.ang, 0);
+          dummy.scale.set(1.6, 1.3, 1);
+          dummy.updateMatrix();
+          lineBusLightMesh.setMatrixAt(i, dummy.matrix);
+          dummy.position.set(bp.x + sx * 3.2, ROAD_Y + 0.04, bp.z + cz * 3.2);
+          dummy.scale.set(1.6, 1, 4.2);
+          dummy.updateMatrix();
+          if (lineBusPoolMesh) lineBusPoolMesh.setMatrixAt(i, dummy.matrix);
+        }
+        dummy.position.set(bp.x - sx * 1.92, ROAD_Y + 0.58, bp.z - cz * 1.92);
+        dummy.rotation.set(0, bp.ang, 0);
+        dummy.scale.set(0.95, 0.2, 0.18);
+        dummy.updateMatrix();
+        if (lineBusBrakeMesh) lineBusBrakeMesh.setMatrixAt(i, dummy.matrix);
+      }
+      lineBusLightMesh.instanceMatrix.needsUpdate = true;
+      if (lineBusPoolMesh) lineBusPoolMesh.instanceMatrix.needsUpdate = true;
+      if (lineBusBrakeMesh) lineBusBrakeMesh.instanceMatrix.needsUpdate = true;
+    }
   }
 
   function updateSky(dt, time) {
@@ -5039,7 +5049,7 @@ window.Nexus = window.Nexus || {};
   function lineSignature(state) {
     var sae = (state.players || [])
       .map(function (player) {
-        return player.id + ":" + (player.saeLevel || 0);
+        return player.id + ":" + (player.rolePoints || 0);
       })
       .join(",");
     return (

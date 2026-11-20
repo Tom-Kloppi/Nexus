@@ -183,94 +183,6 @@ window.Nexus = window.Nexus || {};
     });
   }
 
-  function saeOffer(state, player) {
-    player = player || current(state);
-    var level = (player && player.saeLevel) || 0;
-    var cost = { money: 2, bandwidth: 0, energy: 0 };
-    var why =
-      "Höhere Stufen ersetzen den Fahrer. Sie brauchen Technik und fallen über Cyber und Netz aus, wenn die Technik fehlt.";
-    var reason = "";
-    if (!player || state.turnPhase !== "build") {
-      return { allowed: false, reason: "Nur in der Bauphase.", cost: cost, why: why, level: level };
-    }
-    if (level >= 5) {
-      return { allowed: false, reason: "SAE 5 ist erreicht.", cost: cost, why: why, level: level };
-    }
-    if (level === 0) {
-      cost = { money: state.beginner ? 1 : 2, bandwidth: 0, energy: 0 };
-      why = "Stufe 1 ist Assistenz. Noch kein Netz, schon ein Komfort- und Sicherheitsgewinn im Stadtbild.";
-    } else if (level === 1) {
-      cost = { money: 2, bandwidth: 1, energy: 0 };
-      why = "Stufe 2 hält die Spur, braucht aber Augen: Kamera oder V2X.";
-      if (!(player.devices && (player.devices.camera || player.devices.v2x))) {
-        reason = "Stufe 2 braucht Sensorik (Kamera oder V2X).";
-      }
-    } else if (level === 2) {
-      cost = { money: 3, bandwidth: 1, energy: 1 };
-      why = "Stufe 3 fährt in festen Gebieten und braucht Rechenleistung im eigenen Datenzentrum.";
-      if (!hasDc(state, player.id)) {
-        reason = "Stufe 3 braucht ein eigenes Datenzentrum.";
-      }
-    } else if (level === 3) {
-      cost = { money: 3, bandwidth: 2, energy: 1 };
-      why = "Stufe 4 spricht mit der Kreuzung. Ohne V2X fehlt die Funkstrecke.";
-      if (!(player.devices && player.devices.v2x)) {
-        reason = "Stufe 4 braucht V2X.";
-      }
-    } else {
-      cost = { money: 4, bandwidth: 3, energy: 1 };
-      why = "Stufe 5 ist vollautomatisch und nur tragbar mit lokalem V2X oder gesichertem Rechenzentrum.";
-      var localV2x = player.devices && player.devices.v2x === "local";
-      if (!localV2x && !hasSecureDc(state, player.id)) {
-        reason = "Stufe 5 braucht lokales V2X oder ein gesichertes Datenzentrum.";
-      }
-    }
-    if (!reason && !afford(player.resources, cost)) {
-      reason = "Ressourcen fehlen für SAE " + (level + 1) + ".";
-    }
-    return {
-      allowed: !reason,
-      reason: reason,
-      cost: cost,
-      why: why,
-      level: level,
-      next: level + 1
-    };
-  }
-
-  function applySae(state) {
-    var player = current(state);
-    var offer = saeOffer(state, player);
-    if (!offer.allowed) {
-      return state;
-    }
-    var scores = bump(player.scores, offer.next === 2 || offer.next === 4 ? { comfort: 1 } : {});
-    if (offer.next === 5) {
-      scores = bump(scores, { comfort: 1 });
-    }
-    var shock = player.riskShock || 0;
-    if (offer.next >= 4) {
-      shock += offer.next === 5 ? 2 : 1;
-    }
-    var nextPlayer = Object.assign({}, player, {
-      resources: pay(player.resources, offer.cost),
-      saeLevel: offer.next,
-      scores: scores,
-      riskShock: shock
-    });
-    var next = replace(state, nextPlayer);
-    next.log = note(
-      next,
-      player.name,
-      "SAE " +
-        offer.next +
-        ". " +
-        offer.why +
-        (offer.next >= 4 ? " Die Stufe ist störanfälliger (Schock +" + (offer.next === 5 ? 2 : 1) + ")." : "")
-    );
-    return next;
-  }
-
   function placeBusStop(state, zoneId) {
     var player = current(state);
     if (!player || state.turnPhase !== "build") {
@@ -427,7 +339,7 @@ window.Nexus = window.Nexus || {};
     var hops = Math.max(1, full.length - 1);
     var cost = {
       money: (state.beginner ? 1 : 2) + hops,
-      bandwidth: 1 + ((player.saeLevel || 0) >= 3 ? 1 : 0)
+      bandwidth: 1
     };
     if (!afford(player.resources, cost)) {
       return state;
@@ -462,7 +374,7 @@ window.Nexus = window.Nexus || {};
       stopKeys: stops.map(stopKeyForZone),
       pathKeys: full,
       propulsion: propulsion,
-      saeAtOpen: player.saeLevel || 0,
+      
       hops: hops
     };
     var nextPlayer = Object.assign({}, player, {
@@ -588,18 +500,11 @@ window.Nexus = window.Nexus || {};
         parking += 1;
       }
     });
-    var sae = player.saeLevel || 0;
-    var shielded = 0;
-    if (sae > 0 && ((player.devices && player.devices.v2x === "local") || (sae <= 3 && hasSecureDc(state, player.id)))) {
-      shielded = sae;
-    }
     return {
       renewableMobility: renewable,
       commerceServed: commerce,
       linkPartnerRatio: othersN ? Math.round((linkCount / othersN) * 100) : 0,
-      parkingSites: parking,
-      shieldedSae: shielded,
-      saeLevel: sae
+      parkingSites: parking
     };
   }
 
@@ -615,8 +520,6 @@ window.Nexus = window.Nexus || {};
   Nexus.Mobility = {
     buildGraph: buildGraph,
     pathKeys: pathKeys,
-    saeOffer: saeOffer,
-    applySae: applySae,
     placeBusStop: placeBusStop,
     setTrafficMode: setTrafficMode,
     openLine: openLine,

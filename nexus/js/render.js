@@ -1648,13 +1648,16 @@ window.Nexus = window.Nexus || {};
       return "Stabil: Energie · −" + per + " Geld pro Einheit beim Ernten";
     }
     if (zone.type === "energy" && zone.variant === "solar") {
-      return "Solarfarm: Würfel-Energie (variabel) · Umwelt +1 beim Bau";
+      return "Solarfarm: feste Energie je Runde · Umwelt-Hinweis bei der Ernte";
     }
     if (zone.type === "datacenter" && zone.variant === "insecure") {
-      return "Bandbreite + Risiko — Gate für Wohn-Bandbreite";
+      return "Offenes RZ: Bandbreite frei, höheres Risiko. Nur eines pro Person.";
+    }
+    if (zone.type === "datacenter" && zone.variant === "secure") {
+      return "Geschlossenes RZ: Bandbreite frei, sicherer. Nur eines pro Person.";
     }
     if (zone.type === "traffic") {
-      return "Stub: wenig Geld · +1 Komfort beim Bau. Straßen liegen auf den Kanten aller Felder.";
+      return "Parkplatz/Bahnhof: Geld-Ertrag, erstes Feld +1 Komfort. Straßen auf den Kanten.";
     }
     return formatZoneYield(zone);
   }
@@ -1883,6 +1886,56 @@ window.Nexus = window.Nexus || {};
     }, 680);
   }
 
+  function spawnRolePointFlight(state, player, delta) {
+    if (!delta) {
+      return;
+    }
+    var role = Nexus.ROLES_BY_ID[player.roleId];
+    var label = (role && role.pointShort) || "Pkt";
+    var cause = state.lastScoreCause || {};
+    var from = Nexus.Board3D && Nexus.Board3D.projectCause ? Nexus.Board3D.projectCause(cause) : null;
+    if (!from && cause.kind === "trade") {
+      var trade = document.getElementById("btn-trade");
+      if (trade) {
+        var tr = trade.getBoundingClientRect();
+        from = { x: tr.left + tr.width / 2, y: tr.top };
+      }
+    }
+    if (!from && cause.kind === "card") {
+      var fan = document.getElementById("project-fan");
+      if (fan) {
+        var fr = fan.getBoundingClientRect();
+        from = { x: fr.left + 40, y: fr.top };
+      }
+    }
+    if (!from) {
+      from = { x: window.innerWidth / 2, y: window.innerHeight * 0.45 };
+    }
+    var chip = document.querySelector('.turn-chip[data-player="' + player.id + '"]');
+    if (!chip) {
+      return;
+    }
+    var to = chip.getBoundingClientRect();
+    var el = document.createElement("div");
+    el.className = "score-flight is-role-point";
+    el.style.setProperty("--role-point-color", (role && role.pointColor) || "var(--accent)");
+    el.textContent = (delta > 0 ? "+" : "") + delta + " " + label;
+    el.style.left = from.x + "px";
+    el.style.top = from.y + "px";
+    document.body.appendChild(el);
+    window.requestAnimationFrame(function () {
+      el.style.transform =
+        "translate(" + (to.left + to.width / 2 - from.x) + "px," + (to.top + to.height / 2 - from.y) + "px)";
+    });
+    window.setTimeout(function () {
+      chip.classList.add("is-score");
+      window.setTimeout(function () {
+        chip.classList.remove("is-score");
+      }, 420);
+      el.remove();
+    }, 720);
+  }
+
   function renderScoreFlights(state) {
     if (!state || !state.players || state.turnPhase === "role_reveal") {
       return;
@@ -1895,7 +1948,8 @@ window.Nexus = window.Nexus || {};
           image: now.image || 0,
           comfort: now.comfort || 0,
           environment: now.environment || 0,
-          security: now.security || 0
+          security: now.security || 0,
+          rolePoints: player.rolePoints || 0
         };
         return;
       }
@@ -1905,11 +1959,16 @@ window.Nexus = window.Nexus || {};
           spawnScoreFlight(state, player, key, delta);
         }
       });
+      var rpDelta = (player.rolePoints || 0) - (prev.rolePoints || 0);
+      if (rpDelta) {
+        spawnRolePointFlight(state, player, rpDelta);
+      }
       flightSnap[player.id] = {
         image: now.image || 0,
         comfort: now.comfort || 0,
         environment: now.environment || 0,
-        security: now.security || 0
+        security: now.security || 0,
+        rolePoints: player.rolePoints || 0
       };
     });
   }
@@ -2205,9 +2264,8 @@ window.Nexus = window.Nexus || {};
       view.zoneCount +
       " Zone" +
       (view.zoneCount === 1 ? "" : "n") +
-      " · SAE " +
-      view.saeLevel +
-      "/5";
+      " · " +
+      (view.rolePoints != null ? view.rolePoints + "/10 Punkte" : "Fortschritt offen");
     var grid = document.getElementById("public-player-devices");
     if (!view.devices.length) {
       grid.innerHTML = '<p class="hand-empty">Keine Geräte sichtbar.</p>';
@@ -2298,8 +2356,11 @@ window.Nexus = window.Nexus || {};
           expect.textContent = "";
         }
       });
-      setDigitGroup(document.getElementById("stat-round"), state.round > state.maxRounds ? state.maxRounds : state.round, false);
-      document.querySelector(".day-max").textContent = "/ " + state.maxRounds;
+      var leftEarly = Math.max(0, (state.maxRounds || 0) - (state.round || 1) + 1);
+      if (state.round > state.maxRounds) {
+        leftEarly = 0;
+      }
+      setDigitGroup(document.getElementById("stat-days-left"), leftEarly, false);
       setDigitGroup(document.getElementById("stat-risk"), "–", false);
       lastResourceSnapshot = null;
       lastPlayerId = null;
@@ -2319,8 +2380,14 @@ window.Nexus = window.Nexus || {};
         expect.textContent = "~" + formatNumber(expected[key]);
       }
     });
-    setDigitGroup(document.getElementById("stat-round"), state.round > state.maxRounds ? state.maxRounds : state.round, false);
-    document.querySelector(".day-max").textContent = "/ " + state.maxRounds;
+    var daysLeft = Math.max(0, (state.maxRounds || 0) - (state.round || 1) + 1);
+    if (state.turnPhase === "gameover" || state.round > state.maxRounds) {
+      daysLeft = 0;
+    }
+    var daysEl = document.getElementById("stat-days-left");
+    if (daysEl) {
+      setDigitGroup(daysEl, daysLeft, false);
+    }
     var riskChanged =
       !lastResourceSnapshot || lastPlayerId !== player.id || lastResourceSnapshot.__risk !== player.risk;
     setDigitGroup(document.getElementById("stat-risk"), player.risk, riskChanged);
@@ -2985,70 +3052,29 @@ window.Nexus = window.Nexus || {};
               return item.id === inspectedZone.lastDieId;
             })[0]
           : null;
-        document.getElementById("zone-inspect-die").textContent = die
-          ? die.label + (die.modifier ? " (" + (die.modifier > 0 ? "+" : "") + die.modifier + ")" : "")
-          : inspectedZone.type === "home"
-            ? "Kontrollbüro produziert ohne Würfel"
-            : "Noch kein Wurf in dieser Runde";
+        document.getElementById("zone-inspect-die").textContent =
+          inspectedZone.type === "home"
+            ? "Kontrollbüro: fester Basisertrag"
+            : inspectedZone.harvested
+              ? "Diese Runde bereits geerntet"
+              : "Ertrag zu Zugbeginn (fester Basiswert)";
         var actions = document.getElementById("zone-inspect-actions");
         var impact = document.getElementById("zone-inspect-impact");
         if (actions) {
           actions.innerHTML = "";
-          if (isMineZone && state.turnPhase === "build") {
-            var up = Nexus.describeZoneUpgrade(state, inspectedZone.id);
+          if (isMineZone && state.turnPhase === "build" && inspectedZone.type !== "home") {
             var down = Nexus.describeDemolish(state, inspectedZone.id);
-            var html = "";
-            if (up.flags && up.flags.maxed) {
-              html += '<p class="pick-con">Maximal ausgebaut.</p>';
-            } else {
-              html +=
-                '<button type="button" class="btn" id="btn-zone-upgrade"' +
-                (up.allowed ? "" : ' disabled title="' + escapeAttr(upgradeReasonText(up.reason)) + '"') +
-                ">Ausbauen" +
-                (up.cost && Object.keys(up.cost).length ? " · " + Nexus.formatCost(up.cost) : "") +
-                "</button>";
-            }
-            html +=
+            actions.innerHTML =
               '<button type="button" class="btn ghost" id="btn-zone-demolish"' +
               (down.allowed ? "" : ' disabled title="' + escapeAttr(demolishReasonText(down.reason)) + '"') +
               ">Abreißen" +
               (down.refund && down.refund.money ? " · +" + down.refund.money + " Geld" : "") +
               "</button>";
-            actions.innerHTML = html;
           }
         }
         if (impact) {
           var bits = [];
-          if (isMineZone && state.turnPhase === "build") {
-            var up2 = Nexus.describeZoneUpgrade(state, inspectedZone.id);
-            if (up2.production) {
-              if (up2.production.resource === "all") {
-                bits.push(
-                  '<span class="pick-pro">Ausbau: +' +
-                    up2.production.toAmount +
-                    " aller Ressourcen</span>"
-                );
-              } else {
-                var resN =
-                  (Nexus.RESOURCE_SHORT && Nexus.RESOURCE_SHORT[up2.production.resource]) ||
-                  up2.production.resource;
-                bits.push(
-                  '<span class="pick-pro">Ausbau: ' +
-                    up2.production.fromAmount +
-                    "→" +
-                    up2.production.toAmount +
-                    " " +
-                    resN +
-                    "</span>"
-                );
-              }
-              if (up2.flags.transformerUpkeep) {
-                bits.push('<span class="pick-con">mehr Energie kostet mehr Geld</span>');
-              }
-              if (up2.flags.residentialNeedsDc) {
-                bits.push('<span class="pick-con">ohne Datenzentrum: Bandbreite 0</span>');
-              }
-            }
+          if (isMineZone && state.turnPhase === "build" && inspectedZone.type !== "home") {
             var down2 = Nexus.describeDemolish(state, inspectedZone.id);
             if (down2.refund && down2.refund.money) {
               bits.push('<span class="pick-pro">Abriss +' + down2.refund.money + " Geld</span>");
@@ -3331,7 +3357,7 @@ window.Nexus = window.Nexus || {};
         preview.production.resource;
       if (preview.production.dice) {
         bits.push(
-          '<span class="pick-pro">~' + preview.production.amount + " " + res + "/Runde (Würfel)</span>"
+          '<span class="pick-pro">~' + preview.production.amount + " " + res + "/Runde</span>"
         );
       } else {
         bits.push(
@@ -3608,6 +3634,7 @@ window.Nexus = window.Nexus || {};
   }
 
   function renderDiceStage() {
+    return;
     var host = document.getElementById("dice-stage");
     if (host) {
       host.hidden = true;
@@ -3722,10 +3749,17 @@ window.Nexus = window.Nexus || {};
     lesson.textContent = lessonText;
     var choices = document.getElementById("event-choices");
     var pick = document.getElementById("event-resource-pick");
+    var playerPick = document.getElementById("event-player-pick");
     var showPick = !!(ui && ui.investorAwaitingResource);
-    pick.hidden = !showPick;
-    choices.hidden = showPick;
-    if (showPick) {
+    var showPlayerPick = !!(ui && ui.eventAwaitingPlayer && ui.eventPendingChoice);
+    if (pick) {
+      pick.hidden = !showPick;
+    }
+    if (playerPick) {
+      playerPick.hidden = !showPlayerPick;
+    }
+    choices.hidden = showPick || showPlayerPick;
+    if (showPick && pick) {
       pick.innerHTML = Nexus.RESOURCE_KEYS.map(function (key) {
         return (
           '<button type="button" class="tile-pick chip-' +
@@ -3737,10 +3771,35 @@ window.Nexus = window.Nexus || {};
           "</button>"
         );
       }).join("");
+    } else if (showPlayerPick && playerPick) {
+      var me = Nexus.currentPlayer(state);
+      playerPick.innerHTML = (state.players || [])
+        .filter(function (item) {
+          return !me || item.id !== me.id;
+        })
+        .map(function (item) {
+          var role = Nexus.ROLES_BY_ID[item.roleId];
+          return (
+            '<button type="button" class="btn event-choice" data-target-player="' +
+            item.id +
+            '"><span>' +
+            item.name +
+            "</span><span class=\"event-icons\">" +
+            (role ? role.pointShort + " " + (item.rolePoints || 0) + "/10" : "") +
+            "</span></button>"
+          );
+        })
+        .join("");
     } else {
       choices.innerHTML = event.choices
         .map(function (choice) {
           var disabled = !Nexus.canChooseEventOption(state, choice.id);
+          if (choice.needsPlayerPick && (state.players || []).length < 2) {
+            disabled = true;
+          }
+          if (choice.effects && choice.effects.spendOwnRolePoints && (player.rolePoints || 0) < choice.effects.spendOwnRolePoints) {
+            disabled = true;
+          }
           return (
             '<button type="button" class="btn event-choice" data-choice="' +
             choice.id +
