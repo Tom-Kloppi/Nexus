@@ -27,7 +27,7 @@ Gestrichen: Assistenz/SAE-Leiter, offen/proprietär, Ausbau im Zug. **Abriss** w
 
 Spieler = Stadtteilmanager (Testgebiet). Geheimes **Wahlversprechen** statt alter Rollenziele. Wer am Ende laut eigenem Versprechen führt → Bürgermeister.
 
-**Hot-Seat bleibt der Vertrag:** 2–6 Spieler, ein Gerät. **LAN/WLAN-Multiplayer:** erst nach Verlassen von Hot-Seat (Gate), nicht in diesem Zyklus — kein Spielprotokoll, kein WebRTC. Ein kleiner FastAPI-Prozess darf nur würfeln und Dateien ausliefern (`server/app.py`).
+**Hot-Seat bleibt der Vertrag:** 2–3 Spieler, ein Gerät. Sechs Charaktere/Rollen bleiben im Pool (Zufallsziehung). **LAN/WLAN-Multiplayer:** erst nach Verlassen von Hot-Seat (Gate), nicht in diesem Zyklus — kein Spielprotokoll, kein WebRTC. Ein kleiner FastAPI-Prozess darf nur würfeln und Dateien ausliefern (`server/app.py`).
 
 ### Harte Kernregeln (nicht aufweichen)
 
@@ -35,7 +35,7 @@ Spieler = Stadtteilmanager (Testgebiet). Geheimes **Wahlversprechen** statt alte
 - Nacht versteckt keine Rolle, keine Kasse und kein Ziel.
 - Produktion **automatisch zu Zugbeginn**.
 - Bandbreite aus Wohnen nur mit **eigenem** Datenzentrum.
-- 2-Spieler: Metrik-Skalierung in `roles.js` bleibt; 5–6 Spieler leichte Hochskalierung von Handel/Zonen.
+- 2-Spieler: Metrik-Skalierung in `roles.js` bleibt.
 - Sieg = `computeRoleProgress`. Eine Punktart pro Rolle, 10 Punkte = 100 %. Sofort bei 10 nach voller Runde, sonst die meisten Punkte am Rundenlimit. Keine Spurensumme, **keine Catch-up-Regel**, kein Würfel-Gewinn.
 - Geräte und Feld-Ausbau sind **öffentlich** (Cloud und lokal). Cloud vs lokal bleibt nur als Mechanik (Risiko, Upkeep, lokal %).
 - Vanilla HTML/CSS/JS für Regeln und App-Chrome; **kein** React/Vue, keine Accounts, kein Spiel-Backend. Erlaubt ist nur der Würfelserver. Das **Distrikt-Board** darf eine vendored 3D-Engine (Three.js) oder Canvas nutzen — nur Präsentation, keine Regeln.
@@ -44,8 +44,8 @@ Spieler = Stadtteilmanager (Testgebiet). Geheimes **Wahlversprechen** statt alte
 
 - **Default-Theme:** Tageslicht (`data-theme="light"` / `nexus-theme` Default `light`). Toggle = **Nachtstadt**. Chrome/Himmel **teal** (grün-blau), kein reines UI-Blau.
 - **Layout:** 3D-Canvas füllt den Viewport; Topbar, Dock und Tray liegen als halbtransparente Overlays darüber. Dock standardmäßig kompakte Schiene, ausklappbar („Ziele“). Toasts über dem Tray, nicht über Primärknöpfe. Schmale Breite: Dock als Sheet.
-- **Board-Stack:** WebGL-Stadt mit **Three.js r158** (`nexus/vendor/three.min.js`), Szene in `nexus/js/board3d.js` (+ Look/Props-Helfer). App-Shell bleibt HTML/CSS. `render.js` orchestriert HUD; das Canvas darf raycasten. Regeln nur in `state.js`. Offline: `python -m http.server` in `nexus/`. Kein Foto-Board, keine GLTF-Bibliothek — prozedurale Low-Poly-Volumen und Billboard-Sprites.
-- **Board:** keine flachen Eurogame-Plättchen. Extrudierte Volumen, Z-Buffer nach Bildtiefe. **Ein** Hauptgebäude pro Spielkachel. Start = **Kontrollbüro**. Landnutzung lesbar (**Gebäudetyp vor Besitzfarbe**): Wohnen = Block, Solar = Farm mit Leitstand, Trafo = Umspannwerk, DC = Halle (Ausbau = Flügel), Verkehr = Busbahnhof oder Parkplatz. **Besitz:** klare Spielerfarbe auf der Pad-Fläche, leuchtender Rand, Dach-Akzent in Spielerfarbe. **Straßen sind keine Kacheln:** ein geteiltes Netz auf den Hex-Kanten; Autos fahren Feld→Feld; Ampeln Präsentation. Parks nur Deko (seedbasiert, auch Teilflächen). Unkontrollierte Felder dürfen schon bebaut/belebt aussehen. Untergrund = wählbares Biom (Gras/Wüste/Wasser, Pref `nexus-biome`) als große Platte mit Nebel/Kulisse — keine Catan-Wasserkacheln im Hex-Netz. Rand: Gewerbe, Hügel, Berge.
+- **Board-Stack:** WebGL-Stadt mit **Three.js r158** (`nexus/vendor/three.min.js` + vendored `GLTFLoader.js`), Szene in `nexus/js/board3d.js` (+ Look/Props/Kenney-Helfer). App-Shell bleibt HTML/CSS. `render.js` orchestriert HUD; das Canvas darf raycasten. Regeln nur in `state.js`. Offline: `python -m http.server` in `nexus/`. **Keine Voll-GLTF-Bibliothek:** erlaubt sind wenige gebakte Kenney-City-Kit-`.glb` (Commercial / Industrial / Suburban / Roads, CC0) unter `nexus/vendor/kenney/…` — einmal laden, cachen, pro Feld clonen. Minimal/Low bleiben Boxen/BoardKit; ab Medium Kenney-Meshes. Unkontrollierte Felder = kleine Suburban-/Industrie-Filler; Datenzentren = Commercial-Skyscraper. Fallback = bisherige prozedurale Volumen + Billboard-Sprites.
+- **Board:** keine flachen Eurogame-Plättchen. Extrudierte Volumen, Z-Buffer nach Bildtiefe. **Ein** Hauptgebäude pro Spielkachel. Start = **Kontrollbüro**. Landnutzung lesbar (**Gebäudetyp vor Besitzfarbe**): Wohnen = Büro/Block (Commercial), Solar = Industrial-Solar, Trafo = Umspann/Industrie, DC = Halle, Verkehr = Depot/Halle. **Besitz:** klare Spielerfarbe auf der Pad-Fläche und leuchtender Rand — Kenney-Mesh-Farben unangetastet (kein Dach-Tint auf GLTF). **Straßen sind keine Kacheln:** ein geteiltes Netz auf den Hex-Kanten; Autos fahren Feld→Feld; Ampeln Präsentation. Parks nur Deko (seedbasiert, auch Teilflächen). Unkontrollierte Felder dürfen schon bebaut/belebt aussehen. Untergrund = wählbares Biom (Gras/Wüste/Wasser, Pref `nexus-biome`) als große Platte mit Nebel/Kulisse — keine Catan-Wasserkacheln im Hex-Netz. Rand: Gewerbe, Hügel, Berge.
 - **Kamera:** Zu Zugbeginn Leitstand der aktiven Person unten, Stadt voraus. Rechts-/Mittelziehen = Orbit, Linksziehen = Pan, Rad = Zoom; Polar-/Zoom-/Pan-Clamps, weiche Dämpfung, nicht unter den Boden. Native Kontextmenüs auf dem Board blockiert. Prefs: `nexus-cam-pitch`, `nexus-board-quality` (Auto / Qualität / Balance / Leistung), `nexus-biome`.
 - **Look-Nordstern:** HexaUrbs — Look und Hex-Lesbarkeit, nicht Genre/Engine. Parks keine baubaren Zonen. Bebaubare Felder klar markiert; Picking auf flacher Boden-Hitbox.
 - **Nacht:** dunkelblau/dunkelgrau mit genug Ambient und Mondlicht; Felder und Besitzfarben bleiben lesbar. Fenster/Laternen/Ampeln (emissive/Glow/Lichtpools, keine PointLights pro Laterne); Geräte-Gizmos öffentlich. Kein Leak von Rolle/Wallet/Versprechen. Handoff/Reveal dimmt das Board.
@@ -83,7 +83,7 @@ Sieg = `computeRoleProgress` gegen das Wahlversprechen (Unterziele auf diesen Sp
 | --- | --- |
 | `energy` | `solar`: **2** Energie fest, `environment` +1 beim Bau und (gedeckelt) bei der Ernte. `transformer`: **3** Energie fest, kostet `money` pro Einheit (`TRANSFORMER_MONEY_PER_ENERGY`), `environment` −1 nur beim Bau. Kein Solar-Würfel. |
 | `datacenter` | Pro Person **höchstens eines**. `insecure` (offen) günstig / Risiko. `secure` (geschlossen) teurer / sicher. Umschalten kostet Ressourcen. **Ohne eigenes DC:** Wohn-Bandbreite = 0. |
-| `residential` | Produziert Bandbreite (Basis). Geräte (Kamera, Schloss, …) bleiben Gadgets im Device-Menü. **Feld-Ausbau** `upgradeLevel` 0–2 ist Monopoly-artig und sichtbar am 3D-Gebäude. |
+| `residential` | Produziert Bandbreite (Basis). Geräte (Kamera, Schloss, …) bleiben Gadgets im Device-Menü. **Feld-Ausbau** `upgradeLevel` 0–1 (eine Stufe), sichtbar am 3D-Gebäude. |
 | `traffic` | Parkplatz, Parkhaus oder Busbahnhof. Erstes Feld +1 Komfort. Linien (Diesel/Elektro/erneuerbar): `mobility.js`. |
 | `home` | Startfeld **Kontrollbüro**; Basis +1 aller 3 Ressourcen / Runde, plus +1 je `upgradeLevel`. |
 
@@ -113,7 +113,7 @@ Keine neuen Geräte-IDs in diesem Zyklus; Loop über Feedback und Copy. Karten/E
 
 ## Was bleibt aus 2.1
 
-- Hex Radius 3 bei 2–3 Spielern, Radius 4 bei 4–6; Homes fair auf Hex-Ecken; Adjacent-Expand
+- Hex Radius 3; Homes fair auf Hex-Ecken; Adjacent-Expand
 - Hot-Seat / Role-Reveal / Handoff
 - Cloud vs lokal bei Geräten als **Mechanik** (lokaler Anteil → `security`); Sichtbarkeit: alle eigenen Gadgets öffentlich
 - Handels**angebot** (3 Ressourcen; Annahme/Ablehnung, kein Sofort-Tausch). Offen/proprietär **gestrichen**

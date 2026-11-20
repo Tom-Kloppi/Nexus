@@ -4,6 +4,20 @@ Neueste Welle zuerst. Das ist die **Geschichte** des spielbaren Stands — nicht
 
 Neue spielbare Welle: hier einen Block anlegen (Datum, Branch, Warum, Regeln, Grafik). DESIGN nur ändern, wenn sich der Vertrag ändert.
 
+## Kenney City Kit + eine Ausbaustufe (2026-11-20)
+
+**Warum.** Lesbarere Landnutzung; zwei Kenney-Modelle pro Typ reichen; Launch nur per HTTP (`docs/STARTEN.md`).
+
+**Regeln.** Feld-Ausbau `ZONE_UPGRADE_MAX = 1` (eine Stufe).
+
+**Grafik.** Commercial/Industrial/Suburban/Roads (wenige `.glb`). Wohnen 3×4→5×4, Solar 4→8 Panels, Trafo+Tank, Bus zwei Tore, DC = Skyscraper, Filler = kleine Häuser/Industrie, Bäume/Laternen/Schilder. Cache+Clone; ab Medium; Pad/Rim = Besitzfarbe.
+
+## Hot-Seat auf 2–3 Spieler (2026-11-20)
+
+**Warum.** Sechs Personen am einen Gerät ist praktisch unspielbar.
+
+**Regeln.** `MAX_PLAYERS = 3`. Sechs Charaktere bleiben im Rollenpool (Zufallsziehung). Setup-UI nur noch 2/3.
+
 ## Lehre · Nachbarschaft · Energie · Kamera (2026-11-20)
 
 **Warum.** Einstieg in 10 Min, Konflikt ohne neuen Screen, Solar/Trafo als echte Wahl ohne Würfel; Kamera weniger ruckelig.

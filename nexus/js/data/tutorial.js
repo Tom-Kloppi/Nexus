@@ -52,7 +52,7 @@ Nexus.TUTORIAL_STEPS = [
     scene: "setup",
     target: "#setup-player-count",
     title: "Spielerzahl",
-    body: "Zwei bis sechs Personen. Ab vier Personen wird der Distrikt um einen Hex-Ring größer. Die Regeln bleiben gleich, nur Platz und Tempo wachsen."
+    body: "Zwei oder drei Personen am selben Gerät. Sechs Charaktere bleiben im Pool — pro Partie werden zufällig so viele Rollen gezogen, wie Personen mitspielen."
   },
   {
     id: "setup-length",

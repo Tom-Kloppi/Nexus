@@ -10,15 +10,16 @@ Sichtbarkeit: **alle** gebauten Gadgets (`Nexus.boardGadgetsFor`).
 
 ## Ausbau / Geräte-Meshes
 
-| Feld | Stufe 0 | Stufe 1 | Stufe 2 |
-| --- | --- | --- | --- |
-| Wohnen | Podest + Turm | Dachaufbau | zweiter Aufbau, Mast |
-| Solar | Leitstand, zwei Panelreihen | dritte Reihe | Dach-Panels, Mast |
-| Umspannwerk | Halle, ein Kessel | zweiter Kessel | dritter Kessel, Mast |
-| Datenzentrum | Halle | Flügel | Kühltürme, Schüssel |
-| Busbahnhof | Halle, Bus, Vordach | zweiter Bus | dritter Bus, Mast |
-| Parkplatz | Stellplätze, Ladesäulen, Kiosk | extra Säule | extra Auto, Mast |
-| Leitstand | Turm, Fahne, Schüssel | Anbau | Dachaufbau, Mast |
+| Feld | Stufe 0 | Stufe 1 (eine Ausbaustufe) |
+| --- | --- | --- |
+| Wohnen | Commercial L | Commercial J |
+| Solar | 4 Portrait-Panels (Gruppe) | 8 = zwei Gruppen |
+| Umspannwerk | Industriehalle mit Tanks | + großer Tank |
+| Datenzentrum | Skyscraper E | Skyscraper D |
+| Busbahnhof | Industrial A | Industrial P (zwei Tore) |
+| Leitstand | kleines Büro (a) | größeres Büro (f) |
+| Filler | Kenney-Bäume (klein), keine Filler-Gebäude | — |
+| Straßen | Kenney Laterne + Schilder (scaled) | — |
 
 | Gerät | Modell | Wo |
 | --- | --- | --- |
@@ -33,7 +34,7 @@ Sichtbarkeit: **alle** gebauten Gadgets (`Nexus.boardGadgetsFor`).
 
 ## Cuts
 
-1. Keine neuen Geräte-IDs, keine 4. Ausbaustufe, keine GLTF-Bibliothek.
+1. Keine neuen Geräte-IDs, keine 4. Ausbaustufe, keine Voll-GLTF-Bibliothek — nur wenige vendored Kenney-`.glb` (Commercial/Industrial) laut DESIGN.
 2. Thermostat / Peak-Load keine Extra-Meshes.
 3. Hub nicht auf jedem Wohnfeld.
 4. Gadgets bleiben Spieler-Inventar; Modelle nur Lesehilfe.

@@ -166,7 +166,7 @@ Nexus.hexRadiusForPlayerCount = function (playerCount) {
 };
 
 Nexus.homePositionsForCount = function (playerCount) {
-  var n = Math.max(2, Math.min(6, Number(playerCount) || 3));
+  var n = Math.max(2, Math.min(3, Number(playerCount) || 3));
   var corners = Nexus.HEX_CORNER_AXIAL(Nexus.hexRadiusForPlayerCount(n));
   return Nexus.HOME_CORNER_PICKS[n].map(function (index) {
     return corners[index];
@@ -212,12 +212,12 @@ Nexus.CONSTANTS = {
   HUB_DISCOUNT_TIE_ORDER: ["energy", "money", "bandwidth"],
   TRANSFORMER_MONEY_PER_ENERGY: 1,
   MIN_PLAYERS: 2,
-  MAX_PLAYERS: 6,
+  MAX_PLAYERS: 3,
   TRADE_RECENT_ROUNDS: 2,
   OPEN_STANDARD_DISCOUNT: 1,
   SAE_MAX_LEVEL: 5,
   SAE_NETWORK_BANDWIDTH_DISCOUNT: 1,
-  ZONE_UPGRADE_MAX: 2,
+  ZONE_UPGRADE_MAX: 1,
   ZONE_UPGRADE_MONEY_BASE: 3,
   ZONE_UPGRADE_MONEY_STEP: 2,
   ZONE_UPGRADE_ENERGY: 1,

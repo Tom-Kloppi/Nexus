@@ -6,10 +6,10 @@ Diese Datei beschreibt, was das Spiel **im Code tun soll** laut [`DESIGN.md`](DE
 
 ## Setup
 
-- 2 bis 6 Spieler, ein Gerät (Hot-Seat). Ab 4 Spielern Hex-Radius 4 statt 3; Homes auf den Ecken, nicht überlappend.
+- 2 bis 3 Spieler, ein Gerät (Hot-Seat). Homes auf den Ecken, nicht überlappend. Hex-Radius 3.
 - Probezeit: Kurz 10 / Standard 14 / Lang 18 **Tage** (Anzeige: verbleibende Tage).
 - Start: 3× Energie, Geld, Bandbreite; **Kontrollbüro** in einer Hex-Ecke; Startcoupon (erstes Feld kostenlos, muss im ersten Zug).
-- Sechs Rollen werden gemischt und einmal offen gezeigt. Danach beginnt Spieler 1.
+- Sechs Charaktere im Pool; pro Partie werden so viele Rollen gezogen wie Spieler. Einmal offen gezeigt. Danach beginnt Spieler 1.
 
 ## Ziel
 
@@ -34,7 +34,7 @@ Image, Komfort, Umwelt, Sicherheit (`player.scores`). Öffentlich nur soweit die
 
 ## Hex-Distrikt
 
-Radius 3 (2–3 Spieler) bzw. 4 (4–6 Spieler). Homes auf den Hex-Ecken (`homePositionsForCount`). Expand nur benachbart zum eigenen Netz.
+Radius 3. Homes auf den Hex-Ecken (`homePositionsForCount`). Expand nur benachbart zum eigenen Netz.
 
 | Feld | Variante | Ertrag / Regel |
 | --- | --- | --- |

@@ -543,7 +543,7 @@ window.Nexus = window.Nexus || {};
       return 0;
     }
     var level = zone.upgradeLevel || 0;
-    var max = C.ZONE_UPGRADE_MAX || 2;
+    var max = C.ZONE_UPGRADE_MAX || 1;
     if (level < 0) {
       return 0;
     }
@@ -1413,7 +1413,7 @@ window.Nexus = window.Nexus || {};
       preview.reason = "not_owner";
       return preview;
     }
-    if (preview.fromLevel >= (C.ZONE_UPGRADE_MAX || 2)) {
+    if (preview.fromLevel >= (C.ZONE_UPGRADE_MAX || 1)) {
       preview.flags.maxed = true;
       preview.reason = "maxed";
       return preview;
@@ -3640,8 +3640,8 @@ window.Nexus = window.Nexus || {};
     if (!pub || pub.devices.length < 2) {
       throw new Error("public view gadgets");
     }
-    if (C.MAX_PLAYERS !== 6 || Nexus.ALL_ROLE_IDS.length !== 6) {
-      throw new Error("six player cast");
+    if (C.MAX_PLAYERS !== 3 || Nexus.ALL_ROLE_IDS.length !== 6) {
+      throw new Error("cast: max 3 players, 6 roles");
     }
     function axialDist(q, r) {
       return (Math.abs(q) + Math.abs(r) + Math.abs(q + r)) / 2;
@@ -3670,7 +3670,7 @@ window.Nexus = window.Nexus || {};
         seen[key] = true;
       });
     }
-    [2, 3, 4, 5, 6].forEach(assertHomes);
+    [2, 3].forEach(assertHomes);
     var practice = tutorialView(startGame(2, "short"), "public");
     if (!practice.tutorialPractice || practice.players[1].devices.lock !== "local") {
       throw new Error("tutorial public gadget");

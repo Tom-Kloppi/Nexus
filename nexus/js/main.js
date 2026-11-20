@@ -415,11 +415,7 @@ window.Nexus = window.Nexus || {};
     if (!options.skipAutoHarvest) {
       triggerAutoHarvest();
     }
-    if (state.screen === "game") {
-      requestAnimationFrame(function () {
-        fitMapToView(false);
-      });
-    }
+    /* Kein Kamera-Fit nach jedem Commit — nur Sitzwechsel / explizites Fit setzt neu. */
     maybeFlow(state);
   }
 

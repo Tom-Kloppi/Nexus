@@ -130,6 +130,7 @@ window.Nexus = window.Nexus || {};
   var dressingCounts = { trees: 0, lamps: 0, bins: 0, benches: 0, bushes: 0, flowers: 0 };
   var plusPins = [];
   var overlays = [];
+  var animHoldUntil = 0;
   var lampPools = [];
   var buildRings = [];
   var cityStats = { tearDown: 0, rebuildTiles: 0, patchTile: 0 };
@@ -1405,11 +1406,48 @@ window.Nexus = window.Nexus || {};
     }
   }
 
+  function kenneyPropsOk() {
+    return !!(
+      Nexus.KenneyBuildings &&
+      Nexus.KenneyBuildings.isReady &&
+      Nexus.KenneyBuildings.isReady() &&
+      Nexus.KenneyBuildings.qualityAllows(kenneyTierNow())
+    );
+  }
+
   function tree(parent, x, z, s, alt) {
+    if (
+      kenneyPropsOk() &&
+      Nexus.KenneyBuildings.placeProp(parent, alt ? "treeLarge" : "treeSmall", x, TILE_H, z, {
+        yaw: (x * 12.3 + z * 7.1) % (Math.PI * 2),
+        shadows: !!(qualityParams() && qualityParams().shadows)
+      })
+    ) {
+      return;
+    }
+    if (kenneyPropsOk()) {
+      return;
+    }
     dropProp(parent, "bush", alt ? 2 : 0, x, z, s || 1, false);
   }
 
   function lampPost(parent, x, z, tall) {
+    if (kenneyPropsOk()) {
+      Nexus.KenneyBuildings.placeProp(parent, tall && tall > 2.5 ? "lampCurved" : "lamp", x, TILE_H, z, {
+        yaw: (x + z) * 0.3,
+        shadows: !!(qualityParams() && qualityParams().shadows)
+      });
+      if (mats.lampPool) {
+        var poolK = new THREE.Mesh(geo.plane, mats.lampPool);
+        poolK.rotation.x = -Math.PI / 2;
+        poolK.position.set(x, TILE_H + 0.04, z);
+        poolK.scale.set(2.4, 2.4, 1);
+        poolK.visible = isNight();
+        parent.add(poolK);
+        lampPools.push(poolK);
+      }
+      return null;
+    }
     var h = tall || 2.4;
     addCyl(parent, mats.lampPole, 0.07, 0.09, h, x, TILE_H, z, 8);
     var head = addSphere(parent, mats.lamp, 0.16, x, TILE_H + h + 0.08, z);
@@ -1501,7 +1539,10 @@ window.Nexus = window.Nexus || {};
       if (!obj.isMesh || !obj.material) {
         return;
       }
-      if (obj.userData && (obj.userData.prop || obj.userData.keep || obj.userData.pick || obj.userData.hl)) {
+      if (
+        obj.userData &&
+        (obj.userData.prop || obj.userData.keep || obj.userData.kenney || obj.userData.pick || obj.userData.hl)
+      ) {
         return;
       }
       if (skipMat.indexOf(obj.material) >= 0) {
@@ -1835,9 +1876,48 @@ window.Nexus = window.Nexus || {};
     }
   }
 
+  function kenneyTierNow() {
+    var live = (qualityParams() || {}).tier || resolvedPreset || "medium";
+    return qualityChoice && qualityChoice !== "auto" ? qualityChoice : live;
+  }
+
+  function tryKenneyFiller(group, rand) {
+    return !!(
+      Nexus.KenneyBuildings &&
+      Nexus.KenneyBuildings.buildFiller &&
+      Nexus.KenneyBuildings.buildFiller(group, {
+        TILE_H: TILE_H,
+        roll: rand(),
+        yaw: rand() * Math.PI * 2,
+        qualityTier: kenneyTierNow(),
+        shadows: !!(qualityParams() && qualityParams().shadows)
+      })
+    );
+  }
+
   /** Uncontrolled playable tiles: already built city fabric, no owner tint. */
   function artUncontrolled(group, rand, q, r) {
     var roll = rand();
+    /* Kenney: keine Filler-Gebäude — kleine Baumgruppen statt Box-/GLB-Props. */
+    if (kenneyPropsOk()) {
+      var n = 2 + Math.floor(rand() * 3);
+      var i;
+      for (i = 0; i < n; i++) {
+        var ang = rand() * Math.PI * 2;
+        var dist = 0.6 + rand() * 2.4;
+        tree(group, Math.cos(ang) * dist, Math.sin(ang) * dist, 0.85, rand() < 0.3);
+      }
+      if (rand() < 0.35) {
+        lampPost(group, 2.2 + rand() * 0.4, -2.0, 2.2);
+      }
+      return;
+    }
+    if (roll < 0.88 && tryKenneyFiller(group, rand)) {
+      if (rand() < 0.4) {
+        lampPost(group, 2.2 + rand() * 0.4, -2.0, 2.2);
+      }
+      return;
+    }
     if (roll < 0.34) {
       var h = 4.2 + rand() * 5.5;
       addBox(group, facadeMat(q, r), 2.8 + rand(), h, 2.6 + rand() * 0.6, -0.2, TILE_H, 0.1, 0);
@@ -1876,41 +1956,31 @@ window.Nexus = window.Nexus || {};
 
   function dressTileProps(group, zoneKey, q, r, budget) {
     propMode += 1;
-    var Props = Nexus.BoardProps;
     var rand = seeded(q, r, 55);
-    var count = propBudget(budget || 4);
-    if (Nexus.Fillers && Nexus.Fillers.scatter) {
-      Nexus.Fillers.scatter(group, zoneKey, q, r, count, rand, TILE_H, grayMode ? (Nexus.UNCLAIMED_GRAY || "#E2E2E2") : "#c8c2b8");
-    }
-    if (Props) {
-      var i;
-      var n = Math.max(1, Math.min(count, 1 + Math.floor(rand() * count)));
-      var kinds = ["bush", "bin", "bench"];
-      for (i = 0; i < n; i++) {
-        var ang = rand() * Math.PI * 2;
-        var dist = 1.5 + rand() * 3.2;
-        dropProp(
-          group,
-          kinds[i % kinds.length],
-          Math.floor(rand() * 3),
-          Math.cos(ang) * dist,
-          Math.sin(ang) * dist,
-          0.85 + rand() * 0.35,
-          !!grayMode
-        );
-      }
-    }
-    var clutter = Math.max(1, Math.min(4, Math.round(count / 2)));
-    var c;
-    for (c = 0; c < clutter; c++) {
-      var ang2 = rand() * Math.PI * 2;
-      var dist2 = 1.8 + rand() * 2.4;
-      addBox(group, c % 2 ? mats.bench : mats.bin, 0.62, 0.26, 0.28, Math.cos(ang2) * dist2, TILE_H, Math.sin(ang2) * dist2, ang2);
+    var count = Math.max(1, Math.min(3, propBudget(budget || 4)));
+    var i;
+    for (i = 0; i < count; i++) {
+      var ang = rand() * Math.PI * 2;
+      var dist = 1.8 + rand() * 2.6;
+      tree(group, Math.cos(ang) * dist, Math.sin(ang) * dist, 0.9, rand() < 0.35);
     }
     propMode = Math.max(0, propMode - 1);
   }
 
   function artWarehouse(group, rand) {
+    if (kenneyPropsOk()) {
+      var n = 2 + Math.floor(rand() * 2);
+      var i;
+      for (i = 0; i < n; i++) {
+        var ang = rand() * Math.PI * 2;
+        var dist = 0.8 + rand() * 2.0;
+        tree(group, Math.cos(ang) * dist, Math.sin(ang) * dist, 0.9, i % 2 === 0);
+      }
+      return;
+    }
+    if (tryKenneyFiller(group, rand)) {
+      return;
+    }
     var h = 2.2 + (rand() < 0.5 ? 1.1 : 0);
     addBox(group, mats.concrete, 4.6, h, 3.4, 0, TILE_H, 0, 0);
     addBox(group, mats.roof, 4.8, 0.16, 3.6, 0, TILE_H + h, 0, 0);
@@ -2478,9 +2548,8 @@ window.Nexus = window.Nexus || {};
       }
       var g = new THREE.Group();
       g.position.set(x, 0, z);
-      var faceX = e.a.x + dx * along - x;
-      var faceZ = e.a.z + dz * along - z;
-      g.rotation.y = Math.atan2(faceX, faceZ);
+      /* Fläche entlang der Trasse (Fahrer), nicht zur Gebäudefront. */
+      g.rotation.y = Math.atan2(ix, iz) + (side > 0 ? 0 : Math.PI);
       addCyl(g, mats.steel, 0.04, 0.05, 1.5, 0, TILE_H, 0, 6);
       var kind = Math.floor(keyRand(ek, 93) * 3);
       if (kind === 0) {
@@ -2622,53 +2691,100 @@ window.Nexus = window.Nexus || {};
           head: { x: lx, y: TILE_H + h + 0.08, z: lz, sx: 0.16, sy: 0.16, sz: 0.16, ry: 0 },
           x: lx,
           z: lz,
-          h: h
+          h: h,
+          heading: heading,
+          nx: nx,
+          nz: nz
         });
       } else if (roll < 0.5) {
-        binCands.push({
-          key: ek,
-          pose: {
-            x: px + nx * kerb,
-            y: TILE_H + 0.22,
-            z: pz + nz * kerb,
-            sx: 0.28,
-            sy: 0.4,
-            sz: 0.24,
-            ry: heading
-          }
-        });
+        if (kenneyPropsOk()) {
+          treeCands.push({
+            key: ek,
+            x: px + nx * (kerb + 0.35),
+            z: pz + nz * (kerb + 0.35),
+            s: 0.6,
+            alt: false,
+            wild: wild
+          });
+        } else {
+          binCands.push({
+            key: ek,
+            pose: {
+              x: px + nx * kerb,
+              y: TILE_H + 0.22,
+              z: pz + nz * kerb,
+              sx: 0.28,
+              sy: 0.4,
+              sz: 0.24,
+              ry: heading
+            }
+          });
+        }
       } else if (roll < 0.64) {
-        bushCands.push({
-          key: ek,
-          x: px + nx * (kerb + 0.2),
-          z: pz + nz * (kerb + 0.2),
-          s: 0.7 + keyRand(ek, 76) * 0.4,
-          wild: wild
-        });
+        if (kenneyPropsOk()) {
+          treeCands.push({
+            key: ek,
+            x: px + nx * (kerb + 0.2),
+            z: pz + nz * (kerb + 0.2),
+            s: 0.7 + keyRand(ek, 76) * 0.3,
+            alt: keyRand(ek, 76) < 0.4,
+            wild: wild
+          });
+        } else {
+          bushCands.push({
+            key: ek,
+            x: px + nx * (kerb + 0.2),
+            z: pz + nz * (kerb + 0.2),
+            s: 0.7 + keyRand(ek, 76) * 0.4,
+            wild: wild
+          });
+        }
       } else if (roll < 0.76) {
-        flowerCands.push({
-          key: ek,
-          x: px + nx * (kerb + 0.35),
-          z: pz + nz * (kerb + 0.35),
-          kind: Math.floor(keyRand(ek, 77) * 3),
-          wild: wild
-        });
+        if (kenneyPropsOk()) {
+          treeCands.push({
+            key: ek,
+            x: px + nx * (kerb + 0.3),
+            z: pz + nz * (kerb + 0.3),
+            s: 0.55,
+            alt: false,
+            wild: wild
+          });
+        } else {
+          flowerCands.push({
+            key: ek,
+            x: px + nx * (kerb + 0.35),
+            z: pz + nz * (kerb + 0.35),
+            kind: Math.floor(keyRand(ek, 77) * 3),
+            wild: wild
+          });
+        }
       } else if (roll > 0.94) {
-        var bx = px + nx * (kerb + 0.2);
-        var bz = pz + nz * (kerb + 0.2);
-        benchCands.push({
-          key: ek,
-          seat: { x: bx, y: TILE_H + 0.2, z: bz, sx: 1.05, sy: 0.08, sz: 0.32, ry: heading },
-          back: {
-            x: bx + nx * 0.14,
-            y: TILE_H + 0.36,
-            z: bz + nz * 0.14,
-            sx: 1.05,
-            sy: 0.28,
-            sz: 0.08,
-            ry: heading
-          }
-        });
+        if (kenneyPropsOk()) {
+          treeCands.push({
+            key: ek,
+            x: px + nx * (kerb + 0.25),
+            z: pz + nz * (kerb + 0.25),
+            s: 0.65,
+            alt: true,
+            wild: wild
+          });
+        } else {
+          var bx = px + nx * (kerb + 0.2);
+          var bz = pz + nz * (kerb + 0.2);
+          benchCands.push({
+            key: ek,
+            seat: { x: bx, y: TILE_H + 0.2, z: bz, sx: 1.05, sy: 0.08, sz: 0.32, ry: heading },
+            back: {
+              x: bx + nx * 0.14,
+              y: TILE_H + 0.36,
+              z: bz + nz * 0.14,
+              sx: 1.05,
+              sy: 0.28,
+              sz: 0.08,
+              ry: heading
+            }
+          });
+        }
       }
     }
     treeCands = takeHashed(treeCands, MAX_TREES, 201);
@@ -2683,64 +2799,84 @@ window.Nexus = window.Nexus || {};
     var bins = [];
     var benchSeats = [];
     var benchBacks = [];
+    var useKenneyDress = kenneyPropsOk();
     for (i = 0; i < treeCands.length; i++) {
       var tc = treeCands[i];
-      dropProp(roots.roads, "bush", tc.alt ? 2 : 0, tc.x, tc.z, tc.s, tc.wild);
+      tree(roots.roads, tc.x, tc.z, tc.s, tc.alt);
     }
-    for (i = 0; i < bushCands.length; i++) {
-      var bc = bushCands[i];
-      dropProp(roots.roads, "bush", 1, bc.x, bc.z, bc.s, bc.wild);
-    }
-    for (i = 0; i < flowerCands.length; i++) {
-      var fc = flowerCands[i];
-      dropProp(roots.roads, "bin", fc.kind, fc.x, fc.z, 0.9, false);
+    if (!useKenneyDress) {
+      for (i = 0; i < bushCands.length; i++) {
+        var bc = bushCands[i];
+        dropProp(roots.roads, "bush", 1, bc.x, bc.z, bc.s, bc.wild);
+      }
     }
     for (i = 0; i < lampCands.length; i++) {
-      lampPoles.push(lampCands[i].pole);
-      lampHeads.push(lampCands[i].head);
       var lc = lampCands[i];
-      if (false && spriteTextures.lampGlow) {
-        addBillboard(
-          roots.roads,
-          spriteTextures.lampGlow,
-          lc.x,
-          TILE_H + lc.h + 0.08,
-          lc.z,
-          2.2,
-          2.2,
-          isNight() ? 0.9 : 0.06
-        );
+      if (useKenneyDress) {
+        var lampYaw = (lc.heading != null ? lc.heading : 0) + Math.PI;
+        Nexus.KenneyBuildings.placeProp(roots.roads, "lamp", lc.x, TILE_H, lc.z, {
+          yaw: lampYaw,
+          shadows: !!(qualityParams() && qualityParams().shadows)
+        });
+        if (keyRand(lc.key, 88) > 0.42) {
+          var signId =
+            keyRand(lc.key, 89) < 0.34 ? "signStop" : keyRand(lc.key, 90) < 0.5 ? "signWarning" : "signStreet";
+          var snx = lc.nx != null ? lc.nx : 0;
+          var snz = lc.nz != null ? lc.nz : 1;
+          var sx = lc.x + snx * 0.55;
+          var sz = lc.z + snz * 0.55;
+          Nexus.KenneyBuildings.placeProp(roots.roads, signId, sx, TILE_H, sz, {
+            yaw: lampYaw + Math.PI / 2,
+            shadows: false
+          });
+        }
+        if (mats.lampPool) {
+          var pool = new THREE.Mesh(geo.plane, ownMat(mats.lampPool));
+          pool.rotation.x = -Math.PI / 2;
+          pool.position.set(lc.x, TILE_H + 0.05, lc.z);
+          pool.scale.set(2.4, 2.4, 1);
+          pool.visible = isNight();
+          roots.roads.add(pool);
+          lampPools.push(pool);
+        }
+      } else {
+        lampPoles.push(lc.pole);
+        lampHeads.push(lc.head);
+        if (mats.lampPool) {
+          var poolLow = new THREE.Mesh(geo.plane, ownMat(mats.lampPool));
+          poolLow.rotation.x = -Math.PI / 2;
+          poolLow.position.set(lc.x, TILE_H + 0.05, lc.z);
+          poolLow.scale.set(3.4, 3.4, 1);
+          poolLow.visible = isNight();
+          roots.roads.add(poolLow);
+          lampPools.push(poolLow);
+        }
       }
-      if (mats.lampPool) {
-        var pool = new THREE.Mesh(geo.plane, ownMat(mats.lampPool));
-        pool.rotation.x = -Math.PI / 2;
-        pool.position.set(lc.x, TILE_H + 0.05, lc.z);
-        pool.scale.set(3.4, 3.4, 1);
-        pool.visible = isNight();
-        roots.roads.add(pool);
-        lampPools.push(pool);
+    }
+    if (!useKenneyDress) {
+      for (i = 0; i < binCands.length; i++) {
+        bins.push(binCands[i].pose);
       }
+      for (i = 0; i < benchCands.length; i++) {
+        benchSeats.push(benchCands[i].seat);
+        benchBacks.push(benchCands[i].back);
+      }
+      addInstances(geo.cyl8, mats.lampPole, lampPoles, roots.roads);
+      var heads = addInstances(geo.sphere, mats.lamp, lampHeads, roots.roads);
+      addInstances(geo.box, mats.bin, bins, roots.roads);
+      addInstances(geo.box, mats.bench, benchSeats, roots.roads);
+      addInstances(geo.box, mats.bench, benchBacks, roots.roads);
+      lamps = heads ? [heads] : [];
+    } else {
+      lamps = [];
     }
-    for (i = 0; i < binCands.length; i++) {
-      bins.push(binCands[i].pose);
-    }
-    for (i = 0; i < benchCands.length; i++) {
-      benchSeats.push(benchCands[i].seat);
-      benchBacks.push(benchCands[i].back);
-    }
-    addInstances(geo.cyl8, mats.lampPole, lampPoles, roots.roads);
-    var heads = addInstances(geo.sphere, mats.lamp, lampHeads, roots.roads);
-    addInstances(geo.box, mats.bin, bins, roots.roads);
-    addInstances(geo.box, mats.bench, benchSeats, roots.roads);
-    addInstances(geo.box, mats.bench, benchBacks, roots.roads);
-    lamps = heads ? [heads] : [];
     dressingCounts = {
       trees: treeCands.length,
-      lamps: lampPoles.length,
-      bins: bins.length,
-      benches: benchSeats.length,
-      bushes: bushCands.length,
-      flowers: flowerCands.length
+      lamps: lampCands.length,
+      bins: useKenneyDress ? 0 : bins.length,
+      benches: useKenneyDress ? 0 : benchSeats.length,
+      bushes: useKenneyDress ? 0 : bushCands.length,
+      flowers: useKenneyDress ? 0 : flowerCands.length
     };
   }
 
@@ -4848,7 +4984,35 @@ window.Nexus = window.Nexus || {};
         padKey = landUseKey(zone);
         var level = (Nexus.zoneUpgradeLevel && Nexus.zoneUpgradeLevel(zone)) || zone.upgradeLevel || 0;
         var giz = gizmosFor(state, zone, player);
+        /* Menü-Stufe zählt für Kenney (nicht nur Live-Governor) — sonst bleibt Auto/Balance bei Boxen. */
+        var liveTier = (qualityParams() || {}).tier || resolvedPreset || "medium";
+        var qTier =
+          qualityChoice && qualityChoice !== "auto" ? qualityChoice : liveTier;
+        var kenneyReady =
+          Nexus.KenneyBuildings &&
+          Nexus.KenneyBuildings.isReady &&
+          Nexus.KenneyBuildings.isReady() &&
+          Nexus.KenneyBuildings.qualityAllows(qTier);
+        var kenneyBuilt =
+          kenneyReady &&
+          Nexus.KenneyBuildings.build(group, {
+            zone: zone,
+            q: slot.q,
+            r: slot.r,
+            level: level,
+            TILE_H: TILE_H,
+            qualityTier: qTier,
+            shadows: !!(qualityParams() && qualityParams().shadows)
+          });
+        if (kenneyBuilt) {
+          dressDevices(group, zone.type === "home" ? "home" : zone.type, giz);
+        }
+        var tKind = zone.type === "traffic" ? trafficKind(slot.q, slot.r, zone) : null;
+        var wantKitParking = tKind === "parking" || tKind === "garage";
+        /* High/Kenney: keine Box-Häuser — nur Parkplatz/Garage noch BoardKit/art. */
         var kitBuilt =
+          !kenneyBuilt &&
+          (!kenneyReady || wantKitParking) &&
           Nexus.BoardKit &&
           Nexus.BoardKit.build &&
           Nexus.BoardKit.build(group, {
@@ -4865,8 +5029,10 @@ window.Nexus = window.Nexus || {};
               dressDevices(group, zone.type === "home" ? "home" : zone.type, giz);
             }
           });
-        if (kitBuilt) {
-          /* Baukasten hat das Feld gesetzt. */
+        if (kitBuilt || kenneyBuilt) {
+          /* Kenney oder Baukasten hat das Feld gesetzt. */
+        } else if (kenneyReady && zone.type !== "traffic") {
+          /* Kenney aktiv: kein artHome/artResidential-Fallback. */
         } else if (zone.type === "home") {
           artHome(group, level, giz, slot.q, slot.r);
         } else if (zone.type === "residential") {
@@ -4878,7 +5044,6 @@ window.Nexus = window.Nexus || {};
         } else if (zone.type === "datacenter") {
           artDatacenter(group, level, giz, zone.variant === "secure", slot.q, slot.r);
         } else if (zone.type === "traffic") {
-          var tKind = trafficKind(slot.q, slot.r, zone);
           if (tKind === "parking") {
             artParking(group, level, giz);
           } else if (tKind === "garage") {
@@ -4894,7 +5059,7 @@ window.Nexus = window.Nexus || {};
           return p.id === zone.ownerId;
         })[0];
         owner = ownerMatch || null;
-        if (owner) {
+        if (owner && !group.userData.kenneyBuilt) {
           tintOwnedBuildings(group, owner.colorIndex || 0);
         }
         var greenOwned =
@@ -4982,6 +5147,7 @@ window.Nexus = window.Nexus || {};
       if (zone && ui && ui.placePopZoneId === zone.id) {
         group.scale.set(0.02, 0.02, 0.02);
         overlays.push({ type: "pop", group: group, t: 0 });
+        animHoldUntil = Math.max(animHoldUntil, nowMs() + 480);
       }
   }
 
@@ -5143,11 +5309,11 @@ window.Nexus = window.Nexus || {};
   }
 
   function fitCamera(force) {
-    if (!force && cam.userAdjusted) {
+    if (!force) {
       applyCamera();
       return;
     }
-    frameHome(lastState, !!force);
+    frameHome(lastState, true);
   }
 
   function groundHit(clientX, clientY) {
@@ -5224,7 +5390,9 @@ window.Nexus = window.Nexus || {};
       fpsFrames = 0;
       fpsStamp = time;
     }
-    cam.seatYaw = lerpAngle(cam.seatYaw, cam.seatTarget, 1 - Math.pow(0.02, dt));
+    if (!cam.userAdjusted) {
+      cam.seatYaw = lerpAngle(cam.seatYaw, cam.seatTarget, 1 - Math.pow(0.02, dt));
+    }
     dampCamera(dt);
     var stride = tuned && tuned.vehicleStride ? tuned.vehicleStride : 1;
     try {
@@ -5251,9 +5419,12 @@ window.Nexus = window.Nexus || {};
       var s = 1 - (Math.sin(time * 3.5) * 0.5 + 0.5) * (ring.rec ? 0.04 : 0.025);
       ring.mesh.scale.set(FIELD_R * s, 0.1, FIELD_R * s);
     });
+    var nextOverlays = [];
     overlays.forEach(function (item) {
       if (item.type === "spin" && item.mesh) {
         item.mesh.rotation.y += dt * 3.2;
+        nextOverlays.push(item);
+        return;
       }
       if (item.type === "pop" && item.group) {
         item.t += dt;
@@ -5261,8 +5432,16 @@ window.Nexus = window.Nexus || {};
         var e = 1 - Math.pow(1 - k, 3);
         var bounce = 1 + Math.sin(k * Math.PI) * 0.08;
         item.group.scale.set(e * bounce, e * bounce, e * bounce);
+        if (item.t < 0.32) {
+          nextOverlays.push(item);
+        } else {
+          item.group.scale.set(1, 1, 1);
+        }
+        return;
       }
+      nextOverlays.push(item);
     });
+    overlays = nextOverlays;
     if (Nexus.Quality && dt) {
       var governed = Nexus.Quality.pushFrame(dt * 1000, stamp || nowMs());
       if (governed && tuned && governed.tier !== tuned.tier) {
@@ -5275,6 +5454,9 @@ window.Nexus = window.Nexus || {};
       }
     }
     var yawGap = Math.abs(lerpAngle(cam.userYaw, cam.targetUserYaw, 1) - cam.userYaw);
+    var overlaysBusy = overlays.some(function (item) {
+      return item.type === "pop" || item.type === "spin";
+    });
     var moving =
       (cars && cars.length && !(tuned && tuned.cars === 0)) ||
       busAgents.length > 0 ||
@@ -5283,7 +5465,9 @@ window.Nexus = window.Nexus || {};
       Math.abs(cam.targetPolar - cam.polar) > 0.012 ||
       Math.abs(cam.targetPanX - cam.panX) > 0.12 ||
       Math.abs(cam.targetPanZ - cam.panZ) > 0.12 ||
-      yawGap > 0.008;
+      yawGap > 0.008 ||
+      overlaysBusy ||
+      nowMs() < animHoldUntil;
     renderer.render(scene, camera);
     lastDraw = stamp || nowMs();
     /* Demand-Sleep nur wenn wirklich idle — nie direkt nach Aufbau die UI „tot“ wirken lassen. */
@@ -5333,6 +5517,7 @@ window.Nexus = window.Nexus || {};
     buildGeos();
     ensureSprites();
     buildMaterials();
+    kickKenneyPreload();
     roots.static = new THREE.Group();
     roots.roads = new THREE.Group();
     roots.lines = new THREE.Group();
@@ -5438,13 +5623,32 @@ window.Nexus = window.Nexus || {};
 
   function structureKey() {
     /* qualityChoice (Menü), nicht Live-Governor-Tier — sonst Rebuild-Schleife nach Stadtaufbau. */
+    var kenney =
+      Nexus.KenneyBuildings && Nexus.KenneyBuildings.isReady && Nexus.KenneyBuildings.isReady() ? "k1" : "k0";
     return (
       (document.documentElement.getAttribute("data-theme") || "light") +
       "|" +
       (qualityChoice || "auto") +
       "|" +
-      activeBiome
+      activeBiome +
+      "|" +
+      kenney
     );
+  }
+
+  function kickKenneyPreload() {
+    if (!Nexus.KenneyBuildings || !Nexus.KenneyBuildings.preload) {
+      return;
+    }
+    Nexus.KenneyBuildings.preload().then(function (ok) {
+      if (!ok) {
+        return;
+      }
+      lastStructure = "";
+      if (lastState && lastState.screen === "game") {
+        sync(lastState, lastUi || {});
+      }
+    });
   }
 
   function zoneMap(state) {
@@ -5966,6 +6170,7 @@ window.Nexus = window.Nexus || {};
     },
     pan: function (dx, dy) {
       startLoop();
+      cam.userAdjusted = true;
       var h = (viewport && viewport.clientHeight) || 600;
       var scale = cam.distance / Math.max(280, h);
       var a = cam.seatYaw + cam.userYaw;
@@ -5979,25 +6184,15 @@ window.Nexus = window.Nexus || {};
     },
     orbit: function (dx, dy) {
       startLoop();
+      cam.userAdjusted = true;
       cam.targetUserYaw -= dx * 0.0038;
       cam.targetPolar = clamp(cam.targetPolar + dy * 0.0032, CAM_POLAR_MIN, CAM_POLAR_MAX);
     },
     zoomAt: function (clientX, clientY, factor) {
       startLoop();
-      var before = groundHit(clientX, clientY);
+      cam.userAdjusted = true;
+      /* Nur Distanz — kein Cursor-Pan-Korrektur. Mit Damping driftet Zoom-to-point sonst vor/zurück. */
       cam.targetDistance = clamp(cam.targetDistance / factor, CAM_DIST_MIN, CAM_DIST_MAX);
-      /* Cursor-Zoom: Hit mit Ziel-Distanz rechnen, Ist-Distanz weiter dampfen. */
-      var live = cam.distance;
-      cam.distance = cam.targetDistance;
-      applyCamera();
-      var after = groundHit(clientX, clientY);
-      cam.distance = live;
-      if (before && after) {
-        cam.targetPanX += before.x - after.x;
-        cam.targetPanZ += before.z - after.z;
-        clampPan();
-      }
-      applyCamera();
     },
     fit: function (force) {
       fitCamera(!!force);
