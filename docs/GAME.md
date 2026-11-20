@@ -39,15 +39,19 @@ Radius 3 (2–3 Spieler) bzw. 4 (4–6 Spieler). Homes auf den Hex-Ecken (`homeP
 | Feld | Variante | Ertrag / Regel |
 | --- | --- | --- |
 | Wohngebiet | — | Bandbreite; **0**, solange kein eigenes Datenzentrum |
-| Energie | Solar | feste Energie (+3 Basis) |
-| Energie | Transformator | stabile Energie, kostet Geld pro Einheit |
+| Energie | Solar | 2 Energie fest, Umwelt+ (Bau/Ernte) |
+| Energie | Transformator | 3 Energie fest, −Geld je Einheit, Umwelt− nur beim Bau |
 | Datenzentrum | offen / geschlossen | **max. 1**; offen = Risiko, geschlossen = sicherer; umschaltbar |
 | Verkehr | Parkplatz / Parkhaus / Busbahnhof | Erstes Feld +1 Komfort. Halt, Linie (Diesel/Elektro/erneuerbar). |
 | Kontrollbüro | — | +1 aller drei Ressourcen |
 
 Neu gebautes Feld produziert erst nächste Runde.
 
-**Abriss** im Feldmenü, wenn das Netz zum Büro verbunden bleibt. **Ausbau** nicht im Zug.
+**Nachbarschaftsdruck:** einmal pro Zug neben fremdem Feld → +1 Image, Nachbar +1 Risiko.
+
+**Erste Tage (1–2):** Dock-Agenda Nachbarfeld → Datenzentrum → später Linie/Deal (kein neues Tutorial-System).
+
+**Abriss** im Feldmenü, wenn das Netz zum Büro verbunden bleibt. **Ausbau** im Feldmenü.
 
 **Brett-Rand:** Gewerbe / Hügel / Berge, kein Wasser-Catan. Ein Großbauwerk pro Kachel, Autos auf dem **geteilten Kantennetz** (von Feld zu Feld, nicht im Kreis um eine Parzelle). Ampeln an Kreuzungen sind Präsentation.
 

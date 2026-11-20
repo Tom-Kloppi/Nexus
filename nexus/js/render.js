@@ -1645,10 +1645,10 @@ window.Nexus = window.Nexus || {};
     }
     if (zone.type === "energy" && zone.variant === "transformer") {
       var per = Nexus.CONSTANTS.TRANSFORMER_MONEY_PER_ENERGY || 1;
-      return "Stabil: Energie · −" + per + " Geld pro Einheit beim Ernten";
+      return "Umspannwerk: 3 Energie fest · −" + per + " Geld je Einheit · Umwelt− beim Bau";
     }
     if (zone.type === "energy" && zone.variant === "solar") {
-      return "Solarfarm: feste Energie je Runde · Umwelt-Hinweis bei der Ernte";
+      return "Solarfarm: 2 Energie fest · Umwelt+ bei Bau und Ernte";
     }
     if (zone.type === "datacenter" && zone.variant === "insecure") {
       return "Offenes Rechenzentrum: Bandbreite frei, höheres Risiko. Nur eines pro Person.";
@@ -2026,6 +2026,45 @@ window.Nexus = window.Nexus || {};
     return html + "</span>";
   }
 
+  function renderLearnAgenda(state, player, redact) {
+    var card = document.getElementById("learn-agenda");
+    var list = document.getElementById("learn-agenda-list");
+    if (!card || !list) {
+      return;
+    }
+    if (
+      !state ||
+      state.screen !== "game" ||
+      !player ||
+      redact ||
+      (Nexus.isHotSeatShield && Nexus.isHotSeatShield(state))
+    ) {
+      card.hidden = true;
+      list.innerHTML = "";
+      return;
+    }
+    var path = learnPathStatus(state, player);
+    if (!path.early) {
+      card.hidden = true;
+      list.innerHTML = "";
+      return;
+    }
+    card.hidden = false;
+    list.innerHTML = path.steps
+      .map(function (step, index) {
+        return (
+          '<li class="learn-agenda-item' +
+          (step.done ? " is-done" : "") +
+          '"><span class="learn-agenda-n">' +
+          (index + 1) +
+          "</span><span>" +
+          step.label +
+          "</span></li>"
+        );
+      })
+      .join("");
+  }
+
   function renderGoalPanel(state, ui) {
     var panel = document.getElementById("goal-panel");
     var pill = document.getElementById("goal-pill");
@@ -2048,6 +2087,7 @@ window.Nexus = window.Nexus || {};
       panel.hidden = true;
       pill.hidden = true;
       hideTracks();
+      renderLearnAgenda(state, player, !!(ui && ui.tutorialRedact));
       return;
     }
     panel.hidden = false;
@@ -2154,6 +2194,7 @@ window.Nexus = window.Nexus || {};
         dealNote.textContent = "";
       }
     }
+    renderLearnAgenda(state, player, redactGoals);
   }
 
   function renderRoleRevealModal(state, ui) {
@@ -2237,17 +2278,22 @@ window.Nexus = window.Nexus || {};
     var owned = Nexus.playerZones(state, player.id).length;
     var factories = Nexus.playerFactoryZones(state, player.id).length;
     document.getElementById("handoff-player").textContent = player.name + " ist dran";
+    var notices = player.pendingNotices || [];
+    var noticeLine = notices.length ? notices.join(" ") + " " : "";
     if (state.tradeSession && state.tradeSession.phase === "to_partner") {
-      document.getElementById("handoff-hint").textContent = "Ein Handel wartet. Menge und Kasse stehen offen.";
+      document.getElementById("handoff-hint").textContent =
+        noticeLine + "Ein Handel wartet. Menge und Kasse stehen offen.";
     } else if (state.tradeSession && state.tradeSession.phase === "to_owner") {
-      document.getElementById("handoff-hint").textContent = "Der Handel ist beantwortet. Weiter im Zug.";
+      document.getElementById("handoff-hint").textContent =
+        noticeLine + "Der Handel ist beantwortet. Weiter im Zug.";
     } else {
       document.getElementById("handoff-hint").textContent =
-        owned === 0
+        noticeLine +
+        (owned === 0
           ? "Noch keine Felder. Die Produktion fällt aus."
           : factories === 0
             ? "Das Kontrollbüro liefert, danach das gratis Feld."
-            : "Produktion startet, sobald du weitergehst.";
+            : "Produktion startet, sobald du weitergehst.");
     }
     document.getElementById("btn-handoff-ok").textContent = player.name + " ist dran";
     if (shell.hidden || !shell.classList.contains("is-open")) {
@@ -2838,6 +2884,26 @@ window.Nexus = window.Nexus || {};
   }
 
   /* Idle-Vorschlag: nur nach Pause, kein Dauer-Coach. */
+  function learnPathStatus(state, player) {
+    var zones = Nexus.playerFactoryZones ? Nexus.playerFactoryZones(state, player.id) : [];
+    var hasField = zones.length > 0;
+    var hasDc = zones.some(function (z) {
+      return z.type === "datacenter";
+    });
+    var hasLine =
+      (state.busLines || []).some(function (line) {
+        return line.ownerId === player.id;
+      }) || !!player.sideDeal;
+    return {
+      early: (state.round || 1) <= 2,
+      steps: [
+        { id: "expand", label: "Nachbarfeld bauen", done: hasField },
+        { id: "dc", label: "Datenzentrum (Bandbreite)", done: hasDc },
+        { id: "next", label: "Später: Linie / Hinterzimmer", done: hasLine }
+      ]
+    };
+  }
+
   function idleSuggestion(state, player) {
     if (!state || !player || state.screen !== "game") {
       return "";
@@ -2887,6 +2953,21 @@ window.Nexus = window.Nexus || {};
     if ((player.freeZoneClaims || 0) > 0) {
       return "Noch ein <b>gratis</b> Nachbarfeld — tippe einen leeren Nachbarn.";
     }
+    var path = learnPathStatus(state, player);
+    if (path.early) {
+      var open = path.steps.filter(function (s) {
+        return !s.done;
+      })[0];
+      if (open && open.id === "expand") {
+        return "Erste Tage · Schritt 1: <b>Nachbarfeld bauen</b> — leeres Feld tippen.";
+      }
+      if (open && open.id === "dc") {
+        return "Erste Tage · Schritt 2: <b>Datenzentrum</b> — sonst bleibt Wohn-Bandbreite 0.";
+      }
+      if (open && open.id === "next") {
+        return "Erste Tage · Schritt 3: Später Linie (mit Bahnhof) oder Hinterzimmer — Kern zuerst.";
+      }
+    }
     var risk = player.risk || 0;
     var gate = (Nexus.Risk && Nexus.Risk.EVENT_THRESHOLD) || 8;
     var cause = player.riskView && player.riskView.topLabel;
@@ -2906,6 +2987,21 @@ window.Nexus = window.Nexus || {};
         gate +
         (cause ? " · " + cause : "") +
         ". Gegensteuern, bevor die Schwelle knallt."
+      );
+    }
+    var leader = null;
+    (state.players || []).forEach(function (p) {
+      if (!leader || (p.rolePoints || 0) > (leader.rolePoints || 0)) {
+        leader = p;
+      }
+    });
+    if (
+      leader &&
+      leader.id !== player.id &&
+      (leader.rolePoints || 0) >= (player.rolePoints || 0) + 2
+    ) {
+      return (
+        "Führende Person: Halt an deren Linie / Druck über Nachbarschaft (neben deren Feld bauen)."
       );
     }
     var hand = player.handCards || [];
@@ -3562,18 +3658,18 @@ window.Nexus = window.Nexus || {};
       return "";
     }
     if (rec.reasonKey === "low_energy") {
-      return "Empfohlen: dir fehlt Energie.";
+      return "Warum jetzt: dir fehlt Energie — Solar (Umwelt+) oder Trafo (mehr Strom, kostet Geld).";
     }
     if (rec.reasonKey === "low_money") {
-      return "Empfohlen: dir fehlt Geld.";
+      return "Warum jetzt: dir fehlt Geld.";
     }
     if (rec.reasonKey === "need_dc") {
-      return "Empfohlen: ohne Datenzentrum bleibt Wohn-Bandbreite 0.";
+      return "Warum jetzt: ohne Datenzentrum bleibt Wohn-Bandbreite 0.";
     }
     if (rec.reasonKey === "low_bandwidth") {
-      return "Empfohlen: dir fehlt Bandbreite.";
+      return "Warum jetzt: dir fehlt Bandbreite — Datenzentrum schaltet Wohnen frei.";
     }
-    return "Empfohlen für dein Netz.";
+    return "Warum jetzt: passt zu deinem Netz.";
   }
 
   function tradeReasonText(reason) {
@@ -3675,8 +3771,16 @@ window.Nexus = window.Nexus || {};
       }
       if (impactEl) {
         impactEl.hidden = false;
-        impactEl.innerHTML =
-          "<p>Vor- und Nachteile stehen auf den Kacheln. Ausbau später macht das Gebäude größer und den Ertrag höher.</p>";
+        if (pendingType === "energy") {
+          impactEl.innerHTML =
+            "<p><b>Solar:</b> 2 Energie, Umwelt+ · <b>Trafo:</b> 3 Energie, kostet Geld, Umwelt−. Ausbau später erhöht den Ertrag.</p>";
+        } else if (pendingType === "datacenter") {
+          impactEl.innerHTML =
+            "<p>Warum jetzt: Datenzentrum schaltet Wohn-Bandbreite frei. Nur eines pro Person — offen = Risiko, sicher = teurer.</p>";
+        } else {
+          impactEl.innerHTML =
+            "<p>Vor- und Nachteile stehen auf den Kacheln. Ausbau später macht das Gebäude größer und den Ertrag höher.</p>";
+        }
       }
     } else {
       if (stepLabel) {

@@ -68,19 +68,21 @@ Nexus.ENERGY_VARIANTS = {
     label: "Solarfarm",
     shortLabel: "Solar",
     primary: "energy",
-    primaryBase: 3,
-    dice: true,
-    scoreHint: { environment: 1 }
+    primaryBase: 2,
+    dice: false,
+    scoreHint: { environment: 1 },
+    harvestScoreHint: { environment: 1 }
   },
   transformer: {
     id: "transformer",
     label: "Umspannwerk",
     shortLabel: "Umspann",
     primary: "energy",
-    primaryBase: 2,
+    primaryBase: 3,
     dice: false,
     stable: true,
     scoreHint: { environment: -1 }
+    /* Umwelt nur beim Bau — keine Ernte-Strafe jede Runde. */
   }
 };
 

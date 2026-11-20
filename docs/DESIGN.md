@@ -81,13 +81,15 @@ Sieg = `computeRoleProgress` gegen das Wahlversprechen (Unterziele auf diesen Sp
 
 | Typ | Varianten / Regel |
 | --- | --- |
-| `energy` | `solar`: fester Basisertrag. `transformer`: stabile Produktion, kostet `money` pro Ertragseinheit (`TRANSFORMER_MONEY_PER_ENERGY`). Optional: Bau kann `environment` geben (Solar) oder kosten (Transformer). |
+| `energy` | `solar`: **2** Energie fest, `environment` +1 beim Bau und (gedeckelt) bei der Ernte. `transformer`: **3** Energie fest, kostet `money` pro Einheit (`TRANSFORMER_MONEY_PER_ENERGY`), `environment` −1 nur beim Bau. Kein Solar-Würfel. |
 | `datacenter` | Pro Person **höchstens eines**. `insecure` (offen) günstig / Risiko. `secure` (geschlossen) teurer / sicher. Umschalten kostet Ressourcen. **Ohne eigenes DC:** Wohn-Bandbreite = 0. |
-| `residential` | Produziert Bandbreite (Basis). Geräte (Kamera, Schloss, …) bleiben Gadgets im Device-Menü. **Feld-Ausbau** `upgradeLevel` 0–2 ist Monopoly-artig und sichtbar am 3D-Gebäude. Nachbar-Bonus: optional später; MVP = nur eigenes Feld. |
+| `residential` | Produziert Bandbreite (Basis). Geräte (Kamera, Schloss, …) bleiben Gadgets im Device-Menü. **Feld-Ausbau** `upgradeLevel` 0–2 ist Monopoly-artig und sichtbar am 3D-Gebäude. |
 | `traffic` | Parkplatz, Parkhaus oder Busbahnhof. Erstes Feld +1 Komfort. Linien (Diesel/Elektro/erneuerbar): `mobility.js`. |
 | `home` | Startfeld **Kontrollbüro**; Basis +1 aller 3 Ressourcen / Runde, plus +1 je `upgradeLevel`. |
 
 Beim Expand wählt der Spieler Typ; bei `energy`/`datacenter` zusätzlich die Variante. UI: Typwahl **2×2**. Optional: empfohlenes Feld/Typ leuchtet aus den **eigenen** Engpässen (Ressourcen / Versprechen) — kein Leak fremder Privatinfos.
+
+**Nachbarschaftsdruck:** Baust du direkt neben ein fremdes Feld, einmal pro Zug: du +1 Image, jeder angrenzende fremde Besitzer +1 Risiko (`riskShock`). Toast/Hinweis beim Handoff. Keine Miete, keine Koalition.
 
 ### Feld-Ausbau (alle Typen)
 

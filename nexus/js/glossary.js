@@ -4,8 +4,8 @@ window.Nexus = window.Nexus || {};
 Nexus.GLOSSARY = {
   energie: {
     title: "Energie",
-    short: "Strom im Quartier. Solar schwankt, der Transformator ist stabil und kostet Geld.",
-    example: "Eine Solarfarm mit Basis 3 würfelt meist 2–4 Energie.",
+    short: "Strom im Quartier. Solar liefert 2 fest mit Umwelt+, der Transformator 3 fest und kostet Geld.",
+    example: "Solar: 2 Energie und Umwelt. Trafo: 3 Energie, −1 Geld je Einheit.",
     figure: "bolt"
   },
   geld: {

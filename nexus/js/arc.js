@@ -190,8 +190,8 @@ window.Nexus = window.Nexus || {};
 
   Nexus.WHY = {
     residential: "Wohnen ist Bandbreite, aber nur mit eigenem Datenzentrum. Sonst steht das Feld und liefert 0.",
-    solar: "Solar ist erneuerbar und schwankt mit dem offenen Würfel. Es senkt Netzstress.",
-    transformer: "Der Transformator ist stabil und kostet Geld pro Einheit. Er zählt nicht als erneuerbar.",
+    solar: "Solar: 2 Energie fest, Umwelt+. Weniger Strom, dafür erneuerbar und gut fürs Netz.",
+    transformer: "Umspannwerk: 3 Energie fest, kostet Geld je Einheit, Umwelt− beim Bau. Mehr Strom, teurer Lauf.",
     secure: "Ein gesichertes Datenzentrum schaltet Wohn-Bandbreite frei und senkt Cyber.",
     insecure: "Ein offenes Datenzentrum ist billig und hebt die Cyber-Exposition.",
     traffic: "Verkehrsfläche ist Parkplatz, später Parkhaus oder Busbahnhof. Beim Bau +1 Komfort.",

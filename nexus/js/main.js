@@ -737,7 +737,7 @@ window.Nexus = window.Nexus || {};
           return;
         }
         event.preventDefault();
-        var factor = event.deltaY > 0 ? 0.92 : 1.08;
+        var factor = event.deltaY > 0 ? 0.95 : 1.05;
         zoomAt(event.clientX, event.clientY, factor);
       },
       { passive: false }
@@ -842,11 +842,11 @@ window.Nexus = window.Nexus || {};
     });
 
     document.getElementById("btn-map-zoom-in").addEventListener("click", function () {
-      zoomTowardCenter(1.12);
+      zoomTowardCenter(1.07);
     });
 
     document.getElementById("btn-map-zoom-out").addEventListener("click", function () {
-      zoomTowardCenter(0.88);
+      zoomTowardCenter(0.93);
     });
 
     document.getElementById("btn-map-reset").addEventListener("click", function () {

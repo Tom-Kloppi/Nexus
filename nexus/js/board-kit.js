@@ -7,22 +7,14 @@ window.Nexus = window.Nexus || {};
     return (h >>> 0) / 4294967296;
   }
 
-  function archetype(zone, q, r, level) {
+  function archetype(zone, q, r) {
     if (!zone) {
       return "lot";
     }
     var roll = unit(q, r, 17);
-    level = level || 0;
     if (zone.type === "residential") {
-      /* Ausbau ändert die Silhouette: Cluster → Block → hoher Block. */
-      if (level >= 2) {
-        return "block";
-      }
-      if (level >= 1) {
-        return roll < 0.55 ? "block" : "houses";
-      }
-      var low = ["houses", "houses", "bakery", "school", "clinic", "supermarket"];
-      return low[Math.floor(roll * low.length)];
+      var names = ["block", "houses", "school", "bakery", "clinic", "supermarket"];
+      return names[Math.floor(roll * names.length)];
     }
     if (zone.type === "energy") {
       if (zone.variant === "transformer") {
@@ -52,10 +44,10 @@ window.Nexus = window.Nexus || {};
     if (!ctx || !ctx.zone || !ctx.addBox || !ctx.mats) {
       return false;
     }
+    var kind = archetype(ctx.zone, ctx.q, ctx.r);
     var q = ctx.q;
     var r = ctx.r;
     var level = ctx.level || 0;
-    var kind = archetype(ctx.zone, q, r, level);
     var th = ctx.TILE_H;
     var m = ctx.mats;
     var box = ctx.addBox;

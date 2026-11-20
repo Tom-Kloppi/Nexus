@@ -974,10 +974,17 @@ window.Nexus = window.Nexus || {};
     } else {
       amount = yieldAmount(base, modifier);
     }
+    var harvestHint = null;
+    if (def.harvestScoreHint) {
+      harvestHint = def.harvestScoreHint;
+    } else if (def.scoreHint && !(zone.type === "energy" && def.stable)) {
+      /* Trafo: Umwelt nur beim Bau (scoreHint), nicht jede Ernte. */
+      harvestHint = def.scoreHint;
+    }
     var result = {
       primary: { resource: def.primary, amount: amount },
       moneySpent: moneySpent,
-      scoreHint: def.scoreHint || null,
+      scoreHint: harvestHint,
       riskDelta: def.risk ? 1 : 0
     };
     if (def.secondary) {
@@ -1127,6 +1134,69 @@ window.Nexus = window.Nexus || {};
     });
   }
 
+  /* Einmal pro Zug: neben fremdem Feld → +1 Image, Nachbar +1 Risiko. */
+  function applyNeighborhoodPressure(state, builderId, q, r) {
+    var builder = null;
+    (state.players || []).forEach(function (p) {
+      if (p.id === builderId) {
+        builder = p;
+      }
+    });
+    if (!builder || builder.neighborhoodPressureUsed || !Nexus.neighbors) {
+      return state;
+    }
+    var foreignIds = [];
+    var seen = {};
+    Nexus.neighbors(q, r).forEach(function (n) {
+      var z = zoneAt(state, n.q, n.r);
+      if (z && z.ownerId && z.ownerId !== builderId && !seen[z.ownerId]) {
+        seen[z.ownerId] = true;
+        foreignIds.push(z.ownerId);
+      }
+    });
+    if (!foreignIds.length) {
+      return state;
+    }
+    var next = replacePlayer(
+      state,
+      builderId,
+      Object.assign({}, builder, {
+        scores: bumpScores(builder.scores, { image: 1 }),
+        neighborhoodPressureUsed: true
+      })
+    );
+    foreignIds.forEach(function (oid) {
+      var victim = null;
+      next.players.forEach(function (p) {
+        if (p.id === oid) {
+          victim = p;
+        }
+      });
+      if (!victim) {
+        return;
+      }
+      var notices = (victim.pendingNotices || []).slice();
+      notices.push("Nachbarschaftsdruck: +1 Risiko — " + builder.name + " hat neben dich gebaut.");
+      next = replacePlayer(
+        next,
+        oid,
+        Object.assign({}, victim, {
+          riskShock: (victim.riskShock || 0) + 1,
+          pendingNotices: notices
+        })
+      );
+    });
+    next.log = addLog(
+      next,
+      builder.name,
+      "Nachbarschaftsdruck: +1 Image · benachbarte Stadt +1 Risiko."
+    );
+    if (Nexus.Risk) {
+      next = Nexus.Risk.syncState(next, { decay: false });
+    }
+    return next;
+  }
+
   function buyZone(state, q, r, zoneType, variant) {
     var offer = getExpandOffer(state, q, r, zoneType, variant);
     if (!offer.allowed) {
@@ -1195,6 +1265,7 @@ window.Nexus = window.Nexus || {};
       next = Nexus.Risk.syncState(next, { decay: false });
     }
     next.lastScoreCause = { q: q, r: r, label: label };
+    next = applyNeighborhoodPressure(next, player.id, q, r);
     if (zoneType === "energy" && resolvedVariant === "solar") {
       next = tickSideDeal(next, player.id, "buildSolar", 1);
     }
@@ -1590,6 +1661,8 @@ window.Nexus = window.Nexus || {};
       devices: devices,
       risk: 0,
       riskShock: 0,
+      neighborhoodPressureUsed: false,
+      pendingNotices: [],
       hasDepot: false,
       greenInnovationCards: 0,
       privacyShieldEvents: 0,
@@ -2538,7 +2611,8 @@ window.Nexus = window.Nexus || {};
     var result = applyOngoingEffects(player);
     var endedPlayer = Object.assign({}, result.player, {
       drewInnovationThisTurn: false,
-      blockedTradeKeysThisTurn: []
+      blockedTradeKeysThisTurn: [],
+      neighborhoodPressureUsed: false
     });
     var next = replacePlayer(state, player.id, endedPlayer);
     next.log = addLog(next, player.name, result.logText);
@@ -2601,6 +2675,13 @@ window.Nexus = window.Nexus || {};
       log: addLog(state, player ? player.name : null, "übernimmt.")
     });
     if (player) {
+      if ((player.pendingNotices || []).length) {
+        resumed = replacePlayer(
+          resumed,
+          player.id,
+          Object.assign({}, player, { pendingNotices: [] })
+        );
+      }
       resumed = checkSideDealDeadline(resumed, player.id);
     }
     return resumed;
@@ -3448,8 +3529,15 @@ window.Nexus = window.Nexus || {};
       throw new Error("traffic preview comfort only on first lot");
     }
     var solarPreview = describeZoneBuild(state, "energy", "solar");
-    if (!solarPreview.production || !solarPreview.production.dice) {
-      throw new Error("solar preview dice");
+    if (!solarPreview.production || solarPreview.production.dice) {
+      throw new Error("solar preview must be fixed yield");
+    }
+    if (solarPreview.production.amount !== 2) {
+      throw new Error("solar base 2");
+    }
+    var trafoPreview = describeZoneBuild(state, "energy", "transformer");
+    if (!trafoPreview.production || trafoPreview.production.amount !== 3 || !trafoPreview.production.stable) {
+      throw new Error("transformer base 3 stable");
     }
     var solar = zoneAt(state, pick.q, pick.r);
     state = Object.assign({}, state, {
@@ -3473,7 +3561,7 @@ window.Nexus = window.Nexus || {};
     if (!upgraded || upgraded.upgradeLevel !== 1) {
       throw new Error("upgradeLevel");
     }
-    if (zonePrimaryBase(upgraded) !== 4) {
+    if (zonePrimaryBase(upgraded) !== 3) {
       throw new Error("upgrade yield scale");
     }
     state = acceptSideDeal(state, currentPlayer(state).id, "lobby-upgrade");

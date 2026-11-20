@@ -4,11 +4,27 @@ Neueste Welle zuerst. Das ist die **Geschichte** des spielbaren Stands — nicht
 
 Neue spielbare Welle: hier einen Block anlegen (Datum, Branch, Warum, Regeln, Grafik). DESIGN nur ändern, wenn sich der Vertrag ändert.
 
+## Lehre · Nachbarschaft · Energie · Kamera (2026-11-20)
+
+**Warum.** Einstieg in 10 Min, Konflikt ohne neuen Screen, Solar/Trafo als echte Wahl ohne Würfel; Kamera weniger ruckelig.
+
+**Regeln.** Solar 2 Energie + Umwelt; Trafo 3 Energie, Geld/Einheit, Umwelt− nur Bau. Nachbarschaftsdruck: einmal/Zug neben fremdem Feld → +1 Image, Nachbar +1 Risiko.
+
+**UI.** Dock-Agenda Tag 1–2; Idle folgt Lernpfad; Expand-Vergleich Solar/Trafo; Handoff zeigt Druck-Hinweise. Kamera: weicheres Damping, sanftere Pan/Orbit/Zoom.
+
+**Brett.** Straßen dunkelgrau vs. schwarze Felder; dunkle Besitzfarben mit sichtbaren Gebäude-Shades.
+
+## Freeze-Fix nach Stadtaufbau (2026-11-20)
+
+**Warum.** Nach dem Quality-Umbau hing `structureKey` am Live-Governor-Tier → Rebuild-Schleife, sobald die Stadt fertig war.
+
+**Fix.** Structure-Key nur noch Theme + Menü-Qualität + Biom. HexaUrbs-Zusatzoptik (gelbe Linien, Hex-Rand, Küstenband, Wohn-Cluster) wieder entfernt. Quality-Menü-Fixes bleiben.
+
 ## HexaUrbs-Lesbarkeit + Grafik-Stufen (2026-11-20)
 
 **Warum.** Tile-Rotation bugte; Grafik-Menü speicherte Stufen falsch und war vom alten Auto/Qualität/Balance-Pfad entkoppelt.
 
-**Grafik.** Gelbe Straßen-Mittellinien, dunkler Hex-Rand, Küstenband am Spielrand; Wohnen: Cluster → Turm bei Ausbau; Park/Bahnhof/Haltestelle wie zuvor. Rotation der Tile-Inhalte zurückgenommen. Quality-UI (Minimal–Ultra, FPS, Akku, Toggles) schreibt wieder durch auf `quality.js` + Board-Rebuild.
+**Grafik.** (Teilweise zurückgenommen — siehe Freeze-Fix.) Quality-UI (Minimal–Ultra, FPS, Akku, Toggles) schreibt durch auf `quality.js`.
 
 ## Hinterzimmer + Politur (2026-11-20)
 

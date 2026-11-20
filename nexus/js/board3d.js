@@ -867,11 +867,9 @@ window.Nexus = window.Nexus || {};
     mats.hill = lambert(css("--lu-hill-top", "#b7c0b4"));
     mats.ridge = lambert(css("--lu-ridge-side", "#8a7d6a"));
     mats.snow = lambert(css("--lu-ridge-top", "#c4b8a4"));
-    mats.road = lambert("#1a1c20");
+    /* Dunkelgrau, nicht pechschwarz — muss sich von schwarzen Feldern (#141416) abheben. */
+    mats.road = lambert(night ? "#3a414a" : "#4a525c");
     mats.mark = lambert("#f4f4f2");
-    mats.dashYellow = lambert("#f0c43a");
-    mats.hexBorder = lambert(night ? "#1a1e24" : "#2a3038");
-    mats.coastRim = lambert(night ? "#b07a3a" : "#e0a04a");
     mats.signYellow = lambert("#f0c43a");
     mats.signYield = lambert("#e24b3a");
     mats.signRound = lambert("#f7f7f5");
@@ -909,44 +907,68 @@ window.Nexus = window.Nexus || {};
     mats.gizmoLock = lambert("#ffd14a", { emissive: "#ffb000", emissiveIntensity: night ? 1.1 : 0.55 });
     mats.gizmoHot = lambert("#ff8a3a", { emissive: "#ff6a18", emissiveIntensity: night ? 1.15 : 0.5 });
     mats.gizmoCool = lambert("#3ee0c4", { emissive: "#1aa890", emissiveIntensity: night ? 1.05 : 0.42 });
+    function colorLuma(hex) {
+      var c = new THREE.Color(hex);
+      return 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b;
+    }
     function ownerPadOf(hex) {
       var c = new THREE.Color(hex);
-      if (night) {
+      var dark = colorLuma(hex) < 0.2;
+      if (dark) {
+        /* Pad bleibt „schwarz“, aber leicht angehoben — Kontur gegen Straße. */
+        c.lerp(new THREE.Color("#2c3038"), night ? 0.28 : 0.22);
+      } else if (night) {
         c.lerp(new THREE.Color("#1a2430"), 0.14);
       }
       return lambert(c, {
-        emissive: hex,
-        emissiveIntensity: night ? 0.28 : 0.14
+        emissive: dark ? "#3a4048" : hex,
+        emissiveIntensity: night ? (dark ? 0.18 : 0.28) : dark ? 0.08 : 0.14
       });
     }
     function ownerRimOf(hex) {
-      return lambert(hex, {
-        emissive: hex,
-        emissiveIntensity: night ? 0.45 : 0.22,
+      var dark = colorLuma(hex) < 0.2;
+      var rim = new THREE.Color(hex);
+      if (dark) {
+        rim.lerp(new THREE.Color("#9aa3b0"), 0.55);
+      }
+      return lambert(rim, {
+        emissive: dark ? "#c0c8d4" : hex,
+        emissiveIntensity: night ? (dark ? 0.55 : 0.45) : dark ? 0.32 : 0.22,
         transparent: true,
         opacity: 0.95
       });
     }
     function ownerTintOf(hex) {
-      return lambert(hex, {
-        emissive: hex,
-        emissiveIntensity: night ? 0.16 : 0.06
+      var dark = colorLuma(hex) < 0.2;
+      var c = new THREE.Color(hex);
+      if (dark) {
+        c.lerp(new THREE.Color("#6a717c"), 0.42);
+      }
+      return lambert(c, {
+        emissive: dark ? "#5a6270" : hex,
+        emissiveIntensity: night ? (dark ? 0.22 : 0.16) : dark ? 0.1 : 0.06
       });
     }
     var themeColors = Nexus.PLAYER_COLORS || [];
     themeColors.forEach(function (hex, index) {
-      /* Pads und Gebäude: volle Figurenfarbe, kaum Auswaschen. */
+      /* Pads und Gebäude: volle Figurenfarbe, kaum Auswaschen.
+         Dunkle Farben: stärkere Shade-Stufen, sonst verschwinden Volumen. */
       mats["ownerPad" + index] = ownerPadOf(hex);
       mats["ownerRim" + index] = ownerRimOf(hex);
       mats["ownerTint" + index] = ownerTintOf(hex);
-      [-0.06, 0, 0.04, 0.09].forEach(function (t, shade) {
+      var dark = colorLuma(hex) < 0.2;
+      var shadeSteps = dark ? [-0.04, 0.2, 0.36, 0.52] : [-0.06, 0, 0.04, 0.09];
+      shadeSteps.forEach(function (t, shade) {
         var c = new THREE.Color(hex);
+        if (dark) {
+          c.lerp(new THREE.Color("#6e7582"), 0.28);
+        }
         if (t !== 0) {
-          c.lerp(new THREE.Color(t < 0 ? "#0e0e10" : "#ffffff"), Math.abs(t));
+          c.lerp(new THREE.Color(t < 0 ? "#0e0e10" : dark ? "#d8dde6" : "#ffffff"), Math.abs(t));
         }
         mats["shade" + index + "_" + shade] = lambert(c, {
-          emissive: hex,
-          emissiveIntensity: night ? 0.12 : 0.05
+          emissive: dark ? "#4a5260" : hex,
+          emissiveIntensity: night ? (dark ? 0.18 : 0.12) : dark ? 0.08 : 0.05
         });
       });
     });
@@ -1600,33 +1622,23 @@ window.Nexus = window.Nexus || {};
   }
 
   function artResidential(group, level, gizmos, q, r) {
-    /* HexaUrbs-Silhouette: Level 0 Häuser-Cluster, höher = ein klarer Turm. */
-    if (level < 1) {
-      var i;
-      for (i = 0; i < 3; i++) {
-        var hx = -1.7 + i * 1.7;
-        var hh = 2.2 + ((q * 3 + r + i) % 5) * 0.35;
-        addBox(group, facadeMat(q + i, r), 1.45, hh, 1.55, hx, TILE_H, 0.15, 0);
-        addBox(group, mats.roof, 1.65, 0.28, 1.7, hx, TILE_H + hh, 0.15, 0);
-      }
-      addBox(group, mats.grass, 1.3, 0.08, 1.2, 0.2, TILE_H, 2.0, 0);
-      dressDevices(group, "residential", gizmos);
-      return;
+    var h = 8.2 + level * 3.4;
+    addBox(group, mats.concrete, 6.4, 1.35, 5.4, 0, TILE_H, 0.1, 0);
+    addBox(group, facadeMat(q, r), 3.6, h, 3.2, 0, TILE_H + 1.35, 0.15, 0);
+    addBox(group, mats.roof, 3.7, 0.18, 3.3, 0, TILE_H + 1.35 + h, 0.15, 0);
+    hvac(group, -0.7, TILE_H + 1.55 + h, 0.4);
+    if (level >= 1) {
+      addBox(group, mats.slate, 2.2, 1.3, 1.8, 0.3, TILE_H + 1.35 + h, 0.1, 0);
     }
-    var h = 6.4 + level * 4.8;
-    addBox(group, mats.concrete, 5.8, 1.1, 5.0, 0, TILE_H, 0.1, 0);
-    addBox(group, facadeMat(q, r), 3.4 + level * 0.25, h, 3.0 + level * 0.15, 0, TILE_H + 1.1, 0.15, 0);
-    addBox(group, mats.roof, 3.6 + level * 0.25, 0.18, 3.2, 0, TILE_H + 1.1 + h, 0.15, 0);
-    hvac(group, -0.7, TILE_H + 1.3 + h, 0.4);
     if (level >= 2) {
-      addBox(group, mats.steel, 1.5, 1.3, 1.3, -0.15, TILE_H + 1.2 + h, 0.05, 0);
-      mast(group, 0.9, -0.6, h + 3.2);
+      addBox(group, mats.steel, 1.4, 1.1, 1.2, -0.2, TILE_H + 2.6 + h, 0.05, 0);
+      mast(group, 0.9, -0.6, h + 3.4);
     }
     dressDevices(group, "residential", gizmos);
   }
 
   function artHome(group, level, gizmos, q, r) {
-    var h = 9.2 + level * 4.0;
+    var h = 9.2 + level * 2.8;
     addBox(group, facadeMat(q, r), 4.6, h, 4.2, 0, TILE_H, 0, 0);
     addBox(group, mats.roof, 4.8, 0.2, 4.4, 0, TILE_H + h, 0, 0);
     addBox(group, mats.housing, 0.7, 1.1, 0.12, 0, TILE_H, 2.16, 0);
@@ -2277,16 +2289,16 @@ window.Nexus = window.Nexus || {};
       var mz = e.a.z + iz * (insetA + len / 2);
       var heading = Math.atan2(dx, dz);
       roadPoses.push({ x: mx, y: ROAD_Y, z: mz, sx: ROAD_W, sy: 0.12, sz: len, ry: heading });
-      var dash = 0.52;
-      var gap = 0.48;
+      var dash = 0.46;
+      var gap = 0.62;
       var cursor = insetA + 0.35;
       while (cursor + dash < span - insetB - 0.2) {
         dashPoses.push({
           x: e.a.x + ix * (cursor + dash * 0.5),
-          y: ROAD_Y + 0.08,
+          y: ROAD_Y + 0.075,
           z: e.a.z + iz * (cursor + dash * 0.5),
-          sx: 0.18,
-          sy: 0.025,
+          sx: 0.13,
+          sy: 0.02,
           sz: dash,
           ry: heading
         });
@@ -2348,8 +2360,7 @@ window.Nexus = window.Nexus || {};
     addInstances(geo.box, mats.road, roadPoses, roots.roads);
     addInstances(geo.junctionTri, mats.road, triPoses, roots.roads);
     addInstances(geo.cyl12, mats.road, capPoses, roots.roads);
-    /* HexaUrbs-Lesart: gelbe Mittellinie auf dunkler Straße. */
-    addInstances(geo.box, mats.dashYellow || mats.signYellow || mats.mark, dashPoses, roots.roads);
+    addInstances(geo.box, mats.mark, dashPoses, roots.roads);
     addInstances(geo.box, mats.mark, stopPoses, roots.roads);
     placeEuroSigns(net);
     var lightKeys = takeHashed(
@@ -4920,14 +4931,6 @@ window.Nexus = window.Nexus || {};
         : group.userData.gray
           ? (grayMats && grayMats["pad-grass"]) || mats["pad-grass"]
           : mats["pad-" + padKey] || mats.asphalt;
-      /* HexaUrbs: dunkler Hex-Rand als Spielstein-Kante. */
-      if (dist <= radius && mats.hexBorder) {
-        var border = new THREE.Mesh(geo.cyl6, mats.hexBorder);
-        border.scale.set(padR * 1.06, Math.max(0.22, TILE_H * 0.22), padR * 1.06);
-        border.position.y = Math.max(0.12, TILE_H * 0.12);
-        border.rotation.y = HEX_YAW;
-        group.add(border);
-      }
       var pad = new THREE.Mesh(geo.cyl6, padMat);
       pad.scale.set(padR, TILE_H, padR);
       pad.position.y = TILE_H / 2;
@@ -4940,13 +4943,6 @@ window.Nexus = window.Nexus || {};
         rim.rotation.y = HEX_YAW;
         group.add(rim);
         ownerRims.push(rim);
-      } else if (dist === radius && mats.coastRim) {
-        /* Küstenband am Spielrand — Lesbarkeit gegen Wasser/Umfeld. */
-        var coast = new THREE.Mesh(geo.cyl6, mats.coastRim);
-        coast.scale.set(padR * 1.02, 0.16, padR * 1.02);
-        coast.position.y = TILE_H + 0.04;
-        coast.rotation.y = HEX_YAW;
-        group.add(coast);
       }
       var pick = tilePickData({ q: slot.q, r: slot.r, dist: dist }, zone, state, ui, player);
       if (pick) {
@@ -5128,7 +5124,8 @@ window.Nexus = window.Nexus || {};
   }
 
   function dampCamera(dt) {
-    var k = 1 - Math.pow(0.0004, dt);
+    /* Weicher Follow: Targets aus Input, Ist-Werte gleiten nach. */
+    var k = 1 - Math.pow(0.04, dt);
     cam.panX += (cam.targetPanX - cam.panX) * k;
     cam.panZ += (cam.targetPanZ - cam.panZ) * k;
     cam.polar += (cam.targetPolar - cam.polar) * k;
@@ -5227,7 +5224,7 @@ window.Nexus = window.Nexus || {};
       fpsFrames = 0;
       fpsStamp = time;
     }
-    cam.seatYaw = lerpAngle(cam.seatYaw, cam.seatTarget, 1 - Math.pow(0.0008, dt));
+    cam.seatYaw = lerpAngle(cam.seatYaw, cam.seatTarget, 1 - Math.pow(0.02, dt));
     dampCamera(dt);
     var stride = tuned && tuned.vehicleStride ? tuned.vehicleStride : 1;
     try {
@@ -5277,14 +5274,20 @@ window.Nexus = window.Nexus || {};
         resize();
       }
     }
+    var yawGap = Math.abs(lerpAngle(cam.userYaw, cam.targetUserYaw, 1) - cam.userYaw);
     var moving =
       (cars && cars.length && !(tuned && tuned.cars === 0)) ||
+      busAgents.length > 0 ||
       (cityPhase && cityPhase !== "done") ||
-      Math.abs(cam.targetDistance - cam.distance) > 0.35 ||
-      Math.abs(cam.targetPolar - cam.polar) > 0.02;
+      Math.abs(cam.targetDistance - cam.distance) > 0.2 ||
+      Math.abs(cam.targetPolar - cam.polar) > 0.012 ||
+      Math.abs(cam.targetPanX - cam.panX) > 0.12 ||
+      Math.abs(cam.targetPanZ - cam.panZ) > 0.12 ||
+      yawGap > 0.008;
     renderer.render(scene, camera);
     lastDraw = stamp || nowMs();
-    if (tuned && tuned.demand && cityReady && !moving) {
+    /* Demand-Sleep nur wenn wirklich idle — nie direkt nach Aufbau die UI „tot“ wirken lassen. */
+    if (tuned && tuned.demand && cityReady && !moving && rafN > 120) {
       stopLoop();
     }
   }
@@ -5434,7 +5437,14 @@ window.Nexus = window.Nexus || {};
   }
 
   function structureKey() {
-    return (document.documentElement.getAttribute("data-theme") || "light") + "|" + (resolvedPreset || "") + "|" + activeBiome;
+    /* qualityChoice (Menü), nicht Live-Governor-Tier — sonst Rebuild-Schleife nach Stadtaufbau. */
+    return (
+      (document.documentElement.getAttribute("data-theme") || "light") +
+      "|" +
+      (qualityChoice || "auto") +
+      "|" +
+      activeBiome
+    );
   }
 
   function zoneMap(state) {
@@ -5955,8 +5965,9 @@ window.Nexus = window.Nexus || {};
       return !!cam.userAdjusted;
     },
     pan: function (dx, dy) {
+      startLoop();
       var h = (viewport && viewport.clientHeight) || 600;
-      var scale = cam.distance / Math.max(220, h);
+      var scale = cam.distance / Math.max(280, h);
       var a = cam.seatYaw + cam.userYaw;
       var rx = Math.cos(a);
       var rz = -Math.sin(a);
@@ -5967,19 +5978,26 @@ window.Nexus = window.Nexus || {};
       clampPan();
     },
     orbit: function (dx, dy) {
-      cam.targetUserYaw -= dx * 0.0055;
-      cam.targetPolar = clamp(cam.targetPolar + dy * 0.0045, CAM_POLAR_MIN, CAM_POLAR_MAX);
+      startLoop();
+      cam.targetUserYaw -= dx * 0.0038;
+      cam.targetPolar = clamp(cam.targetPolar + dy * 0.0032, CAM_POLAR_MIN, CAM_POLAR_MAX);
     },
     zoomAt: function (clientX, clientY, factor) {
+      startLoop();
       var before = groundHit(clientX, clientY);
       cam.targetDistance = clamp(cam.targetDistance / factor, CAM_DIST_MIN, CAM_DIST_MAX);
+      /* Cursor-Zoom: Hit mit Ziel-Distanz rechnen, Ist-Distanz weiter dampfen. */
+      var live = cam.distance;
+      cam.distance = cam.targetDistance;
       applyCamera();
       var after = groundHit(clientX, clientY);
+      cam.distance = live;
       if (before && after) {
         cam.targetPanX += before.x - after.x;
         cam.targetPanZ += before.z - after.z;
         clampPan();
       }
+      applyCamera();
     },
     fit: function (force) {
       fitCamera(!!force);
