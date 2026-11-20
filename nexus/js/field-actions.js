@@ -85,7 +85,7 @@ window.Nexus = window.Nexus || {};
       [
         "datacenter",
         "secure",
-        "RZ geschlossen",
+        "Rechenzentrum geschlossen",
         hasDc
           ? "Nur ein Rechenzentrum. Wechsle Modus am bestehenden Feld."
           : "Schaltet Wohn-Bandbreite frei. Teurer, +Sicherheit, weniger Risiko."
@@ -93,7 +93,7 @@ window.Nexus = window.Nexus || {};
       [
         "datacenter",
         "insecure",
-        "RZ offen",
+        "Rechenzentrum offen",
         hasDc
           ? "Nur ein Rechenzentrum. Wechsle Modus am bestehenden Feld."
           : "Billiger, hebt Risiko. Ein Icon zeigt offen/geschlossen."
@@ -158,7 +158,7 @@ window.Nexus = window.Nexus || {};
       actions.push(
         item(
           "dc-mode",
-          toSecure ? "RZ schließen" : "RZ öffnen",
+          toSecure ? "Rechenzentrum schließen" : "Rechenzentrum öffnen",
           canSwitch,
           canSwitch ? "" : "Kosten oder Phase fehlen.",
           toSecure
@@ -246,6 +246,33 @@ window.Nexus = window.Nexus || {};
         )
       );
     }
+    var up = Nexus.describeZoneUpgrade ? Nexus.describeZoneUpgrade(state, zone.id) : { allowed: false, reason: "" };
+    var upFx = [];
+    if (up.production && up.production.resource === "all") {
+      upFx.push({ key: "money", amount: 1 }, { key: "energy", amount: 1 }, { key: "bandwidth", amount: 1 });
+    } else if (up.production && up.production.resource) {
+      upFx.push({ key: up.production.resource, amount: 1 });
+    }
+    var upBlock = {
+      cannot_afford: "Zu teuer.",
+      maxed: "Schon Stufe 2.",
+      wrong_phase: "Nur in der Bauphase.",
+      not_owner: "Nur eigene Felder.",
+      missing_zone: "Feld fehlt."
+    };
+    actions.push(
+      item(
+        "upgrade",
+        "Ausbau",
+        !!up.allowed,
+        up.allowed ? "" : upBlock[up.reason] || "Geht gerade nicht.",
+        up.allowed
+          ? "Stufe " + (up.fromLevel || 0) + " → " + (up.toLevel || 1) + ". Mehr Ertrag am Gebäude."
+          : "Ausbau nur in der Bauphase, auf eigenen Feldern, bis Stufe 2.",
+        { zoneId: zone.id },
+        costFx(up.cost || {}).concat(upFx)
+      )
+    );
     if (zone.type !== "home") {
       var down = Nexus.describeDemolish ? Nexus.describeDemolish(state, zone.id) : { allowed: false, reason: "" };
       actions.push(

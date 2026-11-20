@@ -1651,10 +1651,10 @@ window.Nexus = window.Nexus || {};
       return "Solarfarm: feste Energie je Runde · Umwelt-Hinweis bei der Ernte";
     }
     if (zone.type === "datacenter" && zone.variant === "insecure") {
-      return "Offenes RZ: Bandbreite frei, höheres Risiko. Nur eines pro Person.";
+      return "Offenes Rechenzentrum: Bandbreite frei, höheres Risiko. Nur eines pro Person.";
     }
     if (zone.type === "datacenter" && zone.variant === "secure") {
-      return "Geschlossenes RZ: Bandbreite frei, sicherer. Nur eines pro Person.";
+      return "Geschlossenes Rechenzentrum: Bandbreite frei, sicherer. Nur eines pro Person.";
     }
     if (zone.type === "traffic") {
       return "Parkplatz/Bahnhof: Geld-Ertrag, erstes Feld +1 Komfort. Straßen auf den Kanten.";
@@ -2132,6 +2132,28 @@ window.Nexus = window.Nexus || {};
         })
         .join("");
     }
+    var dealNote = document.getElementById("side-deal-note");
+    if (dealNote) {
+      var deal = player.sideDeal;
+      if (deal && !redactGoals && !Nexus.isHotSeatShield(state)) {
+        var daysLeft = Math.max(0, (deal.deadlineRound || 0) - (state.round || 1) + 1);
+        dealNote.hidden = false;
+        dealNote.textContent =
+          "Hinterzimmer · " +
+          deal.title +
+          ": " +
+          (deal.progress || 0) +
+          "/" +
+          (deal.need || 1) +
+          " · noch " +
+          daysLeft +
+          " Tag" +
+          (daysLeft === 1 ? "" : "e");
+      } else {
+        dealNote.hidden = true;
+        dealNote.textContent = "";
+      }
+    }
   }
 
   function renderRoleRevealModal(state, ui) {
@@ -2302,21 +2324,11 @@ window.Nexus = window.Nexus || {};
     if (!walletItem || !viewport) {
       return;
     }
-    var layer = document.getElementById("resource-fx-layer");
-    if (!layer) {
-      layer = document.createElement("div");
-      layer.id = "resource-fx-layer";
-      layer.className = "resource-fx-layer";
-      document.body.appendChild(layer);
-    }
     var from = viewport.getBoundingClientRect();
     var to = walletItem.getBoundingClientRect();
     var amount = Math.min(5, Math.abs(delta));
     var i;
     for (i = 0; i < amount; i++) {
-      var particle = document.createElement("div");
-      particle.className = "resource-fx-particle res-" + key + (delta < 0 ? " is-spend" : "");
-      particle.innerHTML = (Nexus.RESOURCE_ICONS && Nexus.RESOURCE_ICONS[key]) || key;
       var startX = from.left + from.width * (0.42 + Math.random() * 0.16);
       var startY = from.top + from.height * (0.48 + Math.random() * 0.12);
       if (delta < 0) {
@@ -2325,20 +2337,38 @@ window.Nexus = window.Nexus || {};
       }
       var endX = delta < 0 ? from.left + from.width / 2 : to.left + to.width / 2;
       var endY = delta < 0 ? from.top + from.height / 2 : to.top + to.height / 2;
-      particle.style.left = startX + "px";
-      particle.style.top = startY + "px";
-      particle.style.setProperty("--fx-dx", endX - startX + (Math.random() * 24 - 12) + "px");
-      particle.style.setProperty("--fx-dy", endY - startY + (Math.random() * 16 - 8) + "px");
-      particle.style.animationDelay = i * 0.045 + "s";
-      layer.appendChild(particle);
       window.setTimeout(
-        function (node) {
-          if (node && node.parentNode) {
-            node.parentNode.removeChild(node);
+        function (spec) {
+          var layer = document.getElementById("resource-fx-layer");
+          if (!layer) {
+            layer = document.createElement("div");
+            layer.id = "resource-fx-layer";
+            layer.className = "resource-fx-layer";
+            document.body.appendChild(layer);
           }
+          var particle = document.createElement("div");
+          particle.className = "resource-fx-particle res-" + spec.key + (spec.spend ? " is-spend" : "");
+          particle.innerHTML = (Nexus.RESOURCE_ICONS && Nexus.RESOURCE_ICONS[spec.key]) || spec.key;
+          particle.style.left = spec.startX + "px";
+          particle.style.top = spec.startY + "px";
+          particle.style.setProperty("--fx-dx", spec.endX - spec.startX + (Math.random() * 24 - 12) + "px");
+          particle.style.setProperty("--fx-dy", spec.endY - spec.startY + (Math.random() * 16 - 8) + "px");
+          layer.appendChild(particle);
+          window.setTimeout(function (node) {
+            if (node && node.parentNode) {
+              node.parentNode.removeChild(node);
+            }
+          }, 700, particle);
         },
-        700 + i * 45,
-        particle
+        i * 45,
+        {
+          key: key,
+          spend: delta < 0,
+          startX: startX,
+          startY: startY,
+          endX: endX,
+          endY: endY
+        }
       );
     }
     walletItem.classList.remove("is-res-flash");
@@ -2362,6 +2392,14 @@ window.Nexus = window.Nexus || {};
       }
       setDigitGroup(document.getElementById("stat-days-left"), leftEarly, false);
       setDigitGroup(document.getElementById("stat-risk"), "–", false);
+      var causeEarly = document.getElementById("risk-cause");
+      if (causeEarly) {
+        causeEarly.textContent = "";
+      }
+      var pillEarly = document.getElementById("risk-pill");
+      if (pillEarly) {
+        pillEarly.classList.remove("is-risk-warn", "is-risk-hot");
+      }
       lastResourceSnapshot = null;
       lastPlayerId = null;
       return;
@@ -2377,7 +2415,7 @@ window.Nexus = window.Nexus || {};
       setDigitGroup(el, player.resources.unlimited ? "∞" : player.resources[key], changed && !player.resources.unlimited);
       var expect = document.getElementById("expect-" + key);
       if (expect) {
-        expect.textContent = "~" + formatNumber(expected[key]);
+        expect.textContent = "+" + formatNumber(expected[key]);
       }
     });
     var daysLeft = Math.max(0, (state.maxRounds || 0) - (state.round || 1) + 1);
@@ -2391,7 +2429,42 @@ window.Nexus = window.Nexus || {};
     var riskChanged =
       !lastResourceSnapshot || lastPlayerId !== player.id || lastResourceSnapshot.__risk !== player.risk;
     setDigitGroup(document.getElementById("stat-risk"), player.risk, riskChanged);
-    document.getElementById("risk-meter").style.setProperty("--risk", Math.min(20, player.risk));
+    var riskCap = 20;
+    var riskGate = (Nexus.Risk && Nexus.Risk.EVENT_THRESHOLD) || 8;
+    document.getElementById("risk-meter").style.setProperty("--risk", Math.min(riskCap, player.risk || 0));
+    var riskPill = document.getElementById("risk-pill") || document.querySelector(".risk-pill");
+    var riskCause = document.getElementById("risk-cause");
+    var riskGateEl = document.getElementById("risk-gate");
+    var view = player.riskView || null;
+    if (!view && Nexus.Risk && Nexus.Risk.preview) {
+      view = Nexus.Risk.preview(state, player);
+    }
+    if (riskCause) {
+      if (view && view.topLabel && (view.topValue || view.total)) {
+        riskCause.textContent = view.topLabel;
+        riskCause.hidden = false;
+      } else {
+        riskCause.textContent = "ruhig";
+        riskCause.hidden = false;
+      }
+    }
+    if (riskGateEl) {
+      riskGateEl.textContent = "/" + riskGate;
+    }
+    if (riskPill) {
+      var total = (view && view.total != null ? view.total : player.risk) || 0;
+      riskPill.classList.toggle("is-risk-warn", total >= Math.max(1, riskGate - 2) && total < riskGate);
+      riskPill.classList.toggle("is-risk-hot", total >= riskGate);
+      var tip =
+        (view && (view.summary || view.why)) ||
+        "Stadtdruck. Ab " + riskGate + " öffnet ein Ereignis.";
+      if (view && view.counter) {
+        tip += " Gegenmaßnahme: " + view.counter;
+      }
+      riskPill.title = tip;
+      riskPill.setAttribute("data-help-title", "Risiko " + total);
+      riskPill.setAttribute("data-help", tip);
+    }
     lastResourceSnapshot = Object.assign({}, player.resources);
     lastResourceSnapshot.__risk = player.risk;
     lastPlayerId = player.id;
@@ -2764,41 +2837,116 @@ window.Nexus = window.Nexus || {};
     );
   }
 
-  function coachText(state, player) {
-    var factoryCount = Nexus.playerFactoryZones(state, player.id).length;
-    var ownedCount = Nexus.playerZones(state, player.id).length;
+  /* Idle-Vorschlag: nur nach Pause, kein Dauer-Coach. */
+  function idleSuggestion(state, player) {
+    if (!state || !player || state.screen !== "game") {
+      return "";
+    }
+    if (Nexus.isHotSeatShield && Nexus.isHotSeatShield(state)) {
+      return "";
+    }
     if (state.turnPhase === "handoff") {
-      return "<b>" + player.name + "</b> ist dran.";
+      return "<b>" + player.name + "</b> tippt weiter, wenn das Gerät da ist.";
     }
     if (state.turnPhase === "trade_respond") {
-      return "Handel: Menge prüfen, dann ja oder nein.";
+      return "Handel prüfen: annehmen oder ablehnen.";
     }
     if (state.turnPhase === "role_reveal") {
-      return "Rollen liegen offen. Danach beginnt " + state.players[0].name + ".";
-    }
-    if (state.turnPhase === "produce" || state.turnPhase === "spinning") {
-      if (ownedCount === 0) {
-        return player.name + ": keine Felder, keine Produktion.";
-      }
-      return player.name + " erntet.";
-    }
-    if (state.turnPhase === "risk") {
-      return "Risiko ab 8 bringt ein Ereignis.";
+      return "Rollen lesen, dann starten.";
     }
     if (state.turnPhase === "event") {
-      return "Wähle eine Seite. Beides kostet etwas.";
+      return "Ereignis wählen — Vorzeichen stehen auf den Buttons.";
     }
-    if (state.turnPhase === "build") {
-      var waiting = Nexus.pendingTradeOffersFor ? Nexus.pendingTradeOffersFor(state, player.id) : [];
-      if (waiting.length) {
-        return "Ein Handel wartet.";
-      }
-      if ((player.freeZoneClaims || 0) > 0) {
-        return "Tippe ein Nachbarfeld. Das erste Gebäude ist gratis.";
-      }
-      return "Feld antippen zum Bauen. Unten den Zug beenden.";
+    if (state.turnPhase === "produce" || state.turnPhase === "spinning") {
+      return "Ernte läuft — kurz warten oder Skip tippen.";
     }
-    return "";
+    if (state.turnPhase !== "build") {
+      return "";
+    }
+    var waiting = Nexus.pendingTradeOffersFor ? Nexus.pendingTradeOffersFor(state, player.id) : [];
+    if (waiting.length) {
+      return "Ein Handelsangebot wartet oben / im Tray.";
+    }
+    if (player.sideDeal) {
+      var deal = player.sideDeal;
+      var left = Math.max(0, (deal.deadlineRound || 0) - (state.round || 1) + 1);
+      return (
+        "Hinterzimmer: <b>" +
+        deal.title +
+        "</b> " +
+        (deal.progress || 0) +
+        "/" +
+        (deal.need || 1) +
+        " · noch " +
+        left +
+        " Tag" +
+        (left === 1 ? "" : "e") +
+        "."
+      );
+    }
+    if ((player.freeZoneClaims || 0) > 0) {
+      return "Noch ein <b>gratis</b> Nachbarfeld — tippe einen leeren Nachbarn.";
+    }
+    var risk = player.risk || 0;
+    var gate = (Nexus.Risk && Nexus.Risk.EVENT_THRESHOLD) || 8;
+    var cause = player.riskView && player.riskView.topLabel;
+    if (risk >= gate) {
+      return (
+        "Risiko " +
+        risk +
+        (cause ? " (" + cause + ")" : "") +
+        " — Event droht. Lokal/Solar/Linie drücken den Druck."
+      );
+    }
+    if (risk >= gate - 2) {
+      return (
+        "Risiko " +
+        risk +
+        "/" +
+        gate +
+        (cause ? " · " + cause : "") +
+        ". Gegensteuern, bevor die Schwelle knallt."
+      );
+    }
+    var hand = player.handCards || [];
+    if (hand.length) {
+      return "Du hast eine Projektkarte — unten ausspielen oder den Zug beenden.";
+    }
+    var zones = Nexus.playerZones ? Nexus.playerZones(state, player.id) : [];
+    var canUpgrade = zones.some(function (zone) {
+      var up = Nexus.describeZoneUpgrade ? Nexus.describeZoneUpgrade(state, zone.id) : null;
+      return up && up.allowed;
+    });
+    if (canUpgrade) {
+      return "Ein Feld kann ausgebaut werden — Antippen, dann Ausbau.";
+    }
+    var canExpand = false;
+    if (Nexus.boardSlots && Nexus.isExpandableSlot && Nexus.canAffordExpandSlot) {
+      Nexus.boardSlots().some(function (slot) {
+        if (Nexus.isExpandableSlot(state, slot.q, slot.r) && Nexus.canAffordExpandSlot(state, slot.q, slot.r)) {
+          canExpand = true;
+          return true;
+        }
+        return false;
+      });
+    }
+    if (canExpand) {
+      var rec = Nexus.recommendExpandType ? Nexus.recommendExpandType(state) : null;
+      if (rec && rec.type) {
+        var labels = {
+          residential: "Wohnen",
+          energy: "Energie",
+          datacenter: "Rechenzentrum",
+          traffic: "Verkehr"
+        };
+        return "Nachbarfeld bebauen — Vorschlag: <b>" + (labels[rec.type] || rec.type) + "</b>.";
+      }
+      return "Du kannst noch expandieren — leeres Nachbarfeld antippen.";
+    }
+    if (state.players && state.players.length > 1) {
+      return "Ressourcen eng? Handel anbieten — oder Zug beenden.";
+    }
+    return "Nichts Offenes — Zug beenden und weitergeben.";
   }
 
   function renderLegend() {
@@ -2959,10 +3107,7 @@ window.Nexus = window.Nexus || {};
       tradeBtn.title = tradeBtn.disabled ? "Handel erst in der Bauphase." : "Menge anbieten. Der andere sagt ja oder nein.";
     }
 
-    var hint = document.getElementById("table-hint");
-    if (hint) {
-      hint.innerHTML = coachText(state, player);
-    }
+    /* Dauer-Coach raus — Idle-Vorschläge setzt main.js. */
     renderLegend();
   }
 
@@ -3062,14 +3207,27 @@ window.Nexus = window.Nexus || {};
         var impact = document.getElementById("zone-inspect-impact");
         if (actions) {
           actions.innerHTML = "";
-          if (isMineZone && state.turnPhase === "build" && inspectedZone.type !== "home") {
-            var down = Nexus.describeDemolish(state, inspectedZone.id);
-            actions.innerHTML =
-              '<button type="button" class="btn ghost" id="btn-zone-demolish"' +
-              (down.allowed ? "" : ' disabled title="' + escapeAttr(demolishReasonText(down.reason)) + '"') +
-              ">Abreißen" +
-              (down.refund && down.refund.money ? " · +" + down.refund.money + " Geld" : "") +
-              "</button>";
+          if (isMineZone && state.turnPhase === "build") {
+            var bitsAct = [];
+            var upInspect = Nexus.describeZoneUpgrade(state, inspectedZone.id);
+            bitsAct.push(
+              '<button type="button" class="btn" id="btn-zone-upgrade"' +
+                (upInspect.allowed ? "" : ' disabled title="' + escapeAttr(upgradeReasonText(upInspect.reason)) + '"') +
+                ">Ausbau" +
+                (upInspect.toLevel ? " · Stufe " + upInspect.toLevel : "") +
+                "</button>"
+            );
+            if (inspectedZone.type !== "home") {
+              var down = Nexus.describeDemolish(state, inspectedZone.id);
+              bitsAct.push(
+                '<button type="button" class="btn ghost" id="btn-zone-demolish"' +
+                  (down.allowed ? "" : ' disabled title="' + escapeAttr(demolishReasonText(down.reason)) + '"') +
+                  ">Abreißen" +
+                  (down.refund && down.refund.money ? " · +" + down.refund.money + " Geld" : "") +
+                  "</button>"
+              );
+            }
+            actions.innerHTML = bitsAct.join("");
           }
         }
         if (impact) {
@@ -3357,7 +3515,7 @@ window.Nexus = window.Nexus || {};
         preview.production.resource;
       if (preview.production.dice) {
         bits.push(
-          '<span class="pick-pro">~' + preview.production.amount + " " + res + "/Runde</span>"
+          '<span class="pick-pro">+' + preview.production.amount + " " + res + "/Runde</span>"
         );
       } else {
         bits.push(
@@ -3742,10 +3900,19 @@ window.Nexus = window.Nexus || {};
       lesson.className = "event-lesson";
       document.getElementById("event-text").insertAdjacentElement("afterend", lesson);
     }
+    var lessonBits = [];
+    if (event.cause) {
+      lessonBits.push("Ursache: " + event.cause);
+    }
+    if (event.counter) {
+      lessonBits.push("Gegensteuern: " + event.counter);
+    }
     var lessonText =
-      event.lesson ||
-      (Nexus.EVENT_LESSONS && Nexus.EVENT_LESSONS[event.id]) ||
-      "Jede Wahl verschiebt einen Stadtwerte-Konflikt.";
+      lessonBits.length
+        ? lessonBits.join(" ")
+        : event.lesson ||
+          (Nexus.EVENT_LESSONS && Nexus.EVENT_LESSONS[event.id]) ||
+          "Jede Wahl verschiebt einen Stadtwerte-Konflikt.";
     lesson.textContent = lessonText;
     var choices = document.getElementById("event-choices");
     var pick = document.getElementById("event-resource-pick");
@@ -4481,6 +4648,29 @@ window.Nexus = window.Nexus || {};
   Nexus.closeModal = closeModal;
   Nexus.hideModalNow = hideModalNow;
   Nexus.pushToast = pushToast;
+  Nexus.idleSuggestion = idleSuggestion;
+  Nexus.clearTableHint = function () {
+    var hint = document.getElementById("table-hint");
+    if (hint) {
+      hint.innerHTML = "";
+      hint.classList.remove("is-idle-tip");
+    }
+  };
+  Nexus.showIdleSuggestion = function (state) {
+    var hint = document.getElementById("table-hint");
+    var player = Nexus.currentPlayer(state);
+    if (!hint || !player) {
+      return;
+    }
+    var text = idleSuggestion(state, player);
+    if (!text) {
+      hint.innerHTML = "";
+      hint.classList.remove("is-idle-tip");
+      return;
+    }
+    hint.innerHTML = text;
+    hint.classList.add("is-idle-tip");
+  };
   Nexus.chipsHtml = chipsHtml;
   Nexus.playerColor = playerColor;
   if (!Nexus.setCameraPitch) {

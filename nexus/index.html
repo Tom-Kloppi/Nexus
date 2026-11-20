@@ -18,9 +18,9 @@
       href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800&family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="transitions.css?v=75" />
-    <link rel="stylesheet" href="style.css?v=100" />
-    <link rel="stylesheet" href="overhaul.css?v=93" />
+    <link rel="stylesheet" href="transitions.css?v=76" />
+    <link rel="stylesheet" href="style.css?v=106" />
+    <link rel="stylesheet" href="overhaul.css?v=94" />
   </head>
   <body>
     <div class="modal-shell t-modal-backdrop" id="setup-screen">
@@ -115,17 +115,17 @@
             <li class="wallet-item chip-energy" data-res="energy" title="Energie">
               <span class="token-icon" data-res="energy"></span>
               <strong id="res-energy" class="t-digit-group">3</strong>
-              <span class="expect" id="expect-energy">~0</span>
+              <span class="expect" id="expect-energy">+0</span>
             </li>
             <li class="wallet-item chip-money" data-res="money" title="Geld">
               <span class="token-icon" data-res="money"></span>
               <strong id="res-money" class="t-digit-group">3</strong>
-              <span class="expect" id="expect-money">~0</span>
+              <span class="expect" id="expect-money">+0</span>
             </li>
             <li class="wallet-item chip-bandwidth" data-res="bandwidth" title="Bandbreite">
               <span class="token-icon" data-res="bandwidth"></span>
               <strong id="res-bandwidth" class="t-digit-group">3</strong>
-              <span class="expect" id="expect-bandwidth">~0</span>
+              <span class="expect" id="expect-bandwidth">+0</span>
             </li>
           </ul>
 
@@ -177,10 +177,12 @@
         </div>
 
         <div class="topbar-row topbar-row--meters">
-          <div class="risk-pill" title="Risiko">
+          <div class="risk-pill" id="risk-pill" title="Risiko">
             <span class="meter-label">Risiko</span>
             <div id="risk-meter" class="risk-meter" style="--risk: 0"></div>
             <strong id="stat-risk" class="t-digit-group">0</strong>
+            <span class="risk-cause" id="risk-cause"></span>
+            <span class="risk-gate" id="risk-gate">/8</span>
           </div>
 
           <div class="goal-pill" id="goal-pill" hidden>
@@ -196,9 +198,10 @@
           <div class="sky" aria-hidden="true">
             <span class="sky-orb"></span>
             <span class="sky-stars"></span>
-            <span class="sky-cloud sky-cloud--a"></span>
-            <span class="sky-cloud sky-cloud--b"></span>
-            <span class="sky-cloud sky-cloud--c"></span>
+            <span class="sky-fog sky-fog--nw"></span>
+            <span class="sky-fog sky-fog--ne"></span>
+            <span class="sky-fog sky-fog--sw"></span>
+            <span class="sky-fog sky-fog--se"></span>
             <span class="sky-haze"></span>
           </div>
           <div class="map-viewport" id="map-viewport" title="Links ziehen: verschieben · Rechts oder Mitte: drehen · Rad: zoomen">
@@ -233,6 +236,7 @@
               </div>
             </div>
             <ul id="goal-list" class="goal-list"></ul>
+            <p id="side-deal-note" class="side-deal-note" hidden></p>
           </section>
 
           <section class="dock-card" id="field-card">
@@ -455,31 +459,31 @@
     <script src="js/data/neutral-sites.js?v=97"></script>
     <script src="js/data/tiles.js?v=75"></script>
     <script src="js/data/devices.js?v=75"></script>
-    <script src="js/data/events.js?v=101"></script>
+    <script src="js/data/events.js?v=102"></script>
     <script src="js/data/cards.js?v=100"></script>
     <script src="js/data/roles.js?v=100"></script>
-    <script src="js/data/tutorial.js?v=100"></script>
+    <script src="js/data/tutorial.js?v=103"></script>
     <script src="js/icons.js?v=75"></script>
-    <script src="js/glossary.js?v=100"></script>
+    <script src="js/glossary.js?v=102"></script>
     <script src="js/dice.js?v=75"></script>
     <script src="js/quality.js?v=75"></script>
-    <script src="js/risk.js?v=100"></script>
+    <script src="js/risk.js?v=101"></script>
     <script src="js/mobility.js?v=100"></script>
     <script src="js/projects.js?v=89"></script>
     <script src="js/arc.js?v=100"></script>
     <script src="js/dialog.js?v=100"></script>
-    <script src="js/field-actions.js?v=98"></script>
+    <script src="js/field-actions.js?v=100"></script>
     <script src="js/role-avatars.js?v=88"></script>
-    <script src="js/roles.js?v=101"></script>
-    <script src="js/state.js?v=101"></script>
+    <script src="js/roles.js?v=102"></script>
+    <script src="js/state.js?v=103"></script>
     <script src="js/board-look.js?v=75"></script>
     <script src="js/board-props.js?v=75"></script>
-    <script src="js/board-kit.js?v=75"></script>
+    <script src="js/board-kit.js?v=78"></script>
     <script src="js/data/fillers.js?v=93"></script>
-    <script src="js/board3d.js?v=100"></script>
-    <script src="js/render.js?v=101"></script>
-    <script src="js/ui-overhaul.js?v=100"></script>
+    <script src="js/board3d.js?v=107"></script>
+    <script src="js/render.js?v=106"></script>
+    <script src="js/ui-overhaul.js?v=105"></script>
     <script src="js/phone.js?v=93"></script>
-    <script src="js/main.js?v=101"></script>
+    <script src="js/main.js?v=105"></script>
   </body>
 </html>

@@ -43,14 +43,23 @@ window.Nexus = window.Nexus || {};
     prefs.camPitch = 58;
   }
   prefs.camPitch = Math.max(0, Math.min(100, prefs.camPitch));
-  if (
-    prefs.boardQuality !== "auto" &&
-    prefs.boardQuality !== "quality" &&
-    prefs.boardQuality !== "balance" &&
-    prefs.boardQuality !== "performance"
-  ) {
-    prefs.boardQuality = "auto";
-  }
+  (function normalizeBoardQualityPref() {
+    var legacy = { quality: "high", balance: "medium", performance: "low" };
+    if (legacy[prefs.boardQuality]) {
+      prefs.boardQuality = legacy[prefs.boardQuality];
+    }
+    var ok = {
+      auto: 1,
+      minimal: 1,
+      low: 1,
+      medium: 1,
+      high: 1,
+      ultra: 1
+    };
+    if (!ok[prefs.boardQuality]) {
+      prefs.boardQuality = "auto";
+    }
+  })();
   if (prefs.biome !== "grass" && prefs.biome !== "desert" && prefs.biome !== "water" && prefs.biome !== "random") {
     prefs.biome = "grass";
   }
@@ -178,6 +187,64 @@ window.Nexus = window.Nexus || {};
     }, 320);
   }
 
+  function shakeBoard(kind) {
+    var viewport = document.getElementById("map-viewport");
+    if (!viewport) {
+      return;
+    }
+    var cls = kind === "hard" ? "is-board-shake-hard" : "is-board-shake";
+    viewport.classList.remove("is-board-shake", "is-board-shake-hard");
+    void viewport.offsetWidth;
+    viewport.classList.add(cls);
+    window.setTimeout(function () {
+      viewport.classList.remove("is-board-shake", "is-board-shake-hard");
+    }, kind === "hard" ? 420 : 280);
+  }
+
+  function burstAtScreen(x, y, kind) {
+    if (x == null || y == null || !isFinite(x) || !isFinite(y)) {
+      return;
+    }
+    var layer = ensureFxLayer();
+    var count = kind === "upgrade" ? 8 : kind === "demolish" ? 10 : 6;
+    var i;
+    for (i = 0; i < count; i++) {
+      var spark = document.createElement("div");
+      spark.className = "action-fx-spark is-" + (kind || "build");
+      var ang = (Math.PI * 2 * i) / count + Math.random() * 0.4;
+      var dist = 28 + Math.random() * 36;
+      spark.style.left = x + "px";
+      spark.style.top = y + "px";
+      spark.style.setProperty("--fx-dx", Math.cos(ang) * dist + "px");
+      spark.style.setProperty("--fx-dy", Math.sin(ang) * dist - 12 + "px");
+      layer.appendChild(spark);
+      window.setTimeout(
+        function (node) {
+          if (node && node.parentNode) {
+            node.parentNode.removeChild(node);
+          }
+        },
+        520,
+        spark
+      );
+    }
+  }
+
+  function celebrateBoardAction(kind, q, r) {
+    var projected =
+      q != null && r != null && Nexus.Board3D && Nexus.Board3D.project ? Nexus.Board3D.project(q, r) : null;
+    shakeBoard(kind === "demolish" ? "hard" : "soft");
+    if (projected) {
+      burstAtScreen(projected.x, projected.y, kind || "build");
+    }
+  }
+
+  Nexus.Fx = {
+    shakeBoard: shakeBoard,
+    burstAtScreen: burstAtScreen,
+    celebrateBoardAction: celebrateBoardAction
+  };
+
   function applyAppearance() {
     document.documentElement.setAttribute("data-theme", prefs.theme);
     document.documentElement.style.setProperty("--ui-scale", String(prefs.uiScale));
@@ -272,6 +339,38 @@ window.Nexus = window.Nexus || {};
     });
   }
 
+  var idleTimer = null;
+  var IDLE_TIP_MS = 9000;
+
+  function clearIdleTipTimer() {
+    if (idleTimer) {
+      window.clearTimeout(idleTimer);
+      idleTimer = null;
+    }
+  }
+
+  function notePlayerActivity() {
+    clearIdleTipTimer();
+    if (Nexus.clearTableHint) {
+      Nexus.clearTableHint();
+    }
+    if (!state || state.screen !== "game") {
+      return;
+    }
+    if (tutorial.active || (ui && ui.flowLock)) {
+      return;
+    }
+    idleTimer = window.setTimeout(function () {
+      idleTimer = null;
+      if (!state || state.screen !== "game" || tutorial.active || (ui && ui.flowLock)) {
+        return;
+      }
+      if (Nexus.showIdleSuggestion) {
+        Nexus.showIdleSuggestion(state);
+      }
+    }, IDLE_TIP_MS);
+  }
+
   function commit(next, options) {
     options = options || {};
     /* Während der Anleitung keine echten Züge buchen. Szenen setzt showTutorialStep direkt. */
@@ -280,6 +379,7 @@ window.Nexus = window.Nexus || {};
     }
     var prev = state;
     state = next;
+    notePlayerActivity();
     if (state.turnPhase !== "build") {
       ui.expandSlot = null;
       ui.homeOpen = false;
@@ -390,15 +490,31 @@ window.Nexus = window.Nexus || {};
     );
   }
 
-  function originForResource(player, key, fallbackZones) {
-    var origins = (player.flowOrigins && player.flowOrigins[key]) || [];
-    if (origins.length) {
-      return origins[Math.floor(Math.random() * origins.length)];
+  function originsForResource(player, key, fallbackZones) {
+    var raw = ((player.flowOrigins && player.flowOrigins[key]) || []).slice();
+    var uniq = [];
+    var seen = {};
+    raw.forEach(function (item) {
+      if (!item || item.q == null) {
+        return;
+      }
+      var id = item.q + "," + item.r;
+      if (seen[id]) {
+        return;
+      }
+      seen[id] = true;
+      uniq.push(item);
+    });
+    if (uniq.length) {
+      return uniq;
     }
-    return fallbackZones[0] || null;
+    if (fallbackZones && fallbackZones[0]) {
+      return [fallbackZones[0]];
+    }
+    return [null];
   }
 
-  function spawnFlow(state, player, bag, gain) {
+  function ensureFxLayer() {
     var layer = document.getElementById("resource-fx-layer");
     if (!layer) {
       layer = document.createElement("div");
@@ -406,17 +522,43 @@ window.Nexus = window.Nexus || {};
       layer.className = "resource-fx-layer";
       document.body.appendChild(layer);
     }
+    return layer;
+  }
+
+  function spawnFlowParticle(spec) {
+    var layer = ensureFxLayer();
+    var particle = document.createElement("div");
+    particle.className = "resource-fx-particle res-" + spec.key + (spec.gain ? " is-gain" : " is-loss");
+    particle.innerHTML = "<span class=\"resource-fx-chip\">" + spec.icon + "</span>";
+    particle.style.left = spec.startX + "px";
+    particle.style.top = spec.startY + "px";
+    particle.style.setProperty("--fx-dx", spec.endX - spec.startX + "px");
+    particle.style.setProperty("--fx-dy", spec.endY - spec.startY + "px");
+    particle.style.animationDuration = spec.flight + "s";
+    layer.appendChild(particle);
+    flowTimers.push(
+      window.setTimeout(function (node) {
+        if (node && node.parentNode) {
+          node.parentNode.removeChild(node);
+        }
+      }, (spec.flight + 0.2) * 1000, particle)
+    );
+  }
+
+  function spawnFlow(state, player, bag, gain) {
     var tuned = Nexus.Quality && Nexus.Quality.snapshot ? Nexus.Quality.snapshot() : null;
     var count = tuned && tuned.particles === false ? 3 : 7;
     var zones = (state.zones || []).filter(function (zone) {
       return zone.ownerId === player.id;
     });
     var flight = 4.4;
-    var gap = 0.45;
+    var particleGap = 0.14;
     var shown = Nexus.RESOURCE_KEYS.filter(function (key) {
       return bag[key] > 0;
     });
-    shown.forEach(function (key, keyIndex) {
+    var resourceCursor = 0;
+    var maxEnd = 0;
+    shown.forEach(function (key) {
       var amount = bag[key] || 0;
       if (!amount) {
         return;
@@ -426,40 +568,48 @@ window.Nexus = window.Nexus || {};
         return;
       }
       var walletBox = wallet.getBoundingClientRect();
-      var zone = originForResource(player, key, zones);
-      var projected = zone && Nexus.Board3D && Nexus.Board3D.project ? Nexus.Board3D.project(zone.q, zone.r) : null;
+      var origins = originsForResource(player, key, zones);
       var icon = (Nexus.RESOURCE_ICONS && Nexus.RESOURCE_ICONS[key]) || "";
-      var startAt = keyIndex * (flight + gap);
-      var i;
-      for (i = 0; i < count; i++) {
-        var particle = document.createElement("div");
-        particle.className = "resource-fx-particle res-" + key + (gain ? " is-gain" : " is-loss");
-        particle.innerHTML = "<span class=\"resource-fx-chip\">" + icon + "</span>";
-        var startX = gain && projected ? projected.x : walletBox.left + walletBox.width / 2;
-        var startY = gain && projected ? projected.y : walletBox.top + walletBox.height / 2;
-        var endX = gain ? walletBox.left + walletBox.width / 2 : startX + (i - count / 2) * 18;
-        var endY = gain ? walletBox.top + walletBox.height / 2 : startY - 80 - i * 8;
-        if (!gain && projected) {
-          endX = projected.x;
-          endY = projected.y;
+      var perTile = Math.max(2, Math.ceil(count / Math.max(1, origins.length)));
+      var launchSpan = Math.max(0, (perTile - 1) * particleGap);
+      origins.forEach(function (zone) {
+        var projected = zone && Nexus.Board3D && Nexus.Board3D.project ? Nexus.Board3D.project(zone.q, zone.r) : null;
+        var i;
+        for (i = 0; i < perTile; i++) {
+          var startX = gain && projected ? projected.x : walletBox.left + walletBox.width / 2;
+          var startY = gain && projected ? projected.y : walletBox.top + walletBox.height / 2;
+          var endX = gain ? walletBox.left + walletBox.width / 2 : startX + (i - perTile / 2) * 18;
+          var endY = gain ? walletBox.top + walletBox.height / 2 : startY - 80 - i * 8;
+          if (!gain && projected) {
+            endX = projected.x;
+            endY = projected.y;
+          }
+          var delay = resourceCursor + i * particleGap;
+          maxEnd = Math.max(maxEnd, delay + flight);
+          flowTimers.push(
+            window.setTimeout(
+              function (spec) {
+                spawnFlowParticle(spec);
+              },
+              delay * 1000,
+              {
+                key: key,
+                gain: gain,
+                icon: icon,
+                startX: startX,
+                startY: startY,
+                endX: endX,
+                endY: endY,
+                flight: flight
+              }
+            )
+          );
         }
-        var delay = startAt + i * 0.16;
-        particle.style.left = startX + "px";
-        particle.style.top = startY + "px";
-        particle.style.setProperty("--fx-dx", endX - startX + "px");
-        particle.style.setProperty("--fx-dy", endY - startY + "px");
-        particle.style.animationDuration = flight + "s";
-        particle.style.animationDelay = delay + "s";
-        layer.appendChild(particle);
-        flowTimers.push(
-          window.setTimeout(function (node) {
-            if (node && node.parentNode) node.parentNode.removeChild(node);
-          }, (delay + flight + 0.2) * 1000, particle)
-        );
-      }
+      });
+      /* Nächste Ressource, sobald diese Welle fertig gestartet ist — Tiles laufen parallel. */
+      resourceCursor += launchSpan + particleGap;
     });
-    var tail = shown.length ? (shown.length - 1) * (flight + gap) + flight + (count - 1) * 0.16 : 0;
-    return tail * 1000;
+    return (maxEnd + 0.2) * 1000;
   }
 
   function clearHarvestTimer() {
@@ -1054,6 +1204,9 @@ document.getElementById("btn-end-round").addEventListener("click", function () {
     var next = Nexus.buyZone(state, slot.q, slot.r, type, null);
     if (next !== state) {
       ui.placePopZoneId = "zone-" + slot.q + "-" + slot.r;
+      if (Nexus.Fx) {
+        Nexus.Fx.celebrateBoardAction("build", slot.q, slot.r);
+      }
       commit(next);
     }
   });
@@ -1069,6 +1222,9 @@ document.getElementById("btn-end-round").addEventListener("click", function () {
     var next = Nexus.buyZone(state, slot.q, slot.r, slot.type, variant);
     if (next !== state) {
       ui.placePopZoneId = "zone-" + slot.q + "-" + slot.r;
+      if (Nexus.Fx) {
+        Nexus.Fx.celebrateBoardAction("build", slot.q, slot.r);
+      }
       commit(next);
     }
   });
@@ -1096,6 +1252,14 @@ document.getElementById("btn-end-round").addEventListener("click", function () {
         Nexus.pushToast("Ausbau nicht möglich.");
         return;
       }
+      if (Nexus.Fx) {
+        var upZone = (upgraded.zones || []).filter(function (zone) {
+          return zone.id === ui.inspectedZoneId;
+        })[0];
+        if (upZone) {
+          Nexus.Fx.celebrateBoardAction("upgrade", upZone.q, upZone.r);
+        }
+      }
       commit(upgraded);
       return;
     }
@@ -1104,11 +1268,17 @@ document.getElementById("btn-end-round").addEventListener("click", function () {
       if (!ui.inspectedZoneId) {
         return;
       }
+      var doomed = (state.zones || []).filter(function (zone) {
+        return zone.id === ui.inspectedZoneId;
+      })[0];
       var razed = Nexus.demolishZone(state, ui.inspectedZoneId);
       if (razed === state) {
         triggerControlShake(down);
         Nexus.pushToast("Abriss würde das Netz trennen oder ist nicht erlaubt.");
         return;
+      }
+      if (Nexus.Fx && doomed) {
+        Nexus.Fx.celebrateBoardAction("demolish", doomed.q, doomed.r);
       }
       ui.inspectedZoneId = null;
       commit(razed);
@@ -1305,23 +1475,31 @@ document.getElementById("btn-end-round").addEventListener("click", function () {
   }
 
   function setBoardQuality(value) {
-    var allowed = {
-      auto: 1,
-      minimal: 1,
-      low: 1,
-      medium: 1,
-      high: 1,
-      ultra: 1,
-      quality: 1,
-      balance: 1,
-      performance: 1
-    };
+    var legacy = { quality: "high", balance: "medium", performance: "low" };
+    if (legacy[value]) {
+      value = legacy[value];
+    }
+    var allowed = { auto: 1, minimal: 1, low: 1, medium: 1, high: 1, ultra: 1 };
     if (!allowed[value]) {
       value = "auto";
     }
     prefs.boardQuality = value;
     applyAppearance();
     saveGfx();
+    if (state.screen === "game") {
+      Nexus.render(state, ui);
+    }
+  }
+
+  function refreshGfx() {
+    saveGfx();
+    if (Nexus.Quality && Nexus.Quality.state) {
+      document.documentElement.setAttribute("data-gfx", Nexus.Quality.state().tier);
+      document.documentElement.setAttribute("data-blur", Nexus.Quality.snapshot().backdrop ? "on" : "off");
+    }
+    if (Nexus.Board3D && Nexus.Board3D.setQuality) {
+      Nexus.Board3D.setQuality(prefs.boardQuality);
+    }
     if (state.screen === "game") {
       Nexus.render(state, ui);
     }
@@ -2195,7 +2373,24 @@ document.getElementById("btn-end-round").addEventListener("click", function () {
       },
       getUi: function () {
         return ui;
-      }
+      },
+      refreshGfx: refreshGfx
     });
   }
+
+  document.addEventListener(
+    "pointerdown",
+    function () {
+      notePlayerActivity();
+    },
+    true
+  );
+  document.addEventListener(
+    "keydown",
+    function () {
+      notePlayerActivity();
+    },
+    true
+  );
+  notePlayerActivity();
 })();

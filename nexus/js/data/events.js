@@ -523,8 +523,172 @@ Nexus.EVENTS = [
         effects: { protestSweep: true }
       }
     ]
+  },
+  {
+    id: "lobby-solar",
+    title: "Solar-Lobby",
+    text: "Ein Energieverband winkt mit Förderung — geheim, nur für dich. Drei neue Solarfelder in drei Tagen, dann fließt die Prämie. Schon ein Deal aktiv? Dann gibt’s dieses Angebot nicht.",
+    auto: false,
+    requiresCloudCamera: false,
+    sideDealOnly: true,
+    choices: [
+      {
+        id: "a",
+        label: "Deal annehmen",
+        summary: "3× Solar in 3 Tagen → Ressourcen +1 Rollenpunkt",
+        effects: { acceptSideDeal: "lobby-solar" }
+      },
+      {
+        id: "b",
+        label: "Ablehnen",
+        summary: "Kein Deal",
+        effects: {}
+      }
+    ]
+  },
+  {
+    id: "lobby-trade",
+    title: "Makler-Tipp",
+    text: "Ein Zwischenhändler will Bewegung sehen. Schließe innerhalb von zwei Tagen einen Handel ab — die Prämie ist privat. Handel allein gibt sonst keine Siegpunkte.",
+    auto: false,
+    requiresCloudCamera: false,
+    sideDealOnly: true,
+    choices: [
+      {
+        id: "a",
+        label: "Tipp annehmen",
+        summary: "1× Handel in 2 Tagen → Geld +1 Rollenpunkt",
+        effects: { acceptSideDeal: "lobby-trade" }
+      },
+      {
+        id: "b",
+        label: "Ablehnen",
+        summary: "Kein Deal",
+        effects: {}
+      }
+    ]
+  },
+  {
+    id: "lobby-upgrade",
+    title: "Bauausschuss",
+    text: "Der Ausschuss will sichtbare Verdichtung. Zwei Ausbauten in drei Tagen — geheim belohnt. Scheiterst du, knallt es am eigenen Stand.",
+    auto: false,
+    requiresCloudCamera: false,
+    sideDealOnly: true,
+    choices: [
+      {
+        id: "a",
+        label: "Auftrag annehmen",
+        summary: "2× Ausbau in 3 Tagen → Bandbreite +1 Rollenpunkt",
+        effects: { acceptSideDeal: "lobby-upgrade" }
+      },
+      {
+        id: "b",
+        label: "Ablehnen",
+        summary: "Kein Deal",
+        effects: {}
+      }
+    ]
+  },
+  {
+    id: "lobby-housing",
+    title: "Wohnungsinitiative",
+    text: "Eine Bürgerinitiative will Quartiere. Zwei neue Wohnfelder in drei Tagen — privat. Erfolg füllt die Kasse und den Stand.",
+    auto: false,
+    requiresCloudCamera: false,
+    sideDealOnly: true,
+    choices: [
+      {
+        id: "a",
+        label: "Initiative stützen",
+        summary: "2× Wohnen in 3 Tagen → Bandbreite +1 Rollenpunkt",
+        effects: { acceptSideDeal: "lobby-housing" }
+      },
+      {
+        id: "b",
+        label: "Ablehnen",
+        summary: "Kein Deal",
+        effects: {}
+      }
+    ]
+  },
+  {
+    id: "lobby-line",
+    title: "Elektro-Sponsor",
+    text: "Ein Sponsor will eine Elektro-Linie im Distrikt. Eine in drei Tagen — und du darfst damit sogar auf 10 Punkte kommen.",
+    auto: false,
+    requiresCloudCamera: false,
+    sideDealOnly: true,
+    choices: [
+      {
+        id: "a",
+        label: "Sponsoring annehmen",
+        summary: "1× Elektro-Linie in 3 Tagen → Image-Ressourcen +1 Rollenpunkt",
+        effects: { acceptSideDeal: "lobby-line" }
+      },
+      {
+        id: "b",
+        label: "Ablehnen",
+        summary: "Kein Deal",
+        effects: {}
+      }
+    ]
   }
 ];
+
+Nexus.SIDE_DEALS = {
+  "lobby-solar": {
+    id: "lobby-solar",
+    title: "Solar-Lobby",
+    days: 3,
+    need: 3,
+    track: "buildSolar",
+    rewardResources: { energy: 3, money: 2 },
+    rewardRolePoints: 1,
+    failRolePoints: 1
+  },
+  "lobby-trade": {
+    id: "lobby-trade",
+    title: "Makler-Tipp",
+    days: 2,
+    need: 1,
+    track: "trade",
+    rewardResources: { money: 3 },
+    rewardRolePoints: 1,
+    failRolePoints: 1,
+    failResources: { money: 1 }
+  },
+  "lobby-upgrade": {
+    id: "lobby-upgrade",
+    title: "Bauausschuss",
+    days: 3,
+    need: 2,
+    track: "upgrade",
+    rewardResources: { bandwidth: 2, money: 1 },
+    rewardRolePoints: 1,
+    failRolePoints: 1
+  },
+  "lobby-housing": {
+    id: "lobby-housing",
+    title: "Wohnungsinitiative",
+    days: 3,
+    need: 2,
+    track: "buildResidential",
+    rewardResources: { bandwidth: 3 },
+    rewardRolePoints: 1,
+    failRolePoints: 1
+  },
+  "lobby-line": {
+    id: "lobby-line",
+    title: "Elektro-Sponsor",
+    days: 3,
+    need: 1,
+    track: "lineElectric",
+    rewardResources: { energy: 1, money: 2 },
+    rewardRolePoints: 1,
+    failRolePoints: 1
+  }
+};
 
 Nexus.EVENT_DECK_SPEC = [
   { id: "software-update", count: 2 },
@@ -548,7 +712,12 @@ Nexus.EVENT_DECK_SPEC = [
   { id: "skandal", count: 2 },
   { id: "presse-deal", count: 2 },
   { id: "field-sabotage", count: 3 },
-  { id: "buergerprotest", count: 2 }
+  { id: "buergerprotest", count: 2 },
+  { id: "lobby-solar", count: 2 },
+  { id: "lobby-trade", count: 2 },
+  { id: "lobby-upgrade", count: 2 },
+  { id: "lobby-housing", count: 2 },
+  { id: "lobby-line", count: 1 }
 ];
 
 Nexus.EVENT_LESSONS = {
@@ -570,7 +739,12 @@ Nexus.EVENT_LESSONS = {
   skandal: "Anprangern kostet Bandbreite und trifft nur einmal pro Tag. Der letzte Siegpunkt kommt nie aus Kontern.",
   "presse-deal": "Du zahlst mit dem eigenen Stand, um jemanden zurückzuwerfen — kein Abkürzungsweg zum Amt.",
   "field-sabotage": "Ein Tag ohne Ertrag trifft den Plan, zerstört aber keine Felder.",
-  buergerprotest: "Protest trifft alle. Wer führt, spürt mehr Druck; wer hinten liegt, verliert Ressourcen."
+  buergerprotest: "Protest trifft alle. Wer führt, spürt mehr Druck; wer hinten liegt, verliert Ressourcen.",
+  "lobby-solar": "Hinterzimmer: drei Solar in drei Tagen. Erfolg darf siegen, Fail trifft privat.",
+  "lobby-trade": "Handel allein gibt keine Siegpunkte — dieser Deal schon.",
+  "lobby-upgrade": "Zwei Ausbauten unter der Frist, sonst knallt der eigene Stand.",
+  "lobby-housing": "Zwei Wohnfelder für die Initiative — geheim belohnt.",
+  "lobby-line": "Eine Elektro-Linie für den Sponsor. Deal-Punkte dürfen auf 10."
 };
 
 Nexus.EVENTS_BY_ID = {};

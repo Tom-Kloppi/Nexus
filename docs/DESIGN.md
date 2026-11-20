@@ -9,7 +9,7 @@
 
 **Overhaul 2** bleibt die Mechanik darunter, außer wo **UI Rework** sie ersetzt. Zahlen und Begründung: [`DESIGN_DECISIONS.md`](DESIGN_DECISIONS.md).
 
-Würfel sind raus. Produktion ist der feste Basisertrag des Gebäudes. Ein Ereignis kommt, wenn das sichtbare Risiko 8 oder höher ist, und öffnet direkt die Karte. Darunter passiert nichts.
+Würfel sind raus. Produktion ist der feste Basisertrag des Gebäudes. **Risiko = Stadtdruck** (sichtbare Zahl + Top-Ursache Cyber/Netz, Schwelle **8**). Intern fließen Technik- und Stadtlast zusammen; am Tisch keine Vier-Spuren-Leiste. Ab 8 öffnet direkt die Ereigniskarte (Ursache/Gegensteuern auf der Karte). Darunter passiert nichts.
 
 **UI Rework (schlägt Overhaul 2, wo es widerspricht).** Branch `ui-rework`. Geheimhaltung ist aus. Hot-Seat bleibt die Reihenfolge an einem Gerät, nicht ein Versteck. Rollen, Ziele, Kassen und Fortschritt sind am Tisch sichtbar. Die Übergabe sagt nur „du bist dran“.
 
@@ -17,7 +17,9 @@ Sieg bleibt `computeRoleProgress`: **eine Punktart pro Rolle** (Öko / Verlässl
 
 **Feedback-Regel:** Jedes spielbare Element braucht Sinn und sichtbares Feedback (Icon, Partikel, One-Liner oder Brettänderung). Keine Feature-Leichen für Anfänger.
 
-**Konter:** Skandal, Presse-Deal, Sabotage und Bürgerprotest können Progress drücken. Gezielter Punktverlust höchstens 1× pro Person und Tag. **Der letzte Siegpunkt (10) kommt nie aus Kontern** — Contest-Gewinne sind bei 9 gedeckelt.
+**Konter:** Skandal, Presse-Deal, Sabotage und Bürgerprotest können Progress drücken. Gezielter Punktverlust höchstens 1× pro Person und Tag. **Der letzte Siegpunkt (10) kommt nie aus Kontern** — Contest-Gewinne aus Random-Events sind bei 9 gedeckelt. Random-Eventkarten geben keinen negativen Eigen-Rollenpunkt mehr (Presse/Protest/Strip bleiben).
+
+**Hinterzimmer-Deal:** Event-Angebot (max. 1 aktiv). Geheim nur für die aktive Person (Ziel-Dock). Frist in Tagen; Erfolg = Ressourcen und/oder Rollenpunkt **ohne Contest-Cap (darf siegen)**; Fail = Punkt/Ressourcen privat. Handel selbst gibt keine Siegpunkte — nur solche Deals.
 
 Gestrichen: Assistenz/SAE-Leiter, offen/proprietär, Ausbau im Zug. **Abriss** wieder im Feldmenü (Netz muss verbunden bleiben). **Ein** Rechenzentrum pro Person (offen/geschlossen umschaltbar). Handel = Angebot mit beiden Kassen. Elektro-Linie +1 Image. Risiko zeigt Ursache und Schwelle. Kacheln: Icon, Name, Vorzeichen, Menge; Satz nur bei Halten.
 
@@ -49,7 +51,7 @@ Spieler = Stadtteilmanager (Testgebiet). Geheimes **Wahlversprechen** statt alte
 - **Nacht:** dunkelblau/dunkelgrau mit genug Ambient und Mondlicht; Felder und Besitzfarben bleiben lesbar. Fenster/Laternen/Ampeln (emissive/Glow/Lichtpools, keine PointLights pro Laterne); Geräte-Gizmos öffentlich. Kein Leak von Rolle/Wallet/Versprechen. Handoff/Reveal dimmt das Board.
 - **Motion = Lehre:** Shake, Ticks, Place-Pop, Produktion-Pulse/Flugpartikel, Handoff-Dim. Tokens `nexus/transitions.css`. First-turn: Copy + Pulse — **keine** `turnPhase` für Tutorial. **Anleitung** = Overlay (`data/tutorial.js`), optional, Spotlight auf echte UI. Rollen als Steckbriefe mit Avatar; Glossar Spur/Stufe/Prozent.
 - **Investor-Metrik** `moneyThroughput` = kumuliertes **Geld**.
-- **Verkehr:** Das Feld ist Parkplatz, Parkhaus (Solardach, Ladesäulen) oder Busbahnhof. Straßen, Haltestellen und Linien liegen auf dem Graphen. Nur das erste Verkehrsfeld gibt +1 Komfort.
+- **Verkehr:** Das Feld ist Parkplatz, Parkhaus (Solardach, Ladesäulen) oder Busbahnhof. Straßen, Haltestellen und Linien liegen auf dem Graphen. Nur das erste Verkehrsfeld gibt +1 Komfort. **Präsentation:** Filler-Pkw grau; Linienbusse und Linienfarbe nach Antrieb (Diesel braun, Elektro cyan, Öko grün). Busse nur auf echten Linien, keine Deko-Busse.
 
 ## Ressourcen (genau 3)
 
@@ -97,7 +99,7 @@ Abriss im Feldmenü auf eigenen Nicht-Home-Feldern, wenn das Netz zum Kontrollb�
 
 ### Handel = Angebot
 
-Kein Sofort-Tausch. Spieler A bietet Menge gegen Menge, 1:1 auf einem Gerät. Beide sehen Gegenstand, Menge und beide Kassen, bevor sie ja oder nein sagen. Spieler B nimmt an oder lehnt ab. Ressourcen wechseln erst bei Annahme. Keine Multi-Resource-Deals. Kein Aufpreis, kein Rabatt: die getippte Menge ist die Menge.
+Kein Sofort-Tausch. Spieler A bietet Menge gegen Menge, 1:1 auf einem Gerät. Beide sehen Gegenstand, Menge und beide Kassen, bevor sie ja oder nein sagen. Spieler B nimmt an oder lehnt ab. Ressourcen wechseln erst bei Annahme. Keine Multi-Resource-Deals. Kein Aufpreis, kein Rabatt: die getippte Menge ist die Menge. **Kein Rollenpunkt aus dem Handel selbst** — nur über Hinterzimmer-Deals.
 
 ### Offen vs. proprietär
 

@@ -28,7 +28,7 @@ Nexus.GLOSSARY = {
   },
   cyber: {
     title: "Cyber-Exposition",
-    short: "Zählt Cloud-Geräte und offene Rechenzentren; lokale Geräte und geschlossene RZ ziehen ab.",
+    short: "Zählt Cloud-Geräte und offene Rechenzentren; lokale Geräte und geschlossene Rechenzentren ziehen ab.",
     example: "Zwei Cloud-Geräte und ein offenes Rechenzentrum ergeben hohe Exposition, bevor Schlösser abziehen.",
     figure: "shield"
   },
@@ -40,14 +40,14 @@ Nexus.GLOSSARY = {
   },
   abhaengigkeit: {
     title: "Abhängigkeit",
-    short: "Nur Cloud ohne Lokalbetrieb, oder nur Transformator ohne Solar.",
-    example: "Cloud ohne lokales Gerät: +4. Ein Home Hub und etwas Solar ziehen das runter.",
+    short: "Fließt in die Cyber-Ursache: nur Cloud ohne Lokal, oder nur Trafo ohne Solar.",
+    example: "Cloud ohne lokales Gerät erhöht Cyber. Hub und Solar ziehen das runter.",
     figure: "link"
   },
   verkehrslast: {
     title: "Verkehrslast",
-    short: "Parkplätze ohne Linie erzeugen Last. Haltestellen, E-Bus und Parkhaus mit Ladesäule nehmen sie weg.",
-    example: "Ein Parkplatz ohne Halt: Last 2. Dieselbe Kachel an einer E-Linie: Last 0.",
+    short: "Fließt in die Netz-Ursache: Parken ohne Linie. Halte, E-Bus und Solardach nehmen Last weg.",
+    example: "Parkplatz ohne Halt erhöht Netz. An einer Elektro-Linie sinkt die Last.",
     figure: "bus"
   },
   sae: {

@@ -616,14 +616,8 @@ button {
   width: 100%;
   height: 100%;
   border-radius: 50%;
-  background: #fff;
+  background: var(--panel-solid, #f5fbfa);
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.28);
-}
-
-[data-theme="dark"] .resource-fx-chip,
-[data-theme="night"] .resource-fx-chip {
-  background: #12151a;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.55);
 }
 
 .resource-fx-particle svg {
@@ -666,6 +660,54 @@ button {
     transform: translate(var(--fx-dx), var(--fx-dy)) scale(1.05);
     opacity: 0;
   }
+}
+
+.action-fx-spark {
+  position: fixed;
+  z-index: 70;
+  width: 0.55rem;
+  height: 0.55rem;
+  margin: -0.28rem 0 0 -0.28rem;
+  border-radius: 50%;
+  pointer-events: none;
+  background: var(--accent, #2a8f8a);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--panel-solid, #fff) 70%, transparent);
+  animation: action-fx-burst 0.48s var(--ease-smooth-out, ease-out) forwards;
+}
+
+.action-fx-spark.is-upgrade {
+  background: var(--amber, #c8892f);
+}
+
+.action-fx-spark.is-demolish {
+  background: var(--danger, #c2503f);
+}
+
+.action-fx-spark.is-line {
+  background: var(--mobility, #8a6bb0);
+}
+
+@keyframes action-fx-burst {
+  0% {
+    transform: translate(0, 0) scale(0.6);
+    opacity: 0.95;
+  }
+  100% {
+    transform: translate(var(--fx-dx), var(--fx-dy)) scale(0.2);
+    opacity: 0;
+  }
+}
+
+#map-viewport.is-board-shake {
+  --shake-distance: 2.5px;
+  --shake-overshoot: 1.5px;
+  animation: t-control-shake 260ms linear;
+}
+
+#map-viewport.is-board-shake-hard {
+  --shake-distance: 4.5px;
+  --shake-overshoot: 2.5px;
+  animation: t-control-shake 380ms linear;
 }
 
 @keyframes wallet-res-flash {
@@ -833,6 +875,53 @@ button {
   transition: width var(--duration-fast) var(--ease-smooth-out);
 }
 
+.risk-cause {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--ink-dim);
+  max-width: 5.5rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.risk-gate {
+  font-size: 0.72rem;
+  font-weight: 650;
+  color: var(--ink-soft);
+  margin-left: -0.15rem;
+}
+
+.risk-pill.is-risk-warn {
+  border-color: color-mix(in srgb, var(--amber) 55%, var(--panel-edge));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--amber) 35%, transparent);
+}
+
+.risk-pill.is-risk-hot {
+  border-color: color-mix(in srgb, var(--danger) 60%, var(--panel-edge));
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--danger) 28%, transparent);
+  animation: risk-hot-pulse 1.4s ease-in-out infinite;
+}
+
+.risk-pill.is-risk-hot .risk-cause {
+  color: var(--danger);
+}
+
+@keyframes risk-hot-pulse {
+  0%,
+  100% {
+    filter: brightness(1);
+  }
+  50% {
+    filter: brightness(1.08);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .risk-pill.is-risk-hot {
+    animation: none;
+  }
+}
+
 .goal-pill-bar span {
   display: block;
   height: 100%;
@@ -897,78 +986,72 @@ button {
     radial-gradient(1.3px 1.3px at 52% 40%, #eef4ff, transparent);
 }
 
-/* Kumulus aus vier Ballen: gestapelte Radialflächen statt weichgezeichneter Pille */
-.sky-cloud {
+/* Keine Wolken über dem Brett — nur weicher Randnebel in den Ecken */
+.sky-fog {
   position: absolute;
-  width: 220px;
-  height: 66px;
-  opacity: 0.92;
-  filter: blur(1.5px);
-  background-repeat: no-repeat;
-  background-image:
-    radial-gradient(50% 50% at 50% 50%, var(--cloud-tint) 99%, transparent 100%),
-    radial-gradient(50% 50% at 50% 50%, var(--cloud-tint) 99%, transparent 100%),
-    radial-gradient(50% 50% at 50% 50%, var(--cloud-tint) 99%, transparent 100%),
-    radial-gradient(50% 50% at 50% 50%, var(--cloud-tint) 99%, transparent 100%);
-  background-size: 44% 58%, 54% 96%, 40% 70%, 78% 38%;
-  background-position: 0% 100%, 24% 4%, 58% 26%, 20% 100%;
-  transition: opacity var(--duration-very-slow) var(--ease-smooth-out);
-  animation: cloud-drift 150s linear infinite;
-}
-
-.sky-cloud--a {
-  left: 4%;
-  top: 11%;
-}
-
-.sky-cloud--b {
-  left: 54%;
-  top: 25%;
-  width: 150px;
-  height: 46px;
-  opacity: 0.7;
-  animation-duration: 210s;
-  animation-delay: -70s;
-}
-
-.sky-cloud--c {
-  left: 30%;
-  top: 4%;
-  width: 118px;
-  height: 36px;
+  width: min(42vw, 28rem);
+  height: min(34vh, 18rem);
+  pointer-events: none;
   opacity: 0.55;
-  animation-duration: 260s;
-  animation-delay: -150s;
+  filter: blur(28px);
+  background: radial-gradient(
+    ellipse 70% 60% at 50% 50%,
+    var(--cloud-tint) 0%,
+    color-mix(in srgb, var(--cloud-tint) 35%, transparent) 42%,
+    transparent 72%
+  );
+  transition: opacity var(--duration-very-slow) var(--ease-smooth-out);
 }
 
-@keyframes cloud-drift {
-  from { transform: translateX(-14%); }
-  to { transform: translateX(118%); }
+.sky-fog--nw {
+  left: -8%;
+  top: -6%;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .sky-cloud {
-    animation: none;
-  }
+.sky-fog--ne {
+  right: -10%;
+  top: -4%;
+  width: min(36vw, 24rem);
+  opacity: 0.42;
 }
 
-[data-theme="dark"] .sky-cloud {
-  opacity: 0.4;
+.sky-fog--sw {
+  left: -12%;
+  bottom: 2%;
+  width: min(48vw, 32rem);
+  height: min(28vh, 14rem);
+  opacity: 0.38;
 }
 
-[data-theme="dark"] .sky-cloud--b {
-  opacity: 0.3;
+.sky-fog--se {
+  right: -8%;
+  bottom: 4%;
+  width: min(40vw, 26rem);
+  height: min(26vh, 13rem);
+  opacity: 0.34;
 }
 
-[data-theme="dark"] .sky-cloud--c {
+[data-theme="dark"] .sky-fog {
+  opacity: 0.28;
+  filter: blur(34px);
+}
+
+[data-theme="dark"] .sky-fog--ne {
   opacity: 0.22;
+}
+
+[data-theme="dark"] .sky-fog--sw,
+[data-theme="dark"] .sky-fog--se {
+  opacity: 0.18;
 }
 
 .sky-haze {
   position: absolute;
   inset: auto 0 0 0;
-  height: 42%;
-  background: linear-gradient(180deg, transparent, var(--haze));
+  height: 48%;
+  background:
+    linear-gradient(180deg, transparent 0%, color-mix(in srgb, var(--haze) 55%, transparent) 45%, var(--haze) 100%),
+    radial-gradient(120% 55% at 50% 100%, var(--haze), transparent 70%);
 }
 
 .map-viewport {
@@ -1069,14 +1152,9 @@ button {
 }
 
 .map-controls .icon-btn {
-  background: #f4f1ea;
-  border-color: rgba(28, 36, 32, 0.22);
-}
-
-html[data-theme="dark"] .map-controls .icon-btn {
-  background: #1a242c;
-  color: #f4efe6;
-  border-color: rgba(255, 255, 255, 0.2);
+  background: var(--panel-solid, #f5fbfa);
+  color: var(--ink, #1c2430);
+  border-color: var(--panel-edge, rgba(28, 36, 32, 0.22));
 }
 
 /* Toasts über dem Tray, Zoom-Spalte und Dock-Rand freihalten */
@@ -1117,6 +1195,23 @@ html[data-theme="dark"] .map-controls .icon-btn {
 
 .coach:empty {
   opacity: 0;
+  transform: translateY(4px);
+}
+
+.coach.is-idle-tip {
+  opacity: 1;
+  animation: idle-tip-in 280ms var(--ease-smooth-out, ease-out);
+}
+
+@keyframes idle-tip-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .coach b {
@@ -1854,6 +1949,17 @@ html[data-theme="dark"] .map-controls .icon-btn {
 .track-comfort { --track-color: #e0a34f; }
 .track-environment { --track-color: #4fae74; }
 .track-security { --track-color: #d0708f; }
+
+.side-deal-note {
+  margin: 0.55rem 0 0;
+  padding: 0.45rem 0.55rem;
+  border-radius: 0.55rem;
+  background: color-mix(in srgb, var(--amber, #c8892f) 18%, var(--surface-2, #eef7f5));
+  color: var(--ink, #26313d);
+  font-size: 0.82rem;
+  font-weight: 650;
+  line-height: 1.25;
+}
 
 .goal-list {
   list-style: none;
@@ -2841,7 +2947,7 @@ html[data-theme="dark"] .map-controls .icon-btn {
   width: 4.5rem;
   padding: 0.35rem 0.5rem;
   border-radius: var(--radius-card);
-  border: 1px solid var(--line);
+  border: 1px solid var(--panel-edge);
   background: var(--surface-2);
   color: var(--ink);
   font: inherit;

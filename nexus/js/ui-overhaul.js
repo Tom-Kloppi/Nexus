@@ -208,6 +208,36 @@ window.Nexus = window.Nexus || {};
       return;
     }
     Nexus.Sfx.play(action.id === "line" ? "card" : "build");
+    if (action.id === "build" && action.payload && api.getUi) {
+      var uiRef = api.getUi();
+      if (uiRef) {
+        uiRef.placePopZoneId = "zone-" + action.payload.q + "-" + action.payload.r;
+      }
+    }
+    if (Nexus.Fx && Nexus.Fx.celebrateBoardAction) {
+      var fq = null;
+      var fr = null;
+      if (action.payload && action.payload.q != null) {
+        fq = action.payload.q;
+        fr = action.payload.r;
+      } else if (action.zoneId && next.zones) {
+        next.zones.forEach(function (zone) {
+          if (zone.id === action.zoneId) {
+            fq = zone.q;
+            fr = zone.r;
+          }
+        });
+      }
+      var fxKind =
+        action.id === "upgrade"
+          ? "upgrade"
+          : action.id === "demolish"
+            ? "demolish"
+            : action.id === "line"
+              ? "line"
+              : "build";
+      Nexus.Fx.celebrateBoardAction(fxKind, fq, fr);
+    }
     closeMenu();
     api.commit(next);
   }
@@ -438,7 +468,7 @@ window.Nexus = window.Nexus || {};
       bogen:
         "Vier Kapitel: Grundversorgung, Vernetzung, Mobilität, Resilienz. Im letzten Kapitel würfelt ein Großereignis gegen eure Vorbereitung.",
       risiko:
-        "Vier Zahlen vor dem Wurf: Cyber, Netz, Abhängigkeit, Verkehr. Der d100 ist offen. Die Karte sagt, warum es dich trifft und was geholfen hätte.",
+        "Eine Risiko-Zahl plus Ursache (Cyber oder Netz). Ab 8 öffnet die Ereigniskarte mit Ursache und Gegensteuern — kein Würfel.",
       mobil:
         "Haltestelle, Busbahnhof, dann eine Linie wie ein Ticket. Diesel, Elektro oder erneuerbar. Antrieb und Halte machen die Linie lesbar."
     };
@@ -458,14 +488,25 @@ window.Nexus = window.Nexus || {};
         node.setAttribute("data-gloss", "bandbreite");
       }
     });
-    var risk = document.querySelector(".risk-pill");
+    var risk = document.getElementById("risk-pill") || document.querySelector(".risk-pill");
     if (risk) {
       risk.setAttribute("data-gloss", "cyber");
-    }
-    var preview = state && state.riskPreview;
-    if (preview && risk) {
-      risk.setAttribute("data-help-title", "Risiko " + preview.total);
-      risk.setAttribute("data-help", preview.summary);
+      var who = state && Nexus.currentPlayer ? Nexus.currentPlayer(state) : null;
+      var view = who && who.riskView;
+      if (!view && state && who && Nexus.Risk && Nexus.Risk.preview) {
+        view = Nexus.Risk.preview(state, who);
+      }
+      if (view) {
+        risk.setAttribute("data-help-title", "Risiko " + view.total);
+        risk.setAttribute(
+          "data-help",
+          view.summary ||
+            (view.topLabel || "Stadtdruck") +
+              ". Ab " +
+              (view.threshold || 8) +
+              " Ereignis."
+        );
+      }
     }
   }
 
@@ -655,10 +696,19 @@ window.Nexus = window.Nexus || {};
         button.type = "button";
         button.setAttribute("data-help-title", pair[1]);
         button.setAttribute("data-help", "Obergrenze für die Bildrate. 30 spart Akku und Wärme.");
+        button.setAttribute("data-gfx-fps", pair[0]);
+        var fpsNow = Nexus.Quality && Nexus.Quality.state ? String(Nexus.Quality.state().fpsTarget) : "60";
+        button.classList.toggle("is-selected", fpsNow === pair[0]);
         button.addEventListener("click", function () {
           if (Nexus.Quality) {
             Nexus.Quality.setFps(Number(pair[0]));
             window.localStorage.setItem("nexus-gfx-fps", pair[0]);
+            host.parentNode.querySelectorAll("[data-gfx-fps]").forEach(function (node) {
+              node.classList.toggle("is-selected", node.getAttribute("data-gfx-fps") === pair[0]);
+            });
+            if (api && api.refreshGfx) {
+              api.refreshGfx();
+            }
           }
         });
         extra.appendChild(button);
@@ -667,6 +717,9 @@ window.Nexus = window.Nexus || {};
       battery.type = "button";
       battery.setAttribute("data-help-title", "Akku sparen");
       battery.setAttribute("data-help", "Deckt die Stufe bei Niedrig und die Bildrate bei 30.");
+      if (Nexus.Quality && Nexus.Quality.state) {
+        battery.classList.toggle("is-selected", !!Nexus.Quality.state().battery);
+      }
       battery.addEventListener("click", function () {
         if (!Nexus.Quality) {
           return;
@@ -674,6 +727,9 @@ window.Nexus = window.Nexus || {};
         var on = !Nexus.Quality.state().battery;
         Nexus.Quality.setBattery(on);
         battery.classList.toggle("is-selected", on);
+        if (api && api.refreshGfx) {
+          api.refreshGfx();
+        }
       });
       extra.appendChild(battery);
       host.parentNode.appendChild(extra);
@@ -688,7 +744,10 @@ window.Nexus = window.Nexus || {};
         var button = el("button", "btn", pair[1]);
         button.type = "button";
         button.setAttribute("data-help-title", pair[1]);
-        button.setAttribute("data-help", "Schaltet diesen Effekt aus oder auf den Stufen-Standard zurück.");
+        button.setAttribute("data-help", "Ein Klick schaltet aus, nochmal stellt den Stufen-Standard wieder her.");
+        if (Nexus.Quality && Nexus.Quality.state) {
+          button.classList.toggle("is-selected", Nexus.Quality.state().toggles[pair[0]] === false);
+        }
         button.addEventListener("click", function () {
           if (!Nexus.Quality) {
             return;
@@ -697,6 +756,9 @@ window.Nexus = window.Nexus || {};
           var next = current === false ? null : false;
           Nexus.Quality.setToggle(pair[0], next);
           button.classList.toggle("is-selected", next === false);
+          if (api && api.refreshGfx) {
+            api.refreshGfx();
+          }
         });
         toggles.appendChild(button);
       });

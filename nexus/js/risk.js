@@ -1,7 +1,9 @@
 window.Nexus = window.Nexus || {};
 
-/* Risiko aus dem Spielstand. Wahrscheinlichkeit steht vor dem Wurf. */
+/* Risiko = Stadtdruck. Intern mehrere Ursachen, am Tisch nur Zahl + Top-Ursache. */
 (function (Nexus) {
+  var EVENT_THRESHOLD = 8;
+
   function clamp(n, lo, hi) {
     return Math.max(lo, Math.min(hi, n));
   }
@@ -78,10 +80,12 @@ window.Nexus = window.Nexus || {};
       garages;
     var grid = clamp(Math.max(0, demand - supply), 0, 12);
 
+    /* Abhängigkeit fließt in Cyber (Technik-Vertrauen), nicht als eigene Spur. */
     var dependency =
       (cloud > 0 && local === 0 ? 4 : 0) +
       (transformer > 0 && solar === 0 ? 2 : 0);
     dependency = clamp(dependency, 0, 10);
+    cyber = clamp(cyber + Math.round(dependency * 0.75), 0, 18);
 
     var stops = 0;
     var mitigated = 0;
@@ -98,43 +102,41 @@ window.Nexus = window.Nexus || {};
     if (traffic > 0) {
       trafficLoad = clamp(traffic * 2 + Math.max(0, 2 - stops) - mitigated - garages, 0, 12);
     }
+    /* Verkehr zählt zur Netz-Last — eine Ursache am Tisch, kein eigener Balken. */
+    var cityLoad = clamp(grid + Math.round(trafficLoad * 0.85), 0, 18);
 
     return {
       cyber: {
         id: "cyber",
         label: "Cyber",
         value: cyber,
-        why: "Cloud-Geräte und unsichere Rechenzentren. Lokal, Schloss, Hub und gesichertes DC ziehen ab.",
-        counter: "Geräte lokal schalten, Datenzentrum sichern, V2X nicht in der Cloud lassen."
+        why:
+          "Cloud, offene Rechenzentren und einseitige Technik. Lokal, Schloss, Hub und geschlossenes Rechenzentrum ziehen ab.",
+        counter: "Geräte lokal schalten, Rechenzentrum schließen, eigene Solarfläche statt nur Trafo."
       },
       grid: {
         id: "grid",
         label: "Netz",
-        value: grid,
-        why: "Bedarf " + demand + " gegen Erzeugung und Speicher " + supply + ".",
-        counter: "Solar, Speicher oder Solardach auf dem Parkhaus. Weniger Cloud-Last."
-      },
-      dependency: {
-        id: "dependency",
-        label: "Abhängigkeit",
-        value: dependency,
-        why: "Ein Standard, ein Betriebsort oder nur der Transformator.",
-        counter: "Offener Standard, mindestens ein lokales Gerät, eigene Solarfläche."
-      },
-      traffic: {
-        id: "traffic",
-        label: "Verkehr",
-        value: trafficLoad,
-        why: "Parken ohne Linie. Haltestellen und E-Bus nehmen Last raus.",
-        counter: "Haltestelle, Busbahnhof, Linie, möglichst elektrisch."
+        value: cityLoad,
+        why:
+          "Strombedarf " +
+          demand +
+          " gegen Erzeugung/Speicher " +
+          supply +
+          (trafficLoad ? "; Verkehrslast " + trafficLoad : "") +
+          ".",
+        counter: "Solar, Speicher, Parkhaus mit Solardach, Linie statt nur Parken."
       },
       demand: demand,
-      supply: supply
+      supply: supply,
+      trafficLoad: trafficLoad,
+      gridRaw: grid,
+      dependencyRaw: dependency
     };
   }
 
   function totalOf(pack) {
-    return pack.cyber.value + pack.grid.value + pack.dependency.value + pack.traffic.value;
+    return pack.cyber.value + pack.grid.value;
   }
 
   function preview(state, player) {
@@ -156,31 +158,42 @@ window.Nexus = window.Nexus || {};
     if (major) {
       neg = Math.min(70, neg + 18);
     }
-    var top = [pack.cyber, pack.grid, pack.dependency, pack.traffic].sort(function (a, b) {
+    var top = [pack.cyber, pack.grid].sort(function (a, b) {
       return b.value - a.value;
     })[0];
+    /* Event-Familie feiner wählen, Anzeige bleibt Cyber/Netz. */
+    var eventFamily = top.id;
+    if (top.id === "grid" && (pack.trafficLoad || 0) > (pack.gridRaw || 0)) {
+      eventFamily = "traffic";
+    } else if (top.id === "cyber" && (pack.dependencyRaw || 0) >= 4) {
+      eventFamily = "dependency";
+    }
     return {
-      factors: [pack.cyber, pack.grid, pack.dependency, pack.traffic],
+      factors: [pack.cyber, pack.grid],
       base: base,
       shock: shock,
       total: shown,
+      threshold: EVENT_THRESHOLD,
       pNeg: neg,
       pPos: pos,
       major: major,
       top: top,
+      eventFamily: eventFamily,
       demand: pack.demand,
       supply: pack.supply,
       summary: (function () {
-        var name = {
-          cyber: "Angriffe auf Geräte",
-          grid: "Dünnes Stromnetz",
-          dependency: "Abhängigkeit",
-          traffic: "Verkehr ohne Linie"
-        }[top.id] || top.label;
         if (!top.value) {
-          return "Risiko niedrig. Unter " + neg + " trifft der Wurf trotzdem.";
+          return "Stadtdruck niedrig. Ab " + EVENT_THRESHOLD + " kommt ein Ereignis.";
         }
-        return name + " " + top.value + ". Unter " + neg + " trifft der Wurf.";
+        return (
+          top.label +
+          " " +
+          top.value +
+          " · Schwelle " +
+          EVENT_THRESHOLD +
+          ". " +
+          (top.counter || "")
+        );
       })()
     };
   }
@@ -229,7 +242,7 @@ window.Nexus = window.Nexus || {};
   }
 
   function chooseEvent(state, player, hit, view, roll) {
-    var family = view.top.id;
+    var family = view.eventFamily || (view.top && view.top.id) || "grid";
     var ids = pool(view.major && hit === "neg" ? "major" : hit, family);
     var i;
     for (i = 0; i < ids.length; i++) {
@@ -259,8 +272,13 @@ window.Nexus = window.Nexus || {};
         risk: view.total,
         riskView: {
           total: view.total,
-          pNeg: view.pNeg,
-          pPos: view.pPos,
+          threshold: view.threshold || EVENT_THRESHOLD,
+          topId: view.top ? view.top.id : "grid",
+          topLabel: view.top ? view.top.label : "Netz",
+          topValue: view.top ? view.top.value : 0,
+          why: view.top ? view.top.why : "",
+          counter: view.top ? view.top.counter : "",
+          summary: view.summary,
           factors: view.factors.map(function (factor) {
             return { id: factor.id, label: factor.label, value: factor.value };
           })
@@ -308,13 +326,14 @@ window.Nexus = window.Nexus || {};
 
   function cityEvent(state, player) {
     var view = preview(state, player);
-    if (!view.major && (view.total || 0) < 8) {
+    if (!view.major && (view.total || 0) < EVENT_THRESHOLD) {
       return null;
     }
     return chooseEvent(state, player, "neg", view, 0);
   }
 
   Nexus.Risk = {
+    EVENT_THRESHOLD: EVENT_THRESHOLD,
     factorsFor: factorsFor,
     preview: preview,
     syncState: syncState,

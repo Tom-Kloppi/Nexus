@@ -126,7 +126,7 @@ Nexus.TUTORIAL_STEPS = [
     scene: "build",
     target: ".wallet",
     title: "Ressourcen",
-    body: "Energie, Geld und Bandbreite. Große Zahl = Vorrat, kleine mit Tilde = erwarteter Ertrag. Produktion kommt zu Zugbeginn als Flug von den Feldern."
+    body: "Energie, Geld und Bandbreite. Große Zahl = Vorrat, kleine mit Plus = erwarteter Ertrag. Produktion kommt zu Zugbeginn als Flug von den Feldern."
   },
   {
     id: "hud-risk",
@@ -134,7 +134,7 @@ Nexus.TUTORIAL_STEPS = [
     scene: "build",
     target: ".risk-pill",
     title: "Risiko",
-    body: "Zeigt die größte Ursache und die Schwelle. Ab Schwelle öffnet sich eine Ereigniskarte mit Wahl — die Folge steht vorher auf der Kachel."
+    body: "Zahl plus Ursache (Cyber oder Netz) und Schwelle /8. Ab 8 kommt ein Ereignis. Bau-Kacheln zeigen Risiko-Delta; die Karte nennt Ursache und Gegensteuern."
   },
   {
     id: "hud-goal",
@@ -174,8 +174,8 @@ Nexus.TUTORIAL_STEPS = [
     section: "district",
     scene: "build",
     target: "#table-hint",
-    title: "Hinweiszeile",
-    body: "Kurzer Satz, was der Zug gerade braucht. Toasts poppen darüber auf und verschwinden von selbst."
+    title: "Idle-Tipp",
+    body: "Bleibt die Hinweiszeile leer, bis du eine Weile nichts tippst — dann kommt ein konkreter Vorschlag zum Zug. Toasts darüber verschwinden von selbst."
   },
   {
     id: "home-tile",

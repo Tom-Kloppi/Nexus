@@ -33,13 +33,13 @@
   padding: 0.45rem 0.4rem 0.4rem;
   border: 0;
   border-radius: 0.7rem;
-  color: #1b140c;
+  color: var(--ink, #1b140c);
   text-align: left;
   cursor: pointer;
 }
 
 .project-card {
-  background: rgba(255, 250, 242, 0.92);
+  background: color-mix(in srgb, var(--card-face, #fdfaf2) 92%, transparent);
   box-shadow: 0 8px 18px rgba(0, 0, 0, 0.18);
   transform: rotate(var(--tilt, 0deg)) translateY(0);
   transition: transform 160ms ease, box-shadow 160ms ease;
@@ -122,8 +122,8 @@
   padding: 0.4rem 0.5rem;
   border: 1px solid color-mix(in srgb, var(--ink, #1c2430) 12%, transparent);
   border-radius: 0.65rem;
-  background: #fff;
-  color: inherit;
+  background: var(--surface-2, #eef7f5);
+  color: var(--ink, #1c2430);
   text-align: left;
   cursor: pointer;
 }
@@ -142,7 +142,7 @@
 .menu-tile em {
   font-style: normal;
   font-size: 0.72rem;
-  color: #8a3a32;
+  color: var(--danger, #c2503f);
 }
 
 .menu-tile:disabled {
@@ -165,8 +165,8 @@
   pointer-events: none;
   padding: 0.15rem 0.4rem;
   border-radius: 999px;
-  background: #fff;
-  color: #16302a;
+  background: var(--panel-solid, #f5fbfa);
+  color: var(--ink, #16302a);
   font-weight: 700;
   font-size: 0.85rem;
   box-shadow: 0 6px 16px rgba(0, 0, 0, 0.16);
@@ -187,7 +187,8 @@
   flex: 1 1 12rem;
   padding: 0.4rem;
   border-radius: 0.7rem;
-  background: color-mix(in srgb, var(--panel, #f4f7f5) 80%, white);
+  background: color-mix(in srgb, var(--panel, #f4f7f5) 80%, var(--surface, #f7fcfb));
+  color: var(--ink, #1c2430);
 }
 
 .role-roster-card .role-avatar-svg {
@@ -211,26 +212,17 @@
 }
 
 .action-buttons .btn:not(.primary) {
-  background: #f4f1ea;
-  border-color: rgba(28, 36, 32, 0.22);
+  background: var(--panel-solid, #f5fbfa);
+  color: var(--ink, #1c2430);
+  border-color: var(--panel-edge, rgba(28, 36, 32, 0.22));
 }
 
 .action-buttons .btn:not(.primary):hover:not(:disabled) {
-  background: #fffdf8;
+  background: var(--surface-2, #eef7f5);
 }
 
 .action-buttons .btn:disabled {
   opacity: 0.78;
-}
-
-html[data-theme="dark"] .action-buttons .btn:not(.primary) {
-  background: #1a242c;
-  color: #f4efe6;
-  border-color: rgba(255, 255, 255, 0.2);
-}
-
-html[data-theme="dark"] .action-buttons .btn:not(.primary):hover:not(:disabled) {
-  background: #243038;
 }
 
 .setup-dev-row {
@@ -468,11 +460,13 @@ html[data-blur="off"] .settings-panel {
   transform: rotate(var(--tilt, 0deg));
   transform-origin: center 120%;
   transition: transform 160ms ease;
+  background: var(--card-face, #fdfaf2);
+  color: var(--ink, #1b140c);
 }
-.uno-card.cat-green { background: #d7ead0; }
-.uno-card.cat-privacy { background: #d9def2; }
-.uno-card.cat-mobility { background: #f6e3bf; }
-.uno-card.cat-general { background: #f4efe4; }
+.uno-card.cat-green { background: color-mix(in srgb, var(--ok, #3f8f5c) 28%, var(--card-face, #fdfaf2)); }
+.uno-card.cat-privacy { background: color-mix(in srgb, var(--cloud, #3d8fa8) 28%, var(--card-face, #fdfaf2)); }
+.uno-card.cat-mobility { background: color-mix(in srgb, var(--amber, #c8892f) 28%, var(--card-face, #fdfaf2)); }
+.uno-card.cat-general { background: var(--card-face, #fdfaf2); }
 .uno-card:hover, .uno-card:focus-visible {
   transform: rotate(0deg) translateY(-2rem);
   z-index: 2;
@@ -523,20 +517,20 @@ html[data-blur="off"] .settings-panel {
   border-radius: 0.45rem;
   display: grid;
   place-items: center;
-  background: #f4efe4;
-  color: #1c140c;
+  background: var(--card-face, #fdfaf2);
+  color: var(--ink, #1c140c);
   font-weight: 800;
   font-size: 1.3rem;
 }
 .die-bands { display: flex; gap: 0.25rem; margin-top: 0.35rem; }
-.die-bands span { padding: 0.1rem 0.35rem; border-radius: 999px; background: rgba(255,255,255,0.12); font-size: 0.72rem; }
-.die-bands .is-hit { background: #f0c36a; color: #1c140c; }
+.die-bands span { padding: 0.1rem 0.35rem; border-radius: 999px; background: color-mix(in srgb, var(--ink, #fff) 12%, transparent); font-size: 0.72rem; }
+.die-bands .is-hit { background: var(--amber, #f0c36a); color: var(--ink, #1c140c); }
 
 .event-choice { display: flex; justify-content: space-between; gap: 0.6rem; align-items: center; }
 .event-icons { display: flex; gap: 0.35rem; }
 .fx-bit { display: inline-flex; align-items: center; gap: 0.15rem; font-style: normal; }
-.fx-bit.is-down { color: #9c3030; }
-.fx-bit.is-up { color: #1d6b3a; }
+.fx-bit.is-down { color: var(--danger, #c2503f); }
+.fx-bit.is-up { color: var(--ok, #3f8f5c); }
 .event-lesson { margin: 0.4rem 0 0.6rem; font-size: 0.92rem; }
 
 .resource-fx-particle.is-gain,

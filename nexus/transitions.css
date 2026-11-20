@@ -45,8 +45,8 @@
   --tt-delay: 80ms;
   --tt-in-ease: ease-out;
   --tt-out-ease: ease-out;
-  --tt-bg: #1a1612;
-  --tt-fg: #f4ead7;
+  --tt-bg: var(--panel-solid, #1a1612);
+  --tt-fg: var(--ink, #f4ead7);
 
   --icon-swap-dur: 250ms;
   --icon-swap-blur: 2px;

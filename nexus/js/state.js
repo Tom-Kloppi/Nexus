@@ -309,6 +309,127 @@ window.Nexus = window.Nexus || {};
     return Nexus.awardRolePoints(state, playerId, -Math.abs(amount), reason || "Konter");
   }
 
+  function sideDealDef(dealId) {
+    return (Nexus.SIDE_DEALS && Nexus.SIDE_DEALS[dealId]) || null;
+  }
+
+  function acceptSideDeal(state, playerId, dealId) {
+    var def = sideDealDef(dealId);
+    var player = null;
+    (state.players || []).forEach(function (item) {
+      if (item.id === playerId) {
+        player = item;
+      }
+    });
+    if (!def || !player || player.sideDeal) {
+      return state;
+    }
+    var days = Math.max(1, def.days || 3);
+    return replacePlayer(
+      state,
+      playerId,
+      Object.assign({}, player, {
+        sideDeal: {
+          id: def.id,
+          title: def.title,
+          track: def.track,
+          need: def.need || 1,
+          progress: 0,
+          deadlineRound: state.round + days - 1,
+          rewardResources: def.rewardResources || null,
+          rewardRolePoints: def.rewardRolePoints || 0,
+          failRolePoints: def.failRolePoints || 0,
+          failResources: def.failResources || null
+        }
+      })
+    );
+  }
+
+  function resolveSideDeal(state, playerId, success) {
+    var player = null;
+    (state.players || []).forEach(function (item) {
+      if (item.id === playerId) {
+        player = item;
+      }
+    });
+    if (!player || !player.sideDeal) {
+      return state;
+    }
+    var deal = player.sideDeal;
+    var resources = cloneResources(player.resources);
+    var bag = success ? deal.rewardResources : deal.failResources;
+    if (bag) {
+      KEYS.forEach(function (key) {
+        if (bag[key]) {
+          resources[key] = Math.max(0, (resources[key] || 0) + (success ? bag[key] : -Math.abs(bag[key])));
+        }
+      });
+    }
+    var next = replacePlayer(
+      state,
+      playerId,
+      Object.assign({}, player, {
+        sideDeal: null,
+        resources: resources,
+        flowGain: success && deal.rewardResources ? Object.assign({}, player.flowGain || {}, deal.rewardResources) : player.flowGain,
+        lastRolePointReason: deal.title
+      })
+    );
+    if (success && deal.rewardRolePoints && Nexus.awardRolePoints) {
+      /* Deal darf den letzten Siegpunkt bringen — kein Contest-Cap. */
+      next = Nexus.awardRolePoints(next, playerId, deal.rewardRolePoints, deal.title + " · Deal erfüllt");
+    }
+    if (!success && deal.failRolePoints && Nexus.awardRolePoints) {
+      next = Nexus.awardRolePoints(next, playerId, -Math.abs(deal.failRolePoints), deal.title + " · Deal geplatzt");
+    }
+    next.log = addLog(
+      next,
+      player.name,
+      success
+        ? "Hinterzimmer-Deal erfüllt: " + deal.title + "."
+        : "Hinterzimmer-Deal geplatzt: " + deal.title + "."
+    );
+    next.lastScoreCause = { kind: "sideDeal", label: deal.title };
+    return next;
+  }
+
+  function tickSideDeal(state, playerId, track, amount) {
+    amount = amount || 1;
+    var player = null;
+    (state.players || []).forEach(function (item) {
+      if (item.id === playerId) {
+        player = item;
+      }
+    });
+    if (!player || !player.sideDeal || player.sideDeal.track !== track) {
+      return state;
+    }
+    var deal = Object.assign({}, player.sideDeal, {
+      progress: (player.sideDeal.progress || 0) + amount
+    });
+    var next = replacePlayer(state, playerId, Object.assign({}, player, { sideDeal: deal }));
+    if (deal.progress >= deal.need) {
+      return resolveSideDeal(next, playerId, true);
+    }
+    return next;
+  }
+
+  function checkSideDealDeadline(state, playerId) {
+    var player = null;
+    (state.players || []).forEach(function (item) {
+      if (item.id === playerId) {
+        player = item;
+      }
+    });
+    if (!player || !player.sideDeal) {
+      return state;
+    }
+    if (state.round > player.sideDeal.deadlineRound) {
+      return resolveSideDeal(state, playerId, false);
+    }
+    return state;
+  }
+
   function rankPlayersByRolePoints(state) {
     return (state.players || [])
       .slice()
@@ -348,8 +469,8 @@ window.Nexus = window.Nexus || {};
       "energy:solar": { key: "eco", amount: 1, reason: "Solarfeld" },
       "energy:transformer": { key: "finance", amount: 1, reason: "Umspannwerk" },
       "residential:": { key: "comfort", amount: 1, reason: "Wohnen" },
-      "datacenter:secure": { key: "trust", amount: 2, reason: "Sicheres RZ" },
-      "datacenter:insecure": { key: "trust", amount: 1, reason: "Offenes RZ" },
+      "datacenter:secure": { key: "trust", amount: 2, reason: "Sicheres Rechenzentrum" },
+      "datacenter:insecure": { key: "trust", amount: 1, reason: "Offenes Rechenzentrum" },
       "traffic:": { key: "comfort", amount: 1, reason: "Verkehrsfeld" }
     };
     var spec = map[zoneType + ":" + (variant || "")] || map[zoneType + ":"];
@@ -404,7 +525,7 @@ window.Nexus = window.Nexus || {};
       player.id,
       "trust",
       variant === "secure" ? 1 : 0,
-      variant === "secure" ? "RZ geschlossen" : "RZ geöffnet"
+      variant === "secure" ? "Rechenzentrum geschlossen" : "Rechenzentrum geöffnet"
     );
     next.log = addLog(
       next,
@@ -628,6 +749,10 @@ window.Nexus = window.Nexus || {};
         continue;
       }
       if (def.requiresCloudCamera && player.devices.camera !== "cloud") {
+        skipped.push(id);
+        continue;
+      }
+      if (def.sideDealOnly && player.sideDeal) {
         skipped.push(id);
         continue;
       }
@@ -1070,6 +1195,15 @@ window.Nexus = window.Nexus || {};
       next = Nexus.Risk.syncState(next, { decay: false });
     }
     next.lastScoreCause = { q: q, r: r, label: label };
+    if (zoneType === "energy" && resolvedVariant === "solar") {
+      next = tickSideDeal(next, player.id, "buildSolar", 1);
+    }
+    if (zoneType === "residential") {
+      next = tickSideDeal(next, player.id, "buildResidential", 1);
+    }
+    if (zoneType === "traffic") {
+      next = tickSideDeal(next, player.id, "buildTraffic", 1);
+    }
     return next;
   }
 
@@ -1268,6 +1402,7 @@ window.Nexus = window.Nexus || {};
       player.name,
       "Feld ausgebaut auf Stufe " + preview.toLevel + " für " + formatCost(preview.cost) + "."
     );
+    next = tickSideDeal(next, player.id, "upgrade", 1);
     return next;
   }
 
@@ -1480,7 +1615,8 @@ window.Nexus = window.Nexus || {};
       pendingEvent: null,
       lastProduction: emptyResources(),
       flowOrigins: { energy: [], money: [], bandwidth: [] },
-      survivedMajor: false
+      survivedMajor: false,
+      sideDeal: null
     };
   }
 
@@ -2121,14 +2257,18 @@ window.Nexus = window.Nexus || {};
       next = replacePlayer(anyGrant.state, player.id, anyGrant.player);
       nextPlayer = anyGrant.player;
     }
-    if (effects.rolePoints && effects.pointKey) {
+    if (effects.acceptSideDeal) {
+      next = acceptSideDeal(next, player.id, effects.acceptSideDeal);
+    }
+    if (effects.rolePoints && effects.pointKey && effects.rolePoints > 0) {
+      /* Random-Events: Progress ja, aber nicht der letzte Siegpunkt. Deals sind separat uncapped. */
       next = awardTypedRolePoints(
         next,
         player.id,
         effects.pointKey,
         effects.rolePoints,
         event.title || "Ereignis",
-        effects.contest ? { contest: true } : null
+        { contest: effects.contest !== false }
       );
     }
     if (effects.contestStripTarget && extra.playerId && extra.playerId !== player.id) {
@@ -2229,6 +2369,9 @@ window.Nexus = window.Nexus || {};
       return false;
     }
     if (effects.spendOwnRolePoints && (player.rolePoints || 0) < effects.spendOwnRolePoints) {
+      return false;
+    }
+    if (effects.acceptSideDeal && player.sideDeal) {
       return false;
     }
     if (choice.needsPlayerPick && (state.players || []).length < 2) {
@@ -2453,10 +2596,14 @@ window.Nexus = window.Nexus || {};
         log: addLog(state, player ? player.name : null, "setzt den Zug fort.")
       });
     }
-    return Object.assign({}, state, {
+    var resumed = Object.assign({}, state, {
       turnPhase: "produce",
       log: addLog(state, player ? player.name : null, "übernimmt.")
     });
+    if (player) {
+      resumed = checkSideDealDeadline(resumed, player.id);
+    }
+    return resumed;
   }
 
   function updateStandardStreak(player, round) {
@@ -2796,8 +2943,9 @@ window.Nexus = window.Nexus || {};
     });
     var next = replacePlayer(state, from.id, nextFrom);
     next = replacePlayer(next, to.id, nextTo);
-    next = awardTypedRolePoints(next, from.id, "finance", 1, "Handel");
-    next = awardTypedRolePoints(next, to.id, "finance", 1, "Handel");
+    /* Handel selbst gibt keine Siegpunkte mehr — nur Hinterzimmer-Deals. */
+    next = tickSideDeal(next, from.id, "trade", 1);
+    next = tickSideDeal(next, to.id, "trade", 1);
     next.log = addLog(
       next,
       to.name,
@@ -3202,6 +3350,7 @@ window.Nexus = window.Nexus || {};
           next = awardTypedRolePoints(next, who.id, "eco", 1, "Öko-Linie");
         } else if (propulsion === "electric") {
           next = awardTypedRolePoints(next, who.id, "innovation", 1, "Elektro-Linie");
+          next = tickSideDeal(next, who.id, "lineElectric", 1);
         } else {
           next = awardTypedRolePoints(next, who.id, "comfort", 1, "Diesel-Linie");
         }
@@ -3327,6 +3476,24 @@ window.Nexus = window.Nexus || {};
     if (zonePrimaryBase(upgraded) !== 4) {
       throw new Error("upgrade yield scale");
     }
+    state = acceptSideDeal(state, currentPlayer(state).id, "lobby-upgrade");
+    if (!currentPlayer(state).sideDeal || currentPlayer(state).sideDeal.track !== "upgrade") {
+      throw new Error("sideDeal accept");
+    }
+    var homeUp = playerZones(state, currentPlayer(state).id).filter(function (zone) {
+      return zone.type === "home";
+    })[0];
+    if (!homeUp) {
+      throw new Error("sideDeal home");
+    }
+    state = upgradeZone(state, homeUp.id);
+    if (!currentPlayer(state).sideDeal || currentPlayer(state).sideDeal.progress < 1) {
+      throw new Error("sideDeal progress");
+    }
+    state = upgradeZone(state, homeUp.id);
+    if (currentPlayer(state).sideDeal) {
+      throw new Error("sideDeal should resolve");
+    }
     if (ZONE_TYPES.home.label.indexOf("Kontroll") === -1) {
       throw new Error("home label");
     }
@@ -3351,6 +3518,8 @@ window.Nexus = window.Nexus || {};
     }
     var partner = state.players[1];
     var beforeMoney = partner.resources.money;
+    var beforePts0 = state.players[0].rolePoints || 0;
+    var beforePts1 = state.players[1].rolePoints || 0;
     state = proposeTrade(state, partner.id, "energy", 1, "money", 1);
     if (!(state.tradeOffers || []).length) {
       throw new Error("proposeTrade");
@@ -3360,6 +3529,9 @@ window.Nexus = window.Nexus || {};
     state = respondTrade(state, offerId, true);
     if (currentPlayer(state).resources.money === beforeMoney) {
       throw new Error("trade accept");
+    }
+    if ((state.players[0].rolePoints || 0) !== beforePts0 || (state.players[1].rolePoints || 0) !== beforePts1) {
+      throw new Error("trade must not award role points");
     }
     var withDev = Object.assign({}, state, {
       players: state.players.map(function (p, idx) {

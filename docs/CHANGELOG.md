@@ -4,6 +4,20 @@ Neueste Welle zuerst. Das ist die **Geschichte** des spielbaren Stands — nicht
 
 Neue spielbare Welle: hier einen Block anlegen (Datum, Branch, Warum, Regeln, Grafik). DESIGN nur ändern, wenn sich der Vertrag ändert.
 
+## HexaUrbs-Lesbarkeit + Grafik-Stufen (2026-11-20)
+
+**Warum.** Tile-Rotation bugte; Grafik-Menü speicherte Stufen falsch und war vom alten Auto/Qualität/Balance-Pfad entkoppelt.
+
+**Grafik.** Gelbe Straßen-Mittellinien, dunkler Hex-Rand, Küstenband am Spielrand; Wohnen: Cluster → Turm bei Ausbau; Park/Bahnhof/Haltestelle wie zuvor. Rotation der Tile-Inhalte zurückgenommen. Quality-UI (Minimal–Ultra, FPS, Akku, Toggles) schreibt wieder durch auf `quality.js` + Board-Rebuild.
+
+## Hinterzimmer + Politur (2026-11-20)
+
+**Warum.** Lobby-Druck ohne neuen Screen; Ernte/Theme/Licht/Ausbau für Abgabe.
+
+**Regeln.** Hinterzimmer-Deals (max. 1, geheim, Frist): Solar/Handel/Ausbau/Wohnen/Elektro-Linie. Deal-Punkte dürfen siegen; Random-Events Contest-cap 9, kein Eigen-Rollenpunktverlust aus Event-Choices. Handel ohne Siegpunkt. Ausbau wieder im Feldmenü.
+
+**Brett/UI.** Partikel: Ressourcen nacheinander nach Launch, Tiles parallel; Theme-Tokens in Overhaul; Lichtkegel auf Straße; Expand-Nadeln weg.
+
 ## Abgabe-Politur — Rollenpunkte, Feedback (2026-11-20)
 
 **Warum.** Anfänger brauchen sichtbares Feedback; Sieg darf nicht an Würfel oder toten Zielen hängen.
