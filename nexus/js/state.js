@@ -186,12 +186,33 @@ window.Nexus = window.Nexus || {};
     return normalizeCost(device.costs[mode]);
   }
 
+  function applyWorkshopDiscount(player, cost) {
+    if (!player || !player.workshopDiscountPending || !cost) {
+      return { cost: cost, used: false };
+    }
+    var next = Object.assign({}, cost);
+    if ((next.money || 0) > 0) {
+      next.money -= 1;
+      if (next.money <= 0) {
+        delete next.money;
+      }
+      return { cost: next, used: true };
+    }
+    return { cost: cost, used: false };
+  }
+
   function defaultVariantFor(zoneType) {
     if (zoneType === "energy") {
       return "solar";
     }
     if (zoneType === "datacenter") {
       return "insecure";
+    }
+    if (zoneType === "commerce") {
+      return "factory";
+    }
+    if (zoneType === "traffic") {
+      return "garage";
     }
     return null;
   }
@@ -203,7 +224,112 @@ window.Nexus = window.Nexus || {};
     if (zoneType === "datacenter") {
       return (Nexus.DATACENTER_VARIANTS && Nexus.DATACENTER_VARIANTS[variant]) || null;
     }
+    if (zoneType === "commerce") {
+      return (Nexus.COMMERCE_VARIANTS && Nexus.COMMERCE_VARIANTS[variant]) || null;
+    }
+    if (zoneType === "traffic") {
+      if (variant === "depot") {
+        variant = "taxi";
+      }
+      return (Nexus.TRAFFIC_VARIANTS && Nexus.TRAFFIC_VARIANTS[variant]) || null;
+    }
     return null;
+  }
+
+  function normalizeTrafficMode(zone) {
+    if (!zone || zone.type !== "traffic") {
+      return null;
+    }
+    var mode = zone.trafficMode || zone.variant || "garage";
+    if (mode === "depot") {
+      return "taxi";
+    }
+    if (mode === "taxi" || mode === "garage") {
+      return mode;
+    }
+    return "garage";
+  }
+
+  function countPlayerDatacenters(state, playerId) {
+    return playerFactoryZones(state, playerId).filter(function (zone) {
+      return zone.type === "datacenter";
+    }).length;
+  }
+
+  function maxDatacentersFor(state, playerId) {
+    var per = C.DC_TILES_PER || 7;
+    var owned = playerZones(state, playerId).length;
+    return Math.floor((owned - 1) / per) + 1;
+  }
+
+  function datacenterCapInfo(state, playerId) {
+    var have = countPlayerDatacenters(state, playerId);
+    var max = maxDatacentersFor(state, playerId);
+    var per = C.DC_TILES_PER || 7;
+    var owned = playerZones(state, playerId).length;
+    var nextAt = have * per + 1;
+    return {
+      have: have,
+      max: max,
+      per: per,
+      owned: owned,
+      nextAt: nextAt,
+      allowed: have < max,
+      label: have + "/" + max + " · je " + per + " Felder"
+    };
+  }
+
+  function countAdjacentResidential(state, q, r) {
+    if (!Nexus.neighbors) {
+      return 0;
+    }
+    var n = 0;
+    Nexus.neighbors(q, r).forEach(function (nb) {
+      var z = zoneAt(state, nb.q, nb.r);
+      if (z && z.type === "residential") {
+        n += 1;
+      }
+    });
+    return n;
+  }
+
+  function enterpriseMatureBase(state, playerId, zone) {
+    var curve = C.ENTERPRISE_MATURE || [5, 3, 1];
+    var list = playerFactoryZones(state, playerId)
+      .filter(function (item) {
+        return item.type === "commerce" && item.variant === "enterprise";
+      })
+      .slice()
+      .sort(function (a, b) {
+        var ra = a.builtRound || 0;
+        var rb = b.builtRound || 0;
+        if (ra !== rb) {
+          return ra - rb;
+        }
+        return String(a.id).localeCompare(String(b.id));
+      });
+    var index = 0;
+    var i;
+    for (i = 0; i < list.length; i++) {
+      if (list[i].id === zone.id) {
+        index = i;
+        break;
+      }
+    }
+    return curve[Math.min(index, curve.length - 1)] || 1;
+  }
+
+  function enterpriseYieldAmount(state, playerId, zone) {
+    var mature = enterpriseMatureBase(state, playerId, zone);
+    var ramp = C.ENTERPRISE_RAMP || [1, 3, 5];
+    var built = zone.builtRound != null ? zone.builtRound : state.round;
+    var age = Math.max(0, (state.round || 1) - built);
+    /* Erste Ernte = Runde nach Bau → age 1: Ramp[0], age 2: Ramp[1], danach Reife. */
+    var step = Math.min(ramp.length - 1, Math.max(0, age - 1));
+    if (age <= 0) {
+      step = 0;
+    }
+    return Math.min(mature, ramp[step] || mature);
   }
 
   function resolveZoneYieldDef(zone) {
@@ -212,6 +338,9 @@ window.Nexus = window.Nexus || {};
       return null;
     }
     var variant = zone.variant || defaultVariantFor(zone.type);
+    if (zone.type === "traffic") {
+      variant = normalizeTrafficMode(zone) || variant || "garage";
+    }
     var variantDef = variantDefFor(zone.type, variant);
     if (variantDef) {
       return Object.assign({}, typeDef, variantDef, { variant: variant });
@@ -468,10 +597,15 @@ window.Nexus = window.Nexus || {};
     var map = {
       "energy:solar": { key: "eco", amount: 1, reason: "Solarfeld" },
       "energy:transformer": { key: "finance", amount: 1, reason: "Umspannwerk" },
+      "energy:nuclear": { key: "finance", amount: 1, reason: "Atomkraftwerk" },
       "residential:": { key: "comfort", amount: 1, reason: "Wohnen" },
       "datacenter:secure": { key: "trust", amount: 2, reason: "Sicheres Rechenzentrum" },
       "datacenter:insecure": { key: "trust", amount: 1, reason: "Offenes Rechenzentrum" },
-      "traffic:": { key: "comfort", amount: 1, reason: "Verkehrsfeld" }
+      "commerce:factory": { key: "finance", amount: 1, reason: "Fabrik" },
+      "commerce:enterprise": { key: "finance", amount: 1, reason: "Unternehmen" },
+      "traffic:": { key: "comfort", amount: 1, reason: "Verkehrsfeld" },
+      "park:": { key: "eco", amount: 1, reason: "Park" },
+      "workshop:": { key: "innovation", amount: 1, reason: "Werkstatt" }
     };
     var spec = map[zoneType + ":" + (variant || "")] || map[zoneType + ":"];
     if (!spec) {
@@ -550,10 +684,29 @@ window.Nexus = window.Nexus || {};
     return level > max ? max : level;
   }
 
-  function zonePrimaryBase(zone) {
+  function zonePrimaryBase(zone, state, player) {
     var def = resolveZoneYieldDef(zone);
     if (!def || !def.primary) {
       return 0;
+    }
+    if (
+      state &&
+      player &&
+      zone.type === "commerce" &&
+      zone.variant === "enterprise"
+    ) {
+      return enterpriseYieldAmount(state, player.id, zone) + zoneUpgradeLevel(zone);
+    }
+    if (
+      state &&
+      zone.type === "commerce" &&
+      (zone.variant === "factory" || def.adjacentResidentialBonus)
+    ) {
+      return (
+        (def.primaryBase || 0) +
+        countAdjacentResidential(state, zone.q, zone.r) +
+        zoneUpgradeLevel(zone)
+      );
     }
     return (def.primaryBase || 0) + zoneUpgradeLevel(zone);
   }
@@ -638,6 +791,13 @@ window.Nexus = window.Nexus || {};
       }
       offer.usedLocalHardwareDiscount = true;
     }
+    if (player.workshopDiscountPending) {
+      var workshop = applyWorkshopDiscount(player, cost);
+      cost = workshop.cost;
+      if (workshop.used) {
+        offer.usedWorkshopDiscount = true;
+      }
+    }
 
     offer.cost = cost;
     if (!canAfford(player.resources, cost)) {
@@ -721,10 +881,19 @@ window.Nexus = window.Nexus || {};
   }
 
   function buildInnovationDeck() {
+    var catalog = Nexus.STADT_AKTEN || Nexus.INNOVATION_CARDS || [];
     return shuffleCopy(
-      Nexus.INNOVATION_CARDS.map(function (card) {
+      catalog.map(function (card) {
         return card.id;
       })
+    );
+  }
+
+  function cardById(id) {
+    return (
+      (Nexus.STADT_AKTEN_BY_ID && Nexus.STADT_AKTEN_BY_ID[id]) ||
+      (Nexus.INNOVATION_CARDS_BY_ID && Nexus.INNOVATION_CARDS_BY_ID[id]) ||
+      null
     );
   }
 
@@ -774,7 +943,7 @@ window.Nexus = window.Nexus || {};
     return { event: event, eventDeck: deck, eventDiscard: discard };
   }
 
-  function drawInnovationFromDeck(state, preferredCategory) {
+  function drawInnovationFromDeck(state, preferredCategory, preferredKind) {
     var filled = refillDeck(
       (state.innovationDeck || []).slice(),
       (state.innovationDiscard || []).slice()
@@ -786,18 +955,27 @@ window.Nexus = window.Nexus || {};
     }
     var idx = 0;
     var i;
-    if (preferredCategory) {
+    var def;
+    if (preferredKind || preferredCategory) {
       for (i = 0; i < deck.length; i++) {
-        if (Nexus.INNOVATION_CARDS_BY_ID[deck[i]].category === preferredCategory) {
-          idx = i;
-          break;
+        def = cardById(deck[i]);
+        if (!def) {
+          continue;
         }
+        if (preferredKind && def.kind !== preferredKind) {
+          continue;
+        }
+        if (preferredCategory && def.category !== preferredCategory) {
+          continue;
+        }
+        idx = i;
+        break;
       }
     }
     var id = deck.splice(idx, 1)[0];
     discard.push(id);
     return {
-      card: Nexus.INNOVATION_CARDS_BY_ID[id],
+      card: cardById(id),
       innovationDeck: deck,
       innovationDiscard: discard
     };
@@ -806,10 +984,13 @@ window.Nexus = window.Nexus || {};
   function makeHandCard(card) {
     return {
       id: card.id,
+      kind: card.kind || "briefing",
       name: card.name,
       category: card.category,
       text: card.text,
-      effects: card.effects || {}
+      effects: card.effects || {},
+      mandate: card.mandate || null,
+      pressure: card.pressure || null
     };
   }
 
@@ -876,10 +1057,13 @@ window.Nexus = window.Nexus || {};
     }
     var nextPlayer = Object.assign({}, granted.player, { drewInnovationThisTurn: true });
     var next = replacePlayer(granted.state, player.id, nextPlayer);
+    var kindLabel =
+      (Nexus.STADT_AKTE_KIND_LABELS && Nexus.STADT_AKTE_KIND_LABELS[granted.cards[0].kind]) ||
+      "Akte";
     next.log = addLog(
       next,
       player.name,
-      "Innovationskarte automatisch: " + granted.cards[0].name + "."
+      "Stadtakte gezogen (" + kindLabel + "): " + granted.cards[0].name + "."
     );
     return next;
   }
@@ -887,13 +1071,130 @@ window.Nexus = window.Nexus || {};
   function enterBuildPhase(state) {
     var next = Object.assign({}, state, { turnPhase: "build", riskPreview: state.riskPreview || null });
     if (Nexus.Projects) {
-      return Nexus.Projects.ensureMarket(next);
+      next = Nexus.Projects.ensureMarket(next);
     }
     return maybeAutoDrawInnovation(next);
   }
 
-  function playInnovationCard(state, index) {
+  function mandateNeedLabel(need) {
+    if (!need) {
+      return "Auftrag";
+    }
+    if (need.upgrade) {
+      return "Ausbau ×" + (need.count || 1);
+    }
+    var typeDef = ZONE_TYPES[need.buildType];
+    var label = (typeDef && typeDef.shortLabel) || need.buildType || "Bau";
+    if (need.buildVariant) {
+      var vDef = variantDefFor(need.buildType, need.buildVariant);
+      if (vDef && vDef.shortLabel) {
+        label = vDef.shortLabel;
+      } else if (vDef && vDef.label) {
+        label = vDef.label;
+      }
+    }
+    return label + " ×" + (need.count || 1);
+  }
+
+  function activateMandate(player, card) {
+    var need = (card.mandate && card.mandate.need) || {};
+    var reward = (card.mandate && card.mandate.reward) || card.effects || {};
+    var active = (player.activeMandates || []).concat([
+      {
+        cardId: card.id,
+        name: card.name,
+        progress: 0,
+        need: Object.assign({}, need),
+        reward: Object.assign({}, reward),
+        label: mandateNeedLabel(need)
+      }
+    ]);
+    return Object.assign({}, player, {
+      activeMandates: active,
+      innovationCardsTotal: (player.innovationCardsTotal || 0) + 1,
+      greenInnovationCards:
+        (player.greenInnovationCards || 0) + (card.category === "green" ? 1 : 0)
+    });
+  }
+
+  function mandateMatches(entry, event) {
+    if (!entry || !entry.need || !event) {
+      return false;
+    }
+    var need = entry.need;
+    if (need.upgrade) {
+      return !!event.upgrade;
+    }
+    if (!event.buildType) {
+      return false;
+    }
+    if (need.buildType && event.buildType !== need.buildType) {
+      return false;
+    }
+    if (need.buildVariant && event.buildVariant !== need.buildVariant) {
+      return false;
+    }
+    return true;
+  }
+
+  function tickMandates(state, playerId, event) {
+    var player = null;
+    (state.players || []).forEach(function (p) {
+      if (p.id === playerId) {
+        player = p;
+      }
+    });
+    if (!player || !(player.activeMandates || []).length) {
+      return state;
+    }
+    var completed = [];
+    var remaining = [];
+    var changed = false;
+    (player.activeMandates || []).forEach(function (entry) {
+      var nextEntry = Object.assign({}, entry, {
+        need: Object.assign({}, entry.need),
+        reward: Object.assign({}, entry.reward)
+      });
+      if (mandateMatches(entry, event)) {
+        nextEntry.progress = (entry.progress || 0) + 1;
+        changed = true;
+      }
+      var needCount = (entry.need && entry.need.count) || 1;
+      if (nextEntry.progress >= needCount) {
+        completed.push(nextEntry);
+        changed = true;
+      } else {
+        remaining.push(nextEntry);
+      }
+    });
+    if (!changed) {
+      return state;
+    }
+    var nextPlayer = Object.assign({}, player, { activeMandates: remaining });
+    completed.forEach(function (entry) {
+      nextPlayer = applyCardEffects(nextPlayer, { effects: entry.reward || {} });
+      nextPlayer = Object.assign({}, nextPlayer, {
+        playedCards: (nextPlayer.playedCards || []).concat([
+          { id: entry.cardId, name: entry.name, kind: "mandate", text: "Mandat erfüllt" }
+        ])
+      });
+    });
+    var next = replacePlayer(state, playerId, nextPlayer);
+    completed.forEach(function (entry) {
+      next.log = addLog(next, player.name, "Mandat erfüllt: " + entry.name + ".");
+    });
+    if (completed.length) {
+      next.lastScoreCause = { kind: "mandate", label: completed[0].name };
+    }
+    return next;
+  }
+
+  function playInnovationCard(state, index, opts) {
+    opts = opts || {};
     if (state.turnPhase !== "build") {
+      return state;
+    }
+    if (state.pendingPressure) {
       return state;
     }
     var player = currentPlayer(state);
@@ -904,15 +1205,120 @@ window.Nexus = window.Nexus || {};
     if (index < 0 || index >= hand.length) {
       return state;
     }
-    var card = hand.splice(index, 1)[0];
-    var nextPlayer = Object.assign({}, applyCardEffects(player, card), {
+    var card = hand[index];
+    var kind = card.kind || "briefing";
+    if (kind === "pressure") {
+      if (!opts.targetId || opts.targetId === player.id) {
+        return state;
+      }
+      var targetOk = (state.players || []).some(function (p) {
+        return p.id === opts.targetId;
+      });
+      if (!targetOk) {
+        return state;
+      }
+      hand.splice(index, 1);
+      var nextPlayer = Object.assign({}, player, { handCards: hand });
+      var next = replacePlayer(state, player.id, nextPlayer);
+      next.pendingPressure = {
+        card: makeHandCard(card),
+        fromId: player.id,
+        toId: opts.targetId
+      };
+      next.log = addLog(
+        next,
+        player.name,
+        "Druckstück: " + card.name + " — Antwort ausstehend."
+      );
+      return next;
+    }
+    hand.splice(index, 1);
+    var played = Object.assign({}, card);
+    var updated;
+    if (kind === "mandate") {
+      updated = activateMandate(Object.assign({}, player, { handCards: hand }), card);
+      updated = Object.assign({}, updated, {
+        playedCards: (player.playedCards || []).concat([
+          { id: card.id, name: card.name, kind: "mandate", text: card.text }
+        ])
+      });
+      return Object.assign({}, replacePlayer(state, player.id, updated), {
+        log: addLog(state, player.name, "Mandat angenommen: " + card.name + "."),
+        lastScoreCause: { kind: "mandate", label: card.name }
+      });
+    }
+    updated = Object.assign({}, applyCardEffects(player, card), {
       handCards: hand,
-      playedCards: (player.playedCards || []).concat([card])
+      playedCards: (player.playedCards || []).concat([played])
     });
-    return Object.assign({}, replacePlayer(state, player.id, nextPlayer), {
-      log: addLog(state, player.name, "Karte ausgespielt: " + card.name + "."),
+    return Object.assign({}, replacePlayer(state, player.id, updated), {
+      log: addLog(state, player.name, "Briefing: " + card.name + "."),
       lastScoreCause: { kind: "card", label: card.name }
     });
+  }
+
+  function resolvePressure(state, choice) {
+    var pending = state.pendingPressure;
+    if (!pending || !pending.card || !pending.toId) {
+      return state;
+    }
+    var from = null;
+    var to = null;
+    (state.players || []).forEach(function (p) {
+      if (p.id === pending.fromId) {
+        from = p;
+      }
+      if (p.id === pending.toId) {
+        to = p;
+      }
+    });
+    if (!to) {
+      return Object.assign({}, state, { pendingPressure: null });
+    }
+    var pressure = pending.card.pressure || {};
+    var pay = pressure.pay || {};
+    var next = state;
+    var nextTo = to;
+    var nextFrom = from;
+    if (choice === "pay") {
+      if (!canAfford(to.resources, pay)) {
+        choice = "risk";
+      } else {
+        nextTo = Object.assign({}, to, { resources: subtractCost(to.resources, pay) });
+        if (nextFrom && pressure.imageGain) {
+          nextFrom = Object.assign({}, nextFrom, {
+            scores: bumpScores(nextFrom.scores, { image: pressure.imageGain })
+          });
+        }
+      }
+    }
+    if (choice !== "pay") {
+      var riskAdd = pressure.orRisk || 2;
+      nextTo = Object.assign({}, nextTo, {
+        risk: Math.max(0, (nextTo.risk || 0) + riskAdd),
+        riskShock: Math.max(0, (nextTo.riskShock || 0) + riskAdd)
+      });
+    }
+    next = replacePlayer(next, nextTo.id, nextTo);
+    if (nextFrom && nextFrom.id !== nextTo.id) {
+      next = replacePlayer(next, nextFrom.id, nextFrom);
+    }
+    var fromName = (nextFrom && nextFrom.name) || "Akte";
+    next = Object.assign({}, next, {
+      pendingPressure: null,
+      log: addLog(
+        next,
+        to.name,
+        choice === "pay"
+          ? "Druckstück akzeptiert (" + pending.card.name + ") — gezahlt."
+          : "Druckstück abgelehnt (" + pending.card.name + ") — Risiko."
+      ),
+      lastScoreCause: { kind: "pressure", label: pending.card.name }
+    });
+    if (Nexus.Risk) {
+      next = Nexus.Risk.syncState(next, { decay: false });
+    }
+    return next;
   }
 
   function pickEventForPlayer(state, player) {
@@ -957,20 +1363,40 @@ window.Nexus = window.Nexus || {};
     if (!def || !def.primary) {
       return null;
     }
-    var base = zonePrimaryBase(zone);
+    var base = zonePrimaryBase(zone, state, player);
     var amount;
     var moneySpent = 0;
+    var energySpent = 0;
+    var bandwidthSpent = 0;
     if (zone.type === "energy" && def.stable) {
       amount = base;
-      moneySpent = amount * (C.TRANSFORMER_MONEY_PER_ENERGY || 1);
-      if ((player.resources.money || 0) < moneySpent) {
-        amount = 0;
-        moneySpent = 0;
+      if (zone.variant === "transformer") {
+        moneySpent = amount * (C.TRANSFORMER_MONEY_PER_ENERGY || 1);
+        if ((player.resources.money || 0) < moneySpent) {
+          amount = 0;
+          moneySpent = 0;
+        }
       }
     } else if (zone.type === "residential") {
       amount = playerHasZoneType(state, player.id, "datacenter")
         ? yieldAmount(base, modifier)
         : 0;
+    } else if (zone.type === "commerce") {
+      amount = base;
+    } else if (zone.type === "traffic" && def.stable) {
+      amount = base;
+      if (def.upkeep) {
+        energySpent = def.upkeep.energy || 0;
+        bandwidthSpent = def.upkeep.bandwidth || 0;
+        if (
+          (player.resources.energy || 0) < energySpent ||
+          (player.resources.bandwidth || 0) < bandwidthSpent
+        ) {
+          amount = 0;
+          energySpent = 0;
+          bandwidthSpent = 0;
+        }
+      }
     } else {
       amount = yieldAmount(base, modifier);
     }
@@ -981,9 +1407,14 @@ window.Nexus = window.Nexus || {};
       /* Trafo: Umwelt nur beim Bau (scoreHint), nicht jede Ernte. */
       harvestHint = def.scoreHint;
     }
+    if (!amount && harvestHint && zone.type === "traffic") {
+      harvestHint = null;
+    }
     var result = {
       primary: { resource: def.primary, amount: amount },
       moneySpent: moneySpent,
+      energySpent: energySpent,
+      bandwidthSpent: bandwidthSpent,
       scoreHint: harvestHint,
       riskDelta: def.risk ? 1 : 0
     };
@@ -1015,13 +1446,27 @@ window.Nexus = window.Nexus || {};
       if (!def || !def.primary) {
         return;
       }
-      var base = zonePrimaryBase(zone);
+      var base = zonePrimaryBase(zone, state, player);
       if (zone.type === "residential" && !hasDc) {
         return;
       }
       if (zone.type === "energy" && def.stable) {
         expected[def.primary] += base;
-        expected.money -= base * (C.TRANSFORMER_MONEY_PER_ENERGY || 1);
+        if (zone.variant === "transformer") {
+          expected.money -= base * (C.TRANSFORMER_MONEY_PER_ENERGY || 1);
+        }
+        return;
+      }
+      if (zone.type === "traffic" && def.stable) {
+        expected[def.primary] += base;
+        if (def.upkeep) {
+          expected.energy -= def.upkeep.energy || 0;
+          expected.bandwidth -= def.upkeep.bandwidth || 0;
+        }
+        return;
+      }
+      if (zone.type === "commerce") {
+        expected[def.primary] += base;
         return;
       }
       expected[def.primary] += expectedYieldForBase(base);
@@ -1116,9 +1561,18 @@ window.Nexus = window.Nexus || {};
       offer.reason = "Nicht genug Ressourcen.";
       return offer;
     }
-    if (zoneType === "datacenter" && playerHasZoneType(state, player.id, "datacenter")) {
-      offer.reason = "Du hast schon ein Rechenzentrum. Wechsle offen/geschlossen am Feld.";
-      return offer;
+    if (zoneType === "datacenter") {
+      var cap = datacenterCapInfo(state, player.id);
+      if (!cap.allowed) {
+        offer.reason =
+          "Rechenzentren " +
+          cap.label +
+          ". Ab " +
+          cap.nextAt +
+          " eigenen Feldern ist das nächste frei.";
+        return offer;
+      }
+      offer.dcCap = cap;
     }
     offer.allowed = true;
     offer.variant = variant || null;
@@ -1223,19 +1677,30 @@ window.Nexus = window.Nexus || {};
         scores = bumpScores(scores, { comfort: 1 });
       }
     }
+    if ((zoneType === "park" || zoneType === "workshop") && ZONE_TYPES[zoneType].scoreHint) {
+      scores = bumpScores(scores, ZONE_TYPES[zoneType].scoreHint);
+    }
+    var trafficMode =
+      zoneType === "traffic"
+        ? resolvedVariant === "taxi" || resolvedVariant === "depot"
+          ? "taxi"
+          : "garage"
+        : null;
+    var trafficVariant = trafficMode;
     var zones = state.zones.concat([
       {
         id: "zone-" + q + "-" + r,
         q: q,
         r: r,
         type: zoneType,
-        variant: resolvedVariant,
+        variant: zoneType === "traffic" ? trafficVariant : resolvedVariant,
         ownerId: player.id,
         upgradeLevel: 0,
         harvested: true, /* erst ab nächster Runde produktiv */
         lastYield: null,
-        trafficMode: zoneType === "traffic" ? "lot" : null,
-        busStop: false
+        trafficMode: trafficMode,
+        busStop: false,
+        builtRound: state.round || 1
       }
     ]);
     var usedCoupon = Object.keys(offer.cost).length === 0 && (player.freeZoneClaims || 0) > 0;
@@ -1243,23 +1708,46 @@ window.Nexus = window.Nexus || {};
       resources: subtractCost(player.resources, offer.cost),
       freeZoneClaims: usedCoupon ? player.freeZoneClaims - 1 : player.freeZoneClaims || 0,
       scores: scores,
-      risk: risk
+      risk: risk,
+      hasDepot: false,
+      workshopDiscountPending:
+        zoneType === "workshop" ? true : !!player.workshopDiscountPending
     });
     var label = ZONE_TYPES[zoneType].label;
-    if (variantDef && variantDef.label) {
+    if (trafficMode === "taxi") {
+      label = "E-Taxi-Station";
+    } else if (trafficMode === "garage") {
+      label = "Garagen";
+    } else if (variantDef && variantDef.label) {
       label += " (" + variantDef.label + ")";
     }
+    if (zoneType === "datacenter" && offer.dcCap) {
+      label += " · " + (offer.dcCap.have + 1) + "/" + offer.dcCap.max;
+    }
     var next = replacePlayer(Object.assign({}, state, { zones: zones }), player.id, nextPlayer);
+    next = consumeDevBuildOnceForZone(next, zoneType, trafficVariant || resolvedVariant, trafficMode, false);
     next = awardBuildRolePoints(next, player.id, zoneType, resolvedVariant);
     var whyKey =
-      zoneType === "energy" ? resolvedVariant || "solar" : zoneType === "datacenter" ? resolvedVariant || "insecure" : zoneType;
+      zoneType === "energy"
+        ? resolvedVariant || "solar"
+        : zoneType === "datacenter"
+          ? resolvedVariant || "insecure"
+          : zoneType === "commerce"
+            ? resolvedVariant || "factory"
+            : zoneType;
     var why = Nexus.WHY && Nexus.WHY[whyKey] ? " " + Nexus.WHY[whyKey] : "";
+    var dcNote =
+      zoneType === "datacenter" && offer.dcCap
+        ? " Rechenzentren jetzt " + (offer.dcCap.have + 1) + "/" + offer.dcCap.max + " (je " + offer.dcCap.per + " Felder)."
+        : "";
     next.log = addLog(
       next,
       player.name,
       (usedCoupon
         ? "Startfeld gewählt: " + label + "."
-        : "Zone erweitert: " + label + " für " + formatCost(offer.cost) + ".") + why
+        : "Zone erweitert: " + label + " für " + formatCost(offer.cost) + ".") +
+        why +
+        dcNote
     );
     if (Nexus.Risk) {
       next = Nexus.Risk.syncState(next, { decay: false });
@@ -1275,6 +1763,10 @@ window.Nexus = window.Nexus || {};
     if (zoneType === "traffic") {
       next = tickSideDeal(next, player.id, "buildTraffic", 1);
     }
+    next = tickMandates(next, player.id, {
+      buildType: zoneType,
+      buildVariant: trafficVariant || resolvedVariant || null
+    });
     return next;
   }
 
@@ -1295,6 +1787,9 @@ window.Nexus = window.Nexus || {};
     if (variantDef && variantDef.scoreHint) {
       onBuild = bumpScores(onBuild, variantDef.scoreHint);
     }
+    if (typeDef && typeDef.scoreHint && !variantDef) {
+      onBuild = bumpScores(onBuild, typeDef.scoreHint);
+    }
     if (variantDef && variantDef.riskOnBuild) {
       riskOnBuild = variantDef.riskOnBuild;
     }
@@ -1314,12 +1809,20 @@ window.Nexus = window.Nexus || {};
         amount: yieldDef.primaryBase || 0,
         dice: !!yieldDef.dice,
         stable: !!yieldDef.stable,
-        moneyPerEnergy: yieldDef.stable ? C.TRANSFORMER_MONEY_PER_ENERGY || 1 : 0
+        moneyPerEnergy:
+          yieldDef.stable && resolvedVariant === "transformer"
+            ? C.TRANSFORMER_MONEY_PER_ENERGY || 1
+            : 0,
+        upkeep: yieldDef.upkeep ? Object.assign({}, yieldDef.upkeep) : null,
+        harvestScoreHint: yieldDef.harvestScoreHint
+          ? Object.assign({}, yieldDef.harvestScoreHint)
+          : null
       };
     }
     var flags = {
       residentialNeedsDc: false,
       transformerUpkeep: false,
+      taxiUpkeep: false,
       solarDice: false,
       dcUnlocksBandwidth: false,
       insecureRisk: false,
@@ -1330,20 +1833,38 @@ window.Nexus = window.Nexus || {};
       var player = currentPlayer(state);
       flags.residentialNeedsDc = !(player && playerHasZoneType(state, player.id, "datacenter"));
     }
-    if (production && production.stable) {
+    if (production && production.stable && resolvedVariant === "transformer") {
       flags.transformerUpkeep = true;
     }
     if (production && production.dice) {
       flags.solarDice = true;
     }
+    if (zoneType === "energy" && resolvedVariant === "nuclear") {
+      flags.nuclearRisk = true;
+    }
     if (zoneType === "datacenter") {
       flags.dcUnlocksBandwidth = true;
+      var who = currentPlayer(state);
+      if (who) {
+        flags.dcCap = datacenterCapInfo(state, who.id);
+      }
       if (resolvedVariant === "insecure" && riskOnBuild) {
         flags.insecureRisk = true;
       }
     }
+    if (zoneType === "commerce" && resolvedVariant === "factory") {
+      flags.factoryAdjacent = true;
+    }
+    if (zoneType === "commerce" && resolvedVariant === "enterprise") {
+      flags.enterpriseCurve = true;
+      flags.enterpriseRamp = (C.ENTERPRISE_RAMP || [1, 3, 5]).join("→");
+      flags.enterpriseMature = (C.ENTERPRISE_MATURE || [5, 3, 1]).join("→");
+    }
     if (zoneType === "traffic") {
       flags.trafficInfrastructure = true;
+      if (resolvedVariant === "taxi" && production && production.upkeep) {
+        flags.taxiUpkeep = true;
+      }
     }
     var devices = (Nexus.DEVICES || [])
       .filter(function (device) {
@@ -1365,7 +1886,10 @@ window.Nexus = window.Nexus || {};
       onBuild: onBuild,
       riskOnBuild: riskOnBuild,
       flags: flags,
-      devices: devices
+      devices: devices,
+      upkeep: production && production.upkeep ? production.upkeep : null,
+      harvestScoreHint:
+        production && production.harvestScoreHint ? production.harvestScoreHint : null
     };
   }
 
@@ -1474,6 +1998,7 @@ window.Nexus = window.Nexus || {};
       "Feld ausgebaut auf Stufe " + preview.toLevel + " für " + formatCost(preview.cost) + "."
     );
     next = tickSideDeal(next, player.id, "upgrade", 1);
+    next = tickMandates(next, player.id, { upgrade: true });
     return next;
   }
 
@@ -1581,6 +2106,12 @@ window.Nexus = window.Nexus || {};
       return state;
     }
     var player = currentPlayer(state);
+    var gone = null;
+    (state.zones || []).forEach(function (zone) {
+      if (zone.id === zoneId) {
+        gone = zone;
+      }
+    });
     var zones = state.zones.filter(function (zone) {
       return zone.id !== zoneId;
     });
@@ -1588,6 +2119,15 @@ window.Nexus = window.Nexus || {};
     resources.money = (resources.money || 0) + (preview.refund.money || 0);
     var nextPlayer = Object.assign({}, player, { resources: resources });
     var next = replacePlayer(Object.assign({}, state, { zones: zones }), player.id, nextPlayer);
+    if (gone) {
+      next = consumeDevBuildOnceForZone(
+        next,
+        gone.type,
+        gone.variant,
+        gone.trafficMode,
+        gone.busStop
+      );
+    }
     next.log = addLog(
       next,
       player.name,
@@ -1616,10 +2156,13 @@ window.Nexus = window.Nexus || {};
       return { type: "energy", variant: "solar", reasonKey: "low_energy", resource: "energy" };
     }
     if (lowest === "money") {
-      return { type: "traffic", variant: null, reasonKey: "low_money", resource: "money" };
+      return { type: "commerce", variant: "factory", reasonKey: "low_money", resource: "money" };
     }
-    if (!hasDc) {
-      return { type: "datacenter", variant: "secure", reasonKey: "need_dc", resource: "bandwidth" };
+    var cap = datacenterCapInfo(state, player.id);
+    if (!hasDc || (lowest === "bandwidth" && cap.allowed && cap.have < cap.max)) {
+      if (!hasDc || (cap.allowed && lowest === "bandwidth" && expected.bandwidth < 2)) {
+        return { type: "datacenter", variant: "secure", reasonKey: "need_dc", resource: "bandwidth" };
+      }
     }
     return { type: "residential", variant: null, reasonKey: "low_bandwidth", resource: "bandwidth" };
   }
@@ -1678,12 +2221,14 @@ window.Nexus = window.Nexus || {};
       rolePoints: 0,
       innovationCardsTotal: 0,
       handCards: [],
+      activeMandates: [],
       playedCards: [],
       drewInnovationThisTurn: false,
       freeZoneClaims: 1,
       productionHistory: {},
       hubDiscountPending: false,
       localHardwareDiscountPending: false,
+      workshopDiscountPending: false,
       roundModifiers: { cloudDisabled: false, cloudHalfEffect: false },
       pendingEvent: null,
       lastProduction: emptyResources(),
@@ -1776,6 +2321,7 @@ window.Nexus = window.Nexus || {};
       difficulty: options.difficulty || "normal",
       beginner: !!options.beginner,
       devRun: !!options.devRun,
+      devBuildOnce: {},
       busLines: [],
       projectMarket: [],
       majorArmed: false,
@@ -2048,6 +2594,14 @@ window.Nexus = window.Nexus || {};
       if (outcome.yield.moneySpent) {
         resources.money = Math.max(0, resources.money - outcome.yield.moneySpent);
         flowSpend.money += outcome.yield.moneySpent;
+      }
+      if (outcome.yield.energySpent) {
+        resources.energy = Math.max(0, resources.energy - outcome.yield.energySpent);
+        flowSpend.energy += outcome.yield.energySpent;
+      }
+      if (outcome.yield.bandwidthSpent) {
+        resources.bandwidth = Math.max(0, resources.bandwidth - outcome.yield.bandwidthSpent);
+        flowSpend.bandwidth += outcome.yield.bandwidthSpent;
       }
       var originZone = null;
       state.zones.forEach(function (zone) {
@@ -2481,13 +3035,18 @@ window.Nexus = window.Nexus || {};
     if (offer.usedLocalHardwareDiscount) {
       localHardwareDiscountPending = false;
     }
+    var workshopDiscountPending = player.workshopDiscountPending;
+    if (offer.usedWorkshopDiscount) {
+      workshopDiscountPending = false;
+    }
 
     var nextPlayer = Object.assign({}, player, {
       resources: subtractCost(player.resources, offer.cost),
       devices: devices,
       risk: risk,
       hubDiscountPending: hubDiscountPending,
-      localHardwareDiscountPending: localHardwareDiscountPending
+      localHardwareDiscountPending: localHardwareDiscountPending,
+      workshopDiscountPending: workshopDiscountPending
     });
 
     var next = replacePlayer(state, player.id, nextPlayer);
@@ -2576,15 +3135,15 @@ window.Nexus = window.Nexus || {};
 
     var parts = [];
     if (upkeep > 0 && cloudOnline) {
-      parts.push("Cloud −" + upkeep + " Bandbr.");
+      parts.push("Cloud −" + upkeep + " Daten");
     } else if (upkeep > 0) {
-      parts.push("Cloud offline (Bandbr. fehlt)");
+      parts.push("Cloud offline (Daten fehlen)");
     }
     if (energySave > 0) {
       parts.push("Spar " + energySave + " Energie");
     }
     if (bandwidthGranted > 0) {
-      parts.push("+" + bandwidthGranted + " Bandbr.");
+      parts.push("+" + bandwidthGranted + " Daten");
     }
     if (addedRisk > 0 && !Nexus.Risk) {
       parts.push("Risiko +" + addedRisk);
@@ -3174,13 +3733,16 @@ window.Nexus = window.Nexus || {};
       return state;
     }
     var next = replacePlayer(granted.state, player.id, granted.player);
-    next.log = addLog(next, player.name, "Innovationskarte gezogen: " + granted.cards[0].name + ".");
+    next.log = addLog(next, player.name, "Stadtakte gezogen: " + granted.cards[0].name + ".");
     return next;
   }
 
   function canEndTurn(state) {
     var player = currentPlayer(state);
     if (state.turnPhase !== "build" || !player) {
+      return false;
+    }
+    if (state.pendingPressure) {
       return false;
     }
     return (player.freeZoneClaims || 0) === 0;
@@ -3396,83 +3958,185 @@ window.Nexus = window.Nexus || {};
     }
     return stampCause(next, state, { kind: "card", label: "Karte" });
   };
-  Nexus.placeBusStop = function (state, zoneId) {
-    var next = Nexus.Mobility ? Nexus.Mobility.placeBusStop(state, zoneId) : state;
-    if (next !== state && Nexus.Risk) {
-      next = Nexus.Risk.syncState(next, { decay: false });
+  /* Dev-Run: Ereignis sofort öffnen (keine Risiko-Schwelle). */
+  Nexus.devForceEvent = function (state, eventId) {
+    if (!state || !state.devRun) {
+      return state;
     }
-    var zone = null;
-    (state.zones || []).forEach(function (item) {
-      if (item.id === zoneId) {
-        zone = item;
-      }
-    });
-    return stampCause(next, state, zone ? { q: zone.q, r: zone.r, label: "Halt" } : null);
-  };
-  Nexus.setTrafficMode = function (state, zoneId, mode) {
-    var next = Nexus.Mobility ? Nexus.Mobility.setTrafficMode(state, zoneId, mode) : state;
-    if (next !== state && Nexus.Risk) {
-      next = Nexus.Risk.syncState(next, { decay: false });
+    var def = Nexus.EVENTS_BY_ID && Nexus.EVENTS_BY_ID[eventId];
+    if (!def) {
+      return state;
     }
-    var zone = null;
-    (state.zones || []).forEach(function (item) {
-      if (item.id === zoneId) {
-        zone = item;
-      }
+    var player = currentPlayer(state);
+    if (!player) {
+      return state;
+    }
+    var card = Object.assign({}, def, {
+      choices: (def.choices || []).map(function (c) {
+        return Object.assign({}, c, { effects: Object.assign({}, c.effects || {}) });
+      })
     });
-    return stampCause(next, state, zone ? { q: zone.q, r: zone.r, label: mode === "garage" ? "Parkhaus" : "Busbahnhof" } : null);
+    var next = Object.assign({}, state, { turnPhase: "event" });
+    return replacePlayer(next, player.id, { pendingEvent: card });
   };
-  Nexus.openBusLine = function (state, stopZoneIds, propulsion) {
-    var next = Nexus.Mobility ? Nexus.Mobility.openLine(state, stopZoneIds, propulsion) : state;
-    if (next !== state) {
-      var who = currentPlayer(state);
-      if (who) {
-        if (propulsion === "renewable") {
-          next = awardTypedRolePoints(next, who.id, "eco", 1, "Öko-Linie");
-        } else if (propulsion === "electric") {
-          next = awardTypedRolePoints(next, who.id, "innovation", 1, "Elektro-Linie");
-          next = tickSideDeal(next, who.id, "lineElectric", 1);
-        } else {
-          next = awardTypedRolePoints(next, who.id, "comfort", 1, "Diesel-Linie");
-        }
-        var foreign = 0;
-        (stopZoneIds || []).forEach(function (zid) {
-          (state.zones || []).forEach(function (zone) {
-            if (zone.id === zid && zone.ownerId && zone.ownerId !== who.id) {
-              foreign += 1;
-            }
-          });
-        });
-        if (foreign) {
-          next = awardTypedRolePoints(next, who.id, "image", Math.min(2, foreign), "Fremde Halte");
-        }
-      }
-      if (Nexus.Risk) {
-        next = Nexus.Risk.syncState(next, { decay: false });
+
+  /* Dev-Run: Special einmalig im Baumenü freischalten (nicht sofort umbauen). */
+  Nexus.devForceSpecialTile = function (state, kind) {
+    if (!state || !state.devRun) {
+      return state;
+    }
+    if (kind === "depot" || kind === "bus-stop") {
+      kind = "taxi";
+    }
+    var allowed = { garage: 1, taxi: 1, park: 1, workshop: 1 };
+    if (!allowed[kind]) {
+      return state;
+    }
+    var once = Object.assign({}, state.devBuildOnce || {});
+    once[kind] = true;
+    var labels = {
+      garage: "Garagen",
+      taxi: "E-Taxi-Station",
+      park: "Park",
+      workshop: "Werkstatt"
+    };
+    var next = Object.assign({}, state, {
+      devBuildOnce: once,
+      turnPhase: "build"
+    });
+    next.log = addLog(
+      next,
+      "Dev",
+      (labels[kind] || kind) + " einmalig freigeschaltet — im Baumenü unter … bauen."
+    );
+    return next;
+  };
+
+  function clearDevBuildOnce(state, kind) {
+    if (!state || !state.devBuildOnce || !state.devBuildOnce[kind]) {
+      return state;
+    }
+    var once = Object.assign({}, state.devBuildOnce);
+    delete once[kind];
+    return Object.assign({}, state, { devBuildOnce: once });
+  }
+
+  function consumeDevBuildOnceForZone(state, zoneType, variant, trafficMode, busStop) {
+    var next = state;
+    if (zoneType === "park") {
+      next = clearDevBuildOnce(next, "park");
+    } else if (zoneType === "workshop") {
+      next = clearDevBuildOnce(next, "workshop");
+    } else if (zoneType === "traffic") {
+      if (trafficMode === "taxi" || variant === "taxi" || variant === "depot" || trafficMode === "depot") {
+        next = clearDevBuildOnce(next, "taxi");
+        next = clearDevBuildOnce(next, "depot");
+      } else {
+        next = clearDevBuildOnce(next, "garage");
       }
     }
-    var zone = null;
-    (state.zones || []).forEach(function (item) {
-      if (stopZoneIds && item.id === stopZoneIds[0]) {
-        zone = item;
-      }
-    });
-    return stampCause(next, state, zone ? { q: zone.q, r: zone.r, label: "Linie" } : { kind: "line", label: "Linie" });
+    return next;
+  }
+
+  /* Bus/Linien entfernt — Stubs halten alte Aufrufe harmlos. */
+  Nexus.placeBusStop = function (state) {
+    return state;
   };
+  Nexus.setTrafficMode = function (state) {
+    return state;
+  };
+  Nexus.openBusLine = function (state) {
+    return state;
+  };
+  Nexus.normalizeTrafficMode = normalizeTrafficMode;
   Nexus.canBuyDevice = canBuyDevice;
   Nexus.getInnovationDrawOffer = getInnovationDrawOffer;
   Nexus.drawInnovationCard = drawInnovationCard;
   Nexus.playInnovationCard = playInnovationCard;
+  Nexus.playHandCard = playInnovationCard;
+  Nexus.resolvePressure = resolvePressure;
+  Nexus.tickMandates = tickMandates;
   Nexus.canAfford = canAfford;
   Nexus.formatCost = formatCost;
   Nexus.formatEffects = formatEffects;
   Nexus.describeZoneBuild = describeZoneBuild;
+  /* Präsentation: Ertragszeile für Produktions-View (keine neuen Regeln). */
+  function zoneProdSummary(state, zone) {
+    if (!zone || !ZONE_TYPES[zone.type]) {
+      return null;
+    }
+    var typeDef = ZONE_TYPES[zone.type];
+    var def = resolveZoneYieldDef(zone);
+    var level = zoneUpgradeLevel(zone);
+    var variant = zone.variant || defaultVariantFor(zone.type);
+    var variantDef = variantDefFor(zone.type, variant);
+    var title = typeDef.label || zone.type;
+    if (variantDef && variantDef.label && variantDef.label !== typeDef.label) {
+      title = variantDef.label;
+    }
+    if (level > 0) {
+      title += " · Stufe " + level;
+    }
+    var lines = [];
+    var owner = null;
+    (state.players || []).forEach(function (person) {
+      if (person.id === zone.ownerId) {
+        owner = person;
+      }
+    });
+    var labels = Nexus.RESOURCE_LABELS || {};
+    if (zone.type === "home") {
+      var homeYield = homeBaseProduction(zone);
+      ["energy", "money", "bandwidth"].forEach(function (key) {
+        if (homeYield[key]) {
+          lines.push("+" + homeYield[key] + " " + (labels[key] || key));
+        }
+      });
+    } else if (def && def.primary) {
+      var base = zonePrimaryBase(zone, state, owner);
+      if (zone.type === "residential" && owner && !playerHasZoneType(state, owner.id, "datacenter")) {
+        lines.push("0 Daten (ohne RZ)");
+      } else {
+        var prefix = def.dice ? "~" : "+";
+        lines.push(prefix + base + " " + (labels[def.primary] || def.primary));
+        if (zone.variant === "transformer") {
+          lines.push("−" + base * (C.TRANSFORMER_MONEY_PER_ENERGY || 1) + " Geld");
+        }
+        if (def.upkeep) {
+          if (def.upkeep.energy) {
+            lines.push("−" + def.upkeep.energy + " " + (labels.energy || "energy"));
+          }
+          if (def.upkeep.bandwidth) {
+            lines.push("−" + def.upkeep.bandwidth + " " + (labels.bandwidth || "bandwidth"));
+          }
+        }
+        if (def.harvestScoreHint && def.harvestScoreHint.comfort) {
+          lines.push("+" + def.harvestScoreHint.comfort + " Komfort");
+        }
+      }
+    } else {
+      lines.push("kein Ressourcenertrag");
+    }
+    if (def && def.risk) {
+      lines.push("Risiko");
+    }
+    return {
+      title: title,
+      lines: lines,
+      q: zone.q,
+      r: zone.r,
+      zoneId: zone.id
+    };
+  }
+  Nexus.zoneProdSummary = zoneProdSummary;
   Nexus.describeZoneUpgrade = describeZoneUpgrade;
   Nexus.upgradeZone = upgradeZone;
   Nexus.describeDemolish = describeDemolish;
   Nexus.demolishZone = demolishZone;
   Nexus.recommendExpandType = recommendExpandType;
   Nexus.recommendExpandSlot = recommendExpandSlot;
+  Nexus.datacenterCapInfo = datacenterCapInfo;
+  Nexus.maxDatacentersFor = maxDatacentersFor;
   Nexus.zoneUpgradeLevel = zoneUpgradeLevel;
   Nexus.cloudUpkeepCost = cloudUpkeepCost;
 
@@ -3528,6 +4192,27 @@ window.Nexus = window.Nexus || {};
     if (!trafficPreview.onBuild || trafficPreview.onBuild.comfort) {
       throw new Error("traffic preview comfort only on first lot");
     }
+    var taxiPreview = describeZoneBuild(state, "traffic", "taxi");
+    if (
+      !taxiPreview.production ||
+      taxiPreview.production.resource !== "money" ||
+      taxiPreview.production.amount !== 2 ||
+      !taxiPreview.upkeep ||
+      taxiPreview.upkeep.energy !== 1 ||
+      taxiPreview.upkeep.bandwidth !== 1
+    ) {
+      throw new Error("taxi preview yield/upkeep");
+    }
+    if (pick2) {
+      var garageZoneEarly = zoneAt(state, pick2.q, pick2.r);
+      if (
+        !garageZoneEarly ||
+        garageZoneEarly.trafficMode !== "garage" ||
+        garageZoneEarly.variant !== "garage"
+      ) {
+        throw new Error("garage expand mode");
+      }
+    }
     var solarPreview = describeZoneBuild(state, "energy", "solar");
     if (!solarPreview.production || solarPreview.production.dice) {
       throw new Error("solar preview must be fixed yield");
@@ -3578,7 +4263,35 @@ window.Nexus = window.Nexus || {};
     if (!currentPlayer(state).sideDeal || currentPlayer(state).sideDeal.progress < 1) {
       throw new Error("sideDeal progress");
     }
-    state = upgradeZone(state, homeUp.id);
+    if (pick2) {
+      var garageLeaf = zoneAt(state, pick2.q, pick2.r);
+      state = demolishZone(state, garageLeaf.id);
+      state = buyZone(state, pick2.q, pick2.r, "traffic", "taxi");
+      var taxiZone = zoneAt(state, pick2.q, pick2.r);
+      if (!taxiZone || taxiZone.trafficMode !== "taxi" || taxiZone.variant !== "taxi") {
+        throw new Error("taxi expand mode");
+      }
+      var taxiYield = produceForZone(taxiZone, 0, currentPlayer(state), state);
+      if (
+        !taxiYield ||
+        taxiYield.primary.amount !== 2 ||
+        taxiYield.energySpent !== 1 ||
+        taxiYield.bandwidthSpent !== 1 ||
+        !taxiYield.scoreHint ||
+        taxiYield.scoreHint.comfort !== 1
+      ) {
+        throw new Error("taxi produce");
+      }
+      state = upgradeZone(state, taxiZone.id);
+      taxiZone = zoneAt(state, pick2.q, pick2.r);
+      if (!taxiZone || taxiZone.upgradeLevel !== 1) {
+        throw new Error("taxi upgrade");
+      }
+      state = demolishZone(state, taxiZone.id);
+      state = buyZone(state, pick2.q, pick2.r, "traffic", "garage");
+    } else {
+      state = upgradeZone(state, homeUp.id);
+    }
     if (currentPlayer(state).sideDeal) {
       throw new Error("sideDeal should resolve");
     }
@@ -3639,6 +4352,77 @@ window.Nexus = window.Nexus || {};
     var pub = getPublicPlayerView(withDev, withDev.players[0].id);
     if (!pub || pub.devices.length < 2) {
       throw new Error("public view gadgets");
+    }
+    /* Stadtakte: Briefing, Mandat, Druckstück */
+    state = Object.assign({}, state, { currentPlayerIndex: 0, turnPhase: "build" });
+    state = replacePlayer(
+      state,
+      currentPlayer(state).id,
+      Object.assign({}, currentPlayer(state), {
+        drewInnovationThisTurn: false,
+        resources: Object.assign({}, currentPlayer(state).resources, {
+          money: 20,
+          energy: 20,
+          bandwidth: 20
+        })
+      })
+    );
+    var briefing = (Nexus.STADT_AKTEN || []).filter(function (c) {
+      return c.kind === "briefing";
+    })[0];
+    var mandate = (Nexus.STADT_AKTEN || []).filter(function (c) {
+      return c.id === "mandate-park";
+    })[0];
+    var pressure = (Nexus.STADT_AKTEN || []).filter(function (c) {
+      return c.kind === "pressure";
+    })[0];
+    if (!briefing || !mandate || !pressure) {
+      throw new Error("stadtakten catalog");
+    }
+    state = replacePlayer(
+      state,
+      currentPlayer(state).id,
+      Object.assign({}, currentPlayer(state), {
+        handCards: [makeHandCard(briefing), makeHandCard(mandate), makeHandCard(pressure)],
+        activeMandates: []
+      })
+    );
+    state = playInnovationCard(state, 0);
+    if ((currentPlayer(state).handCards || []).length !== 2) {
+      throw new Error("briefing play");
+    }
+    state = playInnovationCard(state, 0);
+    if (!(currentPlayer(state).activeMandates || []).length) {
+      throw new Error("mandate activate");
+    }
+    var parkSlot = null;
+    Nexus.HEX_DIRS.forEach(function (dir) {
+      var home = playerZones(state, currentPlayer(state).id).filter(function (z) {
+        return z.type === "home";
+      })[0];
+      if (!home || parkSlot) {
+        return;
+      }
+      var q = home.q + dir.q;
+      var r = home.r + dir.r;
+      if (isExpandableSlot(state, q, r)) {
+        parkSlot = { q: q, r: r };
+      }
+    });
+    if (parkSlot) {
+      state = buyZone(state, parkSlot.q, parkSlot.r, "park");
+      if ((currentPlayer(state).activeMandates || []).length) {
+        throw new Error("mandate should complete");
+      }
+    }
+    var foeId = state.players[1].id;
+    state = playInnovationCard(state, 0, { targetId: foeId });
+    if (!state.pendingPressure) {
+      throw new Error("pressure pending");
+    }
+    state = resolvePressure(state, "risk");
+    if (state.pendingPressure) {
+      throw new Error("pressure resolve");
     }
     if (C.MAX_PLAYERS !== 3 || Nexus.ALL_ROLE_IDS.length !== 6) {
       throw new Error("cast: max 3 players, 6 roles");

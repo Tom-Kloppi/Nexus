@@ -25,6 +25,7 @@ window.Nexus = window.Nexus || {};
     investorAwaitingResource: false,
     homeOpen: false,
     tradeOpen: false,
+    boardView: localStorage.getItem("nexus-board-view") === "production" ? "production" : "board",
     tradePick: { partnerId: null, giveKey: "energy", giveAmount: 1, wantKey: "money", wantAmount: 1 },
     map: { scale: 1, tx: 0, ty: 0, dragging: false, panning: false, moved: false, lastX: 0, lastY: 0, startX: 0, startY: 0, pointerId: null, userAdjusted: false }
   };
@@ -403,8 +404,8 @@ window.Nexus = window.Nexus || {};
       prev.currentPlayerIndex !== state.currentPlayerIndex
     ) {
       ui.map.userAdjusted = false;
-      if (Nexus.Board3D) {
-        Nexus.Board3D.onSeatChange();
+      if (Nexus.Board3D && Nexus.Board3D.onSeatChange) {
+        Nexus.Board3D.onSeatChange(state);
       }
     }
     toastNewLogs(prev, state);
@@ -908,6 +909,7 @@ window.Nexus = window.Nexus || {};
       investorAwaitingResource: false,
       homeOpen: false,
       tradeOpen: false,
+      boardView: ui.boardView === "production" ? "production" : "board",
       tradePick: { partnerId: null, giveKey: "energy", giveAmount: 1, wantKey: "money", wantAmount: 1 },
       map: { scale: 1, tx: 0, ty: 0, dragging: false, panning: false, moved: false, lastX: 0, lastY: 0, startX: 0, startY: 0, pointerId: null, userAdjusted: false }
     };
@@ -1595,6 +1597,21 @@ document.getElementById("btn-end-round").addEventListener("click", function () {
   document.getElementById("btn-dock-toggle").addEventListener("click", function () {
     var dock = document.getElementById("dock");
     setDockOpen(!dock.classList.contains("is-open"));
+  });
+
+  document.getElementById("btn-board-view").addEventListener("click", function () {
+    ui.boardView = ui.boardView === "production" ? "board" : "production";
+    try {
+      localStorage.setItem("nexus-board-view", ui.boardView);
+    } catch (err) {
+      /* Pref optional */
+    }
+    if (Nexus.Board3D && Nexus.Board3D.setProductionMode) {
+      Nexus.Board3D.setProductionMode(ui.boardView === "production");
+    }
+    if (state) {
+      Nexus.render(state, ui);
+    }
   });
 
   document.getElementById("btn-dock-close").addEventListener("click", function () {
@@ -2295,6 +2312,67 @@ document.getElementById("btn-end-round").addEventListener("click", function () {
   setupMapControls();
   Nexus.openModal(document.getElementById("setup-screen"));
 
+  function fillCityDev() {
+    var next = state;
+    var existing = {};
+    (next.zones || []).forEach(function (zone) {
+      existing[zone.q + "," + zone.r] = true;
+    });
+    var types = [
+      ["residential", null],
+      ["energy", "solar"],
+      ["energy", "transformer"],
+      ["energy", "nuclear"],
+      ["commerce", "factory"],
+      ["commerce", "enterprise"],
+      ["datacenter", "secure"],
+      ["datacenter", "insecure"],
+      ["traffic", null],
+      ["park", null],
+      ["workshop", null]
+    ];
+    var extra = (next.zones || []).slice();
+    Nexus.boardSlots().forEach(function (slot, index) {
+      if (existing[slot.key]) {
+        return;
+      }
+      var spec = types[index % types.length];
+      var owner = next.players[index % next.players.length];
+      extra.push({
+        id: "zone-" + slot.q + "-" + slot.r,
+        q: slot.q,
+        r: slot.r,
+        type: spec[0],
+        variant: spec[1],
+        ownerId: owner.id,
+        upgradeLevel: index % 3,
+        harvested: true,
+        lastYield: null
+      });
+    });
+    next = Object.assign({}, next, {
+      zones: extra,
+      screen: "game",
+      turnPhase: "build",
+      players: next.players.map(function (p) {
+        var devices = Object.assign({}, p.devices || {});
+        devices.camera = "cloud";
+        devices.lock = "cloud";
+        devices.thermostat = "cloud";
+        devices.shutters = "cloud";
+        devices.hems = "cloud";
+        devices.peak_load = "cloud";
+        devices.v2x = "cloud";
+        devices.charger = "cloud";
+        devices.charging_network = "cloud";
+        devices.hub = "local";
+        devices.storage_battery = "local";
+        return Object.assign({}, p, { devices: devices });
+      })
+    });
+    commit(next, { skipAutoHarvest: true });
+  }
+
   if (/\bqa=1\b/.test(location.search || "")) {
     Nexus.__qa = {
       getState: function () {
@@ -2304,61 +2382,7 @@ document.getElementById("btn-end-round").addEventListener("click", function () {
         return ui;
       },
       commit: commit,
-      fillCity: function () {
-        var next = state;
-        var existing = {};
-        (next.zones || []).forEach(function (zone) {
-          existing[zone.q + "," + zone.r] = true;
-        });
-        var types = [
-          ["residential", null],
-          ["energy", "solar"],
-          ["energy", "transformer"],
-          ["datacenter", "secure"],
-          ["datacenter", "insecure"],
-          ["traffic", null]
-        ];
-        var extra = (next.zones || []).slice();
-        Nexus.boardSlots().forEach(function (slot, index) {
-          if (existing[slot.key]) {
-            return;
-          }
-          var spec = types[index % types.length];
-          var owner = next.players[index % next.players.length];
-          extra.push({
-            id: "zone-" + slot.q + "-" + slot.r,
-            q: slot.q,
-            r: slot.r,
-            type: spec[0],
-            variant: spec[1],
-            ownerId: owner.id,
-            upgradeLevel: index % 3,
-            harvested: true,
-            lastYield: null
-          });
-        });
-        next = Object.assign({}, next, {
-          zones: extra,
-          screen: "game",
-          turnPhase: "build",
-          players: next.players.map(function (p) {
-            var devices = Object.assign({}, p.devices || {});
-            devices.camera = "cloud";
-            devices.lock = "cloud";
-            devices.thermostat = "cloud";
-            devices.shutters = "cloud";
-            devices.hems = "cloud";
-            devices.peak_load = "cloud";
-            devices.v2x = "cloud";
-            devices.charger = "cloud";
-            devices.charging_network = "cloud";
-            devices.hub = "local";
-            devices.storage_battery = "local";
-            return Object.assign({}, p, { devices: devices });
-          })
-        });
-        commit(next, { skipAutoHarvest: true });
-      }
+      fillCity: fillCityDev
     };
   }
   if (Nexus.UIOverhaul) {
@@ -2370,7 +2394,8 @@ document.getElementById("btn-end-round").addEventListener("click", function () {
       getUi: function () {
         return ui;
       },
-      refreshGfx: refreshGfx
+      refreshGfx: refreshGfx,
+      fillCity: fillCityDev
     });
   }
 

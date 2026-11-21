@@ -5,13 +5,13 @@ Nexus.RESOURCE_KEYS = ["energy", "money", "bandwidth"];
 Nexus.RESOURCE_LABELS = {
   energy: "Energie",
   money: "Geld",
-  bandwidth: "Bandbreite"
+  bandwidth: "Daten"
 };
 
 Nexus.RESOURCE_SHORT = {
   energy: "Energie",
   money: "Geld",
-  bandwidth: "Bandbr."
+  bandwidth: "Daten"
 };
 
 Nexus.RESOURCE_COLORS = {
@@ -29,12 +29,20 @@ Nexus.SCORE_LABELS = {
   security: "Sicherheit"
 };
 
-Nexus.ZONE_TYPE_KEYS = ["residential", "energy", "datacenter", "traffic"];
+Nexus.ZONE_TYPE_KEYS = [
+  "residential",
+  "energy",
+  "datacenter",
+  "commerce",
+  "traffic",
+  "park",
+  "workshop"
+];
 
 Nexus.ZONE_TYPES = {
   residential: {
     id: "residential",
-    label: "Wohn- und Bürogebiet",
+    label: "Wohngebiet",
     shortLabel: "Wohnen",
     primary: "bandwidth",
     primaryBase: 2
@@ -44,21 +52,43 @@ Nexus.ZONE_TYPES = {
     label: "Energieversorgung",
     shortLabel: "Energie",
     primary: "energy",
-    variants: ["solar", "transformer"]
+    variants: ["solar", "transformer", "nuclear"]
   },
   datacenter: {
     id: "datacenter",
-    label: "Datenzentrum",
+    label: "Rechenzentrum",
     shortLabel: "Datenz.",
     primary: "bandwidth",
     variants: ["insecure", "secure"]
   },
+  commerce: {
+    id: "commerce",
+    label: "Wirtschaft",
+    shortLabel: "Geld",
+    primary: "money",
+    variants: ["factory", "enterprise"]
+  },
   traffic: {
     id: "traffic",
-    label: "Verkehrsinfrastruktur",
+    label: "Verkehr",
     shortLabel: "Verkehr",
-    primary: "money",
-    primaryBase: 1
+    primary: null,
+    variants: ["garage", "taxi"]
+  },
+  park: {
+    id: "park",
+    label: "Park",
+    shortLabel: "Park",
+    primary: null,
+    scoreHint: { comfort: 1, environment: 1 }
+  },
+  workshop: {
+    id: "workshop",
+    label: "Werkstatt",
+    shortLabel: "Werkstatt",
+    primary: null,
+    scoreHint: { image: 1 },
+    workshopDiscount: true
   }
 };
 
@@ -82,7 +112,18 @@ Nexus.ENERGY_VARIANTS = {
     dice: false,
     stable: true,
     scoreHint: { environment: -1 }
-    /* Umwelt nur beim Bau — keine Ernte-Strafe jede Runde. */
+  },
+  nuclear: {
+    id: "nuclear",
+    label: "Atomkraftwerk",
+    shortLabel: "Atom",
+    primary: "energy",
+    primaryBase: 5,
+    dice: false,
+    stable: true,
+    risk: true,
+    riskOnBuild: 4,
+    scoreHint: { environment: -2 }
   }
 };
 
@@ -106,16 +147,63 @@ Nexus.DATACENTER_VARIANTS = {
   }
 };
 
+Nexus.COMMERCE_VARIANTS = {
+  factory: {
+    id: "factory",
+    label: "Fabrik",
+    shortLabel: "Fabrik",
+    primary: "money",
+    primaryBase: 1,
+    adjacentResidentialBonus: true
+  },
+  enterprise: {
+    id: "enterprise",
+    label: "Unternehmen",
+    shortLabel: "Firma",
+    primary: "money",
+    primaryBase: 5,
+    enterpriseCurve: true
+  }
+};
+
+Nexus.TRAFFIC_VARIANTS = {
+  garage: {
+    id: "garage",
+    label: "Garagen",
+    shortLabel: "Garagen",
+    primary: null
+  },
+  taxi: {
+    id: "taxi",
+    label: "E-Taxi-Station",
+    shortLabel: "E-Taxi",
+    primary: "money",
+    primaryBase: 2,
+    stable: true,
+    harvestScoreHint: { comfort: 1 },
+    upkeep: { energy: 1, bandwidth: 1 }
+  }
+};
+
 Nexus.ZONE_VARIANTS = {
-  energy: [Nexus.ENERGY_VARIANTS.solar, Nexus.ENERGY_VARIANTS.transformer],
-  datacenter: [Nexus.DATACENTER_VARIANTS.insecure, Nexus.DATACENTER_VARIANTS.secure]
+  energy: [
+    Nexus.ENERGY_VARIANTS.solar,
+    Nexus.ENERGY_VARIANTS.transformer,
+    Nexus.ENERGY_VARIANTS.nuclear
+  ],
+  datacenter: [Nexus.DATACENTER_VARIANTS.insecure, Nexus.DATACENTER_VARIANTS.secure],
+  commerce: [Nexus.COMMERCE_VARIANTS.factory, Nexus.COMMERCE_VARIANTS.enterprise],
+  traffic: [Nexus.TRAFFIC_VARIANTS.garage, Nexus.TRAFFIC_VARIANTS.taxi]
 };
 
 Nexus.ZONE_TYPE_COLORS = {
   residential: "#7ec8d8",
   energy: "#6a9fd4",
   datacenter: "#8a9aaa",
-  traffic: "#5c5f66"
+  commerce: "#c4a06a",
+  traffic: "#5c5f66",
+  park: "#6aaa6a",
+  workshop: "#9a8a72"
 };
 
 Nexus.PRODUCTION_DICE = [
@@ -193,7 +281,7 @@ Nexus.CONSTANTS = {
   START_RESOURCES: 3,
   START_ZONE_COUNT: 1,
   EVENT_EVERY_N_TURNS: 2,
-  HAND_LIMIT: 4,
+  HAND_LIMIT: 5,
   LOCK_RISK_REDUCTION: 1,
   LOG_LIMIT: 40,
   HEX_RADIUS_BASE: 3,
@@ -222,5 +310,9 @@ Nexus.CONSTANTS = {
   ZONE_UPGRADE_MONEY_STEP: 2,
   ZONE_UPGRADE_ENERGY: 1,
   DEMOLISH_REFUND_MONEY: 1,
-  DEMOLISH_REFUND_PER_LEVEL: 1
+  DEMOLISH_REFUND_PER_LEVEL: 1,
+  /* 1 Rechenzentrum je 7 eigene Felder (inkl. Leitstand). */
+  DC_TILES_PER: 7,
+  ENTERPRISE_MATURE: [5, 3, 1],
+  ENTERPRISE_RAMP: [1, 3, 5]
 };

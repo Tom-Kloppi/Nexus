@@ -5,6 +5,7 @@ window.Nexus = window.Nexus || {};
   var lastResourceSnapshot = null;
   var lastPlayerId = null;
   var lastScoreSnapshot = null;
+  var lastFxState = null;
   var flightSnap = {};
 
   function formatNumber(value) {
@@ -667,7 +668,7 @@ window.Nexus = window.Nexus || {};
     { label: "Wohnen", note: "Hochhaus · Ausbau = Höhe", top: "--lu-res-top", side: "--lu-res-side", glyph: "house" },
     { label: "Energie", note: "Solardach · Umspannwerk", top: "--lu-solar-top", side: "--lu-solar-side", glyph: "energy" },
     { label: "Datenzentrum", note: "Halle, Flügel, Kühltürme", top: "--lu-dcopen-top", side: "--lu-dcopen-side", glyph: "data" },
-    { label: "Verkehr", note: "Busbahnhof · Parkhaus", top: "--lu-traffic-top", side: "--lu-traffic-side", glyph: "bus" },
+    { label: "Verkehr", note: "Garagen · E-Taxi", top: "--lu-traffic-top", side: "--lu-traffic-side", glyph: "bus" },
     { label: "Kontrollbüro", note: "Leitstand · Startfeld", top: "--lu-home-top", side: "--lu-home-side", glyph: "home" },
     { label: "Baulücke", note: "frei · Asphalt, kein Acker", top: "--lu-grass-top", side: "--lu-grass-side", glyph: "tree" },
     { label: "Stadtrand", note: "Gewerbe · Hügel · Berge", top: "--lu-farm-top", side: "--lu-farm-side", glyph: "tree" }
@@ -1071,8 +1072,14 @@ window.Nexus = window.Nexus || {};
     return out;
   }
 
-  function trafficKindFor(q, r) {
-    return tileRandom(q, r, 3)() < 0.5 ? "bus" : "parking";
+  function trafficKindFor(q, r, zone) {
+    if (zone && zone.type === "traffic") {
+      var mode = Nexus.normalizeTrafficMode
+        ? Nexus.normalizeTrafficMode(zone)
+        : zone.trafficMode || zone.variant;
+      return mode === "taxi" ? "taxi" : "garage";
+    }
+    return tileRandom(q, r, 3)() < 0.5 ? "taxi" : "garage";
   }
 
   function artResidential(cx, cy, sy, rand, level, gizmos) {
@@ -1641,7 +1648,7 @@ window.Nexus = window.Nexus || {};
       return "";
     }
     if (zone.type === "residential" && viewerId && !playerHasDatacenter(state, viewerId)) {
-      return "Erwartet: Bandbreite 0 — kein eigenes Datenzentrum";
+      return "Erwartet: Daten 0 — kein eigenes Datenzentrum";
     }
     if (zone.type === "energy" && zone.variant === "transformer") {
       var per = Nexus.CONSTANTS.TRANSFORMER_MONEY_PER_ENERGY || 1;
@@ -1651,13 +1658,28 @@ window.Nexus = window.Nexus || {};
       return "Solarfarm: 2 Energie fest · Umwelt+ bei Bau und Ernte";
     }
     if (zone.type === "datacenter" && zone.variant === "insecure") {
-      return "Offenes Rechenzentrum: Bandbreite frei, höheres Risiko. Nur eines pro Person.";
+      return "Offenes Rechenzentrum: Daten, höheres Risiko. Limit je 7 Felder.";
     }
     if (zone.type === "datacenter" && zone.variant === "secure") {
-      return "Geschlossenes Rechenzentrum: Bandbreite frei, sicherer. Nur eines pro Person.";
+      return "Geschlossenes Rechenzentrum: Daten, sicherer. Limit je 7 Felder.";
     }
     if (zone.type === "traffic") {
-      return "Parkplatz/Bahnhof: Geld-Ertrag, erstes Feld +1 Komfort. Straßen auf den Kanten.";
+      return "Garagen oder E-Taxi-Station. Erstes Feld +1 Komfort. Straßen auf den Kanten.";
+    }
+    if (zone.type === "commerce" && zone.variant === "factory") {
+      return "Fabrik: Geld +1 je angrenzendem Wohnfeld.";
+    }
+    if (zone.type === "commerce" && zone.variant === "enterprise") {
+      return "Unternehmen: Aufbau 1→3→5, Reife 5→3→1 je Stück.";
+    }
+    if (zone.type === "energy" && zone.variant === "nuclear") {
+      return "Atom: 5 Energie, hohes Risiko.";
+    }
+    if (zone.type === "park") {
+      return "Park: Komfort und Umwelt, kein Ertrag.";
+    }
+    if (zone.type === "workshop") {
+      return "Werkstatt: nächstes Gerät −1 Geld.";
     }
     return formatZoneYield(zone);
   }
@@ -2172,6 +2194,32 @@ window.Nexus = window.Nexus || {};
         })
         .join("");
     }
+    var mandateStrip = document.getElementById("mandate-strip");
+    if (mandateStrip) {
+      var mandates =
+        !redactGoals && !Nexus.isHotSeatShield(state) ? player.activeMandates || [] : [];
+      if (mandates.length) {
+        mandateStrip.hidden = false;
+        mandateStrip.innerHTML = mandates
+          .map(function (m) {
+            var need = (m.need && m.need.count) || 1;
+            return (
+              '<span class="mandate-chip" title="' +
+              (m.name || "Mandat") +
+              '">Akte: ' +
+              (m.progress || 0) +
+              "/" +
+              need +
+              (m.label ? " · " + m.label : "") +
+              "</span>"
+            );
+          })
+          .join("");
+      } else {
+        mandateStrip.hidden = true;
+        mandateStrip.innerHTML = "";
+      }
+    }
     var dealNote = document.getElementById("side-deal-note");
     if (dealNote) {
       var deal = player.sideDeal;
@@ -2210,13 +2258,15 @@ window.Nexus = window.Nexus || {};
       return;
     }
     document.getElementById("role-reveal-player").textContent = "Alle am Tisch";
-    document.getElementById("role-reveal-hint").textContent = "Jeder sieht, worauf die anderen spielen. Danach ist " + state.players[0].name + " dran.";
+    document.getElementById("role-reveal-hint").textContent =
+      "Jeder sieht, worauf die anderen spielen. Danach ist " + state.players[0].name + " dran.";
     document.getElementById("btn-role-reveal-ok").textContent = "Los";
     if (ui && ui.tutorialRedact) {
-      document.getElementById("role-reveal-body").innerHTML = "<p>In der Übung bleiben die Ziele zu.</p>";
+      document.getElementById("role-reveal-body").innerHTML =
+        '<p class="role-cover-redact">In der Übung bleiben die Ziele zu.</p>';
     } else {
       document.getElementById("role-reveal-body").innerHTML =
-        '<div class="role-roster">' +
+        '<div class="role-cover-grid">' +
         state.players
           .map(function (person) {
             var personRole = Nexus.ROLES_BY_ID[person.roleId];
@@ -2224,27 +2274,41 @@ window.Nexus = window.Nexus || {};
             if (!personRole || !personProgress) {
               return "";
             }
-            var face = Nexus.roleAvatarSvg ? Nexus.roleAvatarSvg(personRole.id, 72) : "";
+            var accent = playerColor(person);
+            var face = Nexus.roleAvatarSvg ? Nexus.roleAvatarSvg(personRole.id, 96) : "";
             return (
-              '<article class="role-roster-card">' +
+              '<article class="role-cover-panel" style="--role-accent:' +
+              accent +
+              '">' +
+              '<div class="role-cover-panel-accent" aria-hidden="true"></div>' +
+              '<div class="role-cover-panel-face">' +
               face +
+              "</div>" +
+              '<p class="role-cover-panel-seat">' +
+              person.name +
+              "</p>" +
               "<h3>" +
               personRole.character +
               "</h3>" +
-              "<p>" +
+              '<p class="role-cover-panel-meta">' +
               personRole.name +
               " · " +
               personRole.alignment +
               "</p>" +
-              "<p>" +
+              '<p class="role-cover-panel-pitch">' +
               (personRole.pitch || "") +
               "</p>" +
-              personProgress.subGoals
-                .map(function (goal) {
-                  return "<p>" + goalPips(goal.points, goal.maxPoints) + " " + goal.label + "</p>";
-                })
-                .join("") +
-              "<p><strong>" +
+              '<p class="role-cover-panel-how">' +
+              (personRole.how || "") +
+              "</p>" +
+              '<p class="role-cover-panel-points" style="--role-point-color:' +
+              (personRole.pointColor || accent) +
+              '"><span class="role-point-dot" aria-hidden="true"></span>' +
+              (personRole.pointLabel || "Rollenpunkte") +
+              " · Ziel " +
+              personProgress.target +
+              "</p>" +
+              '<p class="role-cover-panel-score"><strong>' +
               personProgress.points +
               "/" +
               personProgress.target +
@@ -2755,15 +2819,15 @@ window.Nexus = window.Nexus || {};
             : null;
         variantLabel = (vDef && vDef.label) || zone.variant;
       }
-      var trafficKind = zone.type === "traffic" ? trafficKindFor(tile.q, tile.r) : null;
+      var trafficKind = zone.type === "traffic" ? trafficKindFor(tile.q, tile.r, zone) : null;
       title =
         (Nexus.ZONE_TYPES[zone.type] || {}).label +
         (variantLabel ? " · " + variantLabel : "") +
         (level ? " · Ausbau " + level : "") +
-        (trafficKind === "bus"
-          ? " · Busbahnhof"
-          : trafficKind === "parking"
-            ? " · Parkplatz mit Ladestationen"
+        (trafficKind === "taxi"
+          ? " · E-Taxi-Station"
+          : trafficKind === "garage"
+            ? " · Garagen"
             : "") +
         " · " +
         (owner ? owner.name : "");
@@ -3006,7 +3070,7 @@ window.Nexus = window.Nexus || {};
     }
     var hand = player.handCards || [];
     if (hand.length) {
-      return "Du hast eine Projektkarte — unten ausspielen oder den Zug beenden.";
+      return "Du hast eine Stadtakte — unten ausspielen oder den Zug beenden.";
     }
     var zones = Nexus.playerZones ? Nexus.playerZones(state, player.id) : [];
     var canUpgrade = zones.some(function (zone) {
@@ -3165,10 +3229,91 @@ window.Nexus = window.Nexus || {};
     };
   }
 
+  function refreshProdLabelPositions() {
+    var host = document.getElementById("prod-labels");
+    var viewport = document.getElementById("map-viewport");
+    if (!host || host.hidden || !viewport || !Nexus.Board3D || !Nexus.Board3D.project) {
+      return;
+    }
+    var vp = viewport.getBoundingClientRect();
+    var nodes = host.querySelectorAll(".prod-label");
+    var i;
+    for (i = 0; i < nodes.length; i++) {
+      var node = nodes[i];
+      var q = Number(node.getAttribute("data-q"));
+      var r = Number(node.getAttribute("data-r"));
+      var p = Nexus.Board3D.project(q, r);
+      if (!p) {
+        node.style.visibility = "hidden";
+        continue;
+      }
+      node.style.visibility = "visible";
+      node.style.left = p.x - vp.left + "px";
+      node.style.top = p.y - vp.top + "px";
+    }
+  }
+
+  function renderProdLabels(state, ui) {
+    var host = document.getElementById("prod-labels");
+    var btn = document.getElementById("btn-board-view");
+    var label = document.getElementById("board-view-label");
+    var on = !!(ui && ui.boardView === "production");
+    if (btn) {
+      btn.setAttribute("aria-pressed", on ? "true" : "false");
+      btn.classList.toggle("is-production", on);
+    }
+    if (label) {
+      label.textContent = on ? "Produktion" : "Brett";
+    }
+    if (Nexus.Board3D && Nexus.Board3D.setProductionMode) {
+      var active = Nexus.Board3D.isProductionMode ? Nexus.Board3D.isProductionMode() : false;
+      if (active !== on) {
+        Nexus.Board3D.setProductionMode(on);
+      }
+    }
+    if (!host) {
+      return;
+    }
+    host.hidden = !on;
+    host.setAttribute("aria-hidden", on ? "false" : "true");
+    host.innerHTML = "";
+    if (!on || !state || !Nexus.zoneProdSummary) {
+      return;
+    }
+    (state.zones || []).forEach(function (zone) {
+      if (!zone || zone.ownerId == null) {
+        return;
+      }
+      var sum = Nexus.zoneProdSummary(state, zone);
+      if (!sum) {
+        return;
+      }
+      var el = document.createElement("div");
+      el.className = "prod-label";
+      el.setAttribute("data-q", String(sum.q));
+      el.setAttribute("data-r", String(sum.r));
+      var title = document.createElement("strong");
+      title.className = "prod-label-title";
+      title.textContent = sum.title;
+      el.appendChild(title);
+      (sum.lines || []).forEach(function (line) {
+        var row = document.createElement("span");
+        row.className = "prod-label-line";
+        row.textContent = line;
+        el.appendChild(row);
+      });
+      host.appendChild(el);
+    });
+    refreshProdLabelPositions();
+  }
+
+  Nexus.refreshProdLabelPositions = refreshProdLabelPositions;
+
   function renderDistrict(state, ui) {
     if (Nexus.Board3D && Nexus.Board3D.sync) {
       Nexus.Board3D.sync(state, ui);
     }
+    renderProdLabels(state, ui);
     var player = Nexus.currentPlayer(state);
     var seatNote = document.getElementById("cam-seat");
     if (seatNote && player) {
@@ -3269,9 +3414,9 @@ window.Nexus = window.Nexus || {};
         }
         if (inspectedZone.type === "traffic") {
           typeLabel +=
-            trafficKindFor(inspectedZone.q, inspectedZone.r) === "bus"
-              ? " · Busbahnhof"
-              : " · Parkplatz mit Ladestationen";
+            trafficKindFor(inspectedZone.q, inspectedZone.r, inspectedZone) === "taxi"
+              ? " · E-Taxi-Station"
+              : " · Garagen";
         }
         var level = inspectedZone.upgradeLevel || 0;
         if (level) {
@@ -3639,16 +3784,36 @@ window.Nexus = window.Nexus || {};
       bits.push('<span class="pick-con">+' + preview.riskOnBuild + " Risiko</span>");
     }
     if (preview.flags && preview.flags.residentialNeedsDc) {
-      bits.push('<span class="pick-con">ohne Datenzentrum: Bandbreite 0</span>');
+      bits.push('<span class="pick-con">ohne Datenzentrum: Daten 0</span>');
     }
     if (preview.flags && preview.flags.insecureRisk) {
       bits.push('<span class="pick-con">ungesichert</span>');
     }
     if (preview.flags && preview.flags.dcUnlocksBandwidth) {
-      bits.push('<span class="pick-pro">schaltet Wohn-Bandbreite frei</span>');
+      bits.push('<span class="pick-pro">schaltet Wohn-Daten frei</span>');
     }
-    if (preview.flags && preview.flags.trafficInfrastructure) {
-      bits.push('<span class="pick-pro">Busbahnhof oder Parkplatz</span>');
+    if (preview.flags && preview.flags.dcCap) {
+      bits.push('<span class="pick-pro">DC ' + preview.flags.dcCap.label + "</span>");
+    }
+    if (preview.flags && preview.flags.nuclearRisk) {
+      bits.push('<span class="pick-con">hohes Risiko</span>');
+    }
+    if (preview.flags && preview.flags.factoryAdjacent) {
+      bits.push('<span class="pick-pro">+1 Geld je Wohn-Nachbar</span>');
+    }
+    if (preview.flags && preview.flags.enterpriseCurve) {
+      bits.push(
+        '<span class="pick-pro">Aufbau ' +
+          (preview.flags.enterpriseRamp || "1→3→5") +
+          ", Reife " +
+          (preview.flags.enterpriseMature || "5→3→1") +
+          "</span>"
+      );
+    }
+    if (preview.flags && preview.flags.taxiUpkeep) {
+      bits.push('<span class="pick-pro">E-Taxi: −1 Energie −1 Daten</span>');
+    } else if (preview.flags && preview.flags.trafficInfrastructure) {
+      bits.push('<span class="pick-pro">Garagen oder E-Taxi-Station</span>');
     }
     return bits.join("");
   }
@@ -3664,10 +3829,10 @@ window.Nexus = window.Nexus || {};
       return "Warum jetzt: dir fehlt Geld.";
     }
     if (rec.reasonKey === "need_dc") {
-      return "Warum jetzt: ohne Datenzentrum bleibt Wohn-Bandbreite 0.";
+      return "Warum jetzt: ohne Datenzentrum bleiben Wohn-Daten 0.";
     }
     if (rec.reasonKey === "low_bandwidth") {
-      return "Warum jetzt: dir fehlt Bandbreite — Datenzentrum schaltet Wohnen frei.";
+      return "Warum jetzt: dir fehlen Daten — Wohnen oder weiteres Rechenzentrum (je 7 Felder).";
     }
     return "Warum jetzt: passt zu deinem Netz.";
   }
@@ -3773,10 +3938,19 @@ window.Nexus = window.Nexus || {};
         impactEl.hidden = false;
         if (pendingType === "energy") {
           impactEl.innerHTML =
-            "<p><b>Solar:</b> 2 Energie, Umwelt+ · <b>Trafo:</b> 3 Energie, kostet Geld, Umwelt−. Ausbau später erhöht den Ertrag.</p>";
-        } else if (pendingType === "datacenter") {
+            "<p><b>Solar:</b> 2 Energie, Umwelt+ · <b>Trafo:</b> 3 Energie, kostet Geld · <b>Atom:</b> 5 Energie, hohes Risiko.</p>";
+        } else if (pendingType === "commerce") {
           impactEl.innerHTML =
-            "<p>Warum jetzt: Datenzentrum schaltet Wohn-Bandbreite frei. Nur eines pro Person — offen = Risiko, sicher = teurer.</p>";
+            "<p><b>Fabrik:</b> Geld + Wohn-Nachbarn · <b>Unternehmen:</b> Aufbau 1→3→5, Reife 5→3→1 je Stück.</p>";
+        } else if (pendingType === "datacenter") {
+          var capTxt =
+            Nexus.datacenterCapInfo && Nexus.currentPlayer(state)
+              ? Nexus.datacenterCapInfo(state, Nexus.currentPlayer(state).id).label
+              : "je 7 Felder";
+          impactEl.innerHTML =
+            "<p>Rechenzentrum liefert Daten und schaltet Wohn-Daten frei. Limit " +
+            capTxt +
+            ". Offen = Risiko, sicher = teurer.</p>";
         } else {
           impactEl.innerHTML =
             "<p>Vor- und Nachteile stehen auf den Kacheln. Ausbau später macht das Gebäude größer und den Ertrag höher.</p>";
@@ -3861,6 +4035,7 @@ window.Nexus = window.Nexus || {};
     effects = effects || {};
     var bits = [];
     var spend = effects.spend || {};
+    var scoreKeys = { image: 1, comfort: 1, environment: 1, security: 1 };
     Object.keys(spend).forEach(function (key) {
       if (spend[key]) {
         bits.push({ key: key, amount: -spend[key] });
@@ -3876,11 +4051,19 @@ window.Nexus = window.Nexus || {};
     }
     return bits
       .map(function (bit) {
-        var markup = Nexus.RESOURCE_MARKUP && Nexus.RESOURCE_MARKUP[bit.key];
-        var icon = markup
-          ? '<svg viewBox="0 0 24 24" width="16" height="16">' + Nexus.iconGroup(bit.key, "currentColor") + "</svg>"
-          : "";
         var sign = bit.amount > 0 ? "+" : "";
+        var icon;
+        if (scoreKeys[bit.key] && Nexus.scoreTrackOwnerColor) {
+          icon =
+            '<span class="fx-dot" style="--fx-dot:' +
+            Nexus.scoreTrackOwnerColor(lastFxState, bit.key) +
+            '" aria-hidden="true"></span>';
+        } else {
+          var markup = Nexus.RESOURCE_MARKUP && Nexus.RESOURCE_MARKUP[bit.key];
+          icon = markup
+            ? '<svg viewBox="0 0 24 24" width="16" height="16">' + Nexus.iconGroup(bit.key, "currentColor") + "</svg>"
+            : "";
+        }
         return (
           '<i class="fx-bit' +
           (bit.amount < 0 ? " is-down" : " is-up") +
@@ -4398,6 +4581,7 @@ window.Nexus = window.Nexus || {};
     if (!state || state.screen !== "game") {
       return;
     }
+    lastFxState = state;
     renderTurnRow(state);
     renderScoreFlights(state);
     fitTopbar();

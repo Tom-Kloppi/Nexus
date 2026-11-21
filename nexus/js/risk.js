@@ -36,6 +36,7 @@ window.Nexus = window.Nexus || {};
     var secure = 0;
     var solar = 0;
     var transformer = 0;
+    var nuclear = 0;
     var residential = 0;
     var traffic = 0;
     var garages = 0;
@@ -46,11 +47,14 @@ window.Nexus = window.Nexus || {};
       if (zone.type === "datacenter" && zone.variant === "secure") {
         secure += 1;
       }
-      if (zone.type === "energy" && zone.variant !== "transformer") {
+      if (zone.type === "energy" && zone.variant === "solar") {
         solar += 1;
       }
       if (zone.type === "energy" && zone.variant === "transformer") {
         transformer += 1;
+      }
+      if (zone.type === "energy" && zone.variant === "nuclear") {
+        nuclear += 1;
       }
       if (zone.type === "residential") {
         residential += 1;
@@ -65,7 +69,8 @@ window.Nexus = window.Nexus || {};
     /* Assistenz/SAE und Standards-Wahl sind raus — Cyber/Abhängigkeit ohne diese Hebel. */
     var cyber =
       cloud * 3 +
-      insecure * 4 -
+      insecure * 4 +
+      nuclear * 5 -
       local * 2 -
       (secure ? 3 : 0) -
       (player.devices && player.devices.hub === "local" ? 2 : 0) -
@@ -76,6 +81,7 @@ window.Nexus = window.Nexus || {};
     var supply =
       solar * 3 +
       transformer * 2 +
+      nuclear * 5 +
       (player.devices && player.devices.storage_battery ? 3 : 0) +
       garages;
     var grid = clamp(Math.max(0, demand - supply), 0, 12);
@@ -125,7 +131,7 @@ window.Nexus = window.Nexus || {};
           supply +
           (trafficLoad ? "; Verkehrslast " + trafficLoad : "") +
           ".",
-        counter: "Solar, Speicher, Parkhaus mit Solardach, Linie statt nur Parken."
+        counter: "Solar, Speicher, Garagen und E-Taxi-Stationen."
       },
       demand: demand,
       supply: supply,

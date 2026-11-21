@@ -4,6 +4,48 @@ Neueste Welle zuerst. Das ist die **Geschichte** des spielbaren Stands — nicht
 
 Neue spielbare Welle: hier einen Block anlegen (Datum, Branch, Warum, Regeln, Grafik). DESIGN nur ändern, wenn sich der Vertrag ändert.
 
+## Stadtakte (2026-11-21)
+
+**Warum.** Innovationskarten waren flache Boosts; Hand und Markt brauchten Setting (Politik/Stadt) statt zweitem Geldbeutel.
+
+**Regeln.** Stadtakte: Briefing (sofort), Mandat (Bau-Progression), Druckstück (Ziel wählt zahlen oder Risiko). Ausschreibungen = 3 Briefings. 1× ziehen/Bauphase, Handlimit 5. Leitstand-Geräte-Pfad nur als Pitch (`docs/PITCH_LEITSTAND_PFAD.md`).
+
+**UI.** Dossier-Karten (Kind-Badge), Akte ziehen, Druck-Overlay, Mandate im Dock.
+
+## Garagen · E-Taxi · Bus raus (2026-11-21)
+
+**Warum.** Verkehr soll Garagen und E-Taxi statt Buslinien/Haltestellen sein; Ertrag und Stand-Taxis klar.
+
+**Regeln.** `traffic`: `garage` (Garagen) / `taxi` (E-Taxi-Station, +2 Geld +1 Komfort, −1 Energie −1 Daten). Keine Linien, Haltestellen, Depots. Erstes Verkehrsfeld +1 Komfort.
+
+**Grafik.** Garagen-Ausbau = zweites gleiches Modell 180° (wie Solar). E-Taxi = Depot-Modell + 4 Stand-Taxis an der Bucht (nicht im Fließverkehr). Bus-Sync/Linien-UI raus.
+
+## RZ-Layer · Charakter-Cover · Produktions-View (2026-11-21)
+
+**Warum.** RZ-Bau braucht einen klaren Offen/Zu-Schritt; Hot-Seat-Rollen nicht als Popup; Erträge auf dem Brett lesbar ohne Kamera-Reset.
+
+**UI.** Daten-Menü: Wohnen → RZ-Hub → Layer 3 Offen/Geschlossen. `role_reveal` = fullscreen Charakter-Cover (Los). HUD-Toggle Brett/Produktion; Produktion hält Kamera, blendet Straßen/Autos/Kenney aus, flache Pads + `#prod-labels` aus `zoneProdSummary`.
+
+## Zwei-Layer-Baumenü (2026-11-20)
+
+**UI.** Leeres Feld → Layer 1 (Energie / Geld / Daten / …), Layer 2 = Felder darunter, Zurück-Pfeil. Empfohlener Tab/Typ markiert.
+
+## Atom, Fabrik/Unternehmen, Daten, Park/Werkstatt (2026-11-20)
+
+**Warum.** Ressourcen-Tabs brauchen echte Geld-Felder; Atom als riskante Energie; Bandbreite heißt Daten; DC skaliert mit Stadtgröße; Parkplatz raus zugunsten Park/Werkstatt.
+
+**Regeln.** Energie +`nuclear` (5, hohes Risiko). `commerce`: Fabrik (+1 Geld/Wohn-Nachbar), Unternehmen (Aufbau 1→3→5, Reife 5→3→1). DC-Limit 1 je 7 Felder (Anzeige). Ressource `bandwidth` Label **Daten**. Traffic ohne Parkplatz. Neu: `park`, `workshop` (Geräte −1 Geld).
+
+**Grafik.** Atom = Kühltürme/Tank/Halle (Industrial); Fabrik/Unternehmen; Park = Bäume; Werkstatt = Halle + Pylonen/Kisten/Mauer-Props.
+
+## Board-Politur — Facing, Filler, Dev-Events (2026-11-20)
+
+**Warum.** Sitzwechsel soll wieder die Spieler-Kamera setzen; Besitz-Gebäude zur Startkante; leere/graue Filler und Randkacheln stören; Scalings und Bus-Haltestellen; Dev-Run braucht Event-/Special-Tile-Tests.
+
+**Grafik.** Kamera-Snap mit aktuellem State; Kenney-Facing nach Home-Kante; Filler ohne Baum-only/Graubox; kein Deco-Ring; keine Kugel-/Gras-Erhöhungen; Solar-Ausbau mittig nebeneinander; Scale-Feintuning Wohnen/Trafo/Solar/Parken/DC; Haltestellen 90° zur Straße.
+
+**UI.** Dev-Run-Panel: alle Ereignisse + Halt/Parkplatz/Parkhaus/Busbahnhof + Stadt füllen.
+
 ## Kenney City Kit + eine Ausbaustufe (2026-11-20)
 
 **Warum.** Lesbarere Landnutzung; zwei Kenney-Modelle pro Typ reichen; Launch nur per HTTP (`docs/STARTEN.md`).

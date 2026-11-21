@@ -26,13 +26,18 @@ window.Nexus = window.Nexus || {};
       return "datacenter";
     }
     if (zone.type === "traffic") {
-      if (zone.trafficMode === "depot") {
+      if (
+        zone.trafficMode === "taxi" ||
+        zone.variant === "taxi" ||
+        zone.trafficMode === "depot" ||
+        zone.variant === "depot"
+      ) {
         return "depot";
       }
-      if (zone.trafficMode === "garage") {
+      if (zone.trafficMode === "garage" || zone.variant === "garage") {
         return "garage";
       }
-      return "lot";
+      return "garage";
     }
     if (zone.type === "home") {
       return "hall";

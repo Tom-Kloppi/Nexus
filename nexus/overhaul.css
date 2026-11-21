@@ -112,6 +112,131 @@
   box-shadow: 0 10px 28px rgba(20, 32, 28, 0.18);
 }
 
+.field-menu--build {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  width: min(22rem, calc(100vw - 1.2rem));
+}
+
+.field-menu-title {
+  margin: 0;
+  padding: 0.1rem 0.2rem 0;
+  font-size: 0.78rem;
+  opacity: 0.78;
+}
+
+.field-menu-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.field-menu-back {
+  flex: 0 0 auto;
+  padding: 0.25rem 0.55rem;
+  font-size: 0.78rem;
+}
+
+.field-menu-layer-title {
+  font-size: 0.95rem;
+}
+
+.field-menu-grid {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.field-menu-grid--l1 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.field-menu-grid--l2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.field-menu--layer2 .field-menu-grid--l2 {
+  grid-template-columns: repeat(1, minmax(0, 1fr));
+}
+
+@media (min-width: 520px) {
+  .field-menu--layer2 .field-menu-grid--l2 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.field-menu--layer3 {
+  width: min(22rem, calc(100vw - 1.2rem));
+}
+
+.field-menu-dc-hint {
+  margin: 0;
+  padding: 0 0.15rem;
+  font-size: 0.78rem;
+  line-height: 1.35;
+  opacity: 0.82;
+}
+
+.field-menu-dc-tabs {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.field-menu-dc-tab {
+  width: 100%;
+  text-align: left;
+  min-height: 4.2rem;
+}
+
+.menu-tile--group {
+  align-items: flex-start;
+  min-height: 4.6rem;
+}
+
+.menu-tile--group.menu-tile--icon-only {
+  align-items: center;
+  justify-content: center;
+  min-height: 3.4rem;
+  padding: 0.55rem;
+}
+
+.menu-tile--group .nx-fig,
+.menu-tile--group .menu-more {
+  width: 1.35rem;
+  height: 1.35rem;
+  margin-bottom: 0.15rem;
+}
+
+.menu-tile--group.menu-tile--icon-only .nx-fig,
+.menu-tile--group.menu-tile--icon-only .menu-more {
+  width: 1.7rem;
+  height: 1.7rem;
+  margin-bottom: 0;
+}
+
+.menu-tile--group .nx-fig {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.menu-more {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.35rem;
+  line-height: 1;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+}
+
+.menu-tile.is-recommended {
+  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--player-color, #2f9e6b) 70%, transparent);
+}
+
 .menu-tile {
   display: flex;
   flex-direction: column;
@@ -197,6 +322,235 @@
   border-radius: 50%;
 }
 
+/* Fullscreen Charakter-Cover (ersetzt role_reveal-Popup) */
+.role-cover {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: stretch;
+  padding: 0;
+  background:
+    radial-gradient(120% 80% at 12% 8%, color-mix(in srgb, var(--accent, #2f7fb5) 28%, transparent), transparent 55%),
+    radial-gradient(90% 70% at 88% 12%, color-mix(in srgb, #1fa83a 18%, transparent), transparent 50%),
+    linear-gradient(160deg, #0f1714 0%, #1a2420 42%, #24302b 100%);
+  color: #f4f7f4;
+}
+
+.role-cover[hidden] {
+  display: none !important;
+}
+
+.role-cover-stage {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding: clamp(1.1rem, 3vw, 2.4rem);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.role-cover-header {
+  display: grid;
+  gap: 0.35rem;
+  max-width: 42rem;
+}
+
+.role-cover-kicker {
+  margin: 0;
+  font-family: Outfit, system-ui, sans-serif;
+  font-size: 0.72rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  opacity: 0.72;
+}
+
+.role-cover-title {
+  margin: 0;
+  font-family: Fraunces, Georgia, serif;
+  font-size: clamp(1.8rem, 4vw, 3rem);
+  font-weight: 650;
+  line-height: 1.05;
+}
+
+.role-cover-hint {
+  margin: 0;
+  max-width: 36rem;
+  font-size: 1rem;
+  line-height: 1.45;
+  opacity: 0.84;
+}
+
+.role-cover-body {
+  flex: 1 1 auto;
+  display: grid;
+  align-content: center;
+  margin: clamp(1rem, 3vh, 2rem) 0;
+}
+
+.role-cover-redact {
+  margin: 0;
+  font-size: 1.05rem;
+  opacity: 0.85;
+}
+
+.role-cover-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: clamp(0.85rem, 2vw, 1.35rem);
+}
+
+@media (min-width: 720px) {
+  .role-cover-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1080px) {
+  .role-cover-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.role-cover-panel {
+  position: relative;
+  display: grid;
+  gap: 0.35rem;
+  padding: 1rem 1rem 1.1rem 1.15rem;
+  border-radius: 1rem;
+  background: color-mix(in srgb, #0c1210 55%, transparent);
+  border: 1px solid color-mix(in srgb, #ffffff 12%, transparent);
+  overflow: hidden;
+}
+
+.role-cover-panel-accent {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 0.38rem;
+  background: var(--role-accent, #2f9e6b);
+}
+
+.role-cover-panel-face .role-avatar-svg,
+.role-cover-panel-face svg {
+  width: 4.2rem;
+  height: 4.2rem;
+  border-radius: 50%;
+}
+
+.role-cover-panel-seat {
+  margin: 0.15rem 0 0;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.7;
+}
+
+.role-cover-panel h3 {
+  margin: 0;
+  font-family: Fraunces, Georgia, serif;
+  font-size: 1.35rem;
+  line-height: 1.15;
+}
+
+.role-cover-panel-meta {
+  margin: 0;
+  font-size: 0.92rem;
+  opacity: 0.86;
+}
+
+.role-cover-panel-pitch {
+  margin: 0.15rem 0 0.25rem;
+  font-size: 0.92rem;
+  line-height: 1.4;
+  opacity: 0.9;
+}
+
+.role-cover-goals {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.25rem;
+}
+
+.role-cover-goals li {
+  display: flex;
+  gap: 0.4rem;
+  align-items: baseline;
+  font-size: 0.86rem;
+  opacity: 0.9;
+}
+
+.role-cover-panel-score {
+  margin: 0.35rem 0 0;
+  font-size: 1rem;
+}
+
+.role-cover-footer {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.role-cover-cta {
+  min-width: 8.5rem;
+  font-size: 1.05rem;
+  padding: 0.7rem 1.35rem;
+}
+
+.view-toggle {
+  min-width: 5.6rem;
+  padding: 0.35rem 0.65rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+.view-toggle.is-production {
+  background: color-mix(in srgb, var(--amber, #c8892f) 22%, var(--panel-solid, #f5fbfa));
+  border-color: color-mix(in srgb, var(--amber, #c8892f) 45%, transparent);
+}
+
+.prod-labels {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 4;
+  overflow: hidden;
+}
+.prod-labels[hidden] {
+  display: none;
+}
+.prod-label {
+  position: absolute;
+  transform: translate(-50%, -110%);
+  min-width: 5.5rem;
+  max-width: 9rem;
+  padding: 0.28rem 0.45rem;
+  border-radius: 0.35rem;
+  background: rgba(18, 24, 28, 0.82);
+  color: #f6f1e8;
+  text-align: center;
+  line-height: 1.15;
+  box-shadow: 0 0.2rem 0.55rem rgba(0, 0, 0, 0.28);
+}
+.prod-label-title {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 750;
+  margin-bottom: 0.12rem;
+}
+.prod-label-line {
+  display: block;
+  font-size: 0.66rem;
+  opacity: 0.92;
+}
+
 .action-buttons {
   position: fixed;
   right: 0.7rem;
@@ -229,11 +583,10 @@
   justify-content: center;
 }
 
-.project-fan,
-.hand-fan {
+.project-fan {
   position: fixed;
   left: 0.7rem;
-  bottom: 0.7rem;
+  bottom: 3.55rem;
   z-index: 22;
   display: flex;
   gap: 0.4rem;
@@ -419,6 +772,39 @@ html[data-blur="off"] .settings-panel {
   display: none;
 }
 
+.dev-run-panel {
+  bottom: 5.6rem;
+  left: auto;
+  right: 0.6rem;
+  width: 17rem;
+  max-height: 50vh;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.dev-run-panel label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.dev-run-panel select,
+.dev-run-panel button {
+  font: inherit;
+  color: inherit;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 0.4rem;
+  padding: 0.25rem 0.4rem;
+  cursor: pointer;
+}
+
+.dev-run-panel button:hover {
+  background: rgba(255, 255, 255, 0.16);
+}
+
 @media (max-width: 1280px) {
   .project-card,
   .uno-card {
@@ -440,6 +826,22 @@ html[data-blur="off"] .settings-panel {
 
 .draw-pile { display: none; }
 
+.akte-fan-label {
+  width: 100%;
+  margin: 0 0 0.2rem;
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  opacity: 0.72;
+}
+
+.akte-draw {
+  flex: 0 0 auto;
+  align-self: flex-end;
+  margin: 0 0.35rem 0.35rem 0;
+  font-size: 0.78rem;
+}
+
 .hand-fan {
   position: fixed;
   z-index: 24;
@@ -451,9 +853,16 @@ html[data-blur="off"] .settings-panel {
   transform: translateX(-50%);
   pointer-events: none;
   background: none;
+  border: 0;
+  box-shadow: none;
+}
+.hand-fan .uno-card {
+  width: 5.15rem;
+  height: 8rem;
 }
 
-.uno-card {
+.uno-card,
+.dossier-card {
   pointer-events: auto;
   margin: 0 -0.35rem;
   box-shadow: 0 10px 18px rgba(0, 0, 0, 0.22);
@@ -462,14 +871,96 @@ html[data-blur="off"] .settings-panel {
   transition: transform 160ms ease;
   background: var(--card-face, #fdfaf2);
   color: var(--ink, #1b140c);
+  border-left: 0.28rem solid color-mix(in srgb, var(--accent, #2a8f8a) 70%, #1b140c);
 }
-.uno-card.cat-green { background: color-mix(in srgb, var(--ok, #3f8f5c) 28%, var(--card-face, #fdfaf2)); }
-.uno-card.cat-privacy { background: color-mix(in srgb, var(--cloud, #3d8fa8) 28%, var(--card-face, #fdfaf2)); }
-.uno-card.cat-mobility { background: color-mix(in srgb, var(--amber, #c8892f) 28%, var(--card-face, #fdfaf2)); }
+.dossier-card .card-kind {
+  display: block;
+  font-size: 0.62rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  opacity: 0.75;
+  margin-bottom: 0.15rem;
+}
+.dossier-card .card-meta {
+  display: block;
+  font-size: 0.7rem;
+  opacity: 0.8;
+  margin: 0.1rem 0;
+}
+.dossier-card.kind-briefing {
+  border-left-color: #2a8f8a;
+}
+.dossier-card.kind-mandate {
+  border-left-color: #c8892f;
+}
+.dossier-card.kind-pressure {
+  border-left-color: #c45a4a;
+}
+.uno-card.cat-green { background: color-mix(in srgb, var(--ok, #3f8f5c) 22%, var(--card-face, #fdfaf2)); }
+.uno-card.cat-privacy { background: color-mix(in srgb, var(--cloud, #3d8fa8) 22%, var(--card-face, #fdfaf2)); }
+.uno-card.cat-mobility { background: color-mix(in srgb, var(--amber, #c8892f) 22%, var(--card-face, #fdfaf2)); }
 .uno-card.cat-general { background: var(--card-face, #fdfaf2); }
 .uno-card:hover, .uno-card:focus-visible {
   transform: rotate(0deg) translateY(-2rem);
   z-index: 2;
+}
+
+.akte-pressure {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  place-items: center;
+  background: color-mix(in srgb, #0e1618 55%, transparent);
+  padding: 1rem;
+}
+.akte-pressure[hidden] {
+  display: none !important;
+}
+.akte-pressure-card {
+  width: min(22rem, 92vw);
+  padding: 1rem 1.1rem 1.05rem;
+  border-radius: 0.35rem;
+  background: color-mix(in srgb, var(--card-face, #fdfaf2) 92%, #dfe9e8);
+  color: var(--ink, #1b140c);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
+  border-top: 0.35rem solid #c45a4a;
+}
+.akte-pressure-kicker {
+  margin: 0 0 0.35rem;
+  font-size: 0.72rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  opacity: 0.75;
+}
+.akte-pressure-card h3 {
+  margin: 0 0 0.4rem;
+  font-size: 1.15rem;
+}
+.akte-pressure-from {
+  margin: 0.4rem 0 0.75rem;
+  font-size: 0.85rem;
+  opacity: 0.8;
+}
+.akte-pressure-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+.akte-pressure-actions .btn {
+  flex: 1 1 auto;
+}
+
+.mandate-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin: 0.15rem 0.35rem 0.15rem 0;
+  padding: 0.18rem 0.45rem;
+  border-radius: 0.25rem;
+  font-size: 0.75rem;
+  background: color-mix(in srgb, #c8892f 22%, var(--panel, #1a2426));
+  border: 1px solid color-mix(in srgb, #c8892f 45%, transparent);
 }
 
 .turn-chip { position: relative; }
@@ -531,7 +1022,204 @@ html[data-blur="off"] .settings-panel {
 .fx-bit { display: inline-flex; align-items: center; gap: 0.15rem; font-style: normal; }
 .fx-bit.is-down { color: var(--danger, #c2503f); }
 .fx-bit.is-up { color: var(--ok, #3f8f5c); }
+.fx-dot {
+  display: inline-block;
+  width: 0.72rem;
+  height: 0.72rem;
+  border-radius: 50%;
+  background: var(--fx-dot, #888);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--ink, #1b140c) 18%, transparent);
+  flex: 0 0 auto;
+}
 .event-lesson { margin: 0.4rem 0 0.6rem; font-size: 0.92rem; }
+
+/* Setup fullscreen */
+.setup-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: grid;
+  place-items: stretch;
+  padding: 0;
+  background:
+    radial-gradient(120% 80% at 12% 8%, color-mix(in srgb, #2a6b5e 28%, transparent), transparent 55%),
+    radial-gradient(90% 70% at 88% 92%, color-mix(in srgb, #c8892f 18%, transparent), transparent 50%),
+    linear-gradient(165deg, #0f1a1c 0%, #1a2e2c 48%, #243836 100%);
+  color: #f3efe6;
+}
+.setup-screen[hidden] {
+  display: none !important;
+}
+.setup-stage {
+  display: grid;
+  grid-template-rows: auto auto 1fr auto;
+  gap: 1.25rem;
+  width: min(52rem, 100%);
+  max-width: 100%;
+  margin: 0 auto;
+  padding: clamp(1rem, 3vh, 2rem) clamp(1.1rem, 4vw, 2.4rem) clamp(1.2rem, 3vh, 2rem);
+  min-height: 100%;
+  box-sizing: border-box;
+}
+.setup-top {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.setup-brand {
+  margin: 0;
+  font-family: Fraunces, Georgia, serif;
+  font-size: clamp(2.4rem, 6vw, 3.6rem);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  line-height: 1;
+}
+.setup-top .settings-wrap--card {
+  position: relative;
+  top: auto;
+  right: auto;
+}
+.setup-hero h1 {
+  margin: 0 0 0.45rem;
+  font-family: Fraunces, Georgia, serif;
+  font-size: clamp(1.55rem, 3.4vw, 2.15rem);
+  font-weight: 700;
+  line-height: 1.15;
+}
+.setup-lede {
+  margin: 0;
+  max-width: 34rem;
+  font-size: 1.02rem;
+  line-height: 1.45;
+  opacity: 0.88;
+}
+.setup-body {
+  display: grid;
+  gap: 1rem;
+  align-content: start;
+}
+.setup-block .setup-label {
+  margin: 0 0 0.4rem;
+  color: color-mix(in srgb, #f3efe6 72%, transparent);
+}
+.setup-screen .setup-choice {
+  background: color-mix(in srgb, #f3efe6 8%, transparent);
+  border-color: color-mix(in srgb, #f3efe6 22%, transparent);
+  color: #f3efe6;
+}
+.setup-screen .setup-choice.is-selected {
+  background: #e8c56a;
+  color: #1a1812;
+  border-color: transparent;
+}
+.setup-check {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.92rem;
+  opacity: 0.9;
+}
+.setup-screen .setup-actions {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  margin-top: auto;
+}
+.setup-screen .setup-actions .btn {
+  width: auto;
+  min-width: 8.5rem;
+}
+.setup-screen .setup-actions .setup-start {
+  margin-top: 0;
+  flex: 1 1 12rem;
+}
+
+/* Lean settings */
+.settings-panel--lean {
+  width: min(15.5rem, 78vw);
+  padding: 0.65rem 0.7rem;
+  display: grid;
+  gap: 0.55rem;
+}
+.settings-panel--lean .set-row {
+  display: grid;
+  grid-template-columns: 3.4rem 1fr;
+  align-items: center;
+  gap: 0.45rem;
+  margin: 0;
+}
+.settings-panel--lean .set-label {
+  margin: 0;
+  font-size: 0.68rem;
+}
+.settings-panel--lean .set-row--range input[type="range"] {
+  width: 100%;
+}
+.settings-panel--lean .scale-presets,
+.settings-panel--lean .set-swatches {
+  flex-wrap: wrap;
+}
+
+/* Brett FAB unten links */
+.board-view-fab {
+  position: fixed;
+  left: 0.7rem;
+  bottom: 0.7rem;
+  z-index: 26;
+  min-width: 5.2rem;
+}
+#app:not(.is-game) .board-view-fab,
+.app:not(.is-playing) .board-view-fab {
+  /* sichtbar nur im Spiel — App-Klasse steuert ggf. nicht; hidden via render */
+}
+
+.hand-group {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.35rem;
+  padding: 0.35rem 0.45rem;
+  border-radius: 0.85rem;
+  background: color-mix(in srgb, var(--panel-solid, #f5fbfa) 72%, transparent);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18);
+  pointer-events: auto;
+}
+.hand-group .uno-card {
+  width: 5.15rem;
+  height: 8rem;
+  margin: 0;
+  flex: 0 0 5.15rem;
+  transform: none;
+}
+.hand-group .uno-card:hover,
+.hand-group .uno-card:focus-visible {
+  transform: translateY(-0.85rem);
+  z-index: 2;
+}
+
+.role-cover-panel-how {
+  margin: 0.2rem 0 0.35rem;
+  font-size: 0.86rem;
+  line-height: 1.4;
+  opacity: 0.92;
+}
+.role-cover-panel-points {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0;
+  font-size: 0.82rem;
+  font-weight: 650;
+}
+.role-point-dot {
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 50%;
+  background: var(--role-point-color, var(--role-accent, #888));
+  flex: 0 0 auto;
+}
 
 .resource-fx-particle.is-gain,
 .resource-fx-particle.is-loss {

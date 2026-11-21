@@ -11,7 +11,7 @@ window.Nexus = window.Nexus || {};
     },
     {
       id: "parking",
-      label: "Parkhaus",
+      label: "Garagen",
       art: "artNeutralParking"
     },
     {

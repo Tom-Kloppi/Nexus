@@ -5,7 +5,7 @@
 **Freeze:** Branch `prototype` = spielbarer Stand vor diesem Redesign (NEXUS 2.1).  
 **Diese Datei ist Vertrag.** Code und `docs/GAME.md` folgen ihr. Abweichungen = Bug. Wellen/Geschichte: [`CHANGELOG.md`](CHANGELOG.md) — kein Vertrag.  
 **Concept-Review:** Tom hat die Defaults in `docs/UPDATE_CONCEPT.md` (Anhang B, §3.5, §9) akzeptiert. Akzeptierte Sätze stehen hier. Die Review-Datei bleibt Begründung — **kein** zweiter Vertrag.  
-**Grafik-Nachzug (schlägt ältere Konzept-Defaults):** Straßen auf **Kanten**; `traffic` = Busbahnhof/Parkplatz/Parkhaus (**nicht** die Straße); WebGL-Stadt mit echten Volumen (Three.js, vendored), Gewerbe-/Hügel-Rand, Orbit-Kamera; Feld-Ausbau, Abriss nur wenn verbunden, Handel = Angebot.
+**Grafik-Nachzug (schlägt ältere Konzept-Defaults):** Straßen auf **Kanten**; `traffic` = Garagen / E-Taxi-Station (**nicht** die Straße); WebGL-Stadt mit echten Volumen (Three.js, vendored), Gewerbe-/Hügel-Rand, Orbit-Kamera; Feld-Ausbau, Abriss nur wenn verbunden, Handel = Angebot.
 
 **Overhaul 2** bleibt die Mechanik darunter, außer wo **UI Rework** sie ersetzt. Zahlen und Begründung: [`DESIGN_DECISIONS.md`](DESIGN_DECISIONS.md).
 
@@ -21,7 +21,7 @@ Sieg bleibt `computeRoleProgress`: **eine Punktart pro Rolle** (Öko / Verlässl
 
 **Hinterzimmer-Deal:** Event-Angebot (max. 1 aktiv). Geheim nur für die aktive Person (Ziel-Dock). Frist in Tagen; Erfolg = Ressourcen und/oder Rollenpunkt **ohne Contest-Cap (darf siegen)**; Fail = Punkt/Ressourcen privat. Handel selbst gibt keine Siegpunkte — nur solche Deals.
 
-Gestrichen: Assistenz/SAE-Leiter, offen/proprietär, Ausbau im Zug. **Abriss** wieder im Feldmenü (Netz muss verbunden bleiben). **Ein** Rechenzentrum pro Person (offen/geschlossen umschaltbar). Handel = Angebot mit beiden Kassen. Elektro-Linie +1 Image. Risiko zeigt Ursache und Schwelle. Kacheln: Icon, Name, Vorzeichen, Menge; Satz nur bei Halten.
+Gestrichen: Assistenz/SAE-Leiter, offen/proprietär, Ausbau im Zug. **Abriss** wieder im Feldmenü (Netz muss verbunden bleiben). **Ein** Rechenzentrum pro Person (offen/geschlossen umschaltbar). Handel = Angebot mit beiden Kassen. Risiko zeigt Ursache und Schwelle. Kacheln: Icon, Name, Vorzeichen, Menge; Satz nur bei Halten.
 
 ## Setting
 
@@ -34,7 +34,7 @@ Spieler = Stadtteilmanager (Testgebiet). Geheimes **Wahlversprechen** statt alte
 - Rollen, Ziele, Kassen und Punkte sind am Tisch sichtbar. `role_reveal` zeigt alle Personen auf einmal. `handoff` ist nur „du bist dran“ und dimmt das Brett nicht.
 - Nacht versteckt keine Rolle, keine Kasse und kein Ziel.
 - Produktion **automatisch zu Zugbeginn**.
-- Bandbreite aus Wohnen nur mit **eigenem** Datenzentrum.
+- Daten aus Wohnen nur mit **eigenem** Datenzentrum; DC-Limit je 7 eigene Felder.
 - 2-Spieler: Metrik-Skalierung in `roles.js` bleibt.
 - Sieg = `computeRoleProgress`. Eine Punktart pro Rolle, 10 Punkte = 100 %. Sofort bei 10 nach voller Runde, sonst die meisten Punkte am Rundenlimit. Keine Spurensumme, **keine Catch-up-Regel**, kein Würfel-Gewinn.
 - Geräte und Feld-Ausbau sind **öffentlich** (Cloud und lokal). Cloud vs lokal bleibt nur als Mechanik (Risiko, Upkeep, lokal %).
@@ -44,14 +44,14 @@ Spieler = Stadtteilmanager (Testgebiet). Geheimes **Wahlversprechen** statt alte
 
 - **Default-Theme:** Tageslicht (`data-theme="light"` / `nexus-theme` Default `light`). Toggle = **Nachtstadt**. Chrome/Himmel **teal** (grün-blau), kein reines UI-Blau.
 - **Layout:** 3D-Canvas füllt den Viewport; Topbar, Dock und Tray liegen als halbtransparente Overlays darüber. Dock standardmäßig kompakte Schiene, ausklappbar („Ziele“). Toasts über dem Tray, nicht über Primärknöpfe. Schmale Breite: Dock als Sheet.
-- **Board-Stack:** WebGL-Stadt mit **Three.js r158** (`nexus/vendor/three.min.js` + vendored `GLTFLoader.js`), Szene in `nexus/js/board3d.js` (+ Look/Props/Kenney-Helfer). App-Shell bleibt HTML/CSS. `render.js` orchestriert HUD; das Canvas darf raycasten. Regeln nur in `state.js`. Offline: `python -m http.server` in `nexus/`. **Keine Voll-GLTF-Bibliothek:** erlaubt sind wenige gebakte Kenney-City-Kit-`.glb` (Commercial / Industrial / Suburban / Roads, CC0) unter `nexus/vendor/kenney/…` — einmal laden, cachen, pro Feld clonen. Minimal/Low bleiben Boxen/BoardKit; ab Medium Kenney-Meshes. Unkontrollierte Felder = kleine Suburban-/Industrie-Filler; Datenzentren = Commercial-Skyscraper. Fallback = bisherige prozedurale Volumen + Billboard-Sprites.
-- **Board:** keine flachen Eurogame-Plättchen. Extrudierte Volumen, Z-Buffer nach Bildtiefe. **Ein** Hauptgebäude pro Spielkachel. Start = **Kontrollbüro**. Landnutzung lesbar (**Gebäudetyp vor Besitzfarbe**): Wohnen = Büro/Block (Commercial), Solar = Industrial-Solar, Trafo = Umspann/Industrie, DC = Halle, Verkehr = Depot/Halle. **Besitz:** klare Spielerfarbe auf der Pad-Fläche und leuchtender Rand — Kenney-Mesh-Farben unangetastet (kein Dach-Tint auf GLTF). **Straßen sind keine Kacheln:** ein geteiltes Netz auf den Hex-Kanten; Autos fahren Feld→Feld; Ampeln Präsentation. Parks nur Deko (seedbasiert, auch Teilflächen). Unkontrollierte Felder dürfen schon bebaut/belebt aussehen. Untergrund = wählbares Biom (Gras/Wüste/Wasser, Pref `nexus-biome`) als große Platte mit Nebel/Kulisse — keine Catan-Wasserkacheln im Hex-Netz. Rand: Gewerbe, Hügel, Berge.
+- **Board-Stack:** WebGL-Stadt mit **Three.js r158** (`nexus/vendor/three.min.js` + vendored `GLTFLoader.js`), Szene in `nexus/js/board3d.js` (+ Look/Props/Kenney-Helfer). App-Shell bleibt HTML/CSS. `render.js` orchestriert HUD; das Canvas darf raycasten. Regeln nur in `state.js`. Offline: `python -m http.server` in `nexus/`. **Keine Voll-GLTF-Bibliothek:** erlaubt sind wenige gebakte Kenney-`.glb` (City Kit Commercial / Industrial / Suburban / Roads sowie ausgewählte Props aus Car Kit + Graveyard Kit, CC0) unter `nexus/vendor/kenney/…` — einmal laden, cachen, pro Feld clonen. Nachzug: `tools/fetch_kenney_props.ps1`. Minimal/Low bleiben Boxen/BoardKit; ab Medium Kenney-Meshes. Unkontrollierte Felder = kleine Suburban-/Industrie-Filler; Datenzentren = Commercial-Skyscraper. Fallback = bisherige prozedurale Volumen + Billboard-Sprites.
+- **Board:** keine flachen Eurogame-Plättchen. Extrudierte Volumen, Z-Buffer nach Bildtiefe. **Ein** Hauptgebäude pro Spielkachel. Start = **Kontrollbüro**. Landnutzung lesbar (**Gebäudetyp vor Besitzfarbe**): Wohnen = Büro/Block (Commercial), Solar = Industrial-Solar, Trafo = Umspann/Industrie, Atom = Kühlturm/Tank (Industrial), DC = Halle, Fabrik/Unternehmen = Industrie/Commercial, Verkehr = Garagen / E-Taxi-Station, Park = Bäume, Werkstatt = Halle + Props. **Besitz:** klare Spielerfarbe auf der Pad-Fläche und leuchtender Rand — Kenney-Mesh-Farben unangetastet (kein Dach-Tint auf GLTF). **Straßen sind keine Kacheln:** ein geteiltes Netz auf den Hex-Kanten; Autos fahren Feld→Feld; Ampeln Präsentation. Unkontrollierte Felder dürfen schon bebaut/belebt aussehen. Untergrund = wählbares Biom (Gras/Wüste/Wasser, Pref `nexus-biome`) als große Platte mit Nebel/Kulisse — keine Catan-Wasserkacheln im Hex-Netz.
 - **Kamera:** Zu Zugbeginn Leitstand der aktiven Person unten, Stadt voraus. Rechts-/Mittelziehen = Orbit, Linksziehen = Pan, Rad = Zoom; Polar-/Zoom-/Pan-Clamps, weiche Dämpfung, nicht unter den Boden. Native Kontextmenüs auf dem Board blockiert. Prefs: `nexus-cam-pitch`, `nexus-board-quality` (Auto / Qualität / Balance / Leistung), `nexus-biome`.
 - **Look-Nordstern:** HexaUrbs — Look und Hex-Lesbarkeit, nicht Genre/Engine. Parks keine baubaren Zonen. Bebaubare Felder klar markiert; Picking auf flacher Boden-Hitbox.
 - **Nacht:** dunkelblau/dunkelgrau mit genug Ambient und Mondlicht; Felder und Besitzfarben bleiben lesbar. Fenster/Laternen/Ampeln (emissive/Glow/Lichtpools, keine PointLights pro Laterne); Geräte-Gizmos öffentlich. Kein Leak von Rolle/Wallet/Versprechen. Handoff/Reveal dimmt das Board.
 - **Motion = Lehre:** Shake, Ticks, Place-Pop, Produktion-Pulse/Flugpartikel, Handoff-Dim. Tokens `nexus/transitions.css`. First-turn: Copy + Pulse — **keine** `turnPhase` für Tutorial. **Anleitung** = Overlay (`data/tutorial.js`), optional, Spotlight auf echte UI. Rollen als Steckbriefe mit Avatar; Glossar Spur/Stufe/Prozent.
 - **Investor-Metrik** `moneyThroughput` = kumuliertes **Geld**.
-- **Verkehr:** Das Feld ist Parkplatz, Parkhaus (Solardach, Ladesäulen) oder Busbahnhof. Straßen, Haltestellen und Linien liegen auf dem Graphen. Nur das erste Verkehrsfeld gibt +1 Komfort. **Präsentation:** Filler-Pkw grau; Linienbusse und Linienfarbe nach Antrieb (Diesel braun, Elektro cyan, Öko grün). Busse nur auf echten Linien, keine Deko-Busse.
+- **Verkehr:** Das Feld ist **Garagen** oder **E-Taxi-Station**. Keine Buslinien, keine Haltestellen, keine Linienbusse. Nur das erste Verkehrsfeld gibt +1 Komfort. **E-Taxi:** je Ernte +2 Geld und +1 Komfort, kostet 1 Energie + 1 Daten; Taxis nur am Stand (4er-Bucht), nicht im Fließverkehr. **Präsentation:** Filler-Pkw grau. Straßenrand-Taxistand (Bank) später — Hook offen, nicht spielbar.
 
 ## Ressourcen (genau 3)
 
@@ -59,9 +59,9 @@ Spieler = Stadtteilmanager (Testgebiet). Geheimes **Wahlversprechen** statt alte
 | --- | --- | --- |
 | `energy` | Energie | Energie |
 | `money` | Geld | Geld |
-| `bandwidth` | Bandbreite | Bandbr. |
+| `bandwidth` | Daten | Daten |
 
-Start: 3 von jeder. Keine anderen Wallet-Keys. Alte Keys (`data`, `compute`, `hardware`, `connectivity`) sind **tot**.
+Start: 3 von jeder. Keine anderen Wallet-Keys. Alte Keys (`data`, `compute`, `hardware`, `connectivity`) sind **tot**. Intern bleibt der Key `bandwidth` (Kompatibilität); am Tisch heißt die Ressource **Daten**.
 
 ## Wertungsspuren (genau 4)
 
@@ -77,17 +77,20 @@ Sieg = `computeRoleProgress` gegen das Wahlversprechen (Unterziele auf diesen Sp
 
 ## Feldtypen
 
-`ZONE_TYPE_KEYS = ["residential", "energy", "datacenter", "traffic"]` (+ `home`).
+`ZONE_TYPE_KEYS = ["residential", "energy", "datacenter", "commerce", "traffic", "park", "workshop"]` (+ `home`).
 
 | Typ | Varianten / Regel |
 | --- | --- |
-| `energy` | `solar`: **2** Energie fest, `environment` +1 beim Bau und (gedeckelt) bei der Ernte. `transformer`: **3** Energie fest, kostet `money` pro Einheit (`TRANSFORMER_MONEY_PER_ENERGY`), `environment` −1 nur beim Bau. Kein Solar-Würfel. |
-| `datacenter` | Pro Person **höchstens eines**. `insecure` (offen) günstig / Risiko. `secure` (geschlossen) teurer / sicher. Umschalten kostet Ressourcen. **Ohne eigenes DC:** Wohn-Bandbreite = 0. |
-| `residential` | Produziert Bandbreite (Basis). Geräte (Kamera, Schloss, …) bleiben Gadgets im Device-Menü. **Feld-Ausbau** `upgradeLevel` 0–1 (eine Stufe), sichtbar am 3D-Gebäude. |
-| `traffic` | Parkplatz, Parkhaus oder Busbahnhof. Erstes Feld +1 Komfort. Linien (Diesel/Elektro/erneuerbar): `mobility.js`. |
+| `energy` | `solar`: **2** Energie fest, `environment` +1 beim Bau und (gedeckelt) bei der Ernte. `transformer`: **3** Energie fest, kostet `money` pro Einheit (`TRANSFORMER_MONEY_PER_ENERGY`), `environment` −1 nur beim Bau. `nuclear` (**Atom**): **5** Energie fest, hohes Risiko (`riskOnBuild` + laufend), `environment` −2 beim Bau. |
+| `datacenter` | Produziert Daten. Limit: **1 DC je 7 eigene Felder** (`DC_TILES_PER = 7`, Anzeige „x/y · je 7 Felder“). `insecure` (offen) günstig / Risiko. `secure` (geschlossen) teurer / sicher. Umschalten kostet Ressourcen. **Ohne eigenes DC:** Wohn-Daten = 0. |
+| `residential` | Produziert Daten (Basis), nur mit eigenem DC. Geräte bleiben Gadgets. **Feld-Ausbau** `upgradeLevel` 0–1. |
+| `commerce` | Geld. `factory` (**Fabrik**): Basis + **+1 Geld je angrenzendem Wohnfeld**. `enterprise` (**Unternehmen**): Reife **5→3→1** je weiterem Unternehmen; Aufbau die ersten zwei Ernten **1→3→5** (gedeckelt auf die Reife). |
+| `traffic` | `garage` (**Garagen**): kein Ressourcen-Primary. `taxi` (**E-Taxi-Station**): +2 Geld / +1 Komfort je Ernte, −1 Energie −1 Daten. Erstes Verkehrsfeld +1 Komfort. Keine Linien/Haltestellen. |
+| `park` | Grünfläche: +1 Komfort / +1 Umwelt beim Bau, kein Ressourcen-Ertrag. |
+| `workshop` | Werkstatt: einmaliger Geräte-Rabatt (`workshopDiscountPending`), +1 Image beim Bau. |
 | `home` | Startfeld **Kontrollbüro**; Basis +1 aller 3 Ressourcen / Runde, plus +1 je `upgradeLevel`. |
 
-Beim Expand wählt der Spieler Typ; bei `energy`/`datacenter` zusätzlich die Variante. UI: Typwahl **2×2**. Optional: empfohlenes Feld/Typ leuchtet aus den **eigenen** Engpässen (Ressourcen / Versprechen) — kein Leak fremder Privatinfos.
+Beim Expand: **Zwei-Layer-Baumenü** (Daten mit drittem Schritt). Layer 1 = 2×2 (Energie / Geld / Daten / …). Layer 2 = baubare Felder unter dem gewählten Tab (Energie: Solar/Umspann/Atom; Geld: Fabrik/Unternehmen; Daten: Wohnen + RZ-Hub; …: Garagen/E-Taxi/Park/Werkstatt). **Daten:** Wohnen → RZ-Hub → Layer 3 mit gestapelten Tabs **Offen / Geschlossen** (Kosten/Risiko/Ertrag, Tap baut). Zurück-Pfeil je eine Ebene. Optional: empfohlener Tab/Typ leuchtet aus den **eigenen** Engpässen — kein Leak fremder Privatinfos.
 
 **Nachbarschaftsdruck:** Baust du direkt neben ein fremdes Feld, einmal pro Zug: du +1 Image, jeder angrenzende fremde Besitzer +1 Risiko (`riskShock`). Toast/Hinweis beim Handoff. Keine Miete, keine Koalition.
 
@@ -109,7 +112,19 @@ Gestrichen. Jeder kann mit jedem handeln. Die Wahl hatte am Tisch keine Folge, d
 
 ### Geräte / Karten
 
-Keine neuen Geräte-IDs in diesem Zyklus; Loop über Feedback und Copy. Karten/Events: Effekte nur auf 3 Ressourcen + 4 Spuren + Risiko. `privacy` als Effect-Key ist tot (→ `security` / Risiko).
+Keine neuen Geräte-IDs in diesem Zyklus; Loop über Feedback und Copy. `privacy` als Effect-Key ist tot (→ `security` / Risiko).
+
+**Stadtakte (Hand):** Limit **5**. Drei Arten — Ressourcen bleiben Kasse/Brett, Karten sind Hebel:
+
+| Art | Spiel | Wirkung |
+| --- | --- | --- |
+| **Briefing** | Sofort | Effekte auf 3 Ressourcen / 4 Spuren / Risiko. Kein Refund der eigenen Kosten-Ressource. |
+| **Mandat** | Aktivieren | Track am Spieler (sichtbar). Fortschritt durch Bau/Ausbau; Abschluss = Belohnung. |
+| **Druckstück** | Ziel wählen | Anderer Spieler wählt **zahlen/abgeben** oder **+Risiko**. Kein blinder Diebstahl. Contest-Caps bleiben (kein 10. Punkt aus Konter). |
+
+**Ausschreibungen (Markt):** 3 offene **Briefings**; Kauf = sofort ausspielen (Preis nach Kategorie).  
+**Ziehen:** 1× pro Bauphase eine Akte in die Hand, wenn unter Limit.  
+Risiko-8-Events bleiben Tisch-Events; Grants können Akten in die Hand legen.
 
 ## Was bleibt aus 2.1
 
@@ -117,7 +132,7 @@ Keine neuen Geräte-IDs in diesem Zyklus; Loop über Feedback und Copy. Karten/E
 - Hot-Seat / Role-Reveal / Handoff
 - Cloud vs lokal bei Geräten als **Mechanik** (lokaler Anteil → `security`); Sichtbarkeit: alle eigenen Gadgets öffentlich
 - Handels**angebot** (3 Ressourcen; Annahme/Ablehnung, kein Sofort-Tausch). Offen/proprietär **gestrichen**
-- Innovationskarten + Ereignisse (Effekte nur noch auf 3 Ressourcen + 4 Spuren + Risiko)
+- Stadtakte (Briefing/Mandat/Druckstück) + Ausschreibungen + Ereignisse
 - Linien mit Antrieb (Diesel/Elektro/erneuerbar); Assistenz/SAE **entfernt**
 
 ## Was bewusst fehlt (nicht bauen)
@@ -131,6 +146,7 @@ Keine neuen Geräte-IDs in diesem Zyklus; Loop über Feedback und Copy. Karten/E
 - Nachbarschafts-Smart-Home-Miete
 - LAN/WLAN-Multiplayer bis Gate nach Hot-Seat
 - Neue Geräte-IDs, neue Ressourcen, vierte Spur, neue Event-Engine
+- Leitstand-Geräte-Progressionspfad (Pitch: `docs/PITCH_LEITSTAND_PFAD.md`) — nicht in diesem Zyklus
 - Catch-up / Rubber-Band
 - Zweite Tutorial-`turnPhase` (Overlay `data/tutorial.js` existiert; nicht erweitern zu einer Regelphase)
 

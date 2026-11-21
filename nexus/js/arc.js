@@ -11,7 +11,7 @@ window.Nexus = window.Nexus || {};
     {
       id: "network",
       title: "Vernetzung",
-      goal: "Datenzentrum und Geräte. Bandbreite aus Wohnen gibt es nur mit eigenem Rechenzentrum."
+      goal: "Datenzentrum und Geräte. Daten aus Wohnen gibt es nur mit eigenem Rechenzentrum (je 7 Felder ein weiteres)."
     },
     {
       id: "mobility",
@@ -189,14 +189,19 @@ window.Nexus = window.Nexus || {};
   }
 
   Nexus.WHY = {
-    residential: "Wohnen ist Bandbreite, aber nur mit eigenem Datenzentrum. Sonst steht das Feld und liefert 0.",
+    residential: "Wohnen ist Daten, aber nur mit eigenem Datenzentrum. Sonst steht das Feld und liefert 0.",
     solar: "Solar: 2 Energie fest, Umwelt+. Weniger Strom, dafür erneuerbar und gut fürs Netz.",
     transformer: "Umspannwerk: 3 Energie fest, kostet Geld je Einheit, Umwelt− beim Bau. Mehr Strom, teurer Lauf.",
-    secure: "Ein gesichertes Datenzentrum schaltet Wohn-Bandbreite frei und senkt Cyber.",
-    insecure: "Ein offenes Datenzentrum ist billig und hebt die Cyber-Exposition.",
-    traffic: "Verkehrsfläche ist Parkplatz, später Parkhaus oder Busbahnhof. Beim Bau +1 Komfort.",
+    nuclear: "Atom: 5 Energie fest, hohes Risiko und Umwelt−−. Viel Strom, teurer politischer Preis.",
+    secure: "Ein gesichertes Datenzentrum liefert Daten, schaltet Wohn-Daten frei und senkt Cyber.",
+    insecure: "Ein offenes Datenzentrum liefert Daten, ist billig und hebt die Cyber-Exposition.",
+    factory: "Fabrik: Geld +1 je angrenzendem Wohnfeld. Arbeitskräfte nebenan zahlen sich aus.",
+    enterprise: "Unternehmen: Aufbau 1→3→5, Reife 5→3→1 je weiterem Unternehmen.",
+    traffic: "Verkehr ist Garagen oder E-Taxi-Station. Beim ersten Feld +1 Komfort.",
+    park: "Park: Komfort und Umwelt, kein Ressourcen-Ertrag — die Stadt atmet.",
+    workshop: "Werkstatt: nächstes Gerät −1 Geld. Basteln spart die Kasse.",
     local: "Lokal bleibt beim Gerät. Teurer, weniger Cyber, läuft bei Stromausfall weiter.",
-    cloud: "Cloud ist günstiger und braucht Bandbreite als Upkeep. Bei Ausfall ist der Effekt weg."
+    cloud: "Cloud ist günstiger und braucht Daten als Upkeep. Bei Ausfall ist der Effekt weg."
   };
 
   Nexus.Arc = {

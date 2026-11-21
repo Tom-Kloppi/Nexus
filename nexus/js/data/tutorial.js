@@ -18,7 +18,7 @@ Nexus.TUTORIAL_STEPS = [
     id: "story-graulstedde",
     section: "story",
     scene: "setup",
-    target: "#setup-screen h2",
+    target: "#setup-title",
     title: "Graulstedde braucht Wechsel",
     body: "Nach langer Amtszeit von Bürgermeister Günter Grotte-Wabenbauer startete #GünterGehWeg. Die Stadt wählt ein Pilotprojekt: Kandidatinnen und Kandidaten beweisen in zugelosten Stadtteilen, dass Wahlversprechen auch umgesetzt werden — Wohnen, Energie, Netze, Sicherheit und Alltag."
   },
@@ -26,7 +26,7 @@ Nexus.TUTORIAL_STEPS = [
     id: "story-coop",
     section: "story",
     scene: "setup",
-    target: "#setup-screen .setup-note",
+    target: "#setup-screen .setup-lede",
     title: "Diskurs am einen Tisch",
     body: "Ihr teilt euch ein Gerät (Hot-Seat). Die Grundwerte unterscheiden sich, aber die Stadt braucht Kompromisse: handeln, Linien teilen, Risiken senken. Am Tisch sind Rolle, Ziele und Kasse sichtbar — damit Anfänger mitlernen können, nicht hinter Geheimnissen."
   },
@@ -42,7 +42,7 @@ Nexus.TUTORIAL_STEPS = [
     id: "setup-welcome",
     section: "setup",
     scene: "setup",
-    target: "#setup-screen h2",
+    target: "#setup-title",
     title: "Neue Partie",
     body: "Hier startet jede Partie. Weiter, Zurück und Beenden — oder Pfeil rechts, Enter, Pfeil links und Escape. Inhalt springt zu einem Thema."
   },
@@ -66,7 +66,7 @@ Nexus.TUTORIAL_STEPS = [
     id: "setup-table",
     section: "setup",
     scene: "setup",
-    target: "#setup-screen .setup-note",
+    target: "#setup-screen .setup-lede",
     title: "Was alle sehen",
     body: "Rollen, Ziele, Kassen und gebaute Geräte sind am Tisch öffentlich. Die Übergabe sagt nur „du bist dran“. So bleibt NEXUS ein Lernspiel, kein Versteckspiel."
   },
@@ -92,7 +92,7 @@ Nexus.TUTORIAL_STEPS = [
     section: "setup",
     scene: "setup",
     settings: "setup",
-    target: "#setup-screen .settings-scale",
+    target: "#setup-screen .settings-panel--lean",
     title: "UI-Größe",
     body: "Klein, Normal oder Groß skaliert Schriften und Knöpfe. Die Regeln ändern sich nicht."
   },
@@ -237,8 +237,8 @@ Nexus.TUTORIAL_STEPS = [
     section: "actions",
     scene: "build",
     target: "#project-fan",
-    title: "Projekte",
-    body: "Drei offene Projektkarten. Icon, Name, Vorzeichen und Menge. Langer Satz nur bei Halten. Kauf wirkt sofort und kann Rollenpunkte geben."
+    title: "Stadtakte",
+    body: "Ausschreibungen = drei Briefings (Kauf sofort). Hand = Briefing, Mandat oder Druckstück. Einmal pro Bauphase Akte ziehen."
   },
   {
     id: "trade-btn",

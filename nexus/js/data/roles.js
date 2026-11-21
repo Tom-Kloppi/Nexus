@@ -130,3 +130,40 @@ Nexus.ROLES_BY_ID = {};
 Nexus.ALL_ROLE_IDS.forEach(function (id) {
   Nexus.ROLES_BY_ID[id] = Nexus.ROLES[id];
 });
+
+/* Spur / Punktart → Rolle, deren Gewinnkategorie das ist. */
+Nexus.SCORE_TRACK_ROLE = {
+  image: "networker",
+  comfort: "controller",
+  environment: "climate",
+  security: "privacy",
+  eco: "climate",
+  trust: "privacy",
+  finance: "investor",
+  innovation: "visionary"
+};
+
+/* Farbe des Spielers mit dieser Gewinnkategorie — sonst Katalogfarbe. */
+Nexus.scoreTrackOwnerColor = function (state, key) {
+  var roleId = Nexus.SCORE_TRACK_ROLE && Nexus.SCORE_TRACK_ROLE[key];
+  var colors = Nexus.PLAYER_COLORS || [];
+  if (roleId && state && state.players) {
+    var i;
+    for (i = 0; i < state.players.length; i++) {
+      if (state.players[i].roleId === roleId) {
+        var idx = state.players[i].colorIndex || 0;
+        return colors[idx % colors.length] || "#888888";
+      }
+    }
+  }
+  if (Nexus.ROLE_POINT_TYPES) {
+    if (Nexus.ROLE_POINT_TYPES[key]) {
+      return Nexus.ROLE_POINT_TYPES[key].color;
+    }
+    var mapped = roleId && Nexus.ROLES_BY_ID[roleId];
+    if (mapped && mapped.pointColor) {
+      return mapped.pointColor;
+    }
+  }
+  return "#888888";
+};

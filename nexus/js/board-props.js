@@ -350,7 +350,8 @@ window.Nexus = window.Nexus || {};
   function greenPlan(q, r, radius, seededFn) {
     var rand = seededFn(q, r, 91);
     var ring = (Math.abs(q) + Math.abs(r) + Math.abs(q + r)) / 2;
-    var parkChance = 0.08 + (1 - ring / Math.max(1, radius)) * 0.12;
+    /* Weniger reine Grünflächen — leere Tiles vermeiden (Gebäude kommen trotzdem). */
+    var parkChance = 0.04 + (1 - ring / Math.max(1, radius)) * 0.06;
     if (rand() < parkChance) {
       return { kind: "full", patches: [] };
     }

@@ -7,8 +7,11 @@ window.Nexus = window.Nexus || {};
   var tip;
   var guide;
   var debugPanel;
+  var devRunPanel;
   var fan;
   var inbox;
+  var drawBtn;
+  var pressureHost;
   var chapter;
   var tipTimer = 0;
   var holdTimer = 0;
@@ -20,6 +23,7 @@ window.Nexus = window.Nexus || {};
   var lastPhase = "";
   var suppressClose = false;
   var winPlayed = false;
+  var buildMenuState = null;
 
   function el(tag, cls, text) {
     var node = document.createElement(tag);
@@ -80,9 +84,41 @@ window.Nexus = window.Nexus || {};
   }
 
   function figureMarkup(kind) {
+    /* Geld: gleiches Markup wie Ressourcen-Chip (Kreis + S), nicht leerer Ring. */
+    if ((kind === "money" || kind === "coin") && Nexus.RESOURCE_MARKUP && Nexus.RESOURCE_MARKUP.money) {
+      return (
+        "<svg class='nx-fig' viewBox='0 0 24 24' aria-hidden='true'><g fill='none' stroke='currentColor' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'>" +
+        Nexus.RESOURCE_MARKUP.money +
+        "</g></svg>"
+      );
+    }
+    if (kind === "bolt" && Nexus.RESOURCE_MARKUP && Nexus.RESOURCE_MARKUP.energy) {
+      return (
+        "<svg class='nx-fig' viewBox='0 0 24 24' aria-hidden='true'><g fill='none' stroke='currentColor' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'>" +
+        Nexus.RESOURCE_MARKUP.energy +
+        "</g></svg>"
+      );
+    }
+    if (kind === "arrows" && Nexus.RESOURCE_MARKUP && Nexus.RESOURCE_MARKUP.bandwidth) {
+      return (
+        "<svg class='nx-fig' viewBox='0 0 24 24' aria-hidden='true'><g fill='none' stroke='currentColor' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'>" +
+        Nexus.RESOURCE_MARKUP.bandwidth +
+        "</g></svg>"
+      );
+    }
+    if (kind === "more") {
+      return (
+        "<svg class='nx-fig nx-fig--more' viewBox='0 0 24 24' aria-hidden='true'>" +
+        "<circle cx='5' cy='12' r='2' fill='currentColor' stroke='none'/>" +
+        "<circle cx='12' cy='12' r='2' fill='currentColor' stroke='none'/>" +
+        "<circle cx='19' cy='12' r='2' fill='currentColor' stroke='none'/>" +
+        "</svg>"
+      );
+    }
     var paths = {
       bolt: "M13 2 L6 14 H12 L10 22 L18 10 H12 Z",
-      coin: "M12 4 A8 8 0 1 0 12 20 A8 8 0 1 0 12 4",
+      coin: "M12 4 A8 8 0 1 0 12 20 A8 8 0 1 0 12 4 M12 8 V16",
+      money: "M12 4 A8 8 0 1 0 12 20 A8 8 0 1 0 12 4 M12 8 V16",
       arrows: "M12 3 V21 M8 7 L12 3 L16 7 M8 17 L12 21 L16 17",
       shield: "M12 3 L19 6 V12 C19 17 12 21 12 21 C12 21 5 17 5 12 V6 Z",
       bus: "M6 6 H18 V16 H6 Z M8 16 V19 M16 16 V19 M9 9 H15",
@@ -151,6 +187,8 @@ window.Nexus = window.Nexus || {};
   function closeMenu() {
     menu.hidden = true;
     menu.innerHTML = "";
+    menu.classList.remove("field-menu--build", "field-menu--layer2", "field-menu--layer3");
+    buildMenuState = null;
   }
 
   function applyAction(action) {
@@ -242,22 +280,36 @@ window.Nexus = window.Nexus || {};
     api.commit(next);
   }
 
+  var SCORE_FX_KEYS = { image: 1, comfort: 1, environment: 1, security: 1, eco: 1, trust: 1, finance: 1, innovation: 1 };
+
   function fxMarkup(bits) {
+    var state = api && api.getState ? api.getState() : null;
     return (bits || [])
       .map(function (bit) {
         var sign = bit.amount > 0 ? "+" : "";
-        var icon = Nexus.iconGroup
-          ? '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">' + Nexus.iconGroup(bit.key, "currentColor") + "</svg>"
-          : "";
+        var icon;
+        if (SCORE_FX_KEYS[bit.key] && Nexus.scoreTrackOwnerColor) {
+          icon =
+            '<span class="fx-dot" style="--fx-dot:' +
+            Nexus.scoreTrackOwnerColor(state, bit.key) +
+            '" aria-hidden="true"></span>';
+        } else if (Nexus.iconGroup) {
+          icon =
+            '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">' +
+            Nexus.iconGroup(bit.key, "currentColor") +
+            "</svg>";
+        } else {
+          icon = "";
+        }
         return '<i class="fx-bit' + (bit.amount < 0 ? " is-down" : " is-up") + '">' + icon + "<b>" + sign + bit.amount + "</b></i>";
       })
       .join("");
   }
 
-  function paintAction(action, onClick) {
+  function paintAction(action, onClick, host) {
     var button = document.createElement("button");
     button.type = "button";
-    button.className = "menu-tile";
+    button.className = "menu-tile" + (action.recommended ? " is-recommended" : "");
     button.disabled = !action.enabled;
     var help = action.enabled ? action.why || "" : action.reason || action.why || "";
     button.setAttribute("data-help-title", action.label);
@@ -267,12 +319,13 @@ window.Nexus = window.Nexus || {};
       action.label +
       "</strong><span class='tile-fx'>" +
       (action.fx && action.fx.length ? fxMarkup(action.fx) : action.enabled ? "" : "<em>" + (action.reason || "Geht nicht") + "</em>") +
-      "</span>";
+      "</span>" +
+      (action.why ? "<span class='why'>" + action.why + "</span>" : "");
     button.addEventListener("click", function (event) {
       event.stopPropagation();
       onClick();
     });
-    menu.appendChild(button);
+    (host || menu).appendChild(button);
   }
 
   function openPropulsion(action) {
@@ -314,9 +367,181 @@ window.Nexus = window.Nexus || {};
     menu.hidden = false;
   }
 
+  function openBuildTree(x, y, tree) {
+    if (!tree || !tree.groups || !tree.groups.length) {
+      closeMenu();
+      return;
+    }
+    buildMenuState = {
+      x: x,
+      y: y,
+      hit: tree.hit,
+      tree: tree,
+      groupId: null,
+      dcStep: null
+    };
+    renderBuildTree();
+  }
+
+  function renderBuildTree() {
+    if (!buildMenuState || !menu) {
+      return;
+    }
+    var tree = buildMenuState.tree;
+    var groupId = buildMenuState.groupId;
+    var dcStep = buildMenuState.dcStep;
+    menu.innerHTML = "";
+    menu.classList.add("field-menu--build");
+    menu.classList.toggle("field-menu--layer2", !!groupId && !dcStep);
+    menu.classList.toggle("field-menu--layer3", !!dcStep);
+
+    if (!groupId) {
+      var grid = el("div", "field-menu-grid field-menu-grid--l1");
+      tree.groups.forEach(function (group) {
+        var button = document.createElement("button");
+        button.type = "button";
+        button.className =
+          "menu-tile menu-tile--group menu-tile--icon-only" +
+          (group.recommended ? " is-recommended" : "");
+        button.disabled = !group.anyEnabled;
+        button.setAttribute("aria-label", group.label);
+        button.setAttribute("title", group.label);
+        button.setAttribute("data-help-title", group.label);
+        button.setAttribute(
+          "data-help",
+          group.anyEnabled ? group.hint || "" : "Hier gerade nichts baubar."
+        );
+        button.innerHTML = group.figure
+          ? figureMarkup(group.figure)
+          : "<span class='menu-more' aria-hidden='true'>…</span>";
+        button.addEventListener("click", function (event) {
+          event.stopPropagation();
+          if (!group.anyEnabled) {
+            Nexus.Sfx.play("error");
+            return;
+          }
+          buildMenuState.groupId = group.id;
+          buildMenuState.dcStep = null;
+          renderBuildTree();
+        });
+        grid.appendChild(button);
+      });
+      menu.appendChild(grid);
+    } else if (dcStep === "modes") {
+      var hub = buildMenuState.dcHub;
+      if (!hub || !hub.dcModes || !hub.dcModes.length) {
+        buildMenuState.dcStep = null;
+        renderBuildTree();
+        return;
+      }
+      var bar3 = el("div", "field-menu-bar");
+      var back3 = document.createElement("button");
+      back3.type = "button";
+      back3.className = "btn ghost field-menu-back";
+      back3.textContent = "← Zurück";
+      back3.addEventListener("click", function (event) {
+        event.stopPropagation();
+        buildMenuState.dcStep = null;
+        buildMenuState.dcHub = null;
+        renderBuildTree();
+      });
+      var title3 = el("strong", "field-menu-layer-title", hub.label || "Rechenzentrum");
+      bar3.appendChild(back3);
+      bar3.appendChild(title3);
+      menu.appendChild(bar3);
+      if (hub.capLabel || hub.why) {
+        menu.appendChild(
+          el("p", "field-menu-dc-hint", hub.capLabel ? hub.capLabel + " · " + (hub.why || "") : hub.why || "")
+        );
+      }
+      var tabs = el("div", "field-menu-dc-tabs");
+      hub.dcModes.forEach(function (mode) {
+        var tab = document.createElement("button");
+        tab.type = "button";
+        tab.className =
+          "menu-tile field-menu-dc-tab" + (mode.recommended ? " is-recommended" : "");
+        tab.disabled = !mode.enabled;
+        tab.setAttribute("data-help-title", mode.label);
+        tab.setAttribute(
+          "data-help",
+          mode.enabled ? mode.why || "" : mode.reason || mode.why || ""
+        );
+        tab.innerHTML =
+          "<strong>" +
+          mode.label +
+          "</strong><span class='tile-fx'>" +
+          (mode.fx && mode.fx.length
+            ? fxMarkup(mode.fx)
+            : mode.enabled
+              ? ""
+              : "<em>" + (mode.reason || "Geht nicht") + "</em>") +
+          "</span>" +
+          (mode.why ? "<span class='why'>" + mode.why + "</span>" : "");
+        tab.addEventListener("click", function (event) {
+          event.stopPropagation();
+          mode.hit = buildMenuState.hit;
+          applyAction(mode);
+        });
+        tabs.appendChild(tab);
+      });
+      menu.appendChild(tabs);
+    } else {
+      var group = null;
+      tree.groups.forEach(function (g) {
+        if (g.id === groupId) {
+          group = g;
+        }
+      });
+      if (!group) {
+        buildMenuState.groupId = null;
+        buildMenuState.dcStep = null;
+        renderBuildTree();
+        return;
+      }
+      var bar = el("div", "field-menu-bar");
+      var back = document.createElement("button");
+      back.type = "button";
+      back.className = "btn ghost field-menu-back";
+      back.textContent = "← Zurück";
+      back.addEventListener("click", function (event) {
+        event.stopPropagation();
+        buildMenuState.groupId = null;
+        buildMenuState.dcStep = null;
+        buildMenuState.dcHub = null;
+        renderBuildTree();
+      });
+      var title = el("strong", "field-menu-layer-title", group.label);
+      bar.appendChild(back);
+      bar.appendChild(title);
+      menu.appendChild(bar);
+      var list = el("div", "field-menu-grid field-menu-grid--l2");
+      group.items.forEach(function (action) {
+        paintAction(action, function () {
+          if (action.kind === "dc-hub" || action.id === "dc-hub") {
+            buildMenuState.dcStep = "modes";
+            buildMenuState.dcHub = action;
+            renderBuildTree();
+            return;
+          }
+          action.hit = buildMenuState.hit;
+          applyAction(action);
+        }, list);
+      });
+      menu.appendChild(list);
+    }
+
+    menu.hidden = false;
+    placeMenu(buildMenuState.x, buildMenuState.y);
+  }
+
   function openMenu(x, y, actions, hit) {
     menu.innerHTML = "";
-    if (!actions.length) {
+    menu.classList.remove("field-menu--build", "field-menu--layer2", "field-menu--layer3");
+    if (actions && actions.kind === "build-tree") {
+      openBuildTree(x, y, actions);
+      return;
+    }
+    if (!actions || !actions.length) {
       closeMenu();
       return;
     }
@@ -350,40 +575,193 @@ window.Nexus = window.Nexus || {};
     menu.style.top = top + "px";
   }
 
+  function kindLabel(kind) {
+    return (
+      (Nexus.STADT_AKTE_KIND_LABELS && Nexus.STADT_AKTE_KIND_LABELS[kind]) ||
+      (kind === "mandate" ? "Mandat" : kind === "pressure" ? "Druckstück" : "Briefing")
+    );
+  }
+
+  function cardFxList(card) {
+    var fx = [];
+    var source = card.effects || (card.mandate && card.mandate.reward) || {};
+    if (card.kind === "pressure" && card.pressure) {
+      Object.keys(card.pressure.pay || {}).forEach(function (key) {
+        if (card.pressure.pay[key]) {
+          fx.push({ key: key, amount: -card.pressure.pay[key] });
+        }
+      });
+      if (card.pressure.orRisk) {
+        fx.push({ key: "risk", amount: card.pressure.orRisk });
+      }
+      return fx;
+    }
+    Object.keys(source).forEach(function (key) {
+      if (source[key]) {
+        fx.push({ key: key, amount: source[key] });
+      }
+    });
+    return fx;
+  }
+
+  function ensurePressureHost() {
+    if (pressureHost) {
+      return pressureHost;
+    }
+    pressureHost = el("div", "akte-pressure");
+    pressureHost.id = "akte-pressure";
+    pressureHost.hidden = true;
+    document.body.appendChild(pressureHost);
+    return pressureHost;
+  }
+
+  function renderPressure(state) {
+    var host = ensurePressureHost();
+    var pending = state && state.pendingPressure;
+    if (!pending || Nexus.isHotSeatShield(state)) {
+      host.hidden = true;
+      host.innerHTML = "";
+      return;
+    }
+    var to = null;
+    var from = null;
+    (state.players || []).forEach(function (p) {
+      if (p.id === pending.toId) {
+        to = p;
+      }
+      if (p.id === pending.fromId) {
+        from = p;
+      }
+    });
+    var card = pending.card || {};
+    var pay = (card.pressure && card.pressure.pay) || {};
+    var payBits = Object.keys(pay)
+      .filter(function (k) {
+        return pay[k];
+      })
+      .map(function (k) {
+        return pay[k] + " " + ((Nexus.RESOURCE_LABELS && Nexus.RESOURCE_LABELS[k]) || k);
+      })
+      .join(" + ");
+    host.hidden = false;
+    host.innerHTML =
+      "<div class='akte-pressure-card'>" +
+      "<p class='akte-pressure-kicker'>Druckstück · Antwort für " +
+      (to ? to.name : "Mitspieler") +
+      "</p>" +
+      "<h3>" +
+      (card.name || "Akte") +
+      "</h3>" +
+      "<p>" +
+      (card.text || "") +
+      "</p>" +
+      "<p class='akte-pressure-from'>von " +
+      (from ? from.name : "—") +
+      "</p>" +
+      "<div class='akte-pressure-actions'>" +
+      "<button type='button' class='btn' data-choice='pay'>Zahlen (" +
+      (payBits || "—") +
+      ")</button>" +
+      "<button type='button' class='btn btn-ghost' data-choice='risk'>Risiko +" +
+      ((card.pressure && card.pressure.orRisk) || 2) +
+      "</button>" +
+      "</div></div>";
+    host.querySelectorAll("[data-choice]").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        var next = Nexus.resolvePressure(api.getState(), btn.getAttribute("data-choice"));
+        if (next !== api.getState()) {
+          Nexus.Sfx.play("card");
+          api.commit(next);
+        }
+      });
+    });
+  }
+
+  function openPressureTargetPicker(handIndex, card) {
+    var state = api.getState();
+    var me = Nexus.currentPlayer(state);
+    var host = ensurePressureHost();
+    var others = (state.players || []).filter(function (p) {
+      return me && p.id !== me.id;
+    });
+    if (!others.length) {
+      Nexus.Sfx.play("error");
+      return;
+    }
+    host.hidden = false;
+    host.innerHTML =
+      "<div class='akte-pressure-card'>" +
+      "<p class='akte-pressure-kicker'>Druckstück · Ziel wählen</p>" +
+      "<h3>" +
+      (card.name || "Akte") +
+      "</h3>" +
+      "<p>" +
+      (card.text || "") +
+      "</p>" +
+      "<div class='akte-pressure-actions' id='akte-target-list'></div>" +
+      "<button type='button' class='btn btn-ghost' id='akte-target-cancel'>Abbrechen</button>" +
+      "</div>";
+    var list = host.querySelector("#akte-target-list");
+    others.forEach(function (p) {
+      var b = document.createElement("button");
+      b.type = "button";
+      b.className = "btn";
+      b.textContent = p.name;
+      b.addEventListener("click", function () {
+        var next = Nexus.playInnovationCard(api.getState(), handIndex, { targetId: p.id });
+        if (next !== api.getState()) {
+          Nexus.Sfx.play("card");
+          api.commit(next);
+        }
+      });
+      list.appendChild(b);
+    });
+    var cancel = host.querySelector("#akte-target-cancel");
+    if (cancel) {
+      cancel.addEventListener("click", function () {
+        host.hidden = true;
+        host.innerHTML = "";
+      });
+    }
+  }
+
   function renderFan(state) {
     fan.innerHTML = "";
+    var marketLabel = document.createElement("p");
+    marketLabel.className = "akte-fan-label";
+    marketLabel.textContent = "Ausschreibungen";
+    fan.appendChild(marketLabel);
     var market = state.projectMarket || [];
     market.forEach(function (card, index) {
       var offer = Nexus.Projects ? Nexus.Projects.offer(state, index) : { allowed: false, cost: {}, reason: "" };
       var button = document.createElement("button");
-      button.className = "project-card";
       button.style.setProperty("--tilt", (index - 1) * 4 + "deg");
-      button.disabled = !offer.allowed;
+      button.disabled = !offer.allowed || !!state.pendingPressure;
       var costFx = [];
       Object.keys(offer.cost || {}).forEach(function (key) {
         if (offer.cost[key]) {
           costFx.push({ key: key, amount: -offer.cost[key] });
         }
       });
-      var gainFx = [];
-      Object.keys(card.effects || {}).forEach(function (key) {
-        if (card.effects[key]) {
-          gainFx.push({ key: key, amount: card.effects[key] });
-        }
-      });
-      button.className = "project-card cat-" + (card.category || "general");
+      button.className =
+        "project-card dossier-card kind-briefing cat-" + (card.category || "general");
       button.innerHTML =
-        '<span class="card-title">' +
+        '<span class="card-kind">' +
+        kindLabel("briefing") +
+        '</span><span class="card-title">' +
         card.name +
         '</span><span class="card-cost">' +
         fxMarkup(costFx) +
         '</span><span class="card-fx">' +
-        fxMarkup(gainFx) +
+        fxMarkup(cardFxList(card)) +
         "</span>";
       button.setAttribute("data-help-title", card.name);
-      button.setAttribute("data-help", (card.text || "") + (offer.reason && !offer.allowed ? " " + offer.reason : ""));
+      button.setAttribute(
+        "data-help",
+        (card.text || "") + (offer.reason && !offer.allowed ? " " + offer.reason : "")
+      );
       button.addEventListener("click", function () {
-        if (!offer.allowed) {
+        if (!offer.allowed || state.pendingPressure) {
           Nexus.Sfx.play("error");
           return;
         }
@@ -396,40 +774,85 @@ window.Nexus = window.Nexus || {};
       });
       fan.appendChild(button);
     });
+    if (drawBtn) {
+      var drawOffer = Nexus.getInnovationDrawOffer ? Nexus.getInnovationDrawOffer(state) : { allowed: false };
+      drawBtn.disabled = !drawOffer.allowed || !!state.pendingPressure;
+      drawBtn.title = drawOffer.reason || "Stadtakte ziehen";
+      drawBtn.hidden = Nexus.isHotSeatShield(state) || state.screen !== "game";
+    }
     inbox.innerHTML = "";
     var shield = Nexus.isHotSeatShield(state);
-    var hand = shield ? [] : (Nexus.currentPlayer(state) && Nexus.currentPlayer(state).handCards) || [];
-    var spread = hand.length > 1 ? 28 / (hand.length - 1) : 0;
-    hand.forEach(function (card, index) {
+    var rawHand = shield ? [] : (Nexus.currentPlayer(state) && Nexus.currentPlayer(state).handCards) || [];
+    var catOrder = { green: 0, privacy: 1, mobility: 2, general: 3 };
+    var kindOrder = { briefing: 0, mandate: 1, pressure: 2 };
+    var hand = rawHand
+      .map(function (card, index) {
+        return { card: card, index: index };
+      })
+      .sort(function (a, b) {
+        var ca = catOrder[a.card.category] != null ? catOrder[a.card.category] : 9;
+        var cb = catOrder[b.card.category] != null ? catOrder[b.card.category] : 9;
+        if (ca !== cb) {
+          return ca - cb;
+        }
+        var ka = kindOrder[a.card.kind || "briefing"] != null ? kindOrder[a.card.kind || "briefing"] : 9;
+        var kb = kindOrder[b.card.kind || "briefing"] != null ? kindOrder[b.card.kind || "briefing"] : 9;
+        if (ka !== kb) {
+          return ka - kb;
+        }
+        return a.index - b.index;
+      });
+    var group = document.createElement("div");
+    group.className = "hand-group";
+    hand.forEach(function (entry) {
+      var card = entry.card;
+      var index = entry.index;
       var button = document.createElement("button");
       button.type = "button";
-      button.className = "uno-card cat-" + (card.category || "general");
-      var tilt = hand.length === 1 ? 0 : -14 + index * spread;
-      button.style.setProperty("--tilt", tilt.toFixed(1) + "deg");
-      var handFx = [];
-      Object.keys(card.effects || {}).forEach(function (key) {
-        if (card.effects[key]) {
-          handFx.push({ key: key, amount: card.effects[key] });
-        }
-      });
+      var kind = card.kind || "briefing";
+      button.className = "uno-card dossier-card kind-" + kind + " cat-" + (card.category || "general");
+      button.style.setProperty("--tilt", "0deg");
+      var meta = "";
+      if (kind === "mandate" && card.mandate && card.mandate.need) {
+        meta =
+          '<span class="card-meta">Ziel: ' +
+          ((card.mandate.need.count || 1) + "×") +
+          "</span>";
+      }
       button.innerHTML =
-        '<span class="card-title">' +
+        '<span class="card-kind">' +
+        kindLabel(kind) +
+        '</span><span class="card-title">' +
         card.name +
-        '</span><span class="card-cost"></span><span class="card-fx">' +
-        fxMarkup(handFx) +
+        "</span>" +
+        meta +
+        '<span class="card-fx">' +
+        fxMarkup(cardFxList(card)) +
         "</span>";
       button.setAttribute("data-help-title", card.name);
       button.setAttribute("data-help", card.text || "");
       button.title = card.text || card.name;
       button.addEventListener("click", function () {
+        if (api.getState().pendingPressure) {
+          Nexus.Sfx.play("error");
+          return;
+        }
+        if (kind === "pressure") {
+          openPressureTargetPicker(index, card);
+          return;
+        }
         var next = Nexus.playInnovationCard(api.getState(), index);
         if (next !== api.getState()) {
           Nexus.Sfx.play("card");
           api.commit(next);
         }
       });
-      inbox.appendChild(button);
+      group.appendChild(button);
     });
+    if (hand.length) {
+      inbox.appendChild(group);
+    }
+    renderPressure(state);
   }
 
   function renderChapter(state) {
@@ -485,7 +908,7 @@ window.Nexus = window.Nexus || {};
         node.setAttribute("data-gloss", "geld");
       }
       if (key === "bandwidth") {
-        node.setAttribute("data-gloss", "bandbreite");
+        node.setAttribute("data-gloss", "daten");
       }
     });
     var risk = document.getElementById("risk-pill") || document.querySelector(".risk-pill");
@@ -510,6 +933,70 @@ window.Nexus = window.Nexus || {};
     }
   }
 
+  function ensureDevRunPanel() {
+    if (devRunPanel) {
+      return devRunPanel;
+    }
+    devRunPanel = el("aside", "debug-panel dev-run-panel");
+    var events = Nexus.EVENTS || [];
+    var options = events
+      .map(function (ev) {
+        return "<option value='" + ev.id + "'>" + (ev.major ? "★ " : "") + (ev.title || ev.id) + "</option>";
+      })
+      .join("");
+    devRunPanel.innerHTML =
+      "<p><strong>Dev-Run</strong></p>" +
+      "<label>Ereignis<select id='dev-event-select'>" +
+      options +
+      "</select></label>" +
+      "<button type='button' id='dev-event-fire'>Ereignis starten</button>" +
+      "<p>Special einmalig freischalten</p>" +
+      "<button type='button' id='dev-tile-stop'>Halt</button>" +
+      "<button type='button' id='dev-tile-garage'>Garagen</button>" +
+      "<button type='button' id='dev-tile-depot'>E-Taxi</button>" +
+      "<button type='button' id='dev-tile-park'>Park</button>" +
+      "<button type='button' id='dev-tile-workshop'>Werkstatt</button>" +
+      "<button type='button' id='dev-fill-city'>Stadt füllen</button>";
+    document.body.appendChild(devRunPanel);
+    devRunPanel.addEventListener("click", function (event) {
+      if (!api || !api.getState) {
+        return;
+      }
+      var state = api.getState();
+      if (!state || !state.devRun) {
+        return;
+      }
+      var id = event.target && event.target.id;
+      if (id === "dev-event-fire") {
+        var select = document.getElementById("dev-event-select");
+        var eventId = select && select.value;
+        var next = Nexus.devForceEvent(state, eventId);
+        if (next !== state) {
+          api.commit(next, { skipAutoHarvest: true });
+        }
+        return;
+      }
+      var tileMap = {
+        "dev-tile-stop": "taxi",
+        "dev-tile-garage": "garage",
+        "dev-tile-depot": "taxi",
+        "dev-tile-park": "park",
+        "dev-tile-workshop": "workshop"
+      };
+      if (tileMap[id] && Nexus.devForceSpecialTile) {
+        var tiled = Nexus.devForceSpecialTile(state, tileMap[id]);
+        if (tiled !== state) {
+          api.commit(tiled, { skipAutoHarvest: true });
+        }
+        return;
+      }
+      if (id === "dev-fill-city" && api.fillCity) {
+        api.fillCity();
+      }
+    });
+    return devRunPanel;
+  }
+
   function sync(state) {
     if (!state) {
       return;
@@ -518,6 +1005,11 @@ window.Nexus = window.Nexus || {};
     renderChapter(state);
     renderEnd(state);
     stampHelp(state);
+    if (state.devRun && state.screen === "game") {
+      ensureDevRunPanel().hidden = false;
+    } else if (devRunPanel) {
+      devRunPanel.hidden = true;
+    }
     var note = document.querySelector(".js-gfx-note");
     if (note && Nexus.Quality) {
       var st = Nexus.Quality.state();
@@ -567,10 +1059,23 @@ window.Nexus = window.Nexus || {};
       "<button type='button' data-guide='mobil'>Mobilität</button>" +
       "</div><p id='guide-body'></p><button type='button' id='btn-dialog-placeholder'>Intro-Platzhalter</button>" +
       "<p><button type='button' id='btn-save'>Speichern</button> <button type='button' id='btn-load'>Laden</button></p>";
-    fan = el("div", "project-fan");
+    fan = el("div", "project-fan dossier-fan");
     fan.id = "project-fan";
-    inbox = el("div", "hand-fan");
+    inbox = el("div", "hand-fan dossier-hand");
     inbox.id = "hand-fan";
+    drawBtn = el("button", "btn akte-draw", "Akte ziehen");
+    drawBtn.type = "button";
+    drawBtn.id = "btn-draw-akte";
+    drawBtn.addEventListener("click", function () {
+      var base = api.getState();
+      var next = Nexus.drawInnovationCard(base);
+      if (next !== base) {
+        Nexus.Sfx.play("card");
+        api.commit(next);
+      } else {
+        Nexus.Sfx.play("error");
+      }
+    });
     chapter = el("div", "chapter-chip");
     chapter.hidden = true;
     document.body.appendChild(menu);
@@ -579,8 +1084,12 @@ window.Nexus = window.Nexus || {};
     var tray = document.querySelector(".tray-grid");
     if (tray) {
       tray.insertBefore(fan, tray.firstChild);
+      tray.insertBefore(drawBtn, fan.nextSibling);
+    } else {
+      document.body.appendChild(drawBtn);
     }
     document.body.appendChild(inbox);
+    ensurePressureHost();
     var top = document.querySelector(".topbar-row--main");
     if (top) {
       top.insertBefore(chapter, top.querySelector(".wallet"));

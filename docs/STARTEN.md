@@ -45,3 +45,13 @@ Im Terminal `Ctrl+C`.
 - Hard-Reload: `Ctrl+F5`
 - Prüfen, ob die Adresse mit `http://` beginnt (nicht `file:///…`)
 - Server wirklich aus `nexus/` gestartet (dann existieren `vendor/kenney/…` und `index.html` unter `/`)
+
+## Kenney Car-/Graveyard-Props nachziehen
+
+Werkstatt nutzt ausgewählte Props aus Car Kit + Graveyard Kit unter `nexus/vendor/kenney/car/` und `…/graveyard/`. Neu holen (PowerShell, braucht Netz):
+
+```powershell
+powershell -File tools/fetch_kenney_props.ps1
+```
+
+Kenney liefert den Zip nur mit Browser-Referer; das Skript setzt das.

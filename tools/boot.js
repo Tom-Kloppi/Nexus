@@ -9,6 +9,7 @@ var files = [
   "data/tiles.js",
   "data/devices.js",
   "data/events.js",
+  "data/stadtakten.js",
   "data/cards.js",
   "data/roles.js",
   "glossary.js",

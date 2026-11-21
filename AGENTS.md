@@ -56,5 +56,5 @@ React/Vue, Bundler, npm, Test-Frameworks, Online-Multiplayer, Accounts, Persiste
 - `isHotSeatShield`: kein Leak von Rolle, Wallet, Versprechen.
 - Alle gebauten Geräte öffentlich; `Nexus.boardGadgetsFor`.
 - Produktion zu Zugbeginn; 2p- und 5–6p-Skalierung in `roles.js`.
-- Bandbreite aus Wohnen ohne eigenes Datenzentrum = 0.
+- Daten aus Wohnen ohne eigenes Datenzentrum = 0; DC-Limit je 7 eigene Felder.
 - Anleitung = Overlay, keine neue `turnPhase`.

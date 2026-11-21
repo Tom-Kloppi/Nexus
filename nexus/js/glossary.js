@@ -4,20 +4,26 @@ window.Nexus = window.Nexus || {};
 Nexus.GLOSSARY = {
   energie: {
     title: "Energie",
-    short: "Strom im Quartier. Solar liefert 2 fest mit Umwelt+, der Transformator 3 fest und kostet Geld.",
-    example: "Solar: 2 Energie und Umwelt. Trafo: 3 Energie, −1 Geld je Einheit.",
+    short: "Solar 2 fest (Umwelt+), Trafo 3 fest (Geld/Einheit), Atom 5 fest mit hohem Risiko.",
+    example: "Atom liefert viel Strom, hebt aber die Cyber-/Risiko-Zahl stark.",
     figure: "bolt"
   },
   geld: {
     title: "Geld",
-    short: "Bauen, Linien und der Transformator brauchen Geld. Verkehr und Wohnen an der Linie bringen welches ein.",
-    example: "Ein Parkhaus kostet 4 Geld und 2 Energie und liefert danach Solar vom Dach.",
+    short: "Fabrik und Unternehmen erzeugen Geld. Fabrik skaliert mit Wohn-Nachbarn; Unternehmen starten 1→3→5 und werden mit jedem weiteren schwächer (5→3→1).",
+    example: "Zwei Wohnfelder neben der Fabrik: Basis +2. Das zweite Unternehmen reift nur noch auf 3.",
     figure: "coin"
   },
   bandbreite: {
-    title: "Bandbreite",
-    short: "Datenleitung. Wohnen erzeugt sie nur mit eigenem Datenzentrum. Cloud-Geräte verbrauchen sie als Upkeep.",
-    example: "Zwei Cloud-Kameras können mehr Upkeep ziehen, als ein Wohnfeld liefert.",
+    title: "Daten",
+    short: "Wohnen und Rechenzentren liefern Daten. Wohnen nur mit eigenem DC. Pro 7 eigene Felder ein weiteres Rechenzentrum.",
+    example: "Mit 8 Feldern darfst du ein zweites Rechenzentrum bauen. Cloud-Geräte brauchen Daten als Upkeep.",
+    figure: "arrows"
+  },
+  daten: {
+    title: "Daten",
+    short: "Wohnen und Rechenzentren liefern Daten. Wohnen nur mit eigenem DC. Pro 7 eigene Felder ein weiteres Rechenzentrum.",
+    example: "Mit 8 Feldern darfst du ein zweites Rechenzentrum bauen. Cloud-Geräte brauchen Daten als Upkeep.",
     figure: "arrows"
   },
   datenschutz: {
@@ -82,8 +88,8 @@ Nexus.GLOSSARY = {
   },
   komfort: {
     title: "Komfort",
-    short: "Spürbare Annehmlichkeit: Wohnlage, Bus, Parkhaus, smarte Geräte.",
-    example: "Eine neue Buslinie und ein Parkhaus geben Komfort, den man am Tisch sieht.",
+    short: "Spürbare Annehmlichkeit: Wohnlage, Garagen, E-Taxi, smarte Geräte.",
+    example: "Garagen und eine E-Taxi-Station geben Komfort, den man am Tisch sieht.",
     figure: "leaf"
   },
   datenzentrum: {
@@ -94,7 +100,7 @@ Nexus.GLOSSARY = {
   },
   buslinie: {
     title: "Buslinie",
-    short: "Verbindung eigener oder fremder Haltestellen über den Straßengraphen. Braucht einen Busbahnhof.",
+    short: "Früher Buslinie — entfernt. Mobilität läuft über Garagen und E-Taxi-Stationen.",
     example: "Zwei Halten, 3 Kanten entfernt: 4 Geld und 1 Bandbreite. E-Antrieb senkt danach den Energiebedarf.",
     figure: "bus"
   }
