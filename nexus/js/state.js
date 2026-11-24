@@ -97,6 +97,15 @@ window.Nexus = window.Nexus || {};
         parts.push((effects[key] > 0 ? "+" : "") + effects[key] + " " + label);
       }
     });
+    if (effects.karma) {
+      parts.push((effects.karma > 0 ? "+" : "") + effects.karma + " Karma");
+    }
+    if (effects.ownSp) {
+      parts.push((effects.ownSp > 0 ? "+" : "") + effects.ownSp + " SP");
+    }
+    if (effects.freeZoneClaim) {
+      parts.push("+" + effects.freeZoneClaim + " Freifeld");
+    }
     if (effects.risk) {
       parts.push((effects.risk > 0 ? "+" : "") + effects.risk + " Risiko");
     }
@@ -904,7 +913,7 @@ window.Nexus = window.Nexus || {};
     if (player.devices.camera === "local") {
       return true;
     }
-    if (player.devices.hub === "local") {
+    if (player.devices.edge === "local" || player.devices.hub === "local") {
       return true;
     }
     return Nexus.localDeviceRatio(player) >= 75;
@@ -1092,11 +1101,18 @@ window.Nexus = window.Nexus || {};
       }
     });
     var scores = bumpScores(player.scores, effects);
-    return Object.assign({}, player, {
+    var next = Object.assign({}, player, {
       resources: resources,
       scores: scores,
       risk: Math.max(0, player.risk + (effects.risk || 0))
     });
+    if (effects.ownSp) {
+      next.rolePoints = Math.max(0, (next.rolePoints || 0) + effects.ownSp);
+    }
+    if (effects.freeZoneClaim) {
+      next.freeZoneClaims = (next.freeZoneClaims || 0) + effects.freeZoneClaim;
+    }
+    return next;
   }
 
   function grantInnovationCards(state, player, count, preferredCategory) {
@@ -1162,6 +1178,10 @@ window.Nexus = window.Nexus || {};
     if (need.upgrade) {
       return "Ausbau ×" + (need.count || 1);
     }
+    if (need.tileId && Nexus.BUILD_TILES && Nexus.BUILD_TILES[need.tileId]) {
+      var tile = Nexus.BUILD_TILES[need.tileId];
+      return (tile.shortLabel || tile.label || need.tileId) + " ×" + (need.count || 1);
+    }
     var typeDef = ZONE_TYPES[need.buildType];
     var label = (typeDef && typeDef.shortLabel) || need.buildType || "Bau";
     if (need.buildVariant) {
@@ -1203,6 +1223,9 @@ window.Nexus = window.Nexus || {};
     var need = entry.need;
     if (need.upgrade) {
       return !!event.upgrade;
+    }
+    if (need.tileId) {
+      return event.tileId === need.tileId;
     }
     if (!event.buildType) {
       return false;
@@ -1250,8 +1273,12 @@ window.Nexus = window.Nexus || {};
       return state;
     }
     var nextPlayer = Object.assign({}, player, { activeMandates: remaining });
+    var karmaPending = [];
     completed.forEach(function (entry) {
       nextPlayer = applyCardEffects(nextPlayer, { effects: entry.reward || {} });
+      if (entry.reward && entry.reward.karma) {
+        karmaPending.push({ delta: entry.reward.karma, name: entry.name });
+      }
       nextPlayer = Object.assign({}, nextPlayer, {
         playedCards: (nextPlayer.playedCards || []).concat([
           { id: entry.cardId, name: entry.name, kind: "mandate", text: "Mandat erfüllt" }
@@ -1259,6 +1286,9 @@ window.Nexus = window.Nexus || {};
       });
     });
     var next = replacePlayer(state, playerId, nextPlayer);
+    karmaPending.forEach(function (item) {
+      next = applyKarma(next, playerId, item.delta, item.name);
+    });
     completed.forEach(function (entry) {
       next.log = addLog(next, player.name, "Mandat erfüllt: " + entry.name + ".");
     });
@@ -1330,10 +1360,14 @@ window.Nexus = window.Nexus || {};
       handCards: hand,
       playedCards: (player.playedCards || []).concat([played])
     });
-    return Object.assign({}, replacePlayer(state, player.id, updated), {
+    var nextBrief = Object.assign({}, replacePlayer(state, player.id, updated), {
       log: addLog(state, player.name, "Briefing: " + card.name + "."),
       lastScoreCause: { kind: "card", label: card.name }
     });
+    if (card.effects && card.effects.karma) {
+      nextBrief = applyKarma(nextBrief, player.id, card.effects.karma, card.name);
+    }
+    return nextBrief;
   }
 
   function resolvePressure(state, choice) {
@@ -1364,23 +1398,40 @@ window.Nexus = window.Nexus || {};
         choice = "risk";
       } else {
         nextTo = Object.assign({}, to, { resources: subtractCost(to.resources, pay) });
-        if (nextFrom && pressure.imageGain) {
-          nextFrom = Object.assign({}, nextFrom, {
-            scores: bumpScores(nextFrom.scores, { image: pressure.imageGain })
-          });
+        if (nextFrom && (pressure.karmaGain || pressure.imageGain)) {
+          var gain = pressure.karmaGain || pressure.imageGain || 0;
+          if (pressure.karmaGain) {
+            /* Karma nach replacePlayer via applyKarma. */
+          } else {
+            nextFrom = Object.assign({}, nextFrom, {
+              scores: bumpScores(nextFrom.scores, { image: gain })
+            });
+          }
         }
       }
     }
     if (choice !== "pay") {
-      var riskAdd = pressure.orRisk || 2;
-      nextTo = Object.assign({}, nextTo, {
-        risk: Math.max(0, (nextTo.risk || 0) + riskAdd),
-        riskShock: Math.max(0, (nextTo.riskShock || 0) + riskAdd)
-      });
+      var karmaHit = pressure.orKarma != null ? pressure.orKarma : pressure.orRisk || 2;
+      if (pressure.orKarma != null) {
+        nextTo = Object.assign({}, nextTo, {
+          karma: clampKarma((nextTo.karma || 0) - karmaHit)
+        });
+      } else {
+        nextTo = Object.assign({}, nextTo, {
+          risk: Math.max(0, (nextTo.risk || 0) + karmaHit),
+          riskShock: Math.max(0, (nextTo.riskShock || 0) + karmaHit)
+        });
+      }
     }
     next = replacePlayer(next, nextTo.id, nextTo);
     if (nextFrom && nextFrom.id !== nextTo.id) {
       next = replacePlayer(next, nextFrom.id, nextFrom);
+    }
+    if (choice === "pay" && nextFrom && pressure.karmaGain) {
+      next = applyKarma(next, nextFrom.id, pressure.karmaGain, pending.card.name);
+    }
+    if (choice !== "pay" && pressure.orKarma != null && Nexus.Goals && Nexus.Goals.syncKarmaGoals) {
+      next = Nexus.Goals.syncKarmaGoals(next, nextTo.id);
     }
     var fromName = (nextFrom && nextFrom.name) || "Akte";
     next = Object.assign({}, next, {
@@ -1390,7 +1441,7 @@ window.Nexus = window.Nexus || {};
         to.name,
         choice === "pay"
           ? "Druckstück akzeptiert (" + pending.card.name + ") — gezahlt."
-          : "Druckstück abgelehnt (" + pending.card.name + ") — Risiko."
+          : "Druckstück abgelehnt (" + pending.card.name + ") — Karma."
       ),
       lastScoreCause: { kind: "pressure", label: pending.card.name }
     });
@@ -1780,7 +1831,8 @@ window.Nexus = window.Nexus || {};
     }
     next = tickMandates(next, player.id, {
       buildType: resolvedType,
-      buildVariant: resolvedVariant || null
+      buildVariant: resolvedVariant || null,
+      tileId: resolvedTileId || null
     });
     if (resolvedTileId && tileMatchesPlayerMetric(resolvedTileId, player)) {
       next = tickContractProgress(next, player.id, { buildMetric: 1 });
@@ -3113,16 +3165,11 @@ window.Nexus = window.Nexus || {};
     var devices = Object.assign({}, player.devices);
     devices[deviceId] = mode;
 
-    var risk = player.risk;
-    if (isNewBuild && deviceId === "lock") {
-      risk = Math.max(0, risk - C.LOCK_RISK_REDUCTION);
-    }
-
     var hubDiscountPending = player.hubDiscountPending;
     if (offer.usedHubDiscount) {
       hubDiscountPending = false;
     }
-    if (isNewBuild && deviceId === "hub") {
+    if (isNewBuild && (deviceId === "edge" || device.nextDeviceDiscount)) {
       hubDiscountPending = true;
     }
 
@@ -3138,24 +3185,33 @@ window.Nexus = window.Nexus || {};
     var nextPlayer = Object.assign({}, player, {
       resources: subtractCost(player.resources, offer.cost),
       devices: devices,
-      risk: risk,
       hubDiscountPending: hubDiscountPending,
       localHardwareDiscountPending: localHardwareDiscountPending,
       workshopDiscountPending: workshopDiscountPending
     });
 
     var next = replacePlayer(state, player.id, nextPlayer);
-    if (mode === "local") {
-      next = awardTypedRolePoints(next, player.id, "trust", 1, device.shortName + " lokal");
-    } else if (isNewBuild) {
-      next = awardTypedRolePoints(next, player.id, "innovation", 1, device.shortName + " Cloud");
+    if (mode === "local" && (device.localKarmaOnBuild || 0) !== 0 && typeof applyKarma === "function") {
+      next = applyKarma(next, player.id, device.localKarmaOnBuild, device.shortName + " lokal");
     }
-    var logText = device.shortName + (offer.isUpgrade ? " lokal" : " " + mode) + ".";
-    if (isNewBuild && deviceId === "charger") {
-      var granted = grantInnovationCards(next, nextPlayer, 1, null);
+    var metrics = device.metrics || [];
+    var role = Nexus.ROLES_BY_ID && Nexus.ROLES_BY_ID[player.roleId];
+    var ownKey = role && role.pointKey;
+    if (ownKey && metrics.indexOf(ownKey) >= 0 && isNewBuild) {
+      next = awardRolePoints
+        ? awardRolePoints(next, player.id, 0, device.shortName)
+        : next;
+      /* Metrik-Match zählt für Geräte-Ziele; SP nur über Goals-Engine. */
+    }
+    var logText = device.shortName + (offer.isUpgrade ? " → lokal" : " " + mode) + ".";
+    var shouldDraw =
+      (device.drawCardOnBuild && isNewBuild) ||
+      (mode === "local" && device.localDrawCardOnBuild && isNewBuild);
+    if (shouldDraw) {
+      var granted = grantInnovationCards(next, currentPlayer(next) || nextPlayer, 1, null);
       next = replacePlayer(granted.state, player.id, granted.player);
       if (granted.cards[0]) {
-        logText += " Innovationskarte: " + granted.cards[0].name + ".";
+        logText += " Akte: " + granted.cards[0].name + ".";
       }
     }
     next.log = addLog(next, player.name, logText);
@@ -3167,13 +3223,14 @@ window.Nexus = window.Nexus || {};
   }
 
   function applyOngoingEffects(player) {
-    var modifiers = player.roundModifiers;
+    var modifiers = player.roundModifiers || {};
     var upkeep = cloudUpkeepCost(player);
     var cloudOnline = upkeep === 0 || canAfford(player.resources, { bandwidth: upkeep });
     var baseSave = 0;
     var bandwidthGain = 0;
-    var addedRisk = 0;
-    var hemsMode = player.devices.hems;
+    var moneyGain = 0;
+    var karmaPressure = 0;
+    var hemsLocal = player.devices.hems === "local";
     var scoreHint = emptyScores();
 
     Nexus.DEVICES.forEach(function (device) {
@@ -3182,44 +3239,39 @@ window.Nexus = window.Nexus || {};
         return;
       }
       if (mode === "cloud") {
-        addedRisk += device.cloudRiskPerRound;
+        karmaPressure += device.cloudKarmaRisk || 0;
       }
-      if (device.id === "hems") {
+      if (device.id === "hems" && device.localDoublesEnergySave) {
         return;
       }
       var factor = effectFactor(mode, modifiers);
       if (mode === "cloud" && !cloudOnline) {
         factor = 0;
       }
-      baseSave += (device.energySave || 0) * factor;
-      bandwidthGain += ((device.bandwidthGain != null ? device.bandwidthGain : device.dataGain) || 0) * factor;
-      if (device.scoreGain && factor > 0) {
-        SCORE_KEYS.forEach(function (key) {
-          scoreHint[key] += (device.scoreGain[key] || 0) * factor;
-        });
-      }
+      var save =
+        mode === "local" && device.localEnergySave != null
+          ? device.localEnergySave
+          : device.energySave || 0;
+      baseSave += save * factor;
+      var bw =
+        mode === "local" && device.localBandwidthGain != null
+          ? device.localBandwidthGain
+          : device.bandwidthGain != null
+            ? device.bandwidthGain
+            : device.dataGain || 0;
+      bandwidthGain += bw * factor;
+      var cash =
+        mode === "local" && device.localMoneyGain != null
+          ? device.localMoneyGain
+          : device.moneyGain || 0;
+      moneyGain += cash * factor;
     });
 
-    var peakMode = player.devices.peak_load;
-    if (peakMode) {
-      var peakFactor = effectFactor(peakMode, modifiers);
-      if (peakMode === "cloud" && !cloudOnline) {
-        peakFactor = 0;
-      }
-      scoreHint.environment +=
-        (Nexus.DEVICES_BY_ID.peak_load.environmentPerRound || 0) * peakFactor;
-    }
-
-    var hemsFactor = 0;
-    if (hemsMode) {
-      hemsFactor = effectFactor(hemsMode, modifiers);
-      if (hemsMode === "cloud" && !cloudOnline) {
-        hemsFactor = 0;
-      }
-    }
-    var energySave = baseSave * (1 + hemsFactor);
+    var hemsFactor = hemsLocal ? 1 : player.devices.hems === "cloud" && cloudOnline ? 0.5 : 0;
+    var energySave = baseSave * (1 + (hemsLocal ? 1 : hemsFactor));
     var energyGranted = Math.floor(energySave);
     var bandwidthGranted = Math.floor(bandwidthGain);
+    var moneyGranted = Math.floor(moneyGain);
 
     var resources = cloneResources(player.resources);
     if (cloudOnline && upkeep > 0) {
@@ -3227,6 +3279,7 @@ window.Nexus = window.Nexus || {};
     }
     resources.energy += energyGranted;
     resources.bandwidth += bandwidthGranted;
+    resources.money += moneyGranted;
 
     var parts = [];
     if (upkeep > 0 && cloudOnline) {
@@ -3240,8 +3293,11 @@ window.Nexus = window.Nexus || {};
     if (bandwidthGranted > 0) {
       parts.push("+" + bandwidthGranted + " Daten");
     }
-    if (addedRisk > 0 && !Nexus.Risk) {
-      parts.push("Risiko +" + addedRisk);
+    if (moneyGranted > 0) {
+      parts.push("+" + moneyGranted + " Geld");
+    }
+    if (karmaPressure > 0) {
+      parts.push("Cloud-Druck " + karmaPressure);
     }
     if (parts.length === 0) {
       parts.push("keine Geräteeffekte");
@@ -3250,11 +3306,11 @@ window.Nexus = window.Nexus || {};
     var nextPlayer = Object.assign({}, player, {
       resources: resources,
       scores: bumpScores(player.scores, scoreHint),
-      risk: Nexus.Risk ? player.risk : player.risk + addedRisk,
+      pendingCloudKarma: (player.pendingCloudKarma || 0) + karmaPressure,
       roundModifiers: { cloudDisabled: false, cloudHalfEffect: false }
     });
 
-    return { player: nextPlayer, logText: "Zugende: " + parts.join(", ") + "." };
+    return { player: nextPlayer, logText: "Zugende: " + parts.join(", ") + ".", karmaPressure: karmaPressure };
   }
 
   function endTurn(state) {
@@ -3272,6 +3328,25 @@ window.Nexus = window.Nexus || {};
     });
     var next = replacePlayer(state, player.id, endedPlayer);
     next.log = addLog(next, player.name, result.logText);
+    var pressure = result.karmaPressure || endedPlayer.pendingCloudKarma || 0;
+    if (pressure > 0 && typeof applyKarma === "function") {
+      var roll = Math.random();
+      var chance = Math.min(0.85, 0.15 * pressure);
+      if (roll < chance) {
+        next = applyKarma(next, player.id, -1, "Cloud-Druck");
+        next = replacePlayer(
+          next,
+          player.id,
+          Object.assign({}, currentPlayer(next), { pendingCloudKarma: 0 })
+        );
+      } else {
+        next = replacePlayer(
+          next,
+          player.id,
+          Object.assign({}, currentPlayer(next), { pendingCloudKarma: 0 })
+        );
+      }
+    }
     if (Nexus.Mobility) {
       next = Nexus.Mobility.applyTick(next);
     }

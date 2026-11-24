@@ -51,6 +51,22 @@ window.Nexus = window.Nexus || {};
       z: 0,
       extras: [{ path: "industrial/solar-panel-portrait-group.glb", x: 2.55, z: 0, yaw: 0.15 }]
     },
+    /* Kenney Industrial 2.0 Windmill — L0 niedrig, L1 Doppel-Turbinen. */
+    "energy-wind|0": {
+      path: "industrial/windmill-low.glb",
+      yaw: 0.2,
+      doorYaw: 0,
+      foot: 2.35
+    },
+    "energy-wind|1": {
+      path: "industrial/windmill.glb",
+      yaw: 0.15,
+      doorYaw: 0,
+      foot: 2.55,
+      x: -2.1,
+      z: 0.4,
+      extras: [{ path: "industrial/windmill.glb", x: 2.2, z: -0.35, yaw: -0.25, foot: 2.55 }]
+    },
     "energy-transformer|0": { path: "industrial/building-e.glb", yaw: -0.35, doorYaw: 0, foot: ZONE_TRAFO0 },
     "energy-transformer|1": { path: "industrial/building-c.glb", yaw: -0.35, doorYaw: 0, foot: ZONE_KEEP },
     "energy-nuclear|0": {
@@ -232,11 +248,13 @@ window.Nexus = window.Nexus || {};
     var lv = visualLevel(level);
     if (zone.type === "energy") {
       var variant =
-        zone.variant === "transformer"
+        zone.variant === "transformer" || zone.variant === "coal"
           ? "transformer"
           : zone.variant === "nuclear"
             ? "nuclear"
-            : "solar";
+            : zone.variant === "wind"
+              ? "wind"
+              : "solar";
       return "energy-" + variant + "|" + lv;
     }
     if (zone.type === "datacenter") {

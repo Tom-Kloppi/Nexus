@@ -1778,7 +1778,7 @@ window.Nexus = window.Nexus || {};
 
   /*
    * Abgabe tileId → visual (Kenney remap / mesh stub). Keine Regeln.
-   * energy-wind      → mesh artWind (kein Turbine-GLB)
+   * energy-wind      → kenney industrial/windmill(-low)
    * energy-nuclear   → kenney energy-nuclear
    * energy-coal      → kenney energy-transformer (Kohle/Halle)
    * energy-solar     → kenney energy-solar
@@ -1829,7 +1829,7 @@ window.Nexus = window.Nexus || {};
   function kenneyAliasZone(zone) {
     var tileId = boardTileId(zone);
     if (tileId === "energy-wind") {
-      return null;
+      return { type: "energy", variant: "wind" };
     }
     if (tileId === "energy-nuclear") {
       return { type: "energy", variant: "nuclear" };

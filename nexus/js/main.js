@@ -253,6 +253,9 @@ window.Nexus = window.Nexus || {};
       var on = btn.getAttribute("data-theme") === prefs.theme;
       btn.setAttribute("aria-pressed", on ? "true" : "false");
     });
+    Array.prototype.forEach.call(document.querySelectorAll(".js-theme-night"), function (box) {
+      box.checked = prefs.theme === "dark";
+    });
     Array.prototype.forEach.call(document.querySelectorAll(".js-ui-scale"), function (slider) {
       slider.value = String(prefs.uiScale);
     });
@@ -1562,6 +1565,17 @@ document.getElementById("btn-end-round").addEventListener("click", function () {
       closeHomeModal();
     }
   });
+  var devicesBtn = document.getElementById("btn-devices");
+  if (devicesBtn) {
+    devicesBtn.addEventListener("click", function () {
+      if (Nexus.isHotSeatShield(state) || state.turnPhase === "gameover") {
+        return;
+      }
+      ui.homeOpen = true;
+      ui.inspectedDevice = ui.inspectedDevice || "thermo";
+      Nexus.render(state, ui);
+    });
+  }
 
   document.getElementById("btn-restart").addEventListener("click", function () {
     clearHarvestTimer();
@@ -1663,6 +1677,13 @@ document.getElementById("btn-end-round").addEventListener("click", function () {
   Array.prototype.forEach.call(document.querySelectorAll(".js-theme-pick"), function (btn) {
     btn.addEventListener("click", function () {
       prefs.theme = btn.getAttribute("data-theme") === "dark" ? "dark" : "light";
+      applyAppearance();
+    });
+  });
+
+  Array.prototype.forEach.call(document.querySelectorAll(".js-theme-night"), function (box) {
+    box.addEventListener("change", function () {
+      prefs.theme = box.checked ? "dark" : "light";
       applyAppearance();
     });
   });
@@ -1923,7 +1944,7 @@ document.getElementById("btn-end-round").addEventListener("click", function () {
       ui.homeOpen = true;
     }
     if (step.scene === "home-device") {
-      ui.inspectedDevice = "thermostat";
+      ui.inspectedDevice = "thermo";
     }
     if (step.scene === "trade" && player) {
       var partner = null;
@@ -2481,17 +2502,15 @@ document.getElementById("btn-end-round").addEventListener("click", function () {
       turnPhase: "build",
       players: next.players.map(function (p) {
         var devices = Object.assign({}, p.devices || {});
+        devices.thermo = "cloud";
         devices.camera = "cloud";
-        devices.lock = "cloud";
-        devices.thermostat = "cloud";
-        devices.shutters = "cloud";
+        devices.lock = "local";
         devices.hems = "cloud";
-        devices.peak_load = "cloud";
-        devices.v2x = "cloud";
+        devices.ledger = "cloud";
+        devices.lab = "cloud";
         devices.charger = "cloud";
-        devices.charging_network = "cloud";
-        devices.hub = "local";
-        devices.storage_battery = "local";
+        devices.edge = "local";
+        devices.facade = "local";
         return Object.assign({}, p, { devices: devices });
       })
     });

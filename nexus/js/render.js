@@ -2047,6 +2047,10 @@ window.Nexus = window.Nexus || {};
 
   function renderLearnAgenda(state, player, redact) {
     var card = document.getElementById("learn-agenda");
+    if (card) {
+      card.hidden = true;
+    }
+    return;
     var list = document.getElementById("learn-agenda-list");
     if (!card || !list) {
       return;
@@ -3903,7 +3907,16 @@ window.Nexus = window.Nexus || {};
             "</span></span>"
           : "") +
         (buyable ? '<span class="buy-dot"></span>' : "") +
-        (device.isSpecial ? '<span class="special-tag">Zone</span>' : "") +
+        (device.metrics && device.metrics.length
+          ? '<span class="special-tag">' +
+            device.metrics
+              .map(function (m) {
+                var pt = Nexus.ROLE_POINT_TYPES && Nexus.ROLE_POINT_TYPES[m];
+                return (pt && pt.short) || (Nexus.SCORE_LABELS && Nexus.SCORE_LABELS[m]) || m;
+              })
+              .join("·") +
+            "</span>"
+          : "") +
         '<span class="t-tt" role="tooltip">' +
         device.shortName +
         "</span>" +
@@ -4024,11 +4037,14 @@ window.Nexus = window.Nexus || {};
         document.getElementById("inspect-cloud-cost").innerHTML = chipsHtml(
           Nexus.getBuildOffer(state, device.id, "cloud").cost
         );
-        document.getElementById("inspect-cloud-risk").innerHTML = riskPips(device.cloudRiskPerRound);
+        var karmaRisk = device.cloudKarmaRisk || 0;
+        document.getElementById("inspect-cloud-risk").textContent = karmaRisk
+          ? "Karma-Druck " + karmaRisk
+          : "";
         if (upkeepEl) {
           var upkeepAmt = device.cloudUpkeep || 0;
           upkeepEl.textContent = upkeepAmt
-            ? "laufend " + upkeepAmt + " Konnekt./Zug"
+            ? "laufend " + upkeepAmt + " Daten/Zug"
             : "";
         }
         var cloudOk = Nexus.getBuildOffer(state, device.id, "cloud").allowed;

@@ -1257,3 +1257,241 @@ html[data-blur="off"] .settings-panel {
   border-radius: 0;
 }
 .resource-fx-particle.is-loss { background: transparent; }
+
+/* —— Leitstand-Hardware: physische Switches (Vanilla, kein Sass) —— */
+:root {
+  --nx-chassis: #2a2730;
+  --nx-chassis-inset: #47434c;
+  --nx-switch-on: #18c48a;
+  --nx-switch-on-deep: #0d6b4a;
+  --nx-switch-on-mid: #129a6c;
+  --nx-switch-off: #5a5560;
+  --nx-switch-off-deep: #3a3540;
+  --nx-gear-face: color-mix(in srgb, var(--panel, #f4f7f4) 88%, #1a1a1a);
+}
+
+.nx-chassis,
+.settings-panel--lean,
+.dock-card,
+.modal-card.piece,
+.field-menu {
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, #000 18%, transparent),
+    inset 0 1px 0 color-mix(in srgb, #fff 35%, transparent);
+}
+
+.nx-switch {
+  --sw-w: 3.4rem;
+  --sw-h: 2.55rem;
+  --sw-pivot: 0.55rem;
+  --sw-rot: 22deg;
+  --sw-color: var(--nx-switch-on);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  cursor: pointer;
+  user-select: none;
+}
+.nx-switch input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+.nx-switch-case {
+  background: #111;
+  width: var(--sw-w);
+  height: var(--sw-h);
+  border-radius: 0.28rem;
+  padding: 0.32rem;
+  flex: 0 0 auto;
+  box-shadow:
+    0 0 8px 1px rgba(0, 0, 0, 0.22),
+    0 0 1px 1px #000,
+    inset 0 1px 1px -1px #fff,
+    inset 0 0 2px 0.45rem var(--nx-chassis-inset),
+    inset 0 0 2px 0.65rem #000;
+  perspective: 480px;
+}
+.nx-switch-button {
+  display: block;
+  width: 100%;
+  height: 100%;
+  position: relative;
+  transform-style: preserve-3d;
+  transform-origin: center center calc(var(--sw-pivot) * -1);
+  transform: translateZ(var(--sw-pivot)) rotateX(calc(var(--sw-rot) * -1));
+  transition: transform 0.28s cubic-bezier(0.7, 0, 0.85, 1), box-shadow 0.28s ease;
+  background: linear-gradient(
+    var(--nx-switch-off) 0%,
+    var(--nx-switch-off-deep) 30%,
+    var(--nx-switch-off-deep) 70%,
+    var(--nx-switch-off) 100%
+  );
+  border-radius: 0.12rem;
+  cursor: pointer;
+}
+.nx-switch-button::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 0.7rem;
+  transform-origin: top;
+  transform: rotateX(-90deg);
+  background: linear-gradient(
+    rgba(255, 255, 255, 0.55) 10%,
+    rgba(255, 255, 255, 0.15) 35%,
+    #2a252c 80%
+  );
+}
+.nx-switch-button::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 0.7rem;
+  transform-origin: top;
+  transform: translateY(0.7rem) rotateX(-90deg);
+  background: linear-gradient(#1a161c, #0a080a);
+  box-shadow: 0 0.55rem 6px rgba(0, 0, 0, 0.55);
+}
+.nx-switch-shine {
+  position: absolute;
+  inset: 0;
+  opacity: 0.35;
+  transition: opacity 0.28s ease;
+  background:
+    linear-gradient(#fff, transparent 8%) 50% 50% / 94% 94% no-repeat,
+    linear-gradient(rgba(255, 255, 255, 0.35), transparent 45%) 50% 50% / 94% 94% no-repeat;
+  pointer-events: none;
+}
+.nx-switch-shadow {
+  position: absolute;
+  inset: 0;
+  opacity: 1;
+  transition: opacity 0.28s ease;
+  background: linear-gradient(transparent 65%, rgba(0, 0, 0, 0.75));
+  pointer-events: none;
+}
+.nx-switch-light {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  pointer-events: none;
+  background: radial-gradient(circle at 50% 40%, color-mix(in srgb, var(--sw-color) 70%, #fff), var(--sw-color) 42%, transparent 72%);
+}
+.nx-switch input:checked + .nx-switch-case .nx-switch-button {
+  transform: translateZ(var(--sw-pivot)) rotateX(var(--sw-rot));
+  box-shadow: 0 -6px 14px color-mix(in srgb, var(--sw-color) 55%, transparent);
+  background: linear-gradient(
+    var(--nx-switch-on-mid) 0%,
+    var(--nx-switch-on-deep) 30%,
+    var(--nx-switch-on-deep) 70%,
+    var(--nx-switch-on-mid) 100%
+  );
+}
+.nx-switch input:checked + .nx-switch-case .nx-switch-light {
+  opacity: 1;
+  animation: nx-switch-flicker 0.22s infinite 0.25s;
+}
+.nx-switch input:checked + .nx-switch-case .nx-switch-shine {
+  opacity: 1;
+}
+.nx-switch input:checked + .nx-switch-case .nx-switch-shadow {
+  opacity: 0;
+}
+.nx-switch-label {
+  font-size: 0.86rem;
+  font-weight: 650;
+}
+.nx-switch--compact {
+  --sw-w: 2.75rem;
+  --sw-h: 2.05rem;
+  --sw-pivot: 0.42rem;
+}
+.nx-switch--alarm {
+  --sw-color: #ff3b3b;
+  --nx-switch-on: #ff3b3b;
+  --nx-switch-on-deep: #9b0621;
+  --nx-switch-on-mid: #d10f2e;
+}
+@keyframes nx-switch-flicker {
+  0% { opacity: 1; }
+  80% { opacity: 0.82; }
+  100% { opacity: 1; }
+}
+
+.set-row--switch {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+.setup-check.nx-switch {
+  margin: 0.35rem 0 0.15rem;
+}
+
+/* Tray: Aktionsbuttons vs. Karten getrennt */
+.tray-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.65rem;
+  align-items: end;
+}
+.tray-cards-rail {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-width: 0;
+  padding: 0.35rem 0.45rem;
+  border-radius: 0.55rem;
+  background: color-mix(in srgb, var(--nx-chassis) 12%, var(--panel, #f4f7f4));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, #000 12%, transparent);
+}
+.tray-cards-rail .akte-draw,
+.tray-cards-rail .hand-fan,
+.tray-cards-rail .project-fan,
+.tray-cards-rail .dossier-hand,
+.tray-cards-rail .dossier-fan {
+  margin: 0;
+}
+.action-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  justify-content: flex-end;
+  align-items: center;
+}
+.action-buttons .btn {
+  min-height: 2.55rem;
+  border-radius: 0.35rem;
+  box-shadow:
+    0 1px 0 color-mix(in srgb, #fff 40%, transparent),
+    0 2px 6px rgba(0, 0, 0, 0.12);
+}
+
+/* Geräte-Shop: Cloud|Lokal als Switch-Zeile */
+.device-mode-switch {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-top: 0.35rem;
+}
+.device-mode-switch .nx-switch-label {
+  font-size: 0.75rem;
+  opacity: 0.85;
+}
+.hotbar .device-chip,
+#device-list .device-row {
+  border-radius: 0.45rem;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, #000 10%, transparent);
+}
+
+.chapter-chip,
+#learn-agenda {
+  display: none !important;
+}

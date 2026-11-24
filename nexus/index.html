@@ -20,7 +20,7 @@
     />
     <link rel="stylesheet" href="transitions.css?v=76" />
     <link rel="stylesheet" href="style.css?v=109" />
-    <link rel="stylesheet" href="overhaul.css?v=101" />
+    <link rel="stylesheet" href="overhaul.css?v=102" />
   </head>
   <body>
     <div class="setup-screen t-modal-backdrop" id="setup-screen" role="dialog" aria-modal="true" aria-labelledby="setup-title">
@@ -30,12 +30,18 @@
           <div class="settings-wrap settings-wrap--card">
             <button type="button" class="btn icon-btn js-settings-btn" title="Darstellung" aria-label="Darstellung">⚙</button>
             <div class="settings-panel settings-panel--lean" hidden>
-              <div class="set-row">
-                <span class="set-label">Licht</span>
-                <div class="set-swatches">
-                  <button type="button" class="set-swatch swatch-day js-theme-pick" data-theme="light" aria-label="Tag" aria-pressed="true"></button>
-                  <button type="button" class="set-swatch swatch-night js-theme-pick" data-theme="dark" aria-label="Nacht" aria-pressed="false"></button>
-                </div>
+              <div class="set-row set-row--switch">
+                <span class="set-label">Nacht</span>
+                <label class="nx-switch nx-switch--compact" title="Nachtmodus">
+                  <input type="checkbox" class="js-theme-night" aria-label="Nachtmodus" />
+                  <span class="nx-switch-case">
+                    <span class="nx-switch-button">
+                      <span class="nx-switch-light"></span>
+                      <span class="nx-switch-shine"></span>
+                      <span class="nx-switch-shadow"></span>
+                    </span>
+                  </span>
+                </label>
               </div>
               <div class="set-row set-row--range">
                 <span class="set-label">Kamera</span>
@@ -90,7 +96,17 @@
               <button type="button" class="btn setup-choice" data-difficulty="hard">Schwer</button>
             </div>
           </div>
-          <label class="setup-check"><input type="checkbox" id="setup-beginner" /> Einsteigerhilfen</label>
+          <label class="nx-switch setup-check" title="Einsteigerhilfen">
+            <input type="checkbox" id="setup-beginner" />
+            <span class="nx-switch-case">
+              <span class="nx-switch-button">
+                <span class="nx-switch-light"></span>
+                <span class="nx-switch-shine"></span>
+                <span class="nx-switch-shadow"></span>
+              </span>
+            </span>
+            <span class="nx-switch-label">Einsteigerhilfen</span>
+          </label>
           <div class="pick-row setup-dev-row">
             <button type="button" class="btn setup-choice" id="btn-dev-run" aria-pressed="false">Dev Run</button>
           </div>
@@ -148,12 +164,18 @@
                 <button type="button" class="btn icon-btn" id="btn-map-reset" title="Ansicht zurücksetzen">◎</button>
               </div>
               <div class="settings-panel settings-panel--lean" hidden>
-                <div class="set-row">
-                  <span class="set-label">Licht</span>
-                  <div class="set-swatches">
-                    <button type="button" class="set-swatch swatch-day js-theme-pick" data-theme="light" aria-label="Tag" aria-pressed="true"></button>
-                    <button type="button" class="set-swatch swatch-night js-theme-pick" data-theme="dark" aria-label="Nacht" aria-pressed="false"></button>
-                  </div>
+                <div class="set-row set-row--switch">
+                  <span class="set-label">Nacht</span>
+                  <label class="nx-switch nx-switch--compact" title="Nachtmodus">
+                    <input type="checkbox" class="js-theme-night" aria-label="Nachtmodus" />
+                    <span class="nx-switch-case">
+                      <span class="nx-switch-button">
+                        <span class="nx-switch-light"></span>
+                        <span class="nx-switch-shine"></span>
+                        <span class="nx-switch-shadow"></span>
+                      </span>
+                    </span>
+                  </label>
                 </div>
                 <div class="set-row set-row--range">
                   <span class="set-label">Kamera</span>
@@ -231,11 +253,6 @@
         <div class="dock-scroll">
           <button type="button" class="dock-close" id="btn-dock-close" aria-label="Panel schließen">Fertig</button>
 
-          <section id="learn-agenda" class="dock-card learn-agenda" hidden>
-            <p class="dock-card-title">Erste Tage</p>
-            <ol id="learn-agenda-list" class="learn-agenda-list"></ol>
-          </section>
-
           <section id="goal-panel" class="dock-card goal-panel" hidden>
             <div class="goal-panel-head">
               <div class="goal-panel-title">
@@ -289,15 +306,18 @@
 
       <footer class="tray">
         <div class="tray-grid">
-          <div class="card-piles">
-            <div class="card-pile played-pile" id="played-pile">
-              <span class="pile-stack" id="played-stack" aria-hidden="true"></span>
-              <span class="pile-count" id="played-count">0</span>
-              <span class="pile-caption">Ausgespielt</span>
+          <div class="tray-cards-rail" id="tray-cards-rail" aria-label="Karten">
+            <div class="card-piles">
+              <div class="card-pile played-pile" id="played-pile">
+                <span class="pile-stack" id="played-stack" aria-hidden="true"></span>
+                <span class="pile-count" id="played-count">0</span>
+                <span class="pile-caption">Ausgespielt</span>
+              </div>
             </div>
           </div>
           <div class="action-buttons">
-            <button type="button" class="btn" id="btn-trade" disabled>Handeln</button>
+            <button type="button" class="btn" id="btn-devices" title="Geräte am Kontrollbüro">Geräte</button>
+            <button type="button" class="btn" id="btn-trade" disabled>Markt</button>
             <button type="button" class="btn ghost" id="btn-flow-skip" hidden>Überspringen</button>
             <button type="button" class="btn" id="btn-guide">Überblick</button>
             <button type="button" class="btn primary" id="btn-end-round" disabled>Zug beenden</button>
@@ -489,16 +509,16 @@
     <script src="js/data/constants.js?v=107"></script>
     <script src="js/data/neutral-sites.js?v=98"></script>
     <script src="js/data/tiles.js?v=75"></script>
-    <script src="js/data/devices.js?v=75"></script>
+    <script src="js/data/devices.js?v=76"></script>
     <script src="js/data/events.js?v=103"></script>
-    <script src="js/data/stadtakten.js?v=1"></script>
+    <script src="js/data/stadtakten.js?v=2"></script>
     <script src="js/data/cards.js?v=101"></script>
     <script src="js/data/build-tiles.js?v=2"></script>
     <script src="js/data/karma-events.js?v=1"></script>
     <script src="js/data/contracts.js?v=1"></script>
     <script src="js/data/roles.js?v=102"></script>
     <script src="js/data/tutorial.js?v=106"></script>
-    <script src="js/icons.js?v=75"></script>
+    <script src="js/icons.js?v=76"></script>
     <script src="js/glossary.js?v=105"></script>
     <script src="js/dice.js?v=75"></script>
     <script src="js/quality.js?v=75"></script>
@@ -511,17 +531,17 @@
     <script src="js/role-avatars.js?v=88"></script>
     <script src="js/roles.js?v=102"></script>
     <script src="js/goals.js?v=2"></script>
-    <script src="js/state.js?v=115"></script>
+    <script src="js/state.js?v=116"></script>
     <script src="js/board-look.js?v=75"></script>
     <script src="js/board-props.js?v=76"></script>
     <script src="js/board-kit.js?v=80"></script>
-    <script src="js/kenney-buildings.js?v=28"></script>
+    <script src="js/kenney-buildings.js?v=30"></script>
     <script src="js/data/fillers.js?v=93"></script>
     <script src="js/board-edges.js?v=22"></script>
-    <script src="js/board3d.js?v=180"></script>
-    <script src="js/render.js?v=115"></script>
-    <script src="js/ui-overhaul.js?v=115"></script>
+    <script src="js/board3d.js?v=181"></script>
+    <script src="js/render.js?v=116"></script>
+    <script src="js/ui-overhaul.js?v=116"></script>
     <script src="js/phone.js?v=93"></script>
-    <script src="js/main.js?v=112"></script>
+    <script src="js/main.js?v=113"></script>
   </body>
 </html>

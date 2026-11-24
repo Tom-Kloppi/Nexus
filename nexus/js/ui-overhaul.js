@@ -876,6 +876,10 @@ window.Nexus = window.Nexus || {};
   }
 
   function renderChapter(state) {
+    if (chapter) {
+      chapter.hidden = true;
+    }
+    return;
     if (!state || state.screen !== "game" || !Nexus.Arc) {
       chapter.hidden = true;
       return;
@@ -1101,14 +1105,21 @@ window.Nexus = window.Nexus || {};
     document.body.appendChild(menu);
     document.body.appendChild(tip);
     document.body.appendChild(guide);
-    var tray = document.querySelector(".tray-grid");
-    if (tray) {
-      tray.insertBefore(fan, tray.firstChild);
-      tray.insertBefore(drawBtn, fan.nextSibling);
+    var cardsRail = document.getElementById("tray-cards-rail") || document.querySelector(".tray-cards-rail");
+    if (cardsRail) {
+      cardsRail.appendChild(drawBtn);
+      cardsRail.appendChild(fan);
+      cardsRail.appendChild(inbox);
     } else {
-      document.body.appendChild(drawBtn);
+      var tray = document.querySelector(".tray-grid");
+      if (tray) {
+        tray.insertBefore(fan, tray.firstChild);
+        tray.insertBefore(drawBtn, fan.nextSibling);
+      } else {
+        document.body.appendChild(drawBtn);
+      }
+      document.body.appendChild(inbox);
     }
-    document.body.appendChild(inbox);
     ensurePressureHost();
     var top = document.querySelector(".topbar-row--main");
     if (top) {
