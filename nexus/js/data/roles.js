@@ -9,17 +9,18 @@ Nexus.ALL_ROLE_IDS = [
   "controller"
 ];
 
-/* Eine Punktart pro Rolle. Sieg = 10 Rollenpunkte (oder meiste am Rundenlimit). */
+/* Metrik-Farben Abgabe: Öko grün, Verlässlichkeit rot, Finanz gelb, Innovation weiß, Image blau, Komfort braun. */
 Nexus.ROLE_POINT_TYPES = {
-  eco: { key: "eco", label: "Ökopunkte", short: "Öko", color: "#2f9a62" },
-  trust: { key: "trust", label: "Verlässlichkeit", short: "Fest", color: "#2a6fdb" },
-  finance: { key: "finance", label: "Finanzpunkte", short: "Finanz", color: "#c4a23a" },
-  innovation: { key: "innovation", label: "Innovationspunkte", short: "Neu", color: "#7a45c4" },
-  image: { key: "image", label: "Imagepunkte", short: "Image", color: "#c43a5a" },
-  comfort: { key: "comfort", label: "Komfortpunkte", short: "Komfort", color: "#d06a22" }
+  eco: { key: "eco", label: "Öko", short: "Öko", color: "#2f9a62" },
+  trust: { key: "trust", label: "Verlässlichkeit", short: "Fest", color: "#E02020" },
+  finance: { key: "finance", label: "Finanz", short: "Finanz", color: "#F0C000" },
+  innovation: { key: "innovation", label: "Innovation", short: "Neu", color: "#F7F4EC" },
+  image: { key: "image", label: "Image", short: "Image", color: "#1560E0" },
+  comfort: { key: "comfort", label: "Komfort", short: "Komfort", color: "#8B5A2B" }
 };
 
 Nexus.ROLE_POINT_TARGET = 10;
+Nexus.VICTORY_POINT_TARGET = 10;
 
 function nexusRoleSheet(pointKey, how) {
   var pt = Nexus.ROLE_POINT_TYPES[pointKey];
@@ -29,11 +30,10 @@ function nexusRoleSheet(pointKey, how) {
     pointShort: pt.short,
     pointColor: pt.color,
     how: how,
-    /* Kompatibilität: ein „Unterziel“ = Rollenpunkte bis 10 */
     subGoals: [
       {
         id: "role_points",
-        label: pt.label + " sammeln",
+        label: pt.label + " auf 10",
         maxContribution: 100,
         higherIsBetter: true,
         metricKey: "rolePoints",
@@ -53,12 +53,9 @@ Nexus.ROLES = {
       alignment: "Umwelt",
       character: "Mira Blüte",
       party: "ÖZP",
-      pitch: "Solar, Öko-Linien und saubere Entscheidungen."
+      pitch: "Wind, Recycling und Parks — saubere Entscheidungen."
     },
-    nexusRoleSheet(
-      "eco",
-      "Ökopunkte aus Solar/Erneuerbar-Linien, grünen Projekten und Umwelt-Ereignissen."
-    )
+    nexusRoleSheet("eco", "Öko-Punkte über Windkraft, Recycling, Parks und grüne Aufträge.")
   ),
   privacy: Object.assign(
     {
@@ -67,12 +64,9 @@ Nexus.ROLES = {
       alignment: "Sicherheit",
       character: "Isabella Roth",
       party: "PPP",
-      pitch: "Lokal rechnen, Risiken klein halten."
+      pitch: "Verwaltung, Kohle-Stabilität und verlässliche Strukturen."
     },
-    nexusRoleSheet(
-      "trust",
-      "Verlässlichkeit aus sicherem Rechenzentrum, lokalen Geräten und Cyber-Entscheidungen."
-    )
+    nexusRoleSheet("trust", "Verlässlichkeit über Verwaltungsbüro, Kohlekraftwerk, Bahnhof und Sicherheits-Events.")
   ),
   investor: Object.assign(
     {
@@ -81,9 +75,9 @@ Nexus.ROLES = {
       alignment: "Wirtschaft",
       character: "Maria Hinterberger",
       party: "Wnd",
-      pitch: "Handeln und die Stadt liquide halten."
+      pitch: "Großunternehmen, Serverfarm und Stall-Handel."
     },
-    nexusRoleSheet("finance", "Finanzpunkte aus Handel, Geldfluss und Wirtschafts-Ereignissen.")
+    nexusRoleSheet("finance", "Finanz-Punkte über Großunternehmen, Serverfarm, Lager und Handel.")
   ),
   visionary: Object.assign(
     {
@@ -92,12 +86,9 @@ Nexus.ROLES = {
       alignment: "Zukunft",
       character: "Jürgen Weiß",
       party: "PdZ",
-      pitch: "Neue Technik und smarte Linien."
+      pitch: "Atom, Fabrik und Bahnhof — Technik sichtbar machen."
     },
-    nexusRoleSheet(
-      "innovation",
-      "Innovationspunkte aus Projekten, Elektro-/Öko-Linien und Zukunfts-Ereignissen."
-    )
+    nexusRoleSheet("innovation", "Innovation über Atom, Fabrik, Bahnhof und Tech-Events.")
   ),
   networker: Object.assign(
     {
@@ -106,9 +97,9 @@ Nexus.ROLES = {
       alignment: "Image",
       character: "Thomas Smurf",
       party: "—",
-      pitch: "Fremde Halte anbinden und sichtbar bleiben."
+      pitch: "Wohnen, Kleinunternehmen und Parks — sichtbar bleiben."
     },
-    nexusRoleSheet("image", "Imagepunkte aus fremden Halten, Kooperation und Image-Ereignissen.")
+    nexusRoleSheet("image", "Image über Wohnen, Kleinunternehmen, Parks und Kooperation.")
   ),
   controller: Object.assign(
     {
@@ -117,12 +108,9 @@ Nexus.ROLES = {
       alignment: "Komfort",
       character: "Heinz Kohle",
       party: "AfAP",
-      pitch: "Parken, Linien und Alltag erleichtern."
+      pitch: "Solar, E-Taxi und Lager — Alltag erleichtern."
     },
-    nexusRoleSheet(
-      "comfort",
-      "Komfortpunkte aus Verkehrsfeldern, Diesel-Linien und Alltags-Ereignissen."
-    )
+    nexusRoleSheet("comfort", "Komfort über Solar, E-Taxistand, Lagerfläche und Alltags-Events.")
   )
 };
 
@@ -131,39 +119,18 @@ Nexus.ALL_ROLE_IDS.forEach(function (id) {
   Nexus.ROLES_BY_ID[id] = Nexus.ROLES[id];
 });
 
-/* Spur / Punktart → Rolle, deren Gewinnkategorie das ist. */
 Nexus.SCORE_TRACK_ROLE = {
-  image: "networker",
-  comfort: "controller",
-  environment: "climate",
-  security: "privacy",
   eco: "climate",
   trust: "privacy",
   finance: "investor",
-  innovation: "visionary"
+  innovation: "visionary",
+  image: "networker",
+  comfort: "controller"
 };
 
-/* Farbe des Spielers mit dieser Gewinnkategorie — sonst Katalogfarbe. */
 Nexus.scoreTrackOwnerColor = function (state, key) {
-  var roleId = Nexus.SCORE_TRACK_ROLE && Nexus.SCORE_TRACK_ROLE[key];
-  var colors = Nexus.PLAYER_COLORS || [];
-  if (roleId && state && state.players) {
-    var i;
-    for (i = 0; i < state.players.length; i++) {
-      if (state.players[i].roleId === roleId) {
-        var idx = state.players[i].colorIndex || 0;
-        return colors[idx % colors.length] || "#888888";
-      }
-    }
-  }
-  if (Nexus.ROLE_POINT_TYPES) {
-    if (Nexus.ROLE_POINT_TYPES[key]) {
-      return Nexus.ROLE_POINT_TYPES[key].color;
-    }
-    var mapped = roleId && Nexus.ROLES_BY_ID[roleId];
-    if (mapped && mapped.pointColor) {
-      return mapped.pointColor;
-    }
+  if (Nexus.ROLE_POINT_TYPES && Nexus.ROLE_POINT_TYPES[key]) {
+    return Nexus.ROLE_POINT_TYPES[key].color;
   }
   return "#888888";
 };

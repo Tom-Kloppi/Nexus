@@ -1280,8 +1280,143 @@ document.getElementById("btn-end-round").addEventListener("click", function () {
       }
       ui.inspectedZoneId = null;
       commit(razed);
+      return;
+    }
+    var xferBtn = event.target.closest("#btn-zone-transfer");
+    if (xferBtn) {
+      if (!ui.inspectedZoneId) {
+        return;
+      }
+      var requested = Nexus.requestTransfer(state, ui.inspectedZoneId);
+      if (requested === state) {
+        triggerControlShake(xferBtn);
+        Nexus.pushToast("Übertragung gerade nicht möglich.");
+        return;
+      }
+      Nexus.pushToast("Übertragung angefragt.");
+      commit(requested);
     }
   });
+
+  function readStallSide(slotEl, prefix) {
+    var kindEl = slotEl.querySelector('[data-stall-kind="' + prefix + '"]');
+    var resEl = slotEl.querySelector('[data-stall-res="' + prefix + '"]');
+    var amtEl = slotEl.querySelector('[data-stall-amt="' + prefix + '"]');
+    var kind = kindEl ? kindEl.value : "resource";
+    var amount = Math.max(1, Math.min(20, Number(amtEl && amtEl.value) || 1));
+    if (kind === "sp") {
+      return { kind: "sp", amount: amount };
+    }
+    return {
+      kind: "resource",
+      resource: (resEl && resEl.value) || "money",
+      amount: amount
+    };
+  }
+
+  var dockScroll = document.querySelector(".dock-scroll");
+  if (dockScroll) {
+    dockScroll.addEventListener("change", function (event) {
+      var kindSel = event.target.closest("[data-stall-kind]");
+      if (!kindSel) {
+        return;
+      }
+      var row = kindSel.closest(".stall-edit-row");
+      if (!row) {
+        return;
+      }
+      var res = row.querySelector("[data-stall-res]");
+      if (res) {
+        res.hidden = kindSel.value === "sp";
+      }
+    });
+
+    dockScroll.addEventListener("click", function (event) {
+      if (Nexus.isHotSeatShield(state) || state.turnPhase !== "build") {
+        return;
+      }
+      var setBtn = event.target.closest("[data-stall-set]");
+      if (setBtn) {
+        var setIdx = Number(setBtn.getAttribute("data-stall-set"));
+        var setSlot = setBtn.closest(".stall-slot");
+        if (!setSlot) {
+          return;
+        }
+        var offer = {
+          give: readStallSide(setSlot, "give"),
+          want: readStallSide(setSlot, "want")
+        };
+        var setNext = Nexus.setStallSlot(state, setIdx, offer);
+        if (setNext === state) {
+          Nexus.pushToast("Stall-Angebot ungültig.");
+          return;
+        }
+        commit(setNext);
+        return;
+      }
+      var clearBtn = event.target.closest("[data-stall-clear]");
+      if (clearBtn) {
+        var clearNext = Nexus.clearStallSlot(state, Number(clearBtn.getAttribute("data-stall-clear")));
+        commit(clearNext);
+        return;
+      }
+      var acceptBtn = event.target.closest("[data-stall-accept]");
+      if (acceptBtn) {
+        var acceptNext = Nexus.acceptStall(
+          state,
+          acceptBtn.getAttribute("data-stall-accept"),
+          Number(acceptBtn.getAttribute("data-stall-slot"))
+        );
+        if (acceptNext === state) {
+          Nexus.pushToast("Annahme nicht möglich (Limit, Kasse oder Angebot).");
+          return;
+        }
+        Nexus.pushToast("Stall-Handel angenommen.");
+        commit(acceptNext);
+        return;
+      }
+      var contractBtn = event.target.closest("[data-contract]");
+      if (contractBtn) {
+        var cAct = contractBtn.getAttribute("data-contract");
+        var cNext = state;
+        if (cAct === "accept") {
+          cNext = Nexus.acceptContract(state);
+        } else if (cAct === "reject-karma") {
+          cNext = Nexus.rejectContractOffer(state, "karma");
+        } else if (cAct === "reject-resource") {
+          cNext = Nexus.rejectContractOffer(state, "resource");
+        } else if (cAct === "fulfill-donate") {
+          cNext = Nexus.fulfillDonateContract(state);
+        }
+        if (cNext === state) {
+          Nexus.pushToast("Auftrag gerade nicht möglich.");
+          return;
+        }
+        commit(cNext);
+        return;
+      }
+      var transferBtn = event.target.closest("[data-transfer]");
+      if (transferBtn) {
+        var tAct = transferBtn.getAttribute("data-transfer");
+        var tId = transferBtn.getAttribute("data-transfer-id");
+        var decision = tAct;
+        var opts = {};
+        if (tAct === "reject-karma") {
+          decision = "reject";
+          opts.rejectMode = "karma";
+        } else if (tAct === "reject-resource") {
+          decision = "reject";
+          opts.rejectMode = "resource";
+        }
+        var tNext = Nexus.resolveTransfer(state, tId, decision, opts);
+        if (tNext === state) {
+          Nexus.pushToast("Übertragung nicht möglich.");
+          return;
+        }
+        commit(tNext);
+      }
+    });
+  }
 
   document.getElementById("home-upgrade-wrap").addEventListener("click", function (event) {
     var btn = event.target.closest("#btn-home-upgrade");

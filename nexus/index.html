@@ -19,8 +19,8 @@
       rel="stylesheet"
     />
     <link rel="stylesheet" href="transitions.css?v=76" />
-    <link rel="stylesheet" href="style.css?v=108" />
-    <link rel="stylesheet" href="overhaul.css?v=100" />
+    <link rel="stylesheet" href="style.css?v=109" />
+    <link rel="stylesheet" href="overhaul.css?v=101" />
   </head>
   <body>
     <div class="setup-screen t-modal-backdrop" id="setup-screen" role="dialog" aria-modal="true" aria-labelledby="setup-title">
@@ -64,7 +64,7 @@
 
         <div class="setup-hero">
           <h1 id="setup-title">Stadtteil starten</h1>
-          <p class="setup-lede">Hot-Seat am selben Gerät. Sechs Charaktere im Pool — so viele Rollen wie Personen.</p>
+          <p class="setup-lede">Hot-Seat am selben Gerät. Nur wer sein Wahlversprechen erfüllt, kommt als Bürgermeisterin in Betracht — deshalb zählt nur diese Punktart.</p>
         </div>
 
         <div class="setup-body">
@@ -76,11 +76,10 @@
             </div>
           </div>
           <div class="setup-block">
-            <p class="setup-label">Länge</p>
+            <p class="setup-label">Probephase</p>
             <div class="pick-row" id="setup-length">
-              <button type="button" class="btn setup-choice" data-length="short">10 Tage</button>
-              <button type="button" class="btn setup-choice is-selected" data-length="standard">14 Tage</button>
-              <button type="button" class="btn setup-choice" data-length="long">18 Tage</button>
+              <button type="button" class="btn setup-choice" data-length="short">3 Monate · 12 Wochen</button>
+              <button type="button" class="btn setup-choice is-selected" data-length="standard">4 Monate · 16 Wochen</button>
             </div>
           </div>
           <div class="setup-block">
@@ -183,18 +182,18 @@
         </div>
 
         <div class="topbar-row topbar-row--meters">
-          <div class="risk-pill" id="risk-pill" title="Risiko">
-            <span class="meter-label">Risiko</span>
-            <div id="risk-meter" class="risk-meter" style="--risk: 0"></div>
-            <strong id="stat-risk" class="t-digit-group">0</strong>
-            <span class="risk-cause" id="risk-cause"></span>
-            <span class="risk-gate" id="risk-gate">/8</span>
+          <div class="karma-pill" id="karma-pill" title="Karma">
+            <span class="meter-label">Karma</span>
+            <div id="karma-meter" class="karma-meter" style="--karma: 0"></div>
+            <strong id="stat-karma" class="t-digit-group">0</strong>
+            <span class="karma-cause" id="karma-cause"></span>
+            <span class="karma-gate" id="karma-gate">−5…+5</span>
           </div>
 
           <div class="goal-pill" id="goal-pill" hidden>
-            <span class="meter-label">Versprechen</span>
+            <span class="meter-label">Siegpunkte</span>
             <div class="goal-pill-bar"><span id="goal-pill-fill" style="width: 0%"></span></div>
-            <strong id="stat-goal-total">0</strong><span class="goal-max">%</span>
+            <strong id="stat-goal-total">0</strong><span class="goal-max">/10</span>
           </div>
         </div>
       </header>
@@ -244,12 +243,22 @@
                 <h2 id="goal-role-name"></h2>
               </div>
               <div class="goal-total-ring" id="goal-total-ring" style="--pct: 0">
-                <strong id="goal-total">0%</strong>
+                <strong id="goal-total">0/10</strong>
               </div>
             </div>
             <ul id="goal-list" class="goal-list"></ul>
+            <div id="contract-strip" class="contract-strip" hidden></div>
+            <div id="transfer-inbox" class="transfer-inbox" hidden></div>
             <div id="mandate-strip" class="mandate-strip" hidden></div>
             <p id="side-deal-note" class="side-deal-note" hidden></p>
+          </section>
+
+          <section id="stall-panel" class="dock-card stall-panel" hidden>
+            <div class="stall-panel-head">
+              <p class="dock-card-title">Markt · Stall</p>
+              <span id="stall-accept-count" class="stall-accept-count">Annahmen 0/2</span>
+            </div>
+            <div id="stall-board" class="stall-board"></div>
           </section>
 
           <section class="dock-card" id="field-card">
@@ -383,6 +392,7 @@
 
     <div id="event-modal" class="modal-shell t-modal-backdrop" hidden>
       <div class="modal-card t-modal piece" role="dialog" aria-modal="true">
+        <p class="modal-kicker" id="event-kicker">Ereignis</p>
         <h3 id="event-title">Ereignis</h3>
         <p id="event-text"></p>
         <div id="event-choices" class="choice-stack"></div>
@@ -452,11 +462,11 @@
         <p class="modal-kicker">Regelhilfe</p>
         <h2 id="goal-help-title">Ziele am Tisch</h2>
         <div class="goal-help-flow" aria-hidden="true">
-          <span>Spur / Metrik</span>
+          <span>Eigene Metrik</span>
           <span class="goal-help-arrow">→</span>
-          <span>Stufe</span>
+          <span>Dauerziele</span>
           <span class="goal-help-arrow">→</span>
-          <span>Prozent</span>
+          <span>10 SP</span>
           <span class="goal-help-arrow">→</span>
           <span>Sieg</span>
         </div>
@@ -476,38 +486,42 @@
 
     <script src="vendor/three.min.js?v=75"></script>
     <script src="vendor/GLTFLoader.js?v=2"></script>
-    <script src="js/data/constants.js?v=106"></script>
+    <script src="js/data/constants.js?v=107"></script>
     <script src="js/data/neutral-sites.js?v=98"></script>
     <script src="js/data/tiles.js?v=75"></script>
     <script src="js/data/devices.js?v=75"></script>
     <script src="js/data/events.js?v=103"></script>
     <script src="js/data/stadtakten.js?v=1"></script>
     <script src="js/data/cards.js?v=101"></script>
-    <script src="js/data/roles.js?v=101"></script>
+    <script src="js/data/build-tiles.js?v=2"></script>
+    <script src="js/data/karma-events.js?v=1"></script>
+    <script src="js/data/contracts.js?v=1"></script>
+    <script src="js/data/roles.js?v=102"></script>
     <script src="js/data/tutorial.js?v=106"></script>
     <script src="js/icons.js?v=75"></script>
     <script src="js/glossary.js?v=105"></script>
     <script src="js/dice.js?v=75"></script>
     <script src="js/quality.js?v=75"></script>
     <script src="js/risk.js?v=103"></script>
-    <script src="js/mobility.js?v=101"></script>
+    <script src="js/mobility.js?v=102"></script>
     <script src="js/projects.js?v=90"></script>
     <script src="js/arc.js?v=103"></script>
     <script src="js/dialog.js?v=100"></script>
-    <script src="js/field-actions.js?v=106"></script>
+    <script src="js/field-actions.js?v=108"></script>
     <script src="js/role-avatars.js?v=88"></script>
     <script src="js/roles.js?v=102"></script>
-    <script src="js/state.js?v=112"></script>
+    <script src="js/goals.js?v=2"></script>
+    <script src="js/state.js?v=115"></script>
     <script src="js/board-look.js?v=75"></script>
     <script src="js/board-props.js?v=76"></script>
     <script src="js/board-kit.js?v=80"></script>
     <script src="js/kenney-buildings.js?v=28"></script>
     <script src="js/data/fillers.js?v=93"></script>
     <script src="js/board-edges.js?v=22"></script>
-    <script src="js/board3d.js?v=178"></script>
-    <script src="js/render.js?v=112"></script>
-    <script src="js/ui-overhaul.js?v=114"></script>
+    <script src="js/board3d.js?v=179"></script>
+    <script src="js/render.js?v=115"></script>
+    <script src="js/ui-overhaul.js?v=115"></script>
     <script src="js/phone.js?v=93"></script>
-    <script src="js/main.js?v=110"></script>
+    <script src="js/main.js?v=111"></script>
   </body>
 </html>

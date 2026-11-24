@@ -203,16 +203,17 @@ window.Nexus = window.Nexus || {};
 
   function defaultVariantFor(zoneType) {
     if (zoneType === "energy") {
-      return "solar";
+      return "wind";
     }
+    if (zoneType === "commerce") {
+      return "small";
+    }
+    /* Legacy */
     if (zoneType === "datacenter") {
       return "insecure";
     }
-    if (zoneType === "commerce") {
-      return "factory";
-    }
     if (zoneType === "traffic") {
-      return "garage";
+      return "taxi";
     }
     return null;
   }
@@ -236,6 +237,121 @@ window.Nexus = window.Nexus || {};
     return null;
   }
 
+  function emptyGoalProgress() {
+    return {
+      sameType: {},
+      buildMetric: 0,
+      upgradeMetric: 0,
+      neighborMetric: 0,
+      trades3: 0,
+      gift1: 0,
+      karma4Active: false,
+      karma5Active: false,
+      completedOnce: {}
+    };
+  }
+
+  function emptyStallSlots() {
+    var n = (Nexus.STALL && Nexus.STALL.SLOTS) || 3;
+    var slots = [];
+    var i;
+    for (i = 0; i < n; i++) {
+      slots.push(null);
+    }
+    return slots;
+  }
+
+  function clampKarma(value) {
+    var min = Nexus.KARMA && Nexus.KARMA.MIN != null ? Nexus.KARMA.MIN : -5;
+    var max = Nexus.KARMA && Nexus.KARMA.MAX != null ? Nexus.KARMA.MAX : 5;
+    var n = Number(value);
+    if (!isFinite(n)) {
+      n = Nexus.KARMA && Nexus.KARMA.START != null ? Nexus.KARMA.START : 0;
+    }
+    return Math.max(min, Math.min(max, n));
+  }
+
+  function applyKarma(state, playerId, delta, reason) {
+    if (!delta) {
+      return state;
+    }
+    var player = null;
+    (state.players || []).forEach(function (item) {
+      if (item.id === playerId) {
+        player = item;
+      }
+    });
+    if (!player) {
+      return state;
+    }
+    var nextKarma = clampKarma((player.karma || 0) + delta);
+    var next = replacePlayer(
+      state,
+      playerId,
+      Object.assign({}, player, { karma: nextKarma })
+    );
+    if (reason) {
+      next.log = addLog(
+        next,
+        player.name,
+        "Karma " + (delta > 0 ? "+" : "") + delta + " · " + reason + " (jetzt " + nextKarma + ")."
+      );
+    }
+    if (Nexus.Goals && Nexus.Goals.syncKarmaGoals) {
+      next = Nexus.Goals.syncKarmaGoals(next, playerId);
+    }
+    return next;
+  }
+
+  /* Bau-Spec aus tileId oder type/variant — Kosten/Erträge aus BUILD_TILES. */
+  function resolveBuildSpec(zoneType, variant, tileId) {
+    var tiles = Nexus.BUILD_TILES;
+    if (tileId && tiles && tiles[tileId]) {
+      var fromId = tiles[tileId];
+      return {
+        tileId: fromId.id,
+        type: fromId.type,
+        variant: fromId.variant || null,
+        def: fromId
+      };
+    }
+    var typeDef = zoneType && ZONE_TYPES[zoneType];
+    var resolvedVariant = variant;
+    if (typeDef && typeDef.variants && typeDef.variants.length) {
+      resolvedVariant = variant || defaultVariantFor(zoneType);
+    } else if (variant == null) {
+      resolvedVariant = defaultVariantFor(zoneType);
+    }
+    var inferred =
+      Nexus.tileIdFromZone &&
+      Nexus.tileIdFromZone({ type: zoneType, variant: resolvedVariant || null });
+    if (inferred && tiles && tiles[inferred]) {
+      var fromType = tiles[inferred];
+      return {
+        tileId: fromType.id,
+        type: fromType.type,
+        variant: fromType.variant || null,
+        def: fromType
+      };
+    }
+    return {
+      tileId: inferred || null,
+      type: zoneType,
+      variant: resolvedVariant || null,
+      def: null
+    };
+  }
+
+  function tileBuildCost(spec, player) {
+    if (player && (player.freeZoneClaims || 0) > 0) {
+      return {};
+    }
+    if (spec && spec.def && spec.def.cost) {
+      return normalizeCost(spec.def.cost);
+    }
+    return null;
+  }
+
   function normalizeTrafficMode(zone) {
     if (!zone || zone.type !== "traffic") {
       return null;
@@ -252,30 +368,26 @@ window.Nexus = window.Nexus || {};
 
   function countPlayerDatacenters(state, playerId) {
     return playerFactoryZones(state, playerId).filter(function (zone) {
-      return zone.type === "datacenter";
+      return zone.type === "datacenter" || zone.type === "server" || zone.type === "admin";
     }).length;
   }
 
-  function maxDatacentersFor(state, playerId) {
-    var per = C.DC_TILES_PER || 7;
-    var owned = playerZones(state, playerId).length;
-    return Math.floor((owned - 1) / per) + 1;
+  /* DC-Limit entfällt — API bleibt als No-Op für Alt-UI. */
+  function maxDatacentersFor() {
+    return 999;
   }
 
   function datacenterCapInfo(state, playerId) {
     var have = countPlayerDatacenters(state, playerId);
-    var max = maxDatacentersFor(state, playerId);
-    var per = C.DC_TILES_PER || 7;
     var owned = playerZones(state, playerId).length;
-    var nextAt = have * per + 1;
     return {
       have: have,
-      max: max,
-      per: per,
+      max: 999,
+      per: 0,
       owned: owned,
-      nextAt: nextAt,
-      allowed: have < max,
-      label: have + "/" + max + " · je " + per + " Felder"
+      nextAt: 0,
+      allowed: true,
+      label: "ohne Limit"
     };
   }
 
@@ -293,11 +405,22 @@ window.Nexus = window.Nexus || {};
     return n;
   }
 
+  function isEnterpriseZone(zone) {
+    if (!zone || zone.type !== "commerce") {
+      return false;
+    }
+    if (zone.variant === "enterprise" || zone.variant === "large") {
+      return true;
+    }
+    var def = zone.tileId && Nexus.BUILD_TILES && Nexus.BUILD_TILES[zone.tileId];
+    return !!(def && def.enterpriseCurve);
+  }
+
   function enterpriseMatureBase(state, playerId, zone) {
     var curve = C.ENTERPRISE_MATURE || [5, 3, 1];
     var list = playerFactoryZones(state, playerId)
       .filter(function (item) {
-        return item.type === "commerce" && item.variant === "enterprise";
+        return isEnterpriseZone(item);
       })
       .slice()
       .sort(function (a, b) {
@@ -333,19 +456,39 @@ window.Nexus = window.Nexus || {};
   }
 
   function resolveZoneYieldDef(zone) {
+    if (!zone) {
+      return null;
+    }
+    var tileId =
+      zone.tileId ||
+      (Nexus.tileIdFromZone ? Nexus.tileIdFromZone(zone) : null);
+    var tile = tileId && Nexus.BUILD_TILES && Nexus.BUILD_TILES[tileId];
+    if (tile) {
+      var energyVar =
+        tile.type === "energy" && tile.variant
+          ? variantDefFor("energy", tile.variant)
+          : null;
+      return Object.assign({}, ZONE_TYPES[tile.type] || {}, tile, energyVar || {}, {
+        variant: tile.variant || null,
+        tileId: tile.id,
+        /* Katalog-Felder: feste Erträge, kein Produktionswürfel. */
+        dice: false,
+        stable: true
+      });
+    }
     var typeDef = ZONE_TYPES[zone.type];
     if (!typeDef) {
       return null;
     }
     var variant = zone.variant || defaultVariantFor(zone.type);
     if (zone.type === "traffic") {
-      variant = normalizeTrafficMode(zone) || variant || "garage";
+      variant = normalizeTrafficMode(zone) || variant || "taxi";
     }
     var variantDef = variantDefFor(zone.type, variant);
     if (variantDef) {
-      return Object.assign({}, typeDef, variantDef, { variant: variant });
+      return Object.assign({}, typeDef, variantDef, { variant: variant, tileId: tileId });
     }
-    return Object.assign({}, typeDef, { variant: variant });
+    return Object.assign({}, typeDef, { variant: variant, tileId: tileId });
   }
 
   function bumpScores(scores, hint) {
@@ -593,83 +736,28 @@ window.Nexus = window.Nexus || {};
     };
   }
 
-  function awardBuildRolePoints(state, playerId, zoneType, variant) {
-    var map = {
-      "energy:solar": { key: "eco", amount: 1, reason: "Solarfeld" },
-      "energy:transformer": { key: "finance", amount: 1, reason: "Umspannwerk" },
-      "energy:nuclear": { key: "finance", amount: 1, reason: "Atomkraftwerk" },
-      "residential:": { key: "comfort", amount: 1, reason: "Wohnen" },
-      "datacenter:secure": { key: "trust", amount: 2, reason: "Sicheres Rechenzentrum" },
-      "datacenter:insecure": { key: "trust", amount: 1, reason: "Offenes Rechenzentrum" },
-      "commerce:factory": { key: "finance", amount: 1, reason: "Fabrik" },
-      "commerce:enterprise": { key: "finance", amount: 1, reason: "Unternehmen" },
-      "traffic:": { key: "comfort", amount: 1, reason: "Verkehrsfeld" },
-      "park:": { key: "eco", amount: 1, reason: "Park" },
-      "workshop:": { key: "innovation", amount: 1, reason: "Werkstatt" }
-    };
-    var spec = map[zoneType + ":" + (variant || "")] || map[zoneType + ":"];
-    if (!spec) {
-      return state;
+  /* Sofort-SP beim Bau entfallen — Dauerziele (Goals) vergeben own-Metrik-Punkte. */
+  function awardBuildRolePoints(state, playerId, zoneType, variant, zone) {
+    var tileId =
+      (zone && zone.tileId) ||
+      (Nexus.tileIdFromZone
+        ? Nexus.tileIdFromZone({ type: zoneType, variant: variant || null })
+        : null);
+    if (Nexus.Goals && Nexus.Goals.onBuild && tileId) {
+      var result = Nexus.Goals.onBuild(state, playerId, tileId, zone || {
+        type: zoneType,
+        variant: variant || null,
+        tileId: tileId,
+        ownerId: playerId
+      });
+      return result && result.state ? result.state : state;
     }
-    return awardTypedRolePoints(state, playerId, spec.key, spec.amount, spec.reason);
+    return state;
   }
 
-  function setDatacenterMode(state, zoneId, variant) {
-    var player = currentPlayer(state);
-    if (!player || state.turnPhase !== "build") {
-      return state;
-    }
-    if (variant !== "secure" && variant !== "insecure") {
-      return state;
-    }
-    var zone = null;
-    (state.zones || []).forEach(function (item) {
-      if (item.id === zoneId) {
-        zone = item;
-      }
-    });
-    if (!zone || zone.ownerId !== player.id || zone.type !== "datacenter") {
-      return state;
-    }
-    if (zone.variant === variant) {
-      return state;
-    }
-    var cost = variant === "secure" ? { money: 2, bandwidth: 1 } : { money: 1 };
-    if (!canAfford(player.resources, cost)) {
-      return state;
-    }
-    var scores = cloneScores(player.scores);
-    var risk = player.risk || 0;
-    if (variant === "secure") {
-      scores = bumpScores(scores, { security: 1 });
-    } else {
-      risk += 2;
-    }
-    var zones = state.zones.map(function (item) {
-      return item.id === zoneId ? Object.assign({}, item, { variant: variant }) : item;
-    });
-    var nextPlayer = Object.assign({}, player, {
-      resources: subtractCost(player.resources, cost),
-      scores: scores,
-      risk: risk
-    });
-    var next = replacePlayer(Object.assign({}, state, { zones: zones }), player.id, nextPlayer);
-    next = awardTypedRolePoints(
-      next,
-      player.id,
-      "trust",
-      variant === "secure" ? 1 : 0,
-      variant === "secure" ? "Rechenzentrum geschlossen" : "Rechenzentrum geöffnet"
-    );
-    next.log = addLog(
-      next,
-      player.name,
-      "Rechenzentrum jetzt " + (variant === "secure" ? "geschlossen" : "offen") + " · " + formatCost(cost) + "."
-    );
-    if (Nexus.Risk) {
-      next = Nexus.Risk.syncState(next, { decay: false });
-    }
-    return next;
+  /* Offen/Zu-Rechenzentrum entfernt — No-Op für Alt-Aufrufer. */
+  function setDatacenterMode(state) {
+    return state;
   }
 
   function zoneUpgradeLevel(zone) {
@@ -689,19 +777,10 @@ window.Nexus = window.Nexus || {};
     if (!def || !def.primary) {
       return 0;
     }
-    if (
-      state &&
-      player &&
-      zone.type === "commerce" &&
-      zone.variant === "enterprise"
-    ) {
+    if (state && player && isEnterpriseZone(zone)) {
       return enterpriseYieldAmount(state, player.id, zone) + zoneUpgradeLevel(zone);
     }
-    if (
-      state &&
-      zone.type === "commerce" &&
-      (zone.variant === "factory" || def.adjacentResidentialBonus)
-    ) {
+    if (state && def.adjacentResidentialBonus) {
       return (
         (def.primaryBase || 0) +
         countAdjacentResidential(state, zone.q, zone.r) +
@@ -1368,33 +1447,32 @@ window.Nexus = window.Nexus || {};
     var moneySpent = 0;
     var energySpent = 0;
     var bandwidthSpent = 0;
-    if (zone.type === "energy" && def.stable) {
+    /* Katalog-Tiles und stabile Varianten: feste Ernte. Wohnen braucht kein RZ. */
+    if (def.stable || def.tileId || zone.type === "commerce" || zone.type === "residential") {
       amount = base;
-      if (zone.variant === "transformer") {
+      if (zone.variant === "transformer" && zone.type === "energy") {
         moneySpent = amount * (C.TRANSFORMER_MONEY_PER_ENERGY || 1);
         if ((player.resources.money || 0) < moneySpent) {
           amount = 0;
           moneySpent = 0;
         }
       }
-    } else if (zone.type === "residential") {
-      amount = playerHasZoneType(state, player.id, "datacenter")
-        ? yieldAmount(base, modifier)
-        : 0;
-    } else if (zone.type === "commerce") {
-      amount = base;
-    } else if (zone.type === "traffic" && def.stable) {
-      amount = base;
       if (def.upkeep) {
         energySpent = def.upkeep.energy || 0;
         bandwidthSpent = def.upkeep.bandwidth || 0;
+        moneySpent += def.upkeep.money || 0;
         if (
           (player.resources.energy || 0) < energySpent ||
-          (player.resources.bandwidth || 0) < bandwidthSpent
+          (player.resources.bandwidth || 0) < bandwidthSpent ||
+          (player.resources.money || 0) < (def.upkeep.money || 0)
         ) {
           amount = 0;
           energySpent = 0;
           bandwidthSpent = 0;
+          moneySpent = zone.variant === "transformer" ? 0 : moneySpent;
+          if (def.upkeep.money) {
+            moneySpent = 0;
+          }
         }
       }
     } else {
@@ -1403,12 +1481,6 @@ window.Nexus = window.Nexus || {};
     var harvestHint = null;
     if (def.harvestScoreHint) {
       harvestHint = def.harvestScoreHint;
-    } else if (def.scoreHint && !(zone.type === "energy" && def.stable)) {
-      /* Trafo: Umwelt nur beim Bau (scoreHint), nicht jede Ernte. */
-      harvestHint = def.scoreHint;
-    }
-    if (!amount && harvestHint && zone.type === "traffic") {
-      harvestHint = null;
     }
     var result = {
       primary: { resource: def.primary, amount: amount },
@@ -1416,12 +1488,12 @@ window.Nexus = window.Nexus || {};
       energySpent: energySpent,
       bandwidthSpent: bandwidthSpent,
       scoreHint: harvestHint,
-      riskDelta: def.risk ? 1 : 0
+      riskDelta: 0
     };
-    if (def.secondary) {
+    if (def.secondary && amount > 0) {
       result.secondary = {
         resource: def.secondary,
-        amount: yieldAmount(def.secondaryBase, modifier)
+        amount: (def.secondaryBase || 0) + zoneUpgradeLevel(zone)
       };
     }
     return result;
@@ -1440,38 +1512,23 @@ window.Nexus = window.Nexus || {};
     if (!player) {
       return expected;
     }
-    var hasDc = playerHasZoneType(state, player.id, "datacenter");
     playerFactoryZones(state, player.id).forEach(function (zone) {
       var def = resolveZoneYieldDef(zone);
       if (!def || !def.primary) {
         return;
       }
       var base = zonePrimaryBase(zone, state, player);
-      if (zone.type === "residential" && !hasDc) {
-        return;
-      }
-      if (zone.type === "energy" && def.stable) {
-        expected[def.primary] += base;
-        if (zone.variant === "transformer") {
-          expected.money -= base * (C.TRANSFORMER_MONEY_PER_ENERGY || 1);
-        }
-        return;
-      }
-      if (zone.type === "traffic" && def.stable) {
-        expected[def.primary] += base;
-        if (def.upkeep) {
-          expected.energy -= def.upkeep.energy || 0;
-          expected.bandwidth -= def.upkeep.bandwidth || 0;
-        }
-        return;
-      }
-      if (zone.type === "commerce") {
-        expected[def.primary] += base;
-        return;
-      }
-      expected[def.primary] += expectedYieldForBase(base);
+      expected[def.primary] += base;
       if (def.secondary) {
-        expected[def.secondary] += expectedYieldForBase(def.secondaryBase);
+        expected[def.secondary] = (expected[def.secondary] || 0) + (def.secondaryBase || 0);
+      }
+      if (zone.variant === "transformer" && zone.type === "energy") {
+        expected.money -= base * (C.TRANSFORMER_MONEY_PER_ENERGY || 1);
+      }
+      if (def.upkeep) {
+        expected.energy -= def.upkeep.energy || 0;
+        expected.bandwidth -= def.upkeep.bandwidth || 0;
+        expected.money -= def.upkeep.money || 0;
       }
     });
     expected.bandwidth -= cloudUpkeepCost(player);
@@ -1534,21 +1591,31 @@ window.Nexus = window.Nexus || {};
     return cost;
   }
 
-  function getExpandOffer(state, q, r, zoneType, variant) {
-    var offer = { allowed: false, reason: "", cost: getExpandCost(state) };
+  function getExpandOffer(state, q, r, zoneType, variant, tileId) {
+    var offer = {
+      allowed: false,
+      reason: "",
+      cost: {},
+      tileId: null,
+      variant: null
+    };
     var player = currentPlayer(state);
     if (state.turnPhase !== "build") {
       offer.reason = "Erweitern nur in der Bauphase.";
       return offer;
     }
-    if (Nexus.ZONE_TYPE_KEYS.indexOf(zoneType) === -1) {
+    var spec = resolveBuildSpec(zoneType, variant, tileId);
+    if (!spec.type || Nexus.ZONE_TYPE_KEYS.indexOf(spec.type) === -1) {
       offer.reason = "Ungültiger Zonentyp.";
       return offer;
     }
-    var typeDef = ZONE_TYPES[zoneType];
-    if (typeDef && typeDef.variants && typeDef.variants.length) {
-      variant = variant || defaultVariantFor(zoneType);
-      if (typeDef.variants.indexOf(variant) === -1) {
+    if (!spec.def && !(ZONE_TYPES[spec.type] && !Nexus.BUILD_TILES)) {
+      offer.reason = "Unbekanntes Feld.";
+      return offer;
+    }
+    var typeDef = ZONE_TYPES[spec.type];
+    if (typeDef && typeDef.variants && typeDef.variants.length && spec.variant) {
+      if (typeDef.variants.indexOf(spec.variant) === -1) {
         offer.reason = "Ungültige Variante.";
         return offer;
       }
@@ -1557,25 +1624,20 @@ window.Nexus = window.Nexus || {};
       offer.reason = "Dieses Feld kann nicht bebaut werden.";
       return offer;
     }
+    var cost = tileBuildCost(spec, player);
+    if (cost == null) {
+      offer.reason = "Keine Baukosten für dieses Feld.";
+      return offer;
+    }
+    offer.cost = cost;
+    offer.tileId = spec.tileId;
+    offer.variant = spec.variant;
+    offer.type = spec.type;
     if (!canAfford(player.resources, offer.cost)) {
       offer.reason = "Nicht genug Ressourcen.";
       return offer;
     }
-    if (zoneType === "datacenter") {
-      var cap = datacenterCapInfo(state, player.id);
-      if (!cap.allowed) {
-        offer.reason =
-          "Rechenzentren " +
-          cap.label +
-          ". Ab " +
-          cap.nextAt +
-          " eigenen Feldern ist das nächste frei.";
-        return offer;
-      }
-      offer.dcCap = cap;
-    }
     offer.allowed = true;
-    offer.variant = variant || null;
     return offer;
   }
 
@@ -1651,122 +1713,78 @@ window.Nexus = window.Nexus || {};
     return next;
   }
 
-  function buyZone(state, q, r, zoneType, variant) {
-    var offer = getExpandOffer(state, q, r, zoneType, variant);
+  function buyZone(state, q, r, zoneType, variant, tileId) {
+    var offer = getExpandOffer(state, q, r, zoneType, variant, tileId);
     if (!offer.allowed) {
       return state;
     }
     var player = currentPlayer(state);
-    var resolvedVariant = offer.variant;
-    var variantDef = variantDefFor(zoneType, resolvedVariant);
+    var spec = resolveBuildSpec(zoneType, variant, tileId || offer.tileId);
+    var resolvedType = offer.type || spec.type;
+    var resolvedVariant = offer.variant != null ? offer.variant : spec.variant;
+    var resolvedTileId = offer.tileId || spec.tileId;
+    var tileDef = spec.def || (resolvedTileId && Nexus.BUILD_TILES && Nexus.BUILD_TILES[resolvedTileId]);
     var scores = cloneScores(player.scores);
-    var risk = player.risk || 0;
-    if (variantDef) {
-      if (variantDef.scoreHint) {
-        scores = bumpScores(scores, variantDef.scoreHint);
-      }
-      if (variantDef.riskOnBuild && !Nexus.Risk) {
-        risk += variantDef.riskOnBuild;
-      }
-    }
-    if (zoneType === "traffic") {
-      var alreadyTraffic = playerFactoryZones(state, player.id).some(function (zone) {
-        return zone.type === "traffic";
-      });
-      if (!alreadyTraffic) {
-        scores = bumpScores(scores, { comfort: 1 });
-      }
-    }
-    if ((zoneType === "park" || zoneType === "workshop") && ZONE_TYPES[zoneType].scoreHint) {
-      scores = bumpScores(scores, ZONE_TYPES[zoneType].scoreHint);
-    }
-    var trafficMode =
-      zoneType === "traffic"
-        ? resolvedVariant === "taxi" || resolvedVariant === "depot"
-          ? "taxi"
-          : "garage"
-        : null;
-    var trafficVariant = trafficMode;
-    var zones = state.zones.concat([
-      {
-        id: "zone-" + q + "-" + r,
-        q: q,
-        r: r,
-        type: zoneType,
-        variant: zoneType === "traffic" ? trafficVariant : resolvedVariant,
-        ownerId: player.id,
-        upgradeLevel: 0,
-        harvested: true, /* erst ab nächster Runde produktiv */
-        lastYield: null,
-        trafficMode: trafficMode,
-        busStop: false,
-        builtRound: state.round || 1
-      }
-    ]);
+    var newZone = {
+      id: "zone-" + q + "-" + r,
+      q: q,
+      r: r,
+      type: resolvedType,
+      variant: resolvedVariant,
+      tileId: resolvedTileId,
+      ownerId: player.id,
+      upgradeLevel: 0,
+      harvested: true, /* erst ab nächster Runde produktiv */
+      lastYield: null,
+      trafficMode: resolvedType === "taxi" ? "taxi" : null,
+      busStop: false,
+      builtRound: state.round || 1
+    };
+    var zones = state.zones.concat([newZone]);
     var usedCoupon = Object.keys(offer.cost).length === 0 && (player.freeZoneClaims || 0) > 0;
     var nextPlayer = Object.assign({}, player, {
       resources: subtractCost(player.resources, offer.cost),
       freeZoneClaims: usedCoupon ? player.freeZoneClaims - 1 : player.freeZoneClaims || 0,
       scores: scores,
-      risk: risk,
       hasDepot: false,
-      workshopDiscountPending:
-        zoneType === "workshop" ? true : !!player.workshopDiscountPending
+      workshopDiscountPending: !!player.workshopDiscountPending
     });
-    var label = ZONE_TYPES[zoneType].label;
-    if (trafficMode === "taxi") {
-      label = "E-Taxi-Station";
-    } else if (trafficMode === "garage") {
-      label = "Garagen";
-    } else if (variantDef && variantDef.label) {
-      label += " (" + variantDef.label + ")";
-    }
-    if (zoneType === "datacenter" && offer.dcCap) {
-      label += " · " + (offer.dcCap.have + 1) + "/" + offer.dcCap.max;
-    }
+    var label =
+      (tileDef && (tileDef.label || tileDef.shortLabel)) ||
+      (ZONE_TYPES[resolvedType] && ZONE_TYPES[resolvedType].label) ||
+      resolvedType;
     var next = replacePlayer(Object.assign({}, state, { zones: zones }), player.id, nextPlayer);
-    next = consumeDevBuildOnceForZone(next, zoneType, trafficVariant || resolvedVariant, trafficMode, false);
-    next = awardBuildRolePoints(next, player.id, zoneType, resolvedVariant);
-    var whyKey =
-      zoneType === "energy"
-        ? resolvedVariant || "solar"
-        : zoneType === "datacenter"
-          ? resolvedVariant || "insecure"
-          : zoneType === "commerce"
-            ? resolvedVariant || "factory"
-            : zoneType;
-    var why = Nexus.WHY && Nexus.WHY[whyKey] ? " " + Nexus.WHY[whyKey] : "";
-    var dcNote =
-      zoneType === "datacenter" && offer.dcCap
-        ? " Rechenzentren jetzt " + (offer.dcCap.have + 1) + "/" + offer.dcCap.max + " (je " + offer.dcCap.per + " Felder)."
-        : "";
+    next = consumeDevBuildOnceForZone(next, resolvedType, resolvedVariant, newZone.trafficMode, false);
+    next = awardBuildRolePoints(next, player.id, resolvedType, resolvedVariant, newZone);
+    if (tileDef && tileDef.karmaOnBuild) {
+      next = applyKarma(next, player.id, tileDef.karmaOnBuild, label);
+    }
+    var why = Nexus.WHY && Nexus.WHY[resolvedTileId || resolvedType] ? " " + Nexus.WHY[resolvedTileId || resolvedType] : "";
     next.log = addLog(
       next,
       player.name,
       (usedCoupon
         ? "Startfeld gewählt: " + label + "."
-        : "Zone erweitert: " + label + " für " + formatCost(offer.cost) + ".") +
-        why +
-        dcNote
+        : "Zone erweitert: " + label + " für " + formatCost(offer.cost) + ".") + why
     );
-    if (Nexus.Risk) {
-      next = Nexus.Risk.syncState(next, { decay: false });
-    }
     next.lastScoreCause = { q: q, r: r, label: label };
     next = applyNeighborhoodPressure(next, player.id, q, r);
-    if (zoneType === "energy" && resolvedVariant === "solar") {
+    if (resolvedType === "energy" && resolvedVariant === "solar") {
       next = tickSideDeal(next, player.id, "buildSolar", 1);
     }
-    if (zoneType === "residential") {
+    if (resolvedType === "residential") {
       next = tickSideDeal(next, player.id, "buildResidential", 1);
     }
-    if (zoneType === "traffic") {
+    if (resolvedType === "taxi") {
       next = tickSideDeal(next, player.id, "buildTraffic", 1);
     }
     next = tickMandates(next, player.id, {
-      buildType: zoneType,
-      buildVariant: trafficVariant || resolvedVariant || null
+      buildType: resolvedType,
+      buildVariant: resolvedVariant || null
     });
+    if (resolvedTileId && tileMatchesPlayerMetric(resolvedTileId, player)) {
+      next = tickContractProgress(next, player.id, { buildMetric: 1 });
+    }
     return next;
   }
 
@@ -1819,6 +1837,26 @@ window.Nexus = window.Nexus || {};
           : null
       };
     }
+    var buildSpec = resolveBuildSpec(zoneType, resolvedVariant, null);
+    var tileDef = buildSpec.def;
+    if (tileDef) {
+      label = tileDef.label || label;
+      if (tileDef.primary) {
+        production = {
+          resource: tileDef.primary,
+          amount: tileDef.primaryBase || 0,
+          dice: false,
+          stable: true,
+          moneyPerEnergy: 0,
+          upkeep: tileDef.upkeep ? Object.assign({}, tileDef.upkeep) : null,
+          harvestScoreHint: null,
+          secondary: tileDef.secondary || null,
+          secondaryBase: tileDef.secondaryBase || 0
+        };
+      } else {
+        production = null;
+      }
+    }
     var flags = {
       residentialNeedsDc: false,
       transformerUpkeep: false,
@@ -1827,44 +1865,22 @@ window.Nexus = window.Nexus || {};
       dcUnlocksBandwidth: false,
       insecureRisk: false,
       trafficInfrastructure: false,
-      producesNextRound: true
+      producesNextRound: true,
+      karmaOnBuild: tileDef ? tileDef.karmaOnBuild || 0 : 0
     };
-    if (zoneType === "residential") {
-      var player = currentPlayer(state);
-      flags.residentialNeedsDc = !(player && playerHasZoneType(state, player.id, "datacenter"));
+    if (production && production.upkeep) {
+      flags.taxiUpkeep = true;
     }
-    if (production && production.stable && resolvedVariant === "transformer") {
-      flags.transformerUpkeep = true;
+    if (zoneType === "energy" && (resolvedVariant === "nuclear" || resolvedVariant === "coal")) {
+      flags.nuclearRisk = resolvedVariant === "nuclear";
     }
-    if (production && production.dice) {
-      flags.solarDice = true;
-    }
-    if (zoneType === "energy" && resolvedVariant === "nuclear") {
-      flags.nuclearRisk = true;
-    }
-    if (zoneType === "datacenter") {
-      flags.dcUnlocksBandwidth = true;
-      var who = currentPlayer(state);
-      if (who) {
-        flags.dcCap = datacenterCapInfo(state, who.id);
-      }
-      if (resolvedVariant === "insecure" && riskOnBuild) {
-        flags.insecureRisk = true;
-      }
-    }
-    if (zoneType === "commerce" && resolvedVariant === "factory") {
+    if (zoneType === "commerce" && (resolvedVariant === "factory" || (tileDef && tileDef.adjacentResidentialBonus))) {
       flags.factoryAdjacent = true;
     }
-    if (zoneType === "commerce" && resolvedVariant === "enterprise") {
+    if (zoneType === "commerce" && (resolvedVariant === "enterprise" || resolvedVariant === "large" || (tileDef && tileDef.enterpriseCurve))) {
       flags.enterpriseCurve = true;
       flags.enterpriseRamp = (C.ENTERPRISE_RAMP || [1, 3, 5]).join("→");
       flags.enterpriseMature = (C.ENTERPRISE_MATURE || [5, 3, 1]).join("→");
-    }
-    if (zoneType === "traffic") {
-      flags.trafficInfrastructure = true;
-      if (resolvedVariant === "taxi" && production && production.upkeep) {
-        flags.taxiUpkeep = true;
-      }
     }
     var devices = (Nexus.DEVICES || [])
       .filter(function (device) {
@@ -1877,14 +1893,18 @@ window.Nexus = window.Nexus || {};
           shortName: device.shortName
         };
       });
+    var playerForCost = currentPlayer(state);
+    var cost = tileBuildCost(buildSpec, playerForCost);
     return {
       type: zoneType,
       variant: resolvedVariant || null,
+      tileId: buildSpec.tileId,
       label: label,
-      cost: getExpandCost(state),
+      cost: cost || {},
       production: production,
       onBuild: onBuild,
-      riskOnBuild: riskOnBuild,
+      riskOnBuild: 0,
+      karmaOnBuild: flags.karmaOnBuild,
       flags: flags,
       devices: devices,
       upkeep: production && production.upkeep ? production.upkeep : null,
@@ -1965,9 +1985,7 @@ window.Nexus = window.Nexus || {};
         preview.flags.transformerUpkeep = !!def.stable;
       }
     }
-    if (zone.type === "residential") {
-      preview.flags.residentialNeedsDc = !playerHasZoneType(state, player.id, "datacenter");
-    }
+    preview.flags.residentialNeedsDc = false;
     if (!canAfford(player.resources, preview.cost)) {
       preview.reason = "cannot_afford";
       return preview;
@@ -1997,6 +2015,24 @@ window.Nexus = window.Nexus || {};
       player.name,
       "Feld ausgebaut auf Stufe " + preview.toLevel + " für " + formatCost(preview.cost) + "."
     );
+    var upgradedZone = null;
+    (next.zones || []).forEach(function (z) {
+      if (z.id === zoneId) {
+        upgradedZone = z;
+      }
+    });
+    if (Nexus.Goals && Nexus.Goals.onUpgrade && upgradedZone) {
+      var upgradeTileId =
+        upgradedZone.tileId ||
+        (Nexus.tileIdFromZone ? Nexus.tileIdFromZone(upgradedZone) : null);
+      if (upgradeTileId) {
+        var upResult = Nexus.Goals.onUpgrade(next, player.id, upgradeTileId);
+        next = upResult && upResult.state ? upResult.state : next;
+        if (tileMatchesPlayerMetric(upgradeTileId, player)) {
+          next = tickContractProgress(next, player.id, { upgradeMetric: 1 });
+        }
+      }
+    }
     next = tickSideDeal(next, player.id, "upgrade", 1);
     next = tickMandates(next, player.id, { upgrade: true });
     return next;
@@ -2075,9 +2111,7 @@ window.Nexus = window.Nexus || {};
       if (zone.type === "energy" && zone.variant === "solar") {
         preview.flags.losesEnvironment = true;
       }
-      if (zone.type === "residential") {
-        preview.flags.residentialNeedsDc = true;
-      }
+      preview.flags.residentialNeedsDc = false;
     }
     if (state.turnPhase !== "build") {
       preview.reason = "wrong_phase";
@@ -2127,6 +2161,13 @@ window.Nexus = window.Nexus || {};
         gone.trafficMode,
         gone.busStop
       );
+      if (Nexus.Goals && Nexus.Goals.onDemolish) {
+        var demoTileId =
+          gone.tileId || (Nexus.tileIdFromZone ? Nexus.tileIdFromZone(gone) : null);
+        if (demoTileId) {
+          next = Nexus.Goals.onDemolish(next, player.id, demoTileId, zoneUpgradeLevel(gone));
+        }
+      }
     }
     next.log = addLog(
       next,
@@ -2151,20 +2192,31 @@ window.Nexus = window.Nexus || {};
         lowest = key;
       }
     });
-    var hasDc = playerHasZoneType(state, player.id, "datacenter");
     if (lowest === "energy") {
-      return { type: "energy", variant: "solar", reasonKey: "low_energy", resource: "energy" };
+      return {
+        type: "energy",
+        variant: "wind",
+        tileId: "energy-wind",
+        reasonKey: "low_energy",
+        resource: "energy"
+      };
     }
     if (lowest === "money") {
-      return { type: "commerce", variant: "factory", reasonKey: "low_money", resource: "money" };
+      return {
+        type: "commerce",
+        variant: "small",
+        tileId: "commerce-small",
+        reasonKey: "low_money",
+        resource: "money"
+      };
     }
-    var cap = datacenterCapInfo(state, player.id);
-    if (!hasDc || (lowest === "bandwidth" && cap.allowed && cap.have < cap.max)) {
-      if (!hasDc || (cap.allowed && lowest === "bandwidth" && expected.bandwidth < 2)) {
-        return { type: "datacenter", variant: "secure", reasonKey: "need_dc", resource: "bandwidth" };
-      }
-    }
-    return { type: "residential", variant: null, reasonKey: "low_bandwidth", resource: "bandwidth" };
+    return {
+      type: "residential",
+      variant: null,
+      tileId: "data-residential",
+      reasonKey: "low_bandwidth",
+      resource: "bandwidth"
+    };
   }
 
   function recommendExpandSlot(state) {
@@ -2219,6 +2271,17 @@ window.Nexus = window.Nexus || {};
       blockedTradesCaused: 0,
       blockedTradeKeysThisTurn: [],
       rolePoints: 0,
+      karma: Nexus.KARMA && Nexus.KARMA.START != null ? Nexus.KARMA.START : 0,
+      goalProgress: emptyGoalProgress(),
+      stallSlots: emptyStallSlots(),
+      stallAcceptsThisTurn: 0,
+      activeContract: null,
+      pendingContractOffer: null,
+      transferRequestsThisTurn: {},
+      transfersReceived: 0,
+      blackmailUsed: false,
+      blockTransferThisRound: false,
+      doubleHarvestZoneId: null,
       innovationCardsTotal: 0,
       handCards: [],
       activeMandates: [],
@@ -2316,6 +2379,7 @@ window.Nexus = window.Nexus || {};
       zones: zones,
       tradeOffers: [],
       tradeSession: null,
+      pendingTransfers: [],
       finalScores: null,
       winnerId: null,
       difficulty: options.difficulty || "normal",
@@ -2330,7 +2394,7 @@ window.Nexus = window.Nexus || {};
         {
           round: 1,
           playerName: null,
-          text: "Neues Spiel: " + playerCount + " Spieler, " + gameLength.rounds + " Tage Probezeit. Jeder hat einen Startcoupon für ein kostenloses Feld."
+          text: "Neues Spiel: " + playerCount + " Spieler, " + gameLength.rounds + " Wochen Probezeit. Jeder hat einen Startcoupon für ein kostenloses Feld."
         }
       ]
     };
@@ -2350,11 +2414,12 @@ window.Nexus = window.Nexus || {};
     if (state.turnPhase !== "role_reveal") {
       return state;
     }
-    return Object.assign({}, state, {
+    var next = Object.assign({}, state, {
       turnPhase: "produce",
       roleRevealIndex: state.players.length,
       log: addLog(state, null, state.players[0].name + " beginnt.")
     });
+    return maybeRollKarmaEvent(next);
   }
 
   function roleRevealPlayer(state) {
@@ -2729,13 +2794,42 @@ window.Nexus = window.Nexus || {};
     return C.TILE_SPIN_MS + Math.max(0, count - 1) * C.HARVEST_STAGGER_MS;
   }
 
+  function victoryPointTarget() {
+    return Nexus.VICTORY_POINT_TARGET || Nexus.ROLE_POINT_TARGET || 10;
+  }
+
+  function ownVictoryPoints(player) {
+    var pts = Math.max(0, player && player.rolePoints ? player.rolePoints : 0);
+    /* Karma −5: Anzeige-Malus −1 (effektiv need 11). */
+    if (player && (player.karma || 0) <= -5) {
+      pts = Math.max(0, pts - 1);
+    }
+    return pts;
+  }
+
+  function compareVictory(a, b) {
+    var da = ownVictoryPoints(b) - ownVictoryPoints(a);
+    if (da) {
+      return da;
+    }
+    var dk = (b.karma || 0) - (a.karma || 0);
+    if (dk) {
+      return dk;
+    }
+    return String(a.id).localeCompare(String(b.id));
+  }
+
   function finalizeGame(state, winnerId, winReason) {
+    var target = victoryPointTarget();
     var finalScores = state.players.map(function (p) {
       var progress = Nexus.computeRoleProgress(state, p);
+      var pts = ownVictoryPoints(p);
       return {
         playerId: p.id,
         playerName: p.name,
         roleId: p.roleId,
+        rolePoints: pts,
+        karma: p.karma || 0,
         totalPercent: progress.totalPercent,
         subGoals: progress.subGoals
       };
@@ -2746,8 +2840,9 @@ window.Nexus = window.Nexus || {};
     var winnerName = winner ? winner.name : "Unbekannt";
     var reasonText =
       winReason === "instant"
-        ? winnerName + " hat 100 % erreicht!"
-        : "Auswertung nach " + state.maxRounds + " Tagen Probezeit.";
+        ? winnerName + " hat " + target + " Siegpunkte der eigenen Metrik erreicht!"
+        : "Auswertung nach " + state.maxRounds + " Wochen Probezeit" +
+          (winner ? " — " + winnerName + " gewinnt (Punkte, bei Gleichstand Karma)." : ".");
     return Object.assign({}, state, {
       turnPhase: "gameover",
       winnerId: winnerId,
@@ -2758,33 +2853,22 @@ window.Nexus = window.Nexus || {};
     });
   }
 
+  /* Sieg nur über own-Metrik-SP ≥ Ziel; Risiko ist kein Siegpfad. */
   function checkInstantWinAtRoundEnd(state) {
-    var winner = null;
-    var best = 0;
-    state.players.forEach(function (p) {
-      var pct = Nexus.computeRoleProgress(state, p).totalPercent;
-      if (pct >= 100 && (winner === null || pct > best)) {
-        best = pct;
-        winner = p;
-      }
+    var target = victoryPointTarget();
+    var contenders = state.players.filter(function (p) {
+      return ownVictoryPoints(p) >= target;
     });
-    if (winner) {
-      return finalizeGame(state, winner.id, "instant");
+    if (!contenders.length) {
+      return null;
     }
-    return null;
+    contenders.sort(compareVictory);
+    return finalizeGame(state, contenders[0].id, "instant");
   }
 
   function resolveFallbackWinner(state) {
-    var best = -1;
-    var winnerId = state.players[0].id;
-    state.players.forEach(function (p) {
-      var pct = Nexus.computeRoleProgress(state, p).totalPercent;
-      if (pct > best) {
-        best = pct;
-        winnerId = p.id;
-      }
-    });
-    return finalizeGame(state, winnerId, "fallback");
+    var ranked = state.players.slice().sort(compareVictory);
+    return finalizeGame(state, ranked[0].id, "fallback");
   }
 
   function applyEventChoice(state, choiceId, extra) {
@@ -2956,7 +3040,12 @@ window.Nexus = window.Nexus || {};
         next.log = addLog(next, weak.name, "Als Schlusslicht: −1 Energie durch den Protest.");
       }
     }
-    next.turnPhase = "build";
+    if (effects.karma) {
+      next = applyKarma(next, player.id, effects.karma, event.title || "Ereignis");
+    }
+    if (effects.blackmail) {
+      next = applyKarmaBlackmail(next, player.id);
+    }
 
     var logText = event.title + " → " + choice.label + ".";
     if (choice.needsResourcePick) {
@@ -2974,6 +3063,12 @@ window.Nexus = window.Nexus || {};
     if (Nexus.Risk) {
       next = Nexus.Risk.syncState(next, { decay: false });
     }
+    /* Karma-Zugbeginn → Ernte; Risiko/sonstige Events → Bau. */
+    if (event.resumePhase === "produce" || event.source === "karma") {
+      next.turnPhase = "produce";
+      return next;
+    }
+    next.turnPhase = "build";
     return enterBuildPhase(next);
   }
 
@@ -3171,15 +3266,14 @@ window.Nexus = window.Nexus || {};
     var endedPlayer = Object.assign({}, result.player, {
       drewInnovationThisTurn: false,
       blockedTradeKeysThisTurn: [],
-      neighborhoodPressureUsed: false
+      neighborhoodPressureUsed: false,
+      stallAcceptsThisTurn: 0,
+      transferRequestsThisTurn: {}
     });
     var next = replacePlayer(state, player.id, endedPlayer);
     next.log = addLog(next, player.name, result.logText);
     if (Nexus.Mobility) {
       next = Nexus.Mobility.applyTick(next);
-    }
-    if (Nexus.Risk) {
-      next = Nexus.Risk.syncState(next, { decay: true });
     }
 
     var nextIndex = state.currentPlayerIndex + 1;
@@ -3199,9 +3293,12 @@ window.Nexus = window.Nexus || {};
         return Object.assign({}, zone, { harvested: false, lastYield: null, lastDieId: null });
       });
       next.players = next.players.map(function (p) {
-        return updateStandardStreak(p, state.round + 1);
+        return Object.assign({}, updateStandardStreak(p, state.round + 1), {
+          blockTransferThisRound: false
+        });
       });
-      next.log = addLog(next, null, "Tag " + newRound + " beginnt. Gerät an " + next.players[0].name + " weitergeben.");
+      next = tickActiveContracts(next);
+      next.log = addLog(next, null, "Woche " + newRound + " beginnt. Gerät an " + next.players[0].name + " weitergeben.");
     } else {
       next.currentPlayerIndex = nextIndex;
       next.turnPhase = "handoff";
@@ -3242,6 +3339,8 @@ window.Nexus = window.Nexus || {};
         );
       }
       resumed = checkSideDealDeadline(resumed, player.id);
+      /* Zugbeginn: Karma-Event vor Ernte. */
+      resumed = maybeRollKarmaEvent(resumed);
     }
     return resumed;
   }
@@ -3879,6 +3978,830 @@ window.Nexus = window.Nexus || {};
     return next;
   }
 
+  /* ---------- Track C: Karma-Events, Stall, Transfer, Aufträge ---------- */
+
+  function findPlayerById(state, playerId) {
+    var found = null;
+    (state.players || []).forEach(function (p) {
+      if (p.id === playerId) {
+        found = p;
+      }
+    });
+    return found;
+  }
+
+  function karmaEventChance(karma) {
+    var abs = Math.abs(karma || 0);
+    var table = Nexus.KARMA_EVENT_CHANCE || {};
+    if (table[abs] != null) {
+      return table[abs];
+    }
+    if (abs <= 1) {
+      return 0;
+    }
+    if (abs === 2) {
+      return 0.25;
+    }
+    if (abs === 3) {
+      return 0.5;
+    }
+    return 1;
+  }
+
+  function pickKarmaEventDef(player, polarity) {
+    var rolePool =
+      (Nexus.KARMA_CHARACTER_EVENTS && Nexus.KARMA_CHARACTER_EVENTS[player.roleId]) || [];
+    var generic = (Nexus.KARMA_GENERIC_EVENTS || []).filter(function (e) {
+      return e.polarity === polarity;
+    });
+    var charPool = rolePool.filter(function (e) {
+      return e.polarity === polarity;
+    });
+    var pool = charPool.concat(generic);
+    if (!pool.length) {
+      return null;
+    }
+    return pool[Math.floor(Math.random() * pool.length)];
+  }
+
+  function applyKarmaBlackmail(state, playerId) {
+    var player = findPlayerById(state, playerId);
+    if (!player || player.blackmailUsed) {
+      return state;
+    }
+    var target = victoryPointTarget();
+    if ((player.rolePoints || 0) < target) {
+      return state;
+    }
+    var next = replacePlayer(
+      state,
+      playerId,
+      Object.assign({}, player, {
+        rolePoints: Math.min(player.rolePoints || 0, target - 1),
+        blackmailUsed: true,
+        lastRolePointReason: "Leak / Blackmail"
+      })
+    );
+    next.log = addLog(next, player.name, "Blackmail: Siegpunkte auf " + (target - 1) + " gesetzt.");
+    return next;
+  }
+
+  function maybeRollKarmaEvent(state) {
+    var player = currentPlayer(state);
+    if (!player || player.pendingEvent) {
+      return state;
+    }
+    var karma = player.karma || 0;
+    var abs = Math.abs(karma);
+    if (abs < 2) {
+      return state;
+    }
+    var polarity = karma > 0 ? "good" : "bad";
+    var def = null;
+    if (abs >= 5) {
+      def =
+        polarity === "good"
+          ? Nexus.KARMA_EXTREME_GOOD
+          : Nexus.KARMA_EXTREME_BAD;
+    } else {
+      var chance = karmaEventChance(karma);
+      if (Math.random() >= chance) {
+        return state;
+      }
+      def = pickKarmaEventDef(player, polarity);
+    }
+    if (!def) {
+      return state;
+    }
+    var pending = Object.assign({}, def, {
+      source: "karma",
+      resumePhase: "produce"
+    });
+    var next = replacePlayer(
+      state,
+      player.id,
+      Object.assign({}, player, { pendingEvent: pending })
+    );
+    next.turnPhase = "event";
+    next.log = addLog(next, player.name, "Karma-Ereignis: " + pending.title + ".");
+    return next;
+  }
+
+  function normalizeStallSide(side) {
+    if (!side || !side.amount || side.amount < 1) {
+      return null;
+    }
+    if (side.kind === "sp") {
+      return { kind: "sp", amount: Math.floor(side.amount) };
+    }
+    var resource = side.resource || side.key;
+    if (KEYS.indexOf(resource) === -1) {
+      return null;
+    }
+    return { kind: "resource", resource: resource, amount: Math.floor(side.amount) };
+  }
+
+  function stallSideLabel(side) {
+    if (!side) {
+      return "—";
+    }
+    if (side.kind === "sp") {
+      return side.amount + " SP";
+    }
+    return side.amount + " " + (Nexus.RESOURCE_SHORT[side.resource] || side.resource);
+  }
+
+  function canPayStallSide(player, side) {
+    if (!side) {
+      return false;
+    }
+    if (side.kind === "sp") {
+      return (player.rolePoints || 0) >= side.amount;
+    }
+    var cost = {};
+    cost[side.resource] = side.amount;
+    return canAfford(player.resources, cost);
+  }
+
+  function payStallSide(player, side) {
+    if (side.kind === "sp") {
+      return Object.assign({}, player, {
+        rolePoints: Math.max(0, (player.rolePoints || 0) - side.amount),
+        lastRolePointDelta: -side.amount,
+        lastRolePointReason: "Stall"
+      });
+    }
+    var cost = {};
+    cost[side.resource] = side.amount;
+    return Object.assign({}, player, {
+      resources: subtractCost(player.resources, cost)
+    });
+  }
+
+  function gainStallSide(player, side) {
+    if (side.kind === "sp") {
+      var target = victoryPointTarget();
+      var nextPts = Math.min(target, (player.rolePoints || 0) + side.amount);
+      return Object.assign({}, player, {
+        rolePoints: nextPts,
+        lastRolePointDelta: nextPts - (player.rolePoints || 0),
+        lastRolePointReason: "Stall"
+      });
+    }
+    var res = cloneResources(player.resources);
+    res[side.resource] = (res[side.resource] || 0) + side.amount;
+    return Object.assign({}, player, { resources: res });
+  }
+
+  function setStallSlot(state, slotIndex, offer) {
+    var player = currentPlayer(state);
+    if (!player || state.turnPhase !== "build") {
+      return state;
+    }
+    var slots = (player.stallSlots || emptyStallSlots()).slice();
+    var max = (Nexus.STALL && Nexus.STALL.SLOTS) || 3;
+    if (slotIndex < 0 || slotIndex >= max) {
+      return state;
+    }
+    if (!offer) {
+      slots[slotIndex] = null;
+    } else {
+      var give = normalizeStallSide(offer.give);
+      var want = normalizeStallSide(offer.want);
+      if (!give || !want) {
+        return state;
+      }
+      slots[slotIndex] = { give: give, want: want };
+    }
+    return replacePlayer(state, player.id, Object.assign({}, player, { stallSlots: slots }));
+  }
+
+  function clearStallSlot(state, slotIndex) {
+    return setStallSlot(state, slotIndex, null);
+  }
+
+  function acceptStall(state, sellerId, slotIndex) {
+    var buyer = currentPlayer(state);
+    if (!buyer || state.turnPhase !== "build" || sellerId === buyer.id) {
+      return state;
+    }
+    var maxAccept = (Nexus.STALL && Nexus.STALL.ACCEPTS_PER_TURN) || 2;
+    if ((buyer.stallAcceptsThisTurn || 0) >= maxAccept) {
+      return state;
+    }
+    var seller = findPlayerById(state, sellerId);
+    if (!seller) {
+      return state;
+    }
+    var slot = (seller.stallSlots || [])[slotIndex];
+    if (!slot || !slot.give || !slot.want) {
+      return state;
+    }
+    /* Bieter gibt give, will want; Annehmende zahlen want, erhalten give. */
+    if (!canPayStallSide(seller, slot.give) || !canPayStallSide(buyer, slot.want)) {
+      return state;
+    }
+    var nextSeller = payStallSide(seller, slot.give);
+    nextSeller = gainStallSide(nextSeller, slot.want);
+    var nextBuyer = payStallSide(buyer, slot.want);
+    nextBuyer = gainStallSide(nextBuyer, slot.give);
+    nextBuyer = Object.assign({}, nextBuyer, {
+      stallAcceptsThisTurn: (buyer.stallAcceptsThisTurn || 0) + 1
+    });
+    var next = replacePlayer(state, seller.id, nextSeller);
+    next = replacePlayer(next, buyer.id, nextBuyer);
+    next.log = addLog(
+      next,
+      buyer.name,
+      "Stall von " +
+        seller.name +
+        ": gibt " +
+        stallSideLabel(slot.give) +
+        ", will " +
+        stallSideLabel(slot.want) +
+        "."
+    );
+    if (slot.give.kind === "resource" && slot.want.kind === "resource") {
+      next = applyKarma(next, buyer.id, 1, "Fairer Stall-Tausch");
+    }
+    if (Nexus.Goals && Nexus.Goals.onStallAccept) {
+      var traded = Nexus.Goals.onStallAccept(next, buyer.id);
+      next = traded && traded.state ? traded.state : next;
+    }
+    return next;
+  }
+
+  function zoneOriginalBuildCost(zone) {
+    var tileId =
+      (zone && zone.tileId) ||
+      (zone && Nexus.tileIdFromZone ? Nexus.tileIdFromZone(zone) : null);
+    var def = tileId && Nexus.BUILD_TILES && Nexus.BUILD_TILES[tileId];
+    return def && def.cost ? normalizeCost(def.cost) : {};
+  }
+
+  function canRequestTransfer(state, zoneId) {
+    var player = currentPlayer(state);
+    var preview = {
+      allowed: false,
+      reason: "",
+      zone: null,
+      cost: {}
+    };
+    if (!player || state.turnPhase !== "build") {
+      preview.reason = "wrong_phase";
+      return preview;
+    }
+    var zone = null;
+    (state.zones || []).forEach(function (z) {
+      if (z.id === zoneId) {
+        zone = z;
+      }
+    });
+    if (!zone) {
+      preview.reason = "missing_zone";
+      return preview;
+    }
+    preview.zone = zone;
+    preview.cost = zoneOriginalBuildCost(zone);
+    if (zone.type === "home") {
+      preview.reason = "is_home";
+      return preview;
+    }
+    if (!zone.ownerId || zone.ownerId === player.id) {
+      preview.reason = "own_or_empty";
+      return preview;
+    }
+    if ((player.transferRequestsThisTurn || {})[zoneId]) {
+      preview.reason = "already_requested";
+      return preview;
+    }
+    if (player.blockTransferThisRound) {
+      preview.reason = "blocked";
+      return preview;
+    }
+    var ownerHasBlock = false;
+    (state.players || []).forEach(function (p) {
+      if (p.id === zone.ownerId && p.blockTransferThisRound) {
+        ownerHasBlock = true;
+      }
+    });
+    if (ownerHasBlock) {
+      preview.reason = "blocked";
+      return preview;
+    }
+    var adjacent = playerZones(state, player.id).some(function (own) {
+      return Nexus.isAdjacent(own, zone);
+    });
+    if (!adjacent) {
+      preview.reason = "not_adjacent";
+      return preview;
+    }
+    preview.allowed = true;
+    return preview;
+  }
+
+  function requestTransfer(state, zoneId) {
+    var preview = canRequestTransfer(state, zoneId);
+    if (!preview.allowed) {
+      return state;
+    }
+    var player = currentPlayer(state);
+    var zone = preview.zone;
+    var req = {
+      id: "xfer-" + (state.round || 1) + "-" + player.id + "-" + zoneId,
+      zoneId: zone.id,
+      requesterId: player.id,
+      ownerId: zone.ownerId,
+      round: state.round || 1,
+      cost: preview.cost
+    };
+    var pending = (state.pendingTransfers || []).filter(function (item) {
+      return !(item.zoneId === zoneId && item.requesterId === player.id);
+    });
+    pending.push(req);
+    var requests = Object.assign({}, player.transferRequestsThisTurn || {});
+    requests[zoneId] = true;
+    var next = replacePlayer(
+      state,
+      player.id,
+      Object.assign({}, player, { transferRequestsThisTurn: requests })
+    );
+    next = Object.assign({}, next, { pendingTransfers: pending });
+    next.log = addLog(
+      next,
+      player.name,
+      "Übertragung angefragt: Feld " + zone.q + "," + zone.r + "."
+    );
+    return next;
+  }
+
+  function findPendingTransfer(state, transferId) {
+    var found = null;
+    (state.pendingTransfers || []).forEach(function (item) {
+      if (item.id === transferId) {
+        found = item;
+      }
+    });
+    return found;
+  }
+
+  function clearPendingTransfer(state, transferId) {
+    return Object.assign({}, state, {
+      pendingTransfers: (state.pendingTransfers || []).filter(function (item) {
+        return item.id !== transferId;
+      })
+    });
+  }
+
+  function transferZoneOwnership(state, zoneId, newOwnerId) {
+    var zones = (state.zones || []).map(function (zone) {
+      if (zone.id !== zoneId) {
+        return zone;
+      }
+      return Object.assign({}, zone, { ownerId: newOwnerId });
+    });
+    return Object.assign({}, state, { zones: zones });
+  }
+
+  function tileMatchesPlayerMetric(tileId, player) {
+    var key = rolePointKeyFor(player);
+    return !!(key && Nexus.tileMatchesMetric && Nexus.tileMatchesMetric(tileId, key));
+  }
+
+  function resolveTransfer(state, transferId, decision, opts) {
+    opts = opts || {};
+    var player = currentPlayer(state);
+    var req = findPendingTransfer(state, transferId);
+    if (!player || !req || state.turnPhase !== "build") {
+      return state;
+    }
+    if (player.id !== req.ownerId) {
+      return state;
+    }
+    var zone = null;
+    (state.zones || []).forEach(function (z) {
+      if (z.id === req.zoneId) {
+        zone = z;
+      }
+    });
+    if (!zone || zone.ownerId !== req.ownerId) {
+      return clearPendingTransfer(state, transferId);
+    }
+    var requester = findPlayerById(state, req.requesterId);
+    if (!requester) {
+      return clearPendingTransfer(state, transferId);
+    }
+    var next = state;
+    if (decision === "reject") {
+      var mode = opts.rejectMode || "karma";
+      if (mode === "resource") {
+        var penalty =
+          opts.resourceCost ||
+          (Nexus.REJECT_OFFER_COST && Nexus.REJECT_OFFER_COST.resources) ||
+          { money: 1 };
+        if (!canAfford(player.resources, penalty)) {
+          mode = "karma";
+        } else {
+          next = replacePlayer(
+            next,
+            player.id,
+            Object.assign({}, player, {
+              resources: subtractCost(player.resources, penalty)
+            })
+          );
+          next.log = addLog(next, player.name, "Übertragung abgelehnt (−Ressourcen).");
+        }
+      }
+      if (mode === "karma") {
+        next = applyKarma(next, player.id, -1, "Übertragung abgelehnt");
+      }
+      return clearPendingTransfer(next, transferId);
+    }
+
+    if (decision === "buy") {
+      var cost = req.cost || zoneOriginalBuildCost(zone);
+      if (!canAfford(requester.resources, cost)) {
+        return state;
+      }
+      var paidBuyer = Object.assign({}, requester, {
+        resources: subtractCost(requester.resources, cost),
+        transfersReceived: (requester.transfersReceived || 0) + 1
+      });
+      var ownerRes = cloneResources(player.resources);
+      Object.keys(cost).forEach(function (key) {
+        ownerRes[key] = (ownerRes[key] || 0) + (cost[key] || 0);
+      });
+      var paidOwner = Object.assign({}, player, { resources: ownerRes });
+      next = replacePlayer(next, requester.id, paidBuyer);
+      next = replacePlayer(next, player.id, paidOwner);
+      next = transferZoneOwnership(next, zone.id, requester.id);
+      next = clearPendingTransfer(next, transferId);
+      next = tickContractProgress(next, requester.id, { transfersIn: 1 });
+      next.log = addLog(
+        next,
+        player.name,
+        "Feld verkauft an " + requester.name + " für " + formatCost(cost) + "."
+      );
+      return next;
+    }
+
+    if (decision === "gift") {
+      var tileId =
+        zone.tileId || (Nexus.tileIdFromZone ? Nexus.tileIdFromZone(zone) : null);
+      next = transferZoneOwnership(next, zone.id, requester.id);
+      var giftedRequester = Object.assign({}, findPlayerById(next, requester.id), {
+        transfersReceived: (requester.transfersReceived || 0) + 1
+      });
+      next = replacePlayer(next, requester.id, giftedRequester);
+      if (tileId && tileMatchesPlayerMetric(tileId, player)) {
+        next = Nexus.awardRolePoints
+          ? Nexus.awardRolePoints(next, player.id, 1, "Schenkung")
+          : next;
+      } else {
+        next = applyKarma(next, player.id, 1, "Schenkung (fremde Metrik)");
+      }
+      if (Nexus.Goals && Nexus.Goals.onGiftApprove) {
+        var giftResult = Nexus.Goals.onGiftApprove(next, player.id);
+        next = giftResult && giftResult.state ? giftResult.state : next;
+      }
+      next = clearPendingTransfer(next, transferId);
+      next = tickContractProgress(next, requester.id, { transfersIn: 1 });
+      next.log = addLog(next, player.name, "Feld an " + requester.name + " geschenkt.");
+      return next;
+    }
+    return state;
+  }
+
+  function makeActiveContract(def) {
+    return {
+      id: def.id,
+      kind: def.kind,
+      label: def.label,
+      weeksLeft: def.weeks || Nexus.CONTRACT_DEFAULT_WEEKS || 4,
+      progress: 0,
+      need: def.need || def.amount || 0,
+      resource: def.resource || null,
+      amount: def.amount || 0,
+      rewardSp: def.rewardSp || 1,
+      rewardKarma: def.rewardKarma || 0,
+      failKarma: def.failKarma != null ? def.failKarma : -1,
+      needKarma: def.needKarma || 0,
+      holdWeeks: def.holdWeeks || 0,
+      holdProgress: 0
+    };
+  }
+
+  function offerContract(state, contractId) {
+    var player = currentPlayer(state);
+    if (!player || player.activeContract) {
+      return state;
+    }
+    var def = Nexus.CONTRACTS_BY_ID && Nexus.CONTRACTS_BY_ID[contractId];
+    if (!def) {
+      return state;
+    }
+    /* Angebot als pendingContractOffer — Annehmen/Ablehnen separat. */
+    return replacePlayer(
+      state,
+      player.id,
+      Object.assign({}, player, { pendingContractOffer: makeActiveContract(def) })
+    );
+  }
+
+  function acceptContract(state) {
+    var player = currentPlayer(state);
+    if (!player || !player.pendingContractOffer || player.activeContract) {
+      return state;
+    }
+    var active = Object.assign({}, player.pendingContractOffer);
+    return replacePlayer(
+      state,
+      player.id,
+      Object.assign({}, player, {
+        activeContract: active,
+        pendingContractOffer: null
+      })
+    );
+  }
+
+  function rejectContractOffer(state, rejectMode) {
+    var player = currentPlayer(state);
+    if (!player || !player.pendingContractOffer) {
+      return state;
+    }
+    var next = replacePlayer(
+      state,
+      player.id,
+      Object.assign({}, player, { pendingContractOffer: null })
+    );
+    var mode = rejectMode || "karma";
+    if (mode === "resource") {
+      var penalty =
+        (Nexus.REJECT_OFFER_COST && Nexus.REJECT_OFFER_COST.resources) || { money: 1 };
+      if (canAfford(player.resources, penalty)) {
+        next = replacePlayer(
+          next,
+          player.id,
+          Object.assign({}, findPlayerById(next, player.id), {
+            resources: subtractCost(player.resources, penalty),
+            pendingContractOffer: null
+          })
+        );
+        next.log = addLog(next, player.name, "Auftrag abgelehnt (−Ressourcen).");
+        return next;
+      }
+    }
+    next = applyKarma(next, player.id, -1, "Auftrag abgelehnt");
+    return next;
+  }
+
+  function completeActiveContract(state, playerId, success) {
+    var player = findPlayerById(state, playerId);
+    if (!player || !player.activeContract) {
+      return state;
+    }
+    var contract = player.activeContract;
+    var next = replacePlayer(
+      state,
+      playerId,
+      Object.assign({}, player, { activeContract: null })
+    );
+    if (success) {
+      if (contract.rewardSp && Nexus.awardRolePoints) {
+        next = Nexus.awardRolePoints(next, playerId, contract.rewardSp, contract.label || "Auftrag");
+      }
+      if (contract.rewardKarma) {
+        next = applyKarma(next, playerId, contract.rewardKarma, contract.label || "Auftrag");
+      }
+      next.log = addLog(next, player.name, "Auftrag erfüllt: " + (contract.label || contract.id) + ".");
+    } else {
+      if (contract.failKarma) {
+        next = applyKarma(next, playerId, contract.failKarma, "Auftrag gescheitert");
+      }
+      next.log = addLog(next, player.name, "Auftrag gescheitert: " + (contract.label || contract.id) + ".");
+    }
+    return next;
+  }
+
+  function fulfillDonateContract(state) {
+    var player = currentPlayer(state);
+    if (!player || !player.activeContract || player.activeContract.kind !== "donate") {
+      return state;
+    }
+    var contract = player.activeContract;
+    var cost = {};
+    cost[contract.resource] = contract.amount;
+    if (!canAfford(player.resources, cost)) {
+      return state;
+    }
+    var next = replacePlayer(
+      state,
+      player.id,
+      Object.assign({}, player, {
+        resources: subtractCost(player.resources, cost)
+      })
+    );
+    return completeActiveContract(next, player.id, true);
+  }
+
+  function tickContractProgress(state, playerId, flags) {
+    flags = flags || {};
+    var player = findPlayerById(state, playerId);
+    if (!player || !player.activeContract) {
+      return state;
+    }
+    var contract = Object.assign({}, player.activeContract);
+    var changed = false;
+    if (contract.kind === "buildMetric" && flags.buildMetric) {
+      contract.progress = (contract.progress || 0) + flags.buildMetric;
+      changed = true;
+    }
+    if (contract.kind === "upgradeMetric" && flags.upgradeMetric) {
+      contract.progress = (contract.progress || 0) + flags.upgradeMetric;
+      changed = true;
+    }
+    if (contract.kind === "transfersIn" && flags.transfersIn) {
+      contract.progress = (contract.progress || 0) + flags.transfersIn;
+      changed = true;
+    }
+    if (!changed) {
+      return state;
+    }
+    var next = replacePlayer(
+      state,
+      playerId,
+      Object.assign({}, player, { activeContract: contract })
+    );
+    if (contract.need && contract.progress >= contract.need) {
+      next = completeActiveContract(next, playerId, true);
+    }
+    return next;
+  }
+
+  function tickActiveContracts(state) {
+    var next = state;
+    (state.players || []).forEach(function (p) {
+      if (!p.activeContract) {
+        return;
+      }
+      var contract = Object.assign({}, p.activeContract);
+      if (contract.kind === "karmaHold") {
+        if ((p.karma || 0) >= (contract.needKarma || 3)) {
+          contract.holdProgress = (contract.holdProgress || 0) + 1;
+        } else {
+          contract.holdProgress = 0;
+        }
+        if (contract.holdWeeks && contract.holdProgress >= contract.holdWeeks) {
+          next = completeActiveContract(
+            replacePlayer(next, p.id, Object.assign({}, findPlayerById(next, p.id), { activeContract: contract })),
+            p.id,
+            true
+          );
+          return;
+        }
+      }
+      contract.weeksLeft = (contract.weeksLeft || 1) - 1;
+      if (contract.weeksLeft <= 0) {
+        next = completeActiveContract(
+          replacePlayer(next, p.id, Object.assign({}, findPlayerById(next, p.id), { activeContract: contract })),
+          p.id,
+          false
+        );
+      } else {
+        next = replacePlayer(
+          next,
+          p.id,
+          Object.assign({}, findPlayerById(next, p.id), { activeContract: contract })
+        );
+      }
+    });
+    return next;
+  }
+
+  /* C5 Handkarten-Stubs: einfache Effekte; UI verdrahtet später. */
+  function playHandCard(state, handIndex, extra) {
+    extra = extra || {};
+    var player = currentPlayer(state);
+    if (!player || state.turnPhase !== "build") {
+      return state;
+    }
+    var hand = (player.handCards || []).slice();
+    if (handIndex < 0 || handIndex >= hand.length) {
+      return state;
+    }
+    var card = hand[handIndex];
+    var def =
+      (Nexus.HAND_CARD_DEFS_BY_ID && Nexus.HAND_CARD_DEFS_BY_ID[card.id]) || card;
+    var effects = def.effects || card.effects || {};
+    hand.splice(handIndex, 1);
+    var nextPlayer = Object.assign({}, player, {
+      handCards: hand,
+      playedCards: (player.playedCards || []).concat([card.id || def.id])
+    });
+    var next = replacePlayer(state, player.id, nextPlayer);
+
+    if (effects.spend && !canAfford(nextPlayer.resources, effects.spend)) {
+      return state;
+    }
+    if (effects.spend) {
+      nextPlayer = Object.assign({}, nextPlayer, {
+        resources: subtractCost(nextPlayer.resources, effects.spend)
+      });
+      next = replacePlayer(next, player.id, nextPlayer);
+    }
+    var gain = normalizeCost(effects);
+    if (Object.keys(gain).length) {
+      var res = cloneResources(nextPlayer.resources);
+      KEYS.forEach(function (key) {
+        if (gain[key]) {
+          res[key] += gain[key];
+        }
+      });
+      nextPlayer = Object.assign({}, nextPlayer, { resources: res });
+      next = replacePlayer(next, player.id, nextPlayer);
+    }
+    if (effects.karma) {
+      next = applyKarma(next, player.id, effects.karma, def.name || "Handkarte");
+    }
+    if (effects.freeZoneClaim) {
+      nextPlayer = findPlayerById(next, player.id);
+      next = replacePlayer(
+        next,
+        player.id,
+        Object.assign({}, nextPlayer, {
+          freeZoneClaims: (nextPlayer.freeZoneClaims || 0) + effects.freeZoneClaim
+        })
+      );
+    }
+    if (effects.freeUpgrade) {
+      var upgradeable = playerFactoryZones(next, player.id).filter(function (z) {
+        return zoneUpgradeLevel(z) < (C.ZONE_UPGRADE_MAX || 1);
+      });
+      if (upgradeable.length) {
+        var pick = upgradeable[Math.floor(Math.random() * upgradeable.length)];
+        next = Object.assign({}, next, {
+          zones: next.zones.map(function (z) {
+            return z.id === pick.id
+              ? Object.assign({}, z, { upgradeLevel: zoneUpgradeLevel(z) + 1 })
+              : z;
+          })
+        });
+        if (Nexus.Goals && Nexus.Goals.onUpgrade) {
+          var tid = pick.tileId || (Nexus.tileIdFromZone && Nexus.tileIdFromZone(pick));
+          if (tid) {
+            var up = Nexus.Goals.onUpgrade(next, player.id, tid);
+            next = up && up.state ? up.state : next;
+          }
+        }
+      }
+    }
+    if (effects.scandal && extra.playerId && extra.playerId !== player.id) {
+      next = stripRolePoints(next, extra.playerId, 1, def.name || "Skandal", { oncePerDay: true });
+      next = applyKarma(next, extra.playerId, -1, "Skandal");
+      next = applyKarma(next, player.id, -1, "Skandal ausgelöst");
+    }
+    if (effects.offerContract) {
+      var pool = Nexus.CONTRACTS || [];
+      if (pool.length) {
+        var cid = pool[Math.floor(Math.random() * pool.length)].id;
+        next = offerContract(next, cid);
+      }
+    }
+    if (effects.blockTransfer) {
+      nextPlayer = findPlayerById(next, player.id);
+      next = replacePlayer(
+        next,
+        player.id,
+        Object.assign({}, nextPlayer, { blockTransferThisRound: true })
+      );
+    }
+    if (effects.doubleHarvest) {
+      /* Stub: merkt Zone; Ernte-Hook folgt mit D2. */
+      nextPlayer = findPlayerById(next, player.id);
+      next = replacePlayer(
+        next,
+        player.id,
+        Object.assign({}, nextPlayer, {
+          doubleHarvestZoneId: extra.zoneId || null
+        })
+      );
+    }
+    next.log = addLog(next, player.name, "Karte gespielt: " + (def.name || card.name || card.id) + ".");
+    return next;
+  }
+
+  function previewBuildPoints(state, tileId, q, r) {
+    var player = currentPlayer(state);
+    if (!Nexus.Goals || !Nexus.Goals.previewBuildPoints || !player) {
+      return 0;
+    }
+    return Nexus.Goals.previewBuildPoints(state, player, tileId, {
+      q: q,
+      r: r,
+      ownerId: player.id
+    });
+  }
+
   Nexus.createSetupState = createSetupState;
   Nexus.startGame = startGame;
   Nexus.tutorialView = tutorialView;
@@ -4094,31 +5017,32 @@ window.Nexus = window.Nexus || {};
       });
     } else if (def && def.primary) {
       var base = zonePrimaryBase(zone, state, owner);
-      if (zone.type === "residential" && owner && !playerHasZoneType(state, owner.id, "datacenter")) {
-        lines.push("0 Daten (ohne RZ)");
-      } else {
-        var prefix = def.dice ? "~" : "+";
-        lines.push(prefix + base + " " + (labels[def.primary] || def.primary));
-        if (zone.variant === "transformer") {
-          lines.push("−" + base * (C.TRANSFORMER_MONEY_PER_ENERGY || 1) + " Geld");
+      var prefix = def.dice ? "~" : "+";
+      lines.push(prefix + base + " " + (labels[def.primary] || def.primary));
+      if (def.secondary) {
+        lines.push(
+          "+" +
+            ((def.secondaryBase || 0) + zoneUpgradeLevel(zone)) +
+            " " +
+            (labels[def.secondary] || def.secondary)
+        );
+      }
+      if (zone.variant === "transformer") {
+        lines.push("−" + base * (C.TRANSFORMER_MONEY_PER_ENERGY || 1) + " Geld");
+      }
+      if (def.upkeep) {
+        if (def.upkeep.energy) {
+          lines.push("−" + def.upkeep.energy + " " + (labels.energy || "energy"));
         }
-        if (def.upkeep) {
-          if (def.upkeep.energy) {
-            lines.push("−" + def.upkeep.energy + " " + (labels.energy || "energy"));
-          }
-          if (def.upkeep.bandwidth) {
-            lines.push("−" + def.upkeep.bandwidth + " " + (labels.bandwidth || "bandwidth"));
-          }
+        if (def.upkeep.bandwidth) {
+          lines.push("−" + def.upkeep.bandwidth + " " + (labels.bandwidth || "bandwidth"));
         }
-        if (def.harvestScoreHint && def.harvestScoreHint.comfort) {
-          lines.push("+" + def.harvestScoreHint.comfort + " Komfort");
+        if (def.upkeep.money) {
+          lines.push("−" + def.upkeep.money + " " + (labels.money || "money"));
         }
       }
     } else {
       lines.push("kein Ressourcenertrag");
-    }
-    if (def && def.risk) {
-      lines.push("Risiko");
     }
     return {
       title: title,
@@ -4139,19 +5063,53 @@ window.Nexus = window.Nexus || {};
   Nexus.maxDatacentersFor = maxDatacentersFor;
   Nexus.zoneUpgradeLevel = zoneUpgradeLevel;
   Nexus.cloudUpkeepCost = cloudUpkeepCost;
+  Nexus.clampKarma = clampKarma;
+  Nexus.applyKarma = applyKarma;
+  Nexus.resolveBuildSpec = resolveBuildSpec;
+  Nexus.victoryPointTarget = victoryPointTarget;
+  Nexus.ownVictoryPoints = ownVictoryPoints;
+  Nexus.checkInstantWinAtRoundEnd = checkInstantWinAtRoundEnd;
+  Nexus.resolveFallbackWinner = resolveFallbackWinner;
+  Nexus.maybeRollKarmaEvent = maybeRollKarmaEvent;
+  Nexus.applyKarmaBlackmail = applyKarmaBlackmail;
+  Nexus.setStallSlot = setStallSlot;
+  Nexus.clearStallSlot = clearStallSlot;
+  Nexus.acceptStall = acceptStall;
+  Nexus.canRequestTransfer = canRequestTransfer;
+  Nexus.requestTransfer = requestTransfer;
+  Nexus.resolveTransfer = resolveTransfer;
+  Nexus.offerContract = offerContract;
+  Nexus.acceptContract = acceptContract;
+  Nexus.rejectContractOffer = rejectContractOffer;
+  Nexus.fulfillDonateContract = fulfillDonateContract;
+  Nexus.tickActiveContracts = tickActiveContracts;
+  Nexus.tickContractProgress = tickContractProgress;
+  Nexus.playHandCard = playHandCard;
+  Nexus.previewBuildPoints = previewBuildPoints;
 
-  /* ponytail: console smoke only; expand if CI lands */
+  /* Track-B Smoke: Shape, tileId/Kosten, Ernte, Karma, Sieg. */
   Nexus.runSmokeCheck = function () {
     if (KEYS.length !== 3) {
       throw new Error("RESOURCE_KEYS length");
     }
-    if ((SCORE_KEYS || []).length !== 4) {
-      throw new Error("SCORE_KEYS length");
-    }
     var state = startGame(2, "short");
+    if (state.maxRounds !== 12) {
+      throw new Error("short weeks 12");
+    }
+    var longGame = startGame(2, "standard");
+    if (longGame.maxRounds !== 16) {
+      throw new Error("standard weeks 16");
+    }
     var player = state.players[0];
-    if (!player.scores || player.scores.environment === undefined) {
-      throw new Error("scores missing");
+    if (
+      player.karma == null ||
+      !player.goalProgress ||
+      !player.stallSlots ||
+      player.stallSlots.length !== 3 ||
+      player.stallAcceptsThisTurn == null ||
+      player.activeContract !== null
+    ) {
+      throw new Error("player shape Track B");
     }
     state = Object.assign({}, state, { turnPhase: "build", screen: "game", currentPlayerIndex: 0 });
     var home = playerZones(state, player.id)[0];
@@ -4166,14 +5124,31 @@ window.Nexus = window.Nexus || {};
     if (!pick) {
       throw new Error("no expand slot");
     }
-    state = buyZone(state, pick.q, pick.r, "energy", "solar");
+    /* Startcoupon: erstes Feld gratis */
+    var windOffer = getExpandOffer(state, pick.q, pick.r, "energy", "wind", "energy-wind");
+    if (!windOffer.allowed || Object.keys(windOffer.cost).length) {
+      throw new Error("free claim wind");
+    }
+    state = buyZone(state, pick.q, pick.r, "energy", "wind", "energy-wind");
     var built = zoneAt(state, pick.q, pick.r);
-    if (!built || built.variant !== "solar") {
-      throw new Error("buyZone variant");
+    if (!built || built.tileId !== "energy-wind" || built.variant !== "wind") {
+      throw new Error("buyZone tileId");
     }
-    if (currentPlayer(state).scores.environment < 1) {
-      throw new Error("solar environment hint");
-    }
+    state = Object.assign({}, state, {
+      players: state.players.map(function (p, idx) {
+        if (idx !== 0) {
+          return p;
+        }
+        return Object.assign({}, p, {
+          resources: Object.assign(cloneResources(p.resources), {
+            money: 30,
+            energy: 30,
+            bandwidth: 30
+          }),
+          freeZoneClaims: 0
+        });
+      })
+    });
     var pick2 = null;
     Nexus.HEX_DIRS.forEach(function (dir) {
       var q = built.q + dir.q;
@@ -4182,309 +5157,102 @@ window.Nexus = window.Nexus || {};
         pick2 = { q: q, r: r };
       }
     });
-    if (pick2) {
-      state = buyZone(state, pick2.q, pick2.r, "traffic");
-      if (currentPlayer(state).scores.comfort < 1) {
-        throw new Error("traffic comfort hint");
+    if (!pick2) {
+      throw new Error("no second slot");
+    }
+    var coalCost = Nexus.BUILD_TILES["energy-coal"].cost;
+    var coalOffer = getExpandOffer(state, pick2.q, pick2.r, null, null, "energy-coal");
+    if (!coalOffer.allowed || coalOffer.cost.energy !== coalCost.energy || coalOffer.cost.money !== coalCost.money) {
+      throw new Error("tile cost from BUILD_TILES");
+    }
+    state = buyZone(state, pick2.q, pick2.r, null, null, "energy-coal");
+    if (currentPlayer(state).karma !== -1) {
+      throw new Error("karmaOnBuild coal");
+    }
+    var coalZone = zoneAt(state, pick2.q, pick2.r);
+    if (!coalZone || coalZone.tileId !== "energy-coal") {
+      throw new Error("coal tileId");
+    }
+    var pick3 = null;
+    Nexus.HEX_DIRS.forEach(function (dir) {
+      var q = coalZone.q + dir.q;
+      var r = coalZone.r + dir.r;
+      if (!pick3 && isExpandableSlot(state, q, r)) {
+        pick3 = { q: q, r: r };
       }
-    }
-    var trafficPreview = describeZoneBuild(state, "traffic");
-    if (!trafficPreview.onBuild || trafficPreview.onBuild.comfort) {
-      throw new Error("traffic preview comfort only on first lot");
-    }
-    var taxiPreview = describeZoneBuild(state, "traffic", "taxi");
-    if (
-      !taxiPreview.production ||
-      taxiPreview.production.resource !== "money" ||
-      taxiPreview.production.amount !== 2 ||
-      !taxiPreview.upkeep ||
-      taxiPreview.upkeep.energy !== 1 ||
-      taxiPreview.upkeep.bandwidth !== 1
-    ) {
-      throw new Error("taxi preview yield/upkeep");
-    }
-    if (pick2) {
-      var garageZoneEarly = zoneAt(state, pick2.q, pick2.r);
+    });
+    if (pick3) {
+      state = buyZone(state, pick3.q, pick3.r, "residential", null, "data-residential");
+      var resZone = zoneAt(state, pick3.q, pick3.r);
+      var resYield = produceForZone(resZone, 0, currentPlayer(state), state);
+      if (!resYield || resYield.primary.resource !== "bandwidth" || resYield.primary.amount !== 2) {
+        throw new Error("residential without DC");
+      }
+      state = demolishZone(state, resZone.id);
+      state = buyZone(state, pick3.q, pick3.r, "taxi", null, "data-taxi");
+      var taxiZone = zoneAt(state, pick3.q, pick3.r);
+      var taxiYield = produceForZone(taxiZone, 0, currentPlayer(state), state);
+      var taxiBase =
+        (Nexus.BUILD_TILES["data-taxi"] && Nexus.BUILD_TILES["data-taxi"].primaryBase) || 2;
       if (
-        !garageZoneEarly ||
-        garageZoneEarly.trafficMode !== "garage" ||
-        garageZoneEarly.variant !== "garage"
+        !taxiYield ||
+        taxiYield.primary.amount !== taxiBase ||
+        taxiYield.energySpent !== 1 ||
+        taxiYield.bandwidthSpent !== 1
       ) {
-        throw new Error("garage expand mode");
+        throw new Error("taxi upkeep produce");
       }
     }
     var solarPreview = describeZoneBuild(state, "energy", "solar");
-    if (!solarPreview.production || solarPreview.production.dice) {
-      throw new Error("solar preview must be fixed yield");
+    if (!solarPreview.tileId || solarPreview.tileId !== "energy-solar" || !solarPreview.production || solarPreview.production.amount !== 2) {
+      throw new Error("solar preview tile");
     }
-    if (solarPreview.production.amount !== 2) {
-      throw new Error("solar base 2");
+    var dcCap = datacenterCapInfo(state, currentPlayer(state).id);
+    if (!dcCap.allowed) {
+      throw new Error("dc cap must allow");
     }
-    var trafoPreview = describeZoneBuild(state, "energy", "transformer");
-    if (!trafoPreview.production || trafoPreview.production.amount !== 3 || !trafoPreview.production.stable) {
-      throw new Error("transformer base 3 stable");
+    if (setDatacenterMode(state, "x", "secure") !== state) {
+      throw new Error("dc mode noop");
     }
-    var solar = zoneAt(state, pick.q, pick.r);
-    state = Object.assign({}, state, {
+    /* Sieg: 10 own-SP, Tiebreak Karma */
+    var winState = Object.assign({}, state, {
       players: state.players.map(function (p, idx) {
-        if (idx !== 0) {
-          return p;
-        }
-        var rich = cloneResources(p.resources);
-        rich.money = 20;
-        rich.energy = 20;
-        rich.bandwidth = 20;
-        return Object.assign({}, p, { resources: rich });
+        return Object.assign({}, p, {
+          rolePoints: idx === 0 ? 10 : 10,
+          karma: idx === 0 ? 2 : 4
+        });
       })
     });
-    var upPreview = describeZoneUpgrade(state, solar.id);
-    if (!upPreview.allowed) {
-      throw new Error("upgrade preview " + upPreview.reason);
+    var instant = checkInstantWinAtRoundEnd(winState);
+    if (!instant || instant.winnerId !== state.players[1].id) {
+      throw new Error("win karma tiebreak");
     }
-    state = upgradeZone(state, solar.id);
-    var upgraded = zoneAt(state, pick.q, pick.r);
-    if (!upgraded || upgraded.upgradeLevel !== 1) {
-      throw new Error("upgradeLevel");
-    }
-    if (zonePrimaryBase(upgraded) !== 3) {
-      throw new Error("upgrade yield scale");
-    }
-    state = acceptSideDeal(state, currentPlayer(state).id, "lobby-upgrade");
-    if (!currentPlayer(state).sideDeal || currentPlayer(state).sideDeal.track !== "upgrade") {
-      throw new Error("sideDeal accept");
-    }
-    var homeUp = playerZones(state, currentPlayer(state).id).filter(function (zone) {
-      return zone.type === "home";
-    })[0];
-    if (!homeUp) {
-      throw new Error("sideDeal home");
-    }
-    state = upgradeZone(state, homeUp.id);
-    if (!currentPlayer(state).sideDeal || currentPlayer(state).sideDeal.progress < 1) {
-      throw new Error("sideDeal progress");
-    }
-    if (pick2) {
-      var garageLeaf = zoneAt(state, pick2.q, pick2.r);
-      state = demolishZone(state, garageLeaf.id);
-      state = buyZone(state, pick2.q, pick2.r, "traffic", "taxi");
-      var taxiZone = zoneAt(state, pick2.q, pick2.r);
-      if (!taxiZone || taxiZone.trafficMode !== "taxi" || taxiZone.variant !== "taxi") {
-        throw new Error("taxi expand mode");
-      }
-      var taxiYield = produceForZone(taxiZone, 0, currentPlayer(state), state);
-      if (
-        !taxiYield ||
-        taxiYield.primary.amount !== 2 ||
-        taxiYield.energySpent !== 1 ||
-        taxiYield.bandwidthSpent !== 1 ||
-        !taxiYield.scoreHint ||
-        taxiYield.scoreHint.comfort !== 1
-      ) {
-        throw new Error("taxi produce");
-      }
-      state = upgradeZone(state, taxiZone.id);
-      taxiZone = zoneAt(state, pick2.q, pick2.r);
-      if (!taxiZone || taxiZone.upgradeLevel !== 1) {
-        throw new Error("taxi upgrade");
-      }
-      state = demolishZone(state, taxiZone.id);
-      state = buyZone(state, pick2.q, pick2.r, "traffic", "garage");
-    } else {
-      state = upgradeZone(state, homeUp.id);
-    }
-    if (currentPlayer(state).sideDeal) {
-      throw new Error("sideDeal should resolve");
+    var fallback = resolveFallbackWinner(
+      Object.assign({}, state, {
+        players: state.players.map(function (p, idx) {
+          return Object.assign({}, p, {
+            rolePoints: idx === 0 ? 7 : 5,
+            karma: 0
+          });
+        })
+      })
+    );
+    if (!fallback || fallback.winnerId !== state.players[0].id) {
+      throw new Error("fallback own SP");
     }
     if (ZONE_TYPES.home.label.indexOf("Kontroll") === -1) {
       throw new Error("home label");
     }
-    var rec = recommendExpandType(state);
-    if (!rec || !rec.type) {
-      throw new Error("recommend");
-    }
-    if (pick2) {
-      var cut = describeDemolish(state, solar.id);
-      if (cut.allowed) {
-        throw new Error("demolish should disconnect");
-      }
-      var leaf = describeDemolish(state, zoneAt(state, pick2.q, pick2.r).id);
-      if (!leaf.allowed) {
-        throw new Error("demolish leaf " + leaf.reason);
-      }
-      var afterDemo = demolishZone(state, zoneAt(state, pick2.q, pick2.r).id);
-      if (afterDemo.zones.length !== state.zones.length - 1) {
-        throw new Error("demolish count");
-      }
-      state = afterDemo;
-    }
-    var partner = state.players[1];
-    var beforeMoney = partner.resources.money;
-    var beforePts0 = state.players[0].rolePoints || 0;
-    var beforePts1 = state.players[1].rolePoints || 0;
-    state = proposeTrade(state, partner.id, "energy", 1, "money", 1);
-    if (!(state.tradeOffers || []).length) {
-      throw new Error("proposeTrade");
-    }
-    var offerId = state.tradeOffers[0].id;
-    state = Object.assign({}, state, { currentPlayerIndex: 1 });
-    state = respondTrade(state, offerId, true);
-    if (currentPlayer(state).resources.money === beforeMoney) {
-      throw new Error("trade accept");
-    }
-    if ((state.players[0].rolePoints || 0) !== beforePts0 || (state.players[1].rolePoints || 0) !== beforePts1) {
-      throw new Error("trade must not award role points");
-    }
-    var withDev = Object.assign({}, state, {
-      players: state.players.map(function (p, idx) {
-        if (idx !== 0) {
-          return p;
-        }
-        var devices = Object.assign({}, p.devices);
-        devices.camera = "local";
-        devices.lock = "cloud";
-        return Object.assign({}, p, { devices: devices });
-      })
-    });
-    var giz = boardGadgetsFor(withDev.players[0]);
-    if (giz.camera !== "local" || giz.lock !== "cloud") {
-      throw new Error("boardGadgetsFor public local");
-    }
-    var pub = getPublicPlayerView(withDev, withDev.players[0].id);
-    if (!pub || pub.devices.length < 2) {
-      throw new Error("public view gadgets");
-    }
-    /* Stadtakte: Briefing, Mandat, Druckstück */
-    state = Object.assign({}, state, { currentPlayerIndex: 0, turnPhase: "build" });
-    state = replacePlayer(
-      state,
-      currentPlayer(state).id,
-      Object.assign({}, currentPlayer(state), {
-        drewInnovationThisTurn: false,
-        resources: Object.assign({}, currentPlayer(state).resources, {
-          money: 20,
-          energy: 20,
-          bandwidth: 20
-        })
-      })
-    );
-    var briefing = (Nexus.STADT_AKTEN || []).filter(function (c) {
-      return c.kind === "briefing";
-    })[0];
-    var mandate = (Nexus.STADT_AKTEN || []).filter(function (c) {
-      return c.id === "mandate-park";
-    })[0];
-    var pressure = (Nexus.STADT_AKTEN || []).filter(function (c) {
-      return c.kind === "pressure";
-    })[0];
-    if (!briefing || !mandate || !pressure) {
-      throw new Error("stadtakten catalog");
-    }
-    state = replacePlayer(
-      state,
-      currentPlayer(state).id,
-      Object.assign({}, currentPlayer(state), {
-        handCards: [makeHandCard(briefing), makeHandCard(mandate), makeHandCard(pressure)],
-        activeMandates: []
-      })
-    );
-    state = playInnovationCard(state, 0);
-    if ((currentPlayer(state).handCards || []).length !== 2) {
-      throw new Error("briefing play");
-    }
-    state = playInnovationCard(state, 0);
-    if (!(currentPlayer(state).activeMandates || []).length) {
-      throw new Error("mandate activate");
-    }
-    var parkSlot = null;
-    Nexus.HEX_DIRS.forEach(function (dir) {
-      var home = playerZones(state, currentPlayer(state).id).filter(function (z) {
-        return z.type === "home";
-      })[0];
-      if (!home || parkSlot) {
-        return;
-      }
-      var q = home.q + dir.q;
-      var r = home.r + dir.r;
-      if (isExpandableSlot(state, q, r)) {
-        parkSlot = { q: q, r: r };
-      }
-    });
-    if (parkSlot) {
-      state = buyZone(state, parkSlot.q, parkSlot.r, "park");
-      if ((currentPlayer(state).activeMandates || []).length) {
-        throw new Error("mandate should complete");
-      }
-    }
-    var foeId = state.players[1].id;
-    state = playInnovationCard(state, 0, { targetId: foeId });
-    if (!state.pendingPressure) {
-      throw new Error("pressure pending");
-    }
-    state = resolvePressure(state, "risk");
-    if (state.pendingPressure) {
-      throw new Error("pressure resolve");
-    }
     if (C.MAX_PLAYERS !== 3 || Nexus.ALL_ROLE_IDS.length !== 6) {
       throw new Error("cast: max 3 players, 6 roles");
     }
-    function axialDist(q, r) {
-      return (Math.abs(q) + Math.abs(r) + Math.abs(q + r)) / 2;
-    }
-    function assertHomes(count) {
-      var s = startGame(count, "short");
-      var expectR = count > 3 ? 4 : 3;
-      if (C.HEX_RADIUS !== expectR || s.hexRadius !== expectR) {
-        throw new Error("hexRadius " + count);
-      }
-      if (s.players.length !== count || s.zones.length !== count) {
-        throw new Error("home count " + count);
-      }
-      var seen = {};
-      s.zones.forEach(function (zone) {
-        if (zone.type !== "home") {
-          throw new Error("non-home setup");
-        }
-        if (axialDist(zone.q, zone.r) !== expectR) {
-          throw new Error("home ring " + count + " " + zone.q + "," + zone.r);
-        }
-        var key = zone.q + "," + zone.r;
-        if (seen[key]) {
-          throw new Error("dup home " + key);
-        }
-        seen[key] = true;
-      });
-    }
-    [2, 3].forEach(assertHomes);
-    var practice = tutorialView(startGame(2, "short"), "public");
-    if (!practice.tutorialPractice || practice.players[1].devices.lock !== "local") {
-      throw new Error("tutorial public gadget");
-    }
-    if (practice.players[0].roleId && practice.turnPhase !== "build") {
-      throw new Error("tutorial view phase");
-    }
-    Nexus.ALL_ROLE_IDS.forEach(function (id) {
-      var sum = 0;
-      Nexus.ROLES[id].subGoals.forEach(function (goal) {
-        sum += goal.steps[goal.steps.length - 1].cumulativePercent;
-      });
-      if (sum !== 100) {
-        throw new Error("role cap " + id + " " + sum);
-      }
-    });
-    var partialPlayer = {
-      id: "partial",
-      roleId: "climate",
-      rolePoints: 3,
-      scores: { image: 0, comfort: 0, environment: 0, security: 0 },
-      devices: {},
-      risk: 0
-    };
-    var partial = Nexus.computeRoleProgress({ players: [partialPlayer, { id: "other" }], zones: [], busLines: [] }, partialPlayer);
-    if (!partial || partial.points !== 3 || partial.pointKey !== "eco") {
-      throw new Error("partial goal " + (partial && partial.points));
-    }
     var awarded = Nexus.awardRolePoints(
-      { players: [Object.assign({}, partialPlayer)], zones: [], busLines: [], log: [] },
+      {
+        players: [{ id: "partial", roleId: "climate", rolePoints: 3, karma: 0 }],
+        zones: [],
+        busLines: [],
+        log: []
+      },
       "partial",
       2,
       "test"
@@ -4492,16 +5260,40 @@ window.Nexus = window.Nexus || {};
     if ((awarded.players[0].rolePoints || 0) !== 5) {
       throw new Error("awardRolePoints");
     }
-    var fresh = startGame(3, "short");
-    if (!fresh.projectMarket || fresh.projectMarket.length !== 3) {
-      throw new Error("project market");
+    if (!Nexus.Goals || !Nexus.Goals.onBuild || !Nexus.Goals.onUpgrade || !Nexus.Goals.onDemolish) {
+      throw new Error("Goals hooks");
     }
-    if (!Nexus.Mobility || !Nexus.Mobility.buildGraph(3).nodes["rim-0"]) {
-      throw new Error("ring road");
+    if (typeof Nexus.setStallSlot !== "function" || typeof Nexus.acceptStall !== "function") {
+      throw new Error("Stall APIs");
     }
-    var preview = Nexus.Risk.preview(fresh, fresh.players[0]);
-    if (preview.pNeg + preview.pPos > 100 || preview.pNeg < 1) {
-      throw new Error("risk odds");
+    if (typeof Nexus.requestTransfer !== "function" || typeof Nexus.resolveTransfer !== "function") {
+      throw new Error("Transfer APIs");
+    }
+    if (typeof Nexus.maybeRollKarmaEvent !== "function") {
+      throw new Error("Karma event API");
+    }
+    if (typeof Nexus.previewBuildPoints !== "function") {
+      throw new Error("previewBuildPoints");
+    }
+    /* Stall round-trip */
+    state = Object.assign({}, state, { turnPhase: "build", currentPlayerIndex: 0 });
+    state = Nexus.setStallSlot(state, 0, {
+      give: { kind: "resource", resource: "energy", amount: 1 },
+      want: { kind: "resource", resource: "money", amount: 1 }
+    });
+    if (!state.players[0].stallSlots[0] || state.players[0].stallSlots[0].give.amount !== 1) {
+      throw new Error("setStallSlot");
+    }
+    state = Nexus.clearStallSlot(state, 0);
+    if (state.players[0].stallSlots[0] !== null) {
+      throw new Error("clearStallSlot");
+    }
+    if (
+      !Nexus.KARMA_GENERIC_EVENTS ||
+      !Nexus.KARMA_GENERIC_EVENTS.length ||
+      !Nexus.KARMA_EXTREME_GOOD
+    ) {
+      throw new Error("karma event data missing (boot/index script order)");
     }
     return "ok";
   };

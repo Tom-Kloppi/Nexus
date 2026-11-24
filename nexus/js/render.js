@@ -1647,9 +1647,6 @@ window.Nexus = window.Nexus || {};
     if (!zone) {
       return "";
     }
-    if (zone.type === "residential" && viewerId && !playerHasDatacenter(state, viewerId)) {
-      return "Erwartet: Daten 0 — kein eigenes Datenzentrum";
-    }
     if (zone.type === "energy" && zone.variant === "transformer") {
       var per = Nexus.CONSTANTS.TRANSFORMER_MONEY_PER_ENERGY || 1;
       return "Umspannwerk: 3 Energie fest · −" + per + " Geld je Einheit · Umwelt− beim Bau";
@@ -2087,6 +2084,334 @@ window.Nexus = window.Nexus || {};
       .join("");
   }
 
+  function standingGoalRows(player) {
+    var defs = Nexus.STANDING_GOALS || [];
+    var progress =
+      Nexus.Goals && Nexus.Goals.ensureProgress
+        ? Nexus.Goals.ensureProgress(player)
+        : player.goalProgress || {};
+    var karma = player.karma || 0;
+    return defs.map(function (def) {
+      var have = 0;
+      var need = def.need || 1;
+      var done = false;
+      var active = false;
+      if (def.kind === "sameType") {
+        var best = 0;
+        Object.keys(progress.sameType || {}).forEach(function (key) {
+          best = Math.max(best, progress.sameType[key] || 0);
+        });
+        have = best % need;
+        active = best > 0;
+      } else if (def.kind === "buildMetric") {
+        have = (progress.buildMetric || 0) % need;
+        active = (progress.buildMetric || 0) > 0;
+      } else if (def.kind === "upgradeMetric") {
+        have = (progress.upgradeMetric || 0) % need;
+        active = (progress.upgradeMetric || 0) > 0;
+      } else if (def.kind === "neighborMetric") {
+        have = (progress.neighborMetric || 0) % need;
+        active = (progress.neighborMetric || 0) > 0;
+      } else if (def.kind === "karmaHold") {
+        have = karma >= need ? need : Math.max(0, karma);
+        active = karma >= need;
+        done = !!progress.karma4Active && def.id === "karma4";
+      } else if (def.kind === "karmaHoldExact") {
+        have = karma >= need ? need : Math.max(0, karma);
+        active = karma >= need;
+        done = !!progress.karma5Active && def.id === "karma5";
+      } else if (def.kind === "stallAccept") {
+        have = Math.min(need, progress.trades3 || 0);
+        done = !!(progress.completedOnce && progress.completedOnce.trades3);
+        active = have > 0 && !done;
+      } else if (def.kind === "giftApprove") {
+        have = progress.completedOnce && progress.completedOnce.gift1 ? 1 : 0;
+        done = have >= need;
+        active = false;
+      }
+      return {
+        id: def.id,
+        label: def.label,
+        have: have,
+        need: need,
+        done: done,
+        active: active || (def.kind === "karmaHold" && karma >= need) || (def.kind === "karmaHoldExact" && karma >= need),
+        repeat: !!def.repeat
+      };
+    });
+  }
+
+  function renderContractStrip(state, player, redact) {
+    var strip = document.getElementById("contract-strip");
+    if (!strip) {
+      return;
+    }
+    if (redact || Nexus.isHotSeatShield(state) || !player) {
+      strip.hidden = true;
+      strip.innerHTML = "";
+      return;
+    }
+    var offer = player.pendingContractOffer;
+    var active = player.activeContract;
+    if (!offer && !active) {
+      strip.hidden = true;
+      strip.innerHTML = "";
+      return;
+    }
+    strip.hidden = false;
+    if (offer) {
+      strip.innerHTML =
+        '<p class="contract-kicker">Auftragsangebot</p>' +
+        '<p class="contract-label">' +
+        escapeAttr(offer.label || offer.id) +
+        "</p>" +
+        '<p class="contract-meta">Restwochen ' +
+        (offer.weeksLeft != null ? offer.weeksLeft : "—") +
+        " · Ablehnen kostet Karma oder 1 Geld</p>" +
+        '<div class="contract-actions">' +
+        '<button type="button" class="btn" data-contract="accept">Annehmen</button>' +
+        '<button type="button" class="btn ghost" data-contract="reject-karma">Ablehnen (−Karma)</button>' +
+        '<button type="button" class="btn ghost" data-contract="reject-resource">Ablehnen (−1 Geld)</button>' +
+        "</div>";
+      return;
+    }
+    var canDonate =
+      active.kind === "donate" &&
+      state.turnPhase === "build" &&
+      Nexus.canAfford &&
+      (function () {
+        var cost = {};
+        cost[active.resource] = active.amount;
+        return Nexus.canAfford(player.resources, cost);
+      })();
+    strip.innerHTML =
+      '<p class="contract-kicker">Aktiver Auftrag</p>' +
+      '<p class="contract-label">' +
+      escapeAttr(active.label || active.id) +
+      "</p>" +
+      '<p class="contract-meta">Restwochen ' +
+      (active.weeksLeft != null ? active.weeksLeft : "—") +
+      (active.need
+        ? " · Fortschritt " + (active.progress || 0) + "/" + active.need
+        : "") +
+      (active.kind === "karmaHold"
+        ? " · Halten " + (active.holdProgress || 0) + "/" + (active.holdWeeks || 2)
+        : "") +
+      "</p>" +
+      (active.kind === "donate"
+        ? '<div class="contract-actions"><button type="button" class="btn"' +
+          (canDonate ? "" : " disabled") +
+          ' data-contract="fulfill-donate">Spenden</button></div>'
+        : "");
+  }
+
+  function renderTransferInbox(state, player, redact) {
+    var box = document.getElementById("transfer-inbox");
+    if (!box) {
+      return;
+    }
+    if (redact || Nexus.isHotSeatShield(state) || !player || state.turnPhase !== "build") {
+      box.hidden = true;
+      box.innerHTML = "";
+      return;
+    }
+    var pending = (state.pendingTransfers || []).filter(function (item) {
+      return item.ownerId === player.id;
+    });
+    if (!pending.length) {
+      box.hidden = true;
+      box.innerHTML = "";
+      return;
+    }
+    box.hidden = false;
+    box.innerHTML =
+      '<p class="transfer-kicker">Übertragungsanfragen</p>' +
+      pending
+        .map(function (req) {
+          var who =
+            (state.players || []).filter(function (p) {
+              return p.id === req.requesterId;
+            })[0] || null;
+          var costLabel = req.cost && Nexus.formatCost ? Nexus.formatCost(req.cost) : "";
+          return (
+            '<div class="transfer-item" data-transfer-id="' +
+            escapeAttr(req.id) +
+            '"><p class="transfer-item">' +
+            (who ? who.name : "Mitspieler") +
+            " will Feld" +
+            (costLabel ? " · Kauf " + costLabel : "") +
+            '</p><div class="transfer-actions">' +
+            '<button type="button" class="btn" data-transfer="gift" data-transfer-id="' +
+            escapeAttr(req.id) +
+            '">Schenken</button>' +
+            '<button type="button" class="btn" data-transfer="buy" data-transfer-id="' +
+            escapeAttr(req.id) +
+            '">Verkaufen</button>' +
+            '<button type="button" class="btn ghost" data-transfer="reject-karma" data-transfer-id="' +
+            escapeAttr(req.id) +
+            '">Ablehnen (−Karma)</button>' +
+            '<button type="button" class="btn ghost" data-transfer="reject-resource" data-transfer-id="' +
+            escapeAttr(req.id) +
+            '">Ablehnen (−1 Geld)</button>' +
+            "</div></div>"
+          );
+        })
+        .join("");
+  }
+
+  function stallSideText(side) {
+    if (!side) {
+      return "—";
+    }
+    if (side.kind === "sp") {
+      return (side.amount || 1) + " SP";
+    }
+    var short =
+      (Nexus.RESOURCE_SHORT && Nexus.RESOURCE_SHORT[side.resource]) ||
+      (Nexus.RESOURCE_LABELS && Nexus.RESOURCE_LABELS[side.resource]) ||
+      side.resource;
+    return (side.amount || 0) + " " + short;
+  }
+
+  function stallEditMarkup(slotIndex, slot) {
+    var give = (slot && slot.give) || { kind: "resource", resource: "money", amount: 1 };
+    var want = (slot && slot.want) || { kind: "resource", resource: "energy", amount: 1 };
+    function sideControls(prefix, side) {
+      var isSp = side.kind === "sp";
+      return (
+        '<div class="stall-edit-row" data-stall-side="' +
+        prefix +
+        '">' +
+        '<select data-stall-kind="' +
+        prefix +
+        '">' +
+        '<option value="resource"' +
+        (!isSp ? " selected" : "") +
+        ">Ressource</option>" +
+        '<option value="sp"' +
+        (isSp ? " selected" : "") +
+        ">SP</option>" +
+        "</select>" +
+        '<select data-stall-res="' +
+        prefix +
+        '"' +
+        (isSp ? " hidden" : "") +
+        ">" +
+        ["energy", "money", "bandwidth"]
+          .map(function (key) {
+            return (
+              '<option value="' +
+              key +
+              '"' +
+              (side.resource === key ? " selected" : "") +
+              ">" +
+              ((Nexus.RESOURCE_SHORT && Nexus.RESOURCE_SHORT[key]) || key) +
+              "</option>"
+            );
+          })
+          .join("") +
+        "</select>" +
+        '<input type="number" min="1" max="20" data-stall-amt="' +
+        prefix +
+        '" value="' +
+        (side.amount || 1) +
+        '" />' +
+        "</div>"
+      );
+    }
+    return (
+      sideControls("give", give) +
+      "<span>→</span>" +
+      sideControls("want", want) +
+      '<div class="stall-slot-actions">' +
+      '<button type="button" class="btn" data-stall-set="' +
+      slotIndex +
+      '">Setzen</button>' +
+      '<button type="button" class="btn ghost" data-stall-clear="' +
+      slotIndex +
+      '">Leeren</button>' +
+      "</div>"
+    );
+  }
+
+  function renderStallPanel(state, ui) {
+    var panel = document.getElementById("stall-panel");
+    var board = document.getElementById("stall-board");
+    var countEl = document.getElementById("stall-accept-count");
+    if (!panel || !board) {
+      return;
+    }
+    if (!state || state.screen !== "game") {
+      panel.hidden = true;
+      board.innerHTML = "";
+      return;
+    }
+    panel.hidden = false;
+    var me = Nexus.currentPlayer(state);
+    var shield = Nexus.isHotSeatShield(state);
+    var redact = !!(ui && ui.tutorialRedact);
+    var maxAccept = (Nexus.STALL && Nexus.STALL.ACCEPTS_PER_TURN) || 2;
+    var accepts = me && !shield ? me.stallAcceptsThisTurn || 0 : 0;
+    if (countEl) {
+      countEl.textContent = shield || redact ? "Annahmen –/2" : "Annahmen " + accepts + "/" + maxAccept;
+    }
+    var canEdit = !shield && !redact && me && state.turnPhase === "build";
+    var canAccept = canEdit && accepts < maxAccept;
+    board.innerHTML = (state.players || [])
+      .map(function (person) {
+        var mine = me && person.id === me.id;
+        var slots = person.stallSlots || [null, null, null];
+        var accent = playerColor(person);
+        return (
+          '<article class="stall-player' +
+          (mine ? " is-self" : "") +
+          '" style="--stall-accent:' +
+          accent +
+          '">' +
+          '<p class="stall-player-name">' +
+          escapeAttr(person.name) +
+          (mine ? " · du" : "") +
+          "</p>" +
+          '<div class="stall-slots">' +
+          [0, 1, 2]
+            .map(function (idx) {
+              var slot = slots[idx];
+              var filled = !!(slot && slot.give && slot.want);
+              var line = filled
+                ? "gibt " + stallSideText(slot.give) + " · will " + stallSideText(slot.want)
+                : "leer";
+              var body =
+                mine && canEdit
+                  ? stallEditMarkup(idx, slot)
+                  : '<p class="stall-slot-line">' +
+                    escapeAttr(line) +
+                    "</p>" +
+                    (!mine && filled && canAccept
+                      ? '<div class="stall-slot-actions"><button type="button" class="btn" data-stall-accept="' +
+                        escapeAttr(person.id) +
+                        '" data-stall-slot="' +
+                        idx +
+                        '">Annehmen</button></div>'
+                      : "");
+              return (
+                '<div class="stall-slot' +
+                (filled ? " is-filled" : "") +
+                '" data-stall-owner="' +
+                escapeAttr(person.id) +
+                '" data-stall-index="' +
+                idx +
+                '">' +
+                body +
+                "</div>"
+              );
+            })
+            .join("") +
+          "</div></article>"
+        );
+      })
+      .join("");
+  }
+
   function renderGoalPanel(state, ui) {
     var panel = document.getElementById("goal-panel");
     var pill = document.getElementById("goal-pill");
@@ -2105,95 +2430,84 @@ window.Nexus = window.Nexus || {};
     }
     var player = Nexus.currentPlayer(state);
     var progress = Nexus.computeRoleProgress(state, player);
-    if (!progress.role) {
+    if (!progress.role || Nexus.isHotSeatShield(state)) {
       panel.hidden = true;
       pill.hidden = true;
       hideTracks();
+      renderContractStrip(state, player, true);
+      renderTransferInbox(state, player, true);
       renderLearnAgenda(state, player, !!(ui && ui.tutorialRedact));
       return;
     }
     panel.hidden = false;
     pill.hidden = false;
     var redactGoals = !!(ui && ui.tutorialRedact);
-    var scoreLine = progress.points + "/" + progress.target;
-    document.getElementById("goal-role-name").textContent = redactGoals ? "Übung" : progress.role.name;
+    var ownPts =
+      Nexus.ownVictoryPoints && !redactGoals
+        ? Nexus.ownVictoryPoints(player)
+        : progress.points;
+    var target = progress.target || Nexus.VICTORY_POINT_TARGET || 10;
+    var scoreLine = ownPts + "/" + target;
+    var role = progress.role;
+    var metricColor = role.pointColor || "#2f9a62";
+    document.getElementById("goal-role-name").textContent = redactGoals
+      ? "Übung"
+      : role.character + " · " + (role.pointLabel || role.name);
     document.getElementById("goal-total").textContent = scoreLine;
-    document.getElementById("stat-goal-total").textContent = scoreLine;
+    document.getElementById("stat-goal-total").textContent = String(ownPts);
     var goalMax = pill.querySelector(".goal-max");
     if (goalMax) {
-      goalMax.textContent = "";
+      goalMax.textContent = "/" + target;
     }
     var pillLabel = pill.querySelector(".meter-label");
     if (pillLabel) {
-      pillLabel.textContent = progress.role.character.split(" ")[0] + " · " + progress.role.alignment;
+      pillLabel.textContent = redactGoals ? "Siegpunkte" : role.pointLabel || "Siegpunkte";
     }
+    pill.style.setProperty("--goal-metric", metricColor);
+    if (role.pointKey === "innovation") {
+      pill.classList.add("metric-innovation");
+    } else {
+      pill.classList.remove("metric-innovation");
+    }
+    var pct = Math.min(100, (ownPts / target) * 100);
     var ring = document.getElementById("goal-total-ring");
     if (ring) {
-      ring.style.setProperty("--pct", String(Math.min(100, progress.totalPercent)));
+      ring.style.setProperty("--pct", String(pct));
     }
     var pillFill = document.getElementById("goal-pill-fill");
     if (pillFill) {
-      pillFill.style.width = Math.min(100, progress.totalPercent) + "%";
+      pillFill.style.width = pct + "%";
+      pillFill.style.background = metricColor;
     }
 
     hideTracks();
-    if (false && tracks) {
-      var scores = player.scores || {};
-      var scoreChanged = false;
-      if (!lastScoreSnapshot || lastPlayerId !== player.id) {
-        lastScoreSnapshot = {};
-      }
-      if (tracksCard) {
-        tracksCard.hidden = true;
-      }
-      tracks.innerHTML = scoreKeys()
-        .map(function (key) {
-          var value = scores[key];
-          if (value == null) {
-            value = 0;
-          }
-          if (lastScoreSnapshot[key] !== value) {
-            scoreChanged = true;
-          }
-          lastScoreSnapshot[key] = value;
-          var fill = Math.max(0, Math.min(100, (value / TRACK_RAIL_MAX) * 100));
-          return (
-            '<div class="score-track track-' +
-            key +
-            '"><span class="track-label">' +
-            scoreLabel(key) +
-            '</span><span class="track-rail"><i style="width:' +
-            n(fill) +
-            '%"></i></span><strong class="t-digit-group">' +
-            value +
-            "</strong></div>"
-          );
-        })
-        .join("");
-      if (scoreChanged) {
-        Array.prototype.forEach.call(tracks.querySelectorAll(".t-digit-group"), function (el) {
-          setDigitGroup(el, el.textContent, true);
-        });
-      }
-    }
 
     if (redactGoals) {
       document.getElementById("goal-list").innerHTML =
-        '<li class="goal-item"><p class="goal-meta">Unterziele stehen hier nur auf deinem Zug. In der Übung bleiben sie verdeckt.</p></li>';
+        '<li class="goal-item"><p class="goal-meta">Dauerziele nur auf deinem Zug. In der Übung verdeckt.</p></li>';
     } else {
-    document.getElementById("goal-list").innerHTML = progress.subGoals
+      document.getElementById("goal-list").innerHTML = standingGoalRows(player)
         .map(function (goal) {
           return (
-            '<li class="goal-item">' +
+            '<li class="goal-item' +
+            (goal.done ? " is-done" : "") +
+            (goal.active ? " is-active" : "") +
+            '">' +
             '<p class="goal-order">' +
             goal.label +
-            "</p>" +
-            goalPips(goal.points, goal.maxPoints) +
-            "</li>"
+            (goal.repeat ? " · wiederholbar" : "") +
+            '</p><p class="goal-progress">' +
+            goal.have +
+            "/" +
+            goal.need +
+            (goal.done ? " · erledigt" : "") +
+            "</p></li>"
           );
         })
         .join("");
     }
+    renderContractStrip(state, player, redactGoals);
+    renderTransferInbox(state, player, redactGoals);
     var mandateStrip = document.getElementById("mandate-strip");
     if (mandateStrip) {
       var mandates =
@@ -2501,14 +2815,25 @@ window.Nexus = window.Nexus || {};
         leftEarly = 0;
       }
       setDigitGroup(document.getElementById("stat-days-left"), leftEarly, false);
-      setDigitGroup(document.getElementById("stat-risk"), "–", false);
-      var causeEarly = document.getElementById("risk-cause");
+      var karmaEarly = document.getElementById("stat-karma") || document.getElementById("stat-risk");
+      setDigitGroup(karmaEarly, "–", false);
+      var causeEarly = document.getElementById("karma-cause") || document.getElementById("risk-cause");
       if (causeEarly) {
         causeEarly.textContent = "";
       }
-      var pillEarly = document.getElementById("risk-pill");
+      var pillEarly = document.getElementById("karma-pill") || document.getElementById("risk-pill");
       if (pillEarly) {
-        pillEarly.classList.remove("is-risk-warn", "is-risk-hot");
+        pillEarly.classList.remove(
+          "is-karma-low",
+          "is-karma-high",
+          "is-karma-extreme",
+          "is-risk-warn",
+          "is-risk-hot"
+        );
+      }
+      var goalPillEarly = document.getElementById("goal-pill");
+      if (goalPillEarly) {
+        goalPillEarly.hidden = true;
       }
       lastResourceSnapshot = null;
       lastPlayerId = null;
@@ -2536,47 +2861,47 @@ window.Nexus = window.Nexus || {};
     if (daysEl) {
       setDigitGroup(daysEl, daysLeft, false);
     }
-    var riskChanged =
-      !lastResourceSnapshot || lastPlayerId !== player.id || lastResourceSnapshot.__risk !== player.risk;
-    setDigitGroup(document.getElementById("stat-risk"), player.risk, riskChanged);
-    var riskCap = 20;
-    var riskGate = (Nexus.Risk && Nexus.Risk.EVENT_THRESHOLD) || 8;
-    document.getElementById("risk-meter").style.setProperty("--risk", Math.min(riskCap, player.risk || 0));
-    var riskPill = document.getElementById("risk-pill") || document.querySelector(".risk-pill");
-    var riskCause = document.getElementById("risk-cause");
-    var riskGateEl = document.getElementById("risk-gate");
-    var view = player.riskView || null;
-    if (!view && Nexus.Risk && Nexus.Risk.preview) {
-      view = Nexus.Risk.preview(state, player);
+    var karma = player.karma || 0;
+    var karmaChanged =
+      !lastResourceSnapshot || lastPlayerId !== player.id || lastResourceSnapshot.__karma !== karma;
+    var karmaEl = document.getElementById("stat-karma") || document.getElementById("stat-risk");
+    setDigitGroup(karmaEl, (karma > 0 ? "+" : "") + karma, karmaChanged);
+    var karmaMeter = document.getElementById("karma-meter") || document.getElementById("risk-meter");
+    if (karmaMeter) {
+      karmaMeter.style.setProperty("--karma", karma);
     }
-    if (riskCause) {
-      if (view && view.topLabel && (view.topValue || view.total)) {
-        riskCause.textContent = view.topLabel;
-        riskCause.hidden = false;
-      } else {
-        riskCause.textContent = "ruhig";
-        riskCause.hidden = false;
-      }
+    var karmaPill = document.getElementById("karma-pill") || document.getElementById("risk-pill");
+    var karmaCause = document.getElementById("karma-cause") || document.getElementById("risk-cause");
+    var karmaGateEl = document.getElementById("karma-gate") || document.getElementById("risk-gate");
+    if (karmaCause) {
+      karmaCause.textContent =
+        Math.abs(karma) >= 5
+          ? "Extrem"
+          : Math.abs(karma) >= 4
+            ? "Event sicher"
+            : Math.abs(karma) >= 2
+              ? "Event möglich"
+              : "neutral";
+      karmaCause.hidden = false;
     }
-    if (riskGateEl) {
-      riskGateEl.textContent = "/" + riskGate;
+    if (karmaGateEl) {
+      karmaGateEl.textContent = "−5…+5";
     }
-    if (riskPill) {
-      var total = (view && view.total != null ? view.total : player.risk) || 0;
-      riskPill.classList.toggle("is-risk-warn", total >= Math.max(1, riskGate - 2) && total < riskGate);
-      riskPill.classList.toggle("is-risk-hot", total >= riskGate);
+    if (karmaPill) {
+      karmaPill.classList.toggle("is-karma-low", karma <= -2 && karma > -5);
+      karmaPill.classList.toggle("is-karma-high", karma >= 2 && karma < 5);
+      karmaPill.classList.toggle("is-karma-extreme", Math.abs(karma) >= 5);
       var tip =
-        (view && (view.summary || view.why)) ||
-        "Stadtdruck. Ab " + riskGate + " öffnet ein Ereignis.";
-      if (view && view.counter) {
-        tip += " Gegenmaßnahme: " + view.counter;
-      }
-      riskPill.title = tip;
-      riskPill.setAttribute("data-help-title", "Risiko " + total);
-      riskPill.setAttribute("data-help", tip);
+        "Karma " +
+        (karma > 0 ? "+" : "") +
+        karma +
+        ". Bei ±2/±3/±4 steigt die Chance auf ein Karma-Ereignis zu Zugbeginn. Tiebreak am Limit.";
+      karmaPill.title = tip;
+      karmaPill.setAttribute("data-help-title", "Karma " + ((karma > 0 ? "+" : "") + karma));
+      karmaPill.setAttribute("data-help", tip);
     }
     lastResourceSnapshot = Object.assign({}, player.resources);
-    lastResourceSnapshot.__risk = player.risk;
+    lastResourceSnapshot.__karma = karma;
     lastPlayerId = player.id;
   }
 
@@ -3032,25 +3357,30 @@ window.Nexus = window.Nexus || {};
         return "Erste Tage · Schritt 3: Später Linie (mit Bahnhof) oder Hinterzimmer — Kern zuerst.";
       }
     }
-    var risk = player.risk || 0;
-    var gate = (Nexus.Risk && Nexus.Risk.EVENT_THRESHOLD) || 8;
-    var cause = player.riskView && player.riskView.topLabel;
-    if (risk >= gate) {
+    var pendingXfer = (state.pendingTransfers || []).filter(function (item) {
+      return item.ownerId === player.id;
+    });
+    if (pendingXfer.length) {
+      return "Übertragung wartet im Ziele-Dock — schenken, verkaufen oder ablehnen.";
+    }
+    if (player.pendingContractOffer) {
+      return "Auftragsangebot im Ziele-Dock — annehmen oder ablehnen (kostet).";
+    }
+    var karma = player.karma || 0;
+    if (Math.abs(karma) >= 4) {
       return (
-        "Risiko " +
-        risk +
-        (cause ? " (" + cause + ")" : "") +
-        " — Event droht. Lokal/Solar/Linie drücken den Druck."
+        "Karma " +
+        (karma > 0 ? "+" : "") +
+        karma +
+        " — zu Zugbeginn fast sicher ein Karma-Ereignis."
       );
     }
-    if (risk >= gate - 2) {
+    if (Math.abs(karma) >= 2) {
       return (
-        "Risiko " +
-        risk +
-        "/" +
-        gate +
-        (cause ? " · " + cause : "") +
-        ". Gegensteuern, bevor die Schwelle knallt."
+        "Karma " +
+        (karma > 0 ? "+" : "") +
+        karma +
+        ". Faire Trades und Metrik-Bauten helfen; Ablehnen kostet."
       );
     }
     var leader = null;
@@ -3448,24 +3778,56 @@ window.Nexus = window.Nexus || {};
         var impact = document.getElementById("zone-inspect-impact");
         if (actions) {
           actions.innerHTML = "";
-          if (isMineZone && state.turnPhase === "build") {
+          if (state.turnPhase === "build" && !Nexus.isHotSeatShield(state)) {
             var bitsAct = [];
-            var upInspect = Nexus.describeZoneUpgrade(state, inspectedZone.id);
-            bitsAct.push(
-              '<button type="button" class="btn" id="btn-zone-upgrade"' +
-                (upInspect.allowed ? "" : ' disabled title="' + escapeAttr(upgradeReasonText(upInspect.reason)) + '"') +
-                ">Ausbau" +
-                (upInspect.toLevel ? " · Stufe " + upInspect.toLevel : "") +
-                "</button>"
-            );
-            if (inspectedZone.type !== "home") {
-              var down = Nexus.describeDemolish(state, inspectedZone.id);
+            if (isMineZone) {
+              var upInspect = Nexus.describeZoneUpgrade(state, inspectedZone.id);
+              var upTileId =
+                inspectedZone.tileId ||
+                (Nexus.tileIdFromZone ? Nexus.tileIdFromZone(inspectedZone) : null);
+              var upPts = 0;
+              if (upTileId && Nexus.Goals && Nexus.Goals.ensureProgress && player) {
+                var metric = Nexus.Goals.metricOf ? Nexus.Goals.metricOf(player) : null;
+                if (metric && Nexus.tileMatchesMetric && Nexus.tileMatchesMetric(upTileId, metric)) {
+                  var gp = Nexus.Goals.ensureProgress(player);
+                  if ((gp.upgradeMetric || 0) + 1 >= 3) {
+                    upPts += 1;
+                  }
+                  if ((gp.sameType[upTileId] || 0) + 1 >= 3) {
+                    upPts += 1;
+                  }
+                }
+              }
               bitsAct.push(
-                '<button type="button" class="btn ghost" id="btn-zone-demolish"' +
-                  (down.allowed ? "" : ' disabled title="' + escapeAttr(demolishReasonText(down.reason)) + '"') +
-                  ">Abreißen" +
-                  (down.refund && down.refund.money ? " · +" + down.refund.money + " Geld" : "") +
+                '<button type="button" class="btn" id="btn-zone-upgrade"' +
+                  (upInspect.allowed ? "" : ' disabled title="' + escapeAttr(upgradeReasonText(upInspect.reason)) + '"') +
+                  ">Ausbau" +
+                  (upInspect.toLevel ? " · Stufe " + upInspect.toLevel : "") +
+                  (upPts ? '<span class="sp-badge">+' + upPts + " SP</span>" : "") +
                   "</button>"
+              );
+              if (inspectedZone.type !== "home") {
+                var down = Nexus.describeDemolish(state, inspectedZone.id);
+                bitsAct.push(
+                  '<button type="button" class="btn ghost" id="btn-zone-demolish"' +
+                    (down.allowed ? "" : ' disabled title="' + escapeAttr(demolishReasonText(down.reason)) + '"') +
+                    ">Abreißen" +
+                    (down.refund && down.refund.money ? " · +" + down.refund.money + " Geld" : "") +
+                    "</button>"
+                );
+              }
+            } else if (inspectedZone.type !== "home" && Nexus.canRequestTransfer) {
+              var xfer = Nexus.canRequestTransfer(state, inspectedZone.id);
+              bitsAct.push(
+                '<button type="button" class="btn" id="btn-zone-transfer"' +
+                  (xfer.allowed ? "" : " disabled") +
+                  ' title="' +
+                  escapeAttr(
+                    xfer.allowed
+                      ? "Eigentümer kann schenken oder verkaufen"
+                      : xfer.reason || "Nicht möglich"
+                  ) +
+                  '">Übertragung anfragen</button>'
               );
             }
             actions.innerHTML = bitsAct.join("");
@@ -3783,17 +4145,8 @@ window.Nexus = window.Nexus || {};
     if (preview.riskOnBuild) {
       bits.push('<span class="pick-con">+' + preview.riskOnBuild + " Risiko</span>");
     }
-    if (preview.flags && preview.flags.residentialNeedsDc) {
-      bits.push('<span class="pick-con">ohne Datenzentrum: Daten 0</span>');
-    }
     if (preview.flags && preview.flags.insecureRisk) {
       bits.push('<span class="pick-con">ungesichert</span>');
-    }
-    if (preview.flags && preview.flags.dcUnlocksBandwidth) {
-      bits.push('<span class="pick-pro">schaltet Wohn-Daten frei</span>');
-    }
-    if (preview.flags && preview.flags.dcCap) {
-      bits.push('<span class="pick-pro">DC ' + preview.flags.dcCap.label + "</span>");
     }
     if (preview.flags && preview.flags.nuclearRisk) {
       bits.push('<span class="pick-con">hohes Risiko</span>');
@@ -3828,11 +4181,8 @@ window.Nexus = window.Nexus || {};
     if (rec.reasonKey === "low_money") {
       return "Warum jetzt: dir fehlt Geld.";
     }
-    if (rec.reasonKey === "need_dc") {
-      return "Warum jetzt: ohne Datenzentrum bleiben Wohn-Daten 0.";
-    }
-    if (rec.reasonKey === "low_bandwidth") {
-      return "Warum jetzt: dir fehlen Daten — Wohnen oder weiteres Rechenzentrum (je 7 Felder).";
+    if (rec.reasonKey === "need_dc" || rec.reasonKey === "low_bandwidth") {
+      return "Warum jetzt: dir fehlen Daten — Wohnen, Serverfarm, E-Taxi oder Verwaltung.";
     }
     return "Warum jetzt: passt zu deinem Netz.";
   }
@@ -3942,15 +4292,9 @@ window.Nexus = window.Nexus || {};
         } else if (pendingType === "commerce") {
           impactEl.innerHTML =
             "<p><b>Fabrik:</b> Geld + Wohn-Nachbarn · <b>Unternehmen:</b> Aufbau 1→3→5, Reife 5→3→1 je Stück.</p>";
-        } else if (pendingType === "datacenter") {
-          var capTxt =
-            Nexus.datacenterCapInfo && Nexus.currentPlayer(state)
-              ? Nexus.datacenterCapInfo(state, Nexus.currentPlayer(state).id).label
-              : "je 7 Felder";
+        } else if (pendingType === "server" || pendingType === "residential") {
           impactEl.innerHTML =
-            "<p>Rechenzentrum liefert Daten und schaltet Wohn-Daten frei. Limit " +
-            capTxt +
-            ". Offen = Risiko, sicher = teurer.</p>";
+            "<p>Datenfelder erzeugen Bandbreite ohne Datenzentrum. Wohnen = Image, Serverfarm = Finanz.</p>";
         } else {
           impactEl.innerHTML =
             "<p>Vor- und Nachteile stehen auf den Kacheln. Ausbau später macht das Gebäude größer und den Ertrag höher.</p>";
@@ -4041,11 +4385,16 @@ window.Nexus = window.Nexus || {};
         bits.push({ key: key, amount: -spend[key] });
       }
     });
-    ["energy", "money", "bandwidth", "image", "comfort", "environment", "security", "risk"].forEach(function (key) {
-      if (effects[key]) {
-        bits.push({ key: key, amount: effects[key] });
+    ["energy", "money", "bandwidth", "image", "comfort", "environment", "security", "risk", "karma"].forEach(
+      function (key) {
+        if (effects[key]) {
+          bits.push({ key: key, amount: effects[key] });
+        }
       }
-    });
+    );
+    if (effects.blackmail) {
+      bits.push({ key: "karma", amount: -1 });
+    }
     if (!bits.length) {
       return "";
     }
@@ -4170,13 +4519,22 @@ window.Nexus = window.Nexus || {};
   function renderEventModal(state, ui) {
     var shell = document.getElementById("event-modal");
     var player = Nexus.currentPlayer(state);
-    var event = player.pendingEvent;
+    var event = player && player.pendingEvent;
     var shouldOpen = state.turnPhase === "event" && event;
     if (!shouldOpen) {
       if (!shell.hidden) {
         closeModal(shell);
       }
       return;
+    }
+    var kicker = document.getElementById("event-kicker");
+    var isKarma = event.source === "karma" || !!event.polarity || !!event.extreme;
+    if (kicker) {
+      kicker.textContent = isKarma
+        ? event.extreme
+          ? "Karma · Extrem"
+          : "Karma-Ereignis"
+        : "Ereignis";
     }
     document.getElementById("event-title").textContent = event.title;
     document.getElementById("event-text").textContent = event.text;
@@ -4194,12 +4552,13 @@ window.Nexus = window.Nexus || {};
     if (event.counter) {
       lessonBits.push("Gegensteuern: " + event.counter);
     }
-    var lessonText =
-      lessonBits.length
-        ? lessonBits.join(" ")
-        : event.lesson ||
-          (Nexus.EVENT_LESSONS && Nexus.EVENT_LESSONS[event.id]) ||
-          "Jede Wahl verschiebt einen Stadtwerte-Konflikt.";
+    var lessonText = lessonBits.length
+      ? lessonBits.join(" ")
+      : event.lesson ||
+        (Nexus.EVENT_LESSONS && Nexus.EVENT_LESSONS[event.id]) ||
+        (isKarma
+          ? "Karma entscheidet über gute oder schlechte Ereignisse zu Zugbeginn."
+          : "Jede Wahl verschiebt den Stadtzustand.");
     lesson.textContent = lessonText;
     var choices = document.getElementById("event-choices");
     var pick = document.getElementById("event-resource-pick");
@@ -4301,9 +4660,12 @@ window.Nexus = window.Nexus || {};
     }
     if (reason) {
       reason.textContent = winner
-        ? (state.winReason === "instant"
-            ? winner.name + " hat 100 % des Wahlversprechens erreicht."
-            : winner.name + " war am nächsten dran (" + best + "%).")
+        ? state.winReason === "instant"
+          ? winner.name + " hat 10 Siegpunkte der eigenen Metrik erreicht."
+          : winner.name +
+            " führt bei den eigenen Siegpunkten" +
+            (best != null ? " (" + best + ")" : "") +
+            (state.winReason === "fallback" ? " · Tiebreak Karma/Reihenfolge." : ".")
         : "";
     }
     document.getElementById("score-players").innerHTML = state.finalScores
@@ -4587,6 +4949,7 @@ window.Nexus = window.Nexus || {};
     fitTopbar();
     renderWallet(state);
     renderGoalPanel(state, ui);
+    renderStallPanel(state, ui);
     renderDistrict(state, ui);
     renderHome(state, ui);
     renderExpandModal(state, ui);

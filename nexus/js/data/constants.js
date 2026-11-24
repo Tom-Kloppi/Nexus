@@ -29,182 +29,77 @@ Nexus.SCORE_LABELS = {
   security: "Sicherheit"
 };
 
-Nexus.ZONE_TYPE_KEYS = [
-  "residential",
-  "energy",
-  "datacenter",
-  "commerce",
-  "traffic",
-  "park",
-  "workshop"
-];
-
+/* Typen für Board/State; konkrete Baukosten/Metriken in build-tiles.js. */
 Nexus.ZONE_TYPES = {
-  residential: {
-    id: "residential",
-    label: "Wohngebiet",
-    shortLabel: "Wohnen",
-    primary: "bandwidth",
-    primaryBase: 2
-  },
-  energy: {
-    id: "energy",
-    label: "Energieversorgung",
-    shortLabel: "Energie",
-    primary: "energy",
-    variants: ["solar", "transformer", "nuclear"]
-  },
-  datacenter: {
-    id: "datacenter",
-    label: "Rechenzentrum",
-    shortLabel: "Datenz.",
-    primary: "bandwidth",
-    variants: ["insecure", "secure"]
-  },
-  commerce: {
-    id: "commerce",
-    label: "Wirtschaft",
-    shortLabel: "Geld",
-    primary: "money",
-    variants: ["factory", "enterprise"]
-  },
-  traffic: {
-    id: "traffic",
-    label: "Verkehr",
-    shortLabel: "Verkehr",
-    primary: null,
-    variants: ["garage", "taxi"]
-  },
-  park: {
-    id: "park",
-    label: "Park",
-    shortLabel: "Park",
-    primary: null,
-    scoreHint: { comfort: 1, environment: 1 }
-  },
-  workshop: {
-    id: "workshop",
-    label: "Werkstatt",
-    shortLabel: "Werkstatt",
-    primary: null,
-    scoreHint: { image: 1 },
-    workshopDiscount: true
-  }
+  residential: { id: "residential", label: "Wohnen", shortLabel: "Wohnen", primary: "bandwidth", primaryBase: 2 },
+  energy: { id: "energy", label: "Strom", shortLabel: "Strom", primary: "energy", variants: ["wind", "nuclear", "coal", "solar"] },
+  commerce: { id: "commerce", label: "Geld", shortLabel: "Geld", primary: "money", variants: ["factory", "small", "large", "recycle"] },
+  server: { id: "server", label: "Serverfarm", shortLabel: "Server", primary: "bandwidth", primaryBase: 3 },
+  taxi: { id: "taxi", label: "E-Taxistand", shortLabel: "E-Taxi", primary: "money", primaryBase: 2 },
+  admin: { id: "admin", label: "Verwaltungsbüro", shortLabel: "Verwaltung", primary: "bandwidth", primaryBase: 2 },
+  yard: { id: "yard", label: "Lagerfläche", shortLabel: "Lager", primary: "money", primaryBase: 1 },
+  station: { id: "station", label: "Bahnhof", shortLabel: "Bahnhof", primary: "money", primaryBase: 1 },
+  park: { id: "park", label: "Park", shortLabel: "Park", primary: null }
 };
 
 Nexus.ENERGY_VARIANTS = {
-  solar: {
-    id: "solar",
-    label: "Solarfarm",
-    shortLabel: "Solar",
-    primary: "energy",
-    primaryBase: 2,
-    dice: false,
-    scoreHint: { environment: 1 },
-    harvestScoreHint: { environment: 1 }
-  },
-  transformer: {
-    id: "transformer",
-    label: "Umspannwerk",
-    shortLabel: "Umspann",
-    primary: "energy",
-    primaryBase: 3,
-    dice: false,
-    stable: true,
-    scoreHint: { environment: -1 }
-  },
-  nuclear: {
-    id: "nuclear",
-    label: "Atomkraftwerk",
-    shortLabel: "Atom",
-    primary: "energy",
-    primaryBase: 5,
-    dice: false,
-    stable: true,
-    risk: true,
-    riskOnBuild: 4,
-    scoreHint: { environment: -2 }
-  }
-};
-
-Nexus.DATACENTER_VARIANTS = {
-  insecure: {
-    id: "insecure",
-    label: "Ungesichert",
-    shortLabel: "Offen",
-    primary: "bandwidth",
-    primaryBase: 1,
-    risk: true,
-    riskOnBuild: 2
-  },
-  secure: {
-    id: "secure",
-    label: "Gesichert",
-    shortLabel: "Sicher",
-    primary: "bandwidth",
-    primaryBase: 1,
-    scoreHint: { security: 1 }
-  }
+  wind: { id: "wind", label: "Windkraft", shortLabel: "Wind", primary: "energy", primaryBase: 2, dice: false },
+  nuclear: { id: "nuclear", label: "Atomkraftwerk", shortLabel: "Atom", primary: "energy", primaryBase: 5, dice: false, stable: true },
+  coal: { id: "coal", label: "Kohlekraftwerk", shortLabel: "Kohle", primary: "energy", primaryBase: 3, dice: false, stable: true },
+  solar: { id: "solar", label: "Solarfarm", shortLabel: "Solar", primary: "energy", primaryBase: 2, dice: false },
+  /* Legacy-Aliase */
+  transformer: { id: "coal", label: "Kohlekraftwerk", shortLabel: "Kohle", primary: "energy", primaryBase: 3, dice: false, stable: true }
 };
 
 Nexus.COMMERCE_VARIANTS = {
-  factory: {
-    id: "factory",
-    label: "Fabrik",
-    shortLabel: "Fabrik",
-    primary: "money",
-    primaryBase: 1,
-    adjacentResidentialBonus: true
-  },
-  enterprise: {
-    id: "enterprise",
-    label: "Unternehmen",
-    shortLabel: "Firma",
-    primary: "money",
-    primaryBase: 5,
-    enterpriseCurve: true
-  }
+  factory: { id: "factory", label: "Fabrik", shortLabel: "Fabrik", primary: "money", primaryBase: 2, adjacentResidentialBonus: true },
+  small: { id: "small", label: "Kleinunternehmen", shortLabel: "Kleinunt.", primary: "money", primaryBase: 1 },
+  large: { id: "large", label: "Großunternehmen", shortLabel: "Großunt.", primary: "money", primaryBase: 3, enterpriseCurve: true },
+  recycle: { id: "recycle", label: "Recyclingstätte", shortLabel: "Recycling", primary: "money", primaryBase: 1, secondary: "energy", secondaryBase: 1 },
+  enterprise: { id: "large", label: "Großunternehmen", shortLabel: "Großunt.", primary: "money", primaryBase: 3, enterpriseCurve: true }
 };
 
-Nexus.TRAFFIC_VARIANTS = {
-  garage: {
-    id: "garage",
-    label: "Garagen",
-    shortLabel: "Garagen",
-    primary: null
-  },
-  taxi: {
-    id: "taxi",
-    label: "E-Taxi-Station",
-    shortLabel: "E-Taxi",
-    primary: "money",
-    primaryBase: 2,
-    stable: true,
-    harvestScoreHint: { comfort: 1 },
-    upkeep: { energy: 1, bandwidth: 1 }
-  }
-};
+Nexus.DATACENTER_VARIANTS = {};
+Nexus.TRAFFIC_VARIANTS = {};
 
 Nexus.ZONE_VARIANTS = {
   energy: [
-    Nexus.ENERGY_VARIANTS.solar,
-    Nexus.ENERGY_VARIANTS.transformer,
-    Nexus.ENERGY_VARIANTS.nuclear
+    Nexus.ENERGY_VARIANTS.wind,
+    Nexus.ENERGY_VARIANTS.nuclear,
+    Nexus.ENERGY_VARIANTS.coal,
+    Nexus.ENERGY_VARIANTS.solar
   ],
-  datacenter: [Nexus.DATACENTER_VARIANTS.insecure, Nexus.DATACENTER_VARIANTS.secure],
-  commerce: [Nexus.COMMERCE_VARIANTS.factory, Nexus.COMMERCE_VARIANTS.enterprise],
-  traffic: [Nexus.TRAFFIC_VARIANTS.garage, Nexus.TRAFFIC_VARIANTS.taxi]
+  commerce: [
+    Nexus.COMMERCE_VARIANTS.factory,
+    Nexus.COMMERCE_VARIANTS.small,
+    Nexus.COMMERCE_VARIANTS.large,
+    Nexus.COMMERCE_VARIANTS.recycle
+  ]
 };
 
 Nexus.ZONE_TYPE_COLORS = {
   residential: "#7ec8d8",
   energy: "#6a9fd4",
-  datacenter: "#8a9aaa",
   commerce: "#c4a06a",
-  traffic: "#5c5f66",
-  park: "#6aaa6a",
-  workshop: "#9a8a72"
+  server: "#8a9aaa",
+  taxi: "#5c5f66",
+  admin: "#9a8a72",
+  yard: "#a09070",
+  station: "#6a7a8a",
+  park: "#6aaa6a"
 };
+
+Nexus.ZONE_TYPE_KEYS = [
+  "residential",
+  "energy",
+  "commerce",
+  "server",
+  "taxi",
+  "admin",
+  "yard",
+  "station",
+  "park"
+];
 
 Nexus.PRODUCTION_DICE = [
   { id: "fail", modifier: -1, weight: 1, label: "Wartung/Ausfall", color: "#8a5a52" },
@@ -213,18 +108,16 @@ Nexus.PRODUCTION_DICE = [
   { id: "boom", modifier: 2, weight: 1, label: "Boom", color: "#b89a6a" }
 ];
 
-/* Themenfarben der Figuren, in derselben Reihenfolge wie ALL_ROLE_IDS.
-   Mira grün, Isabella rot, Maria gelb, Weiß weiß, Smurf blau, Heinz schwarz.
-   Kräftig / gesättigt — keine Pastells. */
-Nexus.PLAYER_COLORS = ["#1FA83A", "#E02020", "#F0C000", "#F7F4EC", "#1560E0", "#141416"];
-Nexus.PLAYER_COLOR_NAMES = ["Grün", "Rot", "Gelb", "Weiß", "Blau", "Schwarz"];
+/* Themenfarben = Figuren-Reihenfolge ALL_ROLE_IDS.
+   Mira grün, Isabella rot, Maria gelb, Weiß weiß, Smurf blau, Heinz dunkelbraun. */
+Nexus.PLAYER_COLORS = ["#1FA83A", "#E02020", "#F0C000", "#F7F4EC", "#1560E0", "#4A2F1F"];
+Nexus.PLAYER_COLOR_NAMES = ["Grün", "Rot", "Gelb", "Weiß", "Blau", "Dunkelbraun"];
 Nexus.UNCLAIMED_GRAY = "#E2E2E2";
 
-/* Probezeit in Tagen — eher Direktsieg bei 10 Punkten, Limit als Druck. */
+/* Probephase in Wochen (3 bzw. 4 Monate). */
 Nexus.GAME_LENGTHS = [
-  { id: "short", label: "Kurz · 10 Tage", rounds: 10 },
-  { id: "standard", label: "Standard · 14 Tage", rounds: 14 },
-  { id: "long", label: "Lang · 18 Tage", rounds: 18 }
+  { id: "short", label: "3 Monate · 12 Wochen", rounds: 12 },
+  { id: "standard", label: "4 Monate · 16 Wochen", rounds: 16 }
 ];
 
 /* Sechs Hex-Ecken, Uhrzeigersinn ab Nordost. Fairer Spread: 2 gegenüber, 3 jeder zweite, 4 Raute, 5 eine Lücke, 6 alle. */

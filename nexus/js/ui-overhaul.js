@@ -221,11 +221,23 @@ window.Nexus = window.Nexus || {};
     var base = state;
     var next = base;
     if (action.id === "build") {
-      next = Nexus.buyZone(base, action.payload.q, action.payload.r, action.payload.type, action.payload.variant);
+      next = Nexus.buyZone(
+        base,
+        action.payload.q,
+        action.payload.r,
+        action.payload.type,
+        action.payload.variant,
+        action.payload.tileId || action.tileId
+      );
     } else if (action.id === "upgrade") {
-      next = Nexus.upgradeZone(base, action.zoneId);
+      next = Nexus.upgradeZone(base, action.zoneId || (action.payload && action.payload.zoneId));
     } else if (action.id === "demolish") {
-      next = Nexus.demolishZone(base, action.zoneId);
+      next = Nexus.demolishZone(base, action.zoneId || (action.payload && action.payload.zoneId));
+    } else if (action.id === "transfer-request") {
+      next = Nexus.requestTransfer(
+        base,
+        (action.payload && action.payload.zoneId) || action.zoneId
+      );
     } else if (action.id === "bus-stop") {
       next = Nexus.placeBusStop(base, action.zoneId);
     } else if (action.id === "depot" || action.id === "garage") {
@@ -309,14 +321,22 @@ window.Nexus = window.Nexus || {};
   function paintAction(action, onClick, host) {
     var button = document.createElement("button");
     button.type = "button";
-    button.className = "menu-tile" + (action.recommended ? " is-recommended" : "");
+    button.className =
+      "menu-tile" +
+      (action.recommended ? " is-recommended" : "") +
+      (action.ownMetric ? " is-own-metric" : "");
     button.disabled = !action.enabled;
     var help = action.enabled ? action.why || "" : action.reason || action.why || "";
     button.setAttribute("data-help-title", action.label);
     button.setAttribute("data-help", help);
+    var badge =
+      action.pointsPreview > 0
+        ? '<span class="sp-badge" title="Siegpunkte-Vorschau">+' + action.pointsPreview + " SP</span>"
+        : "";
     button.innerHTML =
       "<strong>" +
       action.label +
+      badge +
       "</strong><span class='tile-fx'>" +
       (action.fx && action.fx.length ? fxMarkup(action.fx) : action.enabled ? "" : "<em>" + (action.reason || "Geht nicht") + "</em>") +
       "</span>" +
@@ -1055,7 +1075,7 @@ window.Nexus = window.Nexus || {};
     guide.innerHTML =
       "<h2>Überblick</h2><div class='guide-tabs'>" +
       "<button type='button' data-guide='bogen'>Bogen</button>" +
-      "<button type='button' data-guide='risiko'>Risiko</button>" +
+      "<button type='button' data-guide='karma'>Karma</button>" +
       "<button type='button' data-guide='mobil'>Mobilität</button>" +
       "</div><p id='guide-body'></p><button type='button' id='btn-dialog-placeholder'>Intro-Platzhalter</button>" +
       "<p><button type='button' id='btn-save'>Speichern</button> <button type='button' id='btn-load'>Laden</button></p>";
@@ -1098,15 +1118,17 @@ window.Nexus = window.Nexus || {};
     if (dock) {
       dock.classList.add("is-tab-goals");
       var tabs = el("div", "dock-tabs");
-      [["goals", "Ziele"], ["field", "Feld"], ["city", "Stadt"]].forEach(function (pair) {
-        var button = el("button", "btn", pair[1]);
-        button.type = "button";
-        button.addEventListener("click", function () {
-          dock.classList.remove("is-tab-goals", "is-tab-field", "is-tab-city");
-          dock.classList.add("is-tab-" + pair[0]);
-        });
-        tabs.appendChild(button);
-      });
+      [["goals", "Ziele"], ["market", "Markt"], ["field", "Feld"], ["city", "Stadt"]].forEach(
+        function (pair) {
+          var button = el("button", "btn", pair[1]);
+          button.type = "button";
+          button.addEventListener("click", function () {
+            dock.classList.remove("is-tab-goals", "is-tab-field", "is-tab-city", "is-tab-market");
+            dock.classList.add("is-tab-" + pair[0]);
+          });
+          tabs.appendChild(button);
+        }
+      );
       dock.insertBefore(tabs, dock.firstChild);
     }
     var end = document.querySelector(".end-card");

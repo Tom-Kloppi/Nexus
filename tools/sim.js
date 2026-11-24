@@ -146,19 +146,25 @@ function tryMobility(state) {
 }
 
 function preferredBuild(roleId) {
-  if (roleId === "climate" || roleId === "visionary") {
-    return ["energy", "solar"];
+  if (roleId === "climate") {
+    return ["energy", "wind"];
+  }
+  if (roleId === "visionary") {
+    return ["energy", "nuclear"];
   }
   if (roleId === "privacy") {
-    return ["datacenter", "secure"];
+    return ["admin", null];
   }
-  if (roleId === "investor" || roleId === "networker") {
+  if (roleId === "investor") {
+    return ["commerce", "large"];
+  }
+  if (roleId === "networker") {
     return ["residential", null];
   }
   if (roleId === "controller") {
-    return ["traffic", null];
+    return ["taxi", null];
   }
-  return ["energy", "transformer"];
+  return ["energy", "solar"];
 }
 
 function act(state) {
@@ -235,8 +241,8 @@ function act(state) {
       return stepped;
     }
   }
-  if (countOwn("traffic") < 1) {
-    stepped = tryBuild(state, "traffic", null);
+  if (countOwn("taxi") < 1) {
+    stepped = tryBuild(state, "taxi", null);
     if (stepped !== state) {
       return stepped;
     }
@@ -247,8 +253,8 @@ function act(state) {
       return stepped;
     }
   }
-  if (roleNow === "privacy" && countOwn("datacenter") < 1) {
-    stepped = tryBuild(state, "datacenter", "secure");
+  if (roleNow === "privacy" && countOwn("admin") < 1) {
+    stepped = tryBuild(state, "admin", null);
     if (stepped !== state) {
       return stepped;
     }
@@ -260,7 +266,7 @@ function act(state) {
       return stepped;
     }
   }
-  if (Nexus.currentPlayer(state).roleId === "privacy" && !Nexus.currentPlayer(state).devices.v2x && countOwn("traffic") > 0) {
+  if (Nexus.currentPlayer(state).roleId === "privacy" && !Nexus.currentPlayer(state).devices.v2x && countOwn("taxi") > 0) {
     var radio = Nexus.buildDevice(state, "v2x", "local");
     if (radio !== state) {
       return radio;

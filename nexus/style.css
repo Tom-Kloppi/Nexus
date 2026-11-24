@@ -819,6 +819,7 @@ button {
   border-bottom-width: 5px;
 }
 
+.karma-pill,
 .risk-pill,
 .goal-pill {
   display: flex;
@@ -843,6 +844,7 @@ button {
   color: var(--ink-dim);
 }
 
+.karma-pill strong,
 .risk-pill strong,
 .goal-pill strong {
   font-variant-numeric: tabular-nums;
@@ -855,6 +857,7 @@ button {
   margin-left: -0.2rem;
 }
 
+.karma-meter,
 .risk-meter,
 .goal-pill-bar {
   width: 58px;
@@ -862,19 +865,31 @@ button {
   border-radius: var(--radius-pill);
   background: var(--btn-bg);
   overflow: hidden;
+  position: relative;
 }
 
+.karma-meter::after,
 .risk-meter::after {
   content: "";
   display: block;
   height: 100%;
-  width: calc(var(--risk) * 5%);
   max-width: 100%;
-  background: linear-gradient(90deg, var(--amber), var(--danger));
   border-radius: inherit;
-  transition: width var(--duration-fast) var(--ease-smooth-out);
+  transition: width var(--duration-fast) var(--ease-smooth-out), background var(--duration-fast) var(--ease-smooth-out);
 }
 
+.risk-meter::after {
+  width: calc(var(--risk) * 5%);
+  background: linear-gradient(90deg, var(--amber), var(--danger));
+}
+
+/* Karma −5…+5 → 0…100 % Füllung, Mitte = 0 */
+.karma-meter::after {
+  width: calc((var(--karma) + 5) * 10%);
+  background: linear-gradient(90deg, var(--danger), var(--amber) 45%, var(--ok));
+}
+
+.karma-cause,
 .risk-cause {
   font-size: 0.72rem;
   font-weight: 700;
@@ -884,6 +899,7 @@ button {
   text-overflow: ellipsis;
 }
 
+.karma-gate,
 .risk-gate {
   font-size: 0.72rem;
   font-weight: 650;
@@ -891,17 +907,25 @@ button {
   margin-left: -0.15rem;
 }
 
+.karma-pill.is-karma-low,
 .risk-pill.is-risk-warn {
   border-color: color-mix(in srgb, var(--amber) 55%, var(--panel-edge));
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--amber) 35%, transparent);
 }
 
+.karma-pill.is-karma-high {
+  border-color: color-mix(in srgb, var(--ok) 55%, var(--panel-edge));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--ok) 28%, transparent);
+}
+
+.karma-pill.is-karma-extreme,
 .risk-pill.is-risk-hot {
   border-color: color-mix(in srgb, var(--danger) 60%, var(--panel-edge));
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--danger) 28%, transparent);
   animation: risk-hot-pulse 1.4s ease-in-out infinite;
 }
 
+.karma-pill.is-karma-extreme .karma-cause,
 .risk-pill.is-risk-hot .risk-cause {
   color: var(--danger);
 }
@@ -917,6 +941,7 @@ button {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .karma-pill.is-karma-extreme,
   .risk-pill.is-risk-hot {
     animation: none;
   }
@@ -928,6 +953,170 @@ button {
   border-radius: inherit;
   background: linear-gradient(90deg, var(--accent), var(--ok));
   transition: width var(--duration-medium) var(--ease-smooth-out);
+}
+
+/* Dauerziele / Auftrag / Stall / Übertragung */
+.goal-item.is-active .goal-order {
+  font-weight: 700;
+}
+
+.goal-item.is-done {
+  opacity: 0.55;
+}
+
+.goal-progress {
+  font-size: 0.72rem;
+  color: var(--ink-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+.contract-strip,
+.transfer-inbox {
+  margin-top: 0.65rem;
+  padding: 0.55rem 0.65rem;
+  border-radius: 0.55rem;
+  background: color-mix(in srgb, var(--accent) 10%, var(--panel));
+  border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--panel-edge));
+}
+
+.contract-strip[hidden],
+.transfer-inbox[hidden],
+.stall-panel[hidden] {
+  display: none;
+}
+
+.contract-kicker,
+.transfer-kicker {
+  margin: 0 0 0.2rem;
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+}
+
+.contract-label,
+.transfer-item {
+  margin: 0;
+  font-size: 0.85rem;
+  font-weight: 650;
+}
+
+.contract-meta {
+  margin: 0.15rem 0 0.45rem;
+  font-size: 0.75rem;
+  color: var(--ink-dim);
+}
+
+.contract-actions,
+.transfer-actions,
+.stall-slot-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.stall-panel-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.45rem;
+}
+
+.stall-accept-count {
+  font-size: 0.72rem;
+  font-weight: 650;
+  color: var(--ink-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+.stall-board {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.stall-player {
+  padding: 0.45rem 0.5rem;
+  border-radius: 0.55rem;
+  border: 1px solid var(--panel-edge);
+  background: var(--panel);
+}
+
+.stall-player.is-self {
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--panel-edge));
+}
+
+.stall-player-name {
+  margin: 0 0 0.35rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.stall-slots {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.stall-slot {
+  display: grid;
+  gap: 0.3rem;
+  padding: 0.4rem;
+  border-radius: 0.45rem;
+  background: color-mix(in srgb, var(--btn-bg) 80%, transparent);
+  border: 1px dashed color-mix(in srgb, var(--ink) 12%, transparent);
+}
+
+.stall-slot.is-filled {
+  border-style: solid;
+}
+
+.stall-slot-line {
+  margin: 0;
+  font-size: 0.78rem;
+}
+
+.stall-edit-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  align-items: center;
+}
+
+.stall-edit-row select,
+.stall-edit-row input {
+  font: inherit;
+  font-size: 0.72rem;
+  padding: 0.15rem 0.3rem;
+  border-radius: 0.3rem;
+  border: 1px solid var(--panel-edge);
+  background: var(--panel);
+  color: var(--ink);
+  max-width: 5.5rem;
+}
+
+.stall-edit-row input[type="number"] {
+  width: 3rem;
+}
+
+.sp-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.35rem;
+  height: 1.15rem;
+  padding: 0 0.3rem;
+  margin-left: 0.25rem;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 800;
+  background: color-mix(in srgb, var(--ok) 22%, var(--panel));
+  color: var(--ok);
+  vertical-align: middle;
+}
+
+.metric-innovation {
+  outline: 1px solid color-mix(in srgb, #1c2430 35%, transparent);
 }
 
 /* ---------- 4 Stadt: Rahmen, Himmel, Kacheln ---------- */
@@ -3683,6 +3872,7 @@ button {
     justify-content: space-between;
   }
 
+  .karma-pill,
   .risk-pill,
   .goal-pill {
     flex: 1 1 0;

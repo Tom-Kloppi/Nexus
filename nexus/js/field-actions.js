@@ -2,6 +2,26 @@ window.Nexus = window.Nexus || {};
 
 /* Aktionen am angeklickten Feld. Regeln bleiben in den bestehenden Funktionen. */
 (function (Nexus) {
+  var TAB_FIGURE = {
+    energy: "bolt",
+    commerce: "money",
+    data: "arrows",
+    misc: "more"
+  };
+
+  var TAB_HINT = {
+    energy: "Strom erzeugen",
+    commerce: "Kasse füllen",
+    data: "Daten & Netz",
+    misc: "Park, Lager, Bahnhof"
+  };
+
+  var RES_LABEL = {
+    money: "Geld",
+    energy: "Energie",
+    bandwidth: "Daten"
+  };
+
   function zoneAtHit(state, hit) {
     if (!hit) {
       return null;
@@ -43,15 +63,65 @@ window.Nexus = window.Nexus || {};
     return bits;
   }
 
+  function playerMetric(player) {
+    if (Nexus.Goals && Nexus.Goals.metricOf) {
+      return Nexus.Goals.metricOf(player);
+    }
+    var role = player && Nexus.ROLES_BY_ID && Nexus.ROLES_BY_ID[player.roleId];
+    return role && role.pointKey ? role.pointKey : null;
+  }
+
+  function tileWhy(tile) {
+    if (!tile) {
+      return "";
+    }
+    var parts = [];
+    if (tile.primary && tile.primaryBase) {
+      parts.push("+" + tile.primaryBase + " " + (RES_LABEL[tile.primary] || tile.primary));
+    }
+    if (tile.secondary && tile.secondaryBase) {
+      parts.push("+" + tile.secondaryBase + " " + (RES_LABEL[tile.secondary] || tile.secondary));
+    }
+    if (tile.upkeep) {
+      var up = [];
+      ["energy", "money", "bandwidth"].forEach(function (key) {
+        if (tile.upkeep[key]) {
+          up.push("−" + tile.upkeep[key] + " " + (RES_LABEL[key] || key));
+        }
+      });
+      if (up.length) {
+        parts.push("Upkeep " + up.join(" "));
+      }
+    }
+    if (tile.karmaOnBuild) {
+      parts.push("Karma" + (tile.karmaOnBuild > 0 ? "+" : "") + tile.karmaOnBuild);
+    }
+    if (tile.adjacentResidentialBonus) {
+      parts.push("Bonus neben Wohnen");
+    }
+    if (tile.enterpriseCurve) {
+      parts.push("Reife-Kurve");
+    }
+    if (!tile.primary) {
+      parts.push("Kein Ressourcen-Ertrag");
+    }
+    if (tile.metrics && tile.metrics.length) {
+      parts.push("Metrik: " + tile.metrics.join(", "));
+    }
+    return parts.join(". ") || tile.label || "";
+  }
+
   function buildFx(state, zoneType, variant, cost) {
     var bits = costFx(cost);
     var preview = Nexus.describeZoneBuild ? Nexus.describeZoneBuild(state, zoneType, variant) : null;
     if (preview && preview.production && preview.production.amount) {
-      var amount = preview.production.amount;
-      if (zoneType === "residential" && preview.flags && preview.flags.residentialNeedsDc) {
-        amount = 0;
+      bits.push({ key: preview.production.resource, amount: preview.production.amount });
+      if (preview.production.secondary && preview.production.secondaryBase) {
+        bits.push({
+          key: preview.production.secondary,
+          amount: preview.production.secondaryBase
+        });
       }
-      bits.push({ key: preview.production.resource, amount: amount });
     }
     if (preview && preview.upkeep) {
       ["money", "energy", "bandwidth"].forEach(function (key) {
@@ -60,27 +130,13 @@ window.Nexus = window.Nexus || {};
         }
       });
     }
-    if (preview && preview.harvestScoreHint) {
-      ["image", "comfort", "environment", "security"].forEach(function (key) {
-        if (preview.harvestScoreHint[key]) {
-          bits.push({ key: key, amount: preview.harvestScoreHint[key] });
-        }
-      });
-    }
-    if (preview && preview.onBuild) {
-      ["image", "comfort", "environment", "security"].forEach(function (key) {
-        if (preview.onBuild[key]) {
-          bits.push({ key: key, amount: preview.onBuild[key] });
-        }
-      });
-    }
-    if (preview && preview.riskOnBuild) {
-      bits.push({ key: "risk", amount: preview.riskOnBuild });
+    if (preview && preview.flags && preview.flags.karmaOnBuild) {
+      bits.push({ key: "karma", amount: preview.flags.karmaOnBuild });
     }
     return bits;
   }
 
-  /* Zwei-Layer-Baumenü: Layer 1 = Ressourcen + …, Layer 2 = Felder darunter. */
+  /* Bau-Menü: 4 Tabs aus BUILD_TABS, alle Tiles aus BUILD_TILES. */
   function buildMenuTree(state, hit) {
     if (!hit || hit.q == null) {
       return { kind: "build-tree", hit: hit, groups: [], recommendGroup: null };
@@ -88,145 +144,74 @@ window.Nexus = window.Nexus || {};
     var q = Number(hit.q);
     var r = Number(hit.r);
     var player = Nexus.currentPlayer(state);
-    var cap =
-      player && Nexus.datacenterCapInfo ? Nexus.datacenterCapInfo(state, player.id) : null;
-    var rec = Nexus.recommendExpandType ? Nexus.recommendExpandType(state) : null;
+    var metric = playerMetric(player);
+    var tabs = Nexus.BUILD_TABS || [];
 
-    function make(type, variant, label, why) {
+    function makeFromTile(tile) {
       var offer = Nexus.getExpandOffer
-        ? Nexus.getExpandOffer(state, q, r, type, variant)
+        ? Nexus.getExpandOffer(state, q, r, tile.type, tile.variant, tile.id)
         : { allowed: false, reason: "" };
+      var ownMetric = !!(
+        metric &&
+        Nexus.tileMatchesMetric &&
+        Nexus.tileMatchesMetric(tile.id, metric)
+      );
+      var previewPts = 0;
+      if (ownMetric && Nexus.Goals && Nexus.Goals.previewBuildPoints && player) {
+        previewPts = Nexus.Goals.previewBuildPoints(state, player, tile.id, {
+          q: q,
+          r: r,
+          ownerId: player.id
+        }) || 0;
+      }
+      var fx = buildFx(state, tile.type, tile.variant, offer.cost);
+      if (previewPts > 0 && metric) {
+        fx.push({ key: metric, amount: previewPts });
+      }
       var action = item(
         "build",
-        label,
+        tile.shortLabel || tile.label,
         offer.allowed,
         offer.reason,
-        why,
-        { type: type, variant: variant, q: q, r: r },
-        buildFx(state, type, variant, offer.cost)
+        tileWhy(tile),
+        {
+          type: tile.type,
+          variant: tile.variant,
+          tileId: tile.id,
+          q: q,
+          r: r
+        },
+        fx
       );
       action.hit = hit;
-      if (
-        rec &&
-        rec.type === type &&
-        (rec.variant == null || rec.variant === variant || (!variant && !rec.variant))
-      ) {
-        action.recommended = true;
-      }
+      action.tileId = tile.id;
+      action.ownMetric = ownMetric;
+      action.recommended = ownMetric;
+      action.pointsPreview = previewPts;
       return action;
     }
 
-    var energyItems = [
-      make("energy", "solar", "Solar", "2 Energie fest, Umwelt+."),
-      make("energy", "transformer", "Umspannwerk", "3 Energie fest, 1 Geld je Einheit."),
-      make("energy", "nuclear", "Atom", "5 Energie, hohes Risiko, Umwelt−−.")
-    ];
-    var moneyItems = [
-      make("commerce", "factory", "Fabrik", "Geld +1 je angrenzendem Wohnfeld."),
-      make(
-        "commerce",
-        "enterprise",
-        "Unternehmen",
-        "Aufbau 1→3→5, Reife 5→3→1 je weiterem Unternehmen."
-      )
-    ];
-    var dcOpen = make(
-      "datacenter",
-      "insecure",
-      "Offen",
-      (cap ? cap.label + ". " : "") + "Daten, billiger, mehr Risiko."
-    );
-    var dcClosed = make(
-      "datacenter",
-      "secure",
-      "Geschlossen",
-      (cap ? cap.label + ". " : "") + "Daten + schaltet Wohn-Daten frei. Teurer, +Sicherheit."
-    );
-    var dcHub = item(
-      "dc-hub",
-      "Rechenzentrum",
-      !!(dcOpen.enabled || dcClosed.enabled),
-      dcOpen.enabled || dcClosed.enabled ? "" : dcOpen.reason || dcClosed.reason || "Geht gerade nicht.",
-      (cap ? cap.label + ". " : "") +
-        "Wohn-Daten freischalten. Offen = günstig/Risiko, geschlossen = teurer/sicher.",
-      null,
-      []
-    );
-    dcHub.kind = "dc-hub";
-    dcHub.capLabel = cap ? cap.label : "";
-    dcHub.dcModes = [dcOpen, dcClosed];
-    if (
-      rec &&
-      rec.type === "datacenter"
-    ) {
-      dcHub.recommended = true;
-    }
-    var dataItems = [
-      make("residential", null, "Wohnen", "Daten aus dem Quartier. Ohne eigenes Rechenzentrum = 0."),
-      dcHub
-    ];
-    /* … immer da: Garagen / E-Taxi / Park / Werkstatt. */
-    var moreItems = [
-      make("traffic", "garage", "Garagen", "Erstes Verkehrsfeld +1 Komfort. Kein Ressourcen-Primary."),
-      make(
-        "traffic",
-        "taxi",
-        "E-Taxi-Station",
-        "Je Ernte +2 Geld und +1 Komfort. Kostet 1 Energie und 1 Daten."
-      ),
-      make("park", null, "Park", "Grünfläche: +Komfort und +Umwelt, kein Ertrag."),
-      make("workshop", null, "Werkstatt", "Nächstes Gerät −1 Geld. +Image.")
-    ];
-
-    var groups = [
-      {
-        id: "energy",
-        label: "Energie",
-        figure: "bolt",
-        hint: "Strom erzeugen",
-        items: energyItems
-      },
-      {
-        id: "money",
-        label: "Geld",
-        figure: "money",
-        hint: "Kasse füllen",
-        items: moneyItems
-      },
-      {
-        id: "data",
-        label: "Daten",
-        figure: "arrows",
-        hint: "Netz & Rechenzentren",
-        items: dataItems
-      },
-      {
-        id: "more",
-        label: "Weiteres",
-        figure: "more",
-        hint: "Garagen, E-Taxi, Park, Werkstatt",
-        items: moreItems
-      }
-    ];
-
     var recommendGroup = null;
-    if (rec) {
-      if (rec.type === "energy") {
-        recommendGroup = "energy";
-      } else if (rec.type === "commerce" || rec.resource === "money") {
-        recommendGroup = "money";
-      } else if (rec.type === "residential" || rec.type === "datacenter" || rec.resource === "bandwidth") {
-        recommendGroup = "data";
-      } else {
-        recommendGroup = "more";
-      }
-    }
-
-    groups.forEach(function (group) {
-      group.recommended = group.id === recommendGroup;
-      group.anyEnabled = group.items.some(function (it) {
-        return it.enabled;
+    var groups = tabs.map(function (tab) {
+      var tiles = Nexus.tilesForTab ? Nexus.tilesForTab(tab.id) : [];
+      var items = tiles.map(makeFromTile);
+      var hasOwn = items.some(function (it) {
+        return it.ownMetric;
       });
+      if (hasOwn && !recommendGroup) {
+        recommendGroup = tab.id;
+      }
+      return {
+        id: tab.id,
+        label: tab.label,
+        figure: TAB_FIGURE[tab.id] || "more",
+        hint: TAB_HINT[tab.id] || tab.label,
+        items: items,
+        recommended: hasOwn,
+        anyEnabled: items.some(function (it) {
+          return it.enabled;
+        })
+      };
     });
 
     return {
@@ -241,45 +226,80 @@ window.Nexus = window.Nexus || {};
     return buildMenuTree(state, hit);
   }
 
+  function previewUpgradePoints(state, player, tileId) {
+    if (!player || !tileId || !Nexus.Goals || !Nexus.Goals.ensureProgress) {
+      return 0;
+    }
+    if (!Nexus.tileMatchesMetric || !Nexus.Goals.metricOf) {
+      return 0;
+    }
+    var metric = Nexus.Goals.metricOf(player);
+    if (!metric || !Nexus.tileMatchesMetric(tileId, metric)) {
+      return 0;
+    }
+    var progress = Nexus.Goals.ensureProgress(player);
+    var n = 0;
+    if ((progress.upgradeMetric || 0) + 1 >= 3) {
+      n += 1;
+    }
+    if ((progress.sameType[tileId] || 0) + 1 >= 3) {
+      n += 1;
+    }
+    return n;
+  }
+
+  function transferReasonText(reason) {
+    return (
+      {
+        wrong_phase: "Nur in der Bauphase.",
+        missing_zone: "Feld fehlt.",
+        is_home: "Kontrollbüro nicht übertragbar.",
+        own_or_empty: "Kein fremdes Feld.",
+        already_requested: "Diese Woche schon angefragt.",
+        blocked: "Übertragung blockiert.",
+        not_adjacent: "Muss an dein Netz angrenzen."
+      }[reason] || "Geht gerade nicht."
+    );
+  }
+
   function forOwned(state, zone) {
     var actions = [];
     var player = Nexus.currentPlayer(state);
     var mine = player && zone.ownerId === player.id;
     if (!mine) {
+      var xfer = Nexus.canRequestTransfer
+        ? Nexus.canRequestTransfer(state, zone.id)
+        : { allowed: false, reason: "own_or_empty" };
+      var costLabel =
+        xfer.cost && Nexus.formatCost ? Nexus.formatCost(xfer.cost) : "";
       actions.push(
         item(
-          "look",
-          "Fremdes Feld",
-          false,
-          "Du baust nur auf deinen Feldern.",
-          "Besitz und Ziel sind offen. Bauen darfst du hier nicht."
+          "transfer-request",
+          "Übertragung anfragen",
+          !!xfer.allowed,
+          xfer.allowed ? "" : transferReasonText(xfer.reason),
+          xfer.allowed
+            ? "Eigentümer kann schenken oder verkaufen" +
+                (costLabel ? " (Kaufpreis " + costLabel + ")" : "") +
+                "."
+            : "Nur angrenzend an dein Netz, einmal pro Feld und Zug.",
+          { zoneId: zone.id },
+          []
         )
       );
+      if (!xfer.allowed) {
+        actions.push(
+          item(
+            "look",
+            "Fremdes Feld",
+            false,
+            transferReasonText(xfer.reason) || "Du baust nur auf deinen Feldern.",
+            "Besitz ist offen. Bauen darfst du hier nicht."
+          )
+        );
+      }
       return actions;
     }
-    if (zone.type === "datacenter") {
-      var toSecure = zone.variant !== "secure";
-      var switchCost = toSecure ? { money: 2, bandwidth: 1 } : { money: 1 };
-      var canSwitch =
-        state.turnPhase === "build" &&
-        player.resources &&
-        (player.resources.money || 0) >= (switchCost.money || 0) &&
-        (player.resources.bandwidth || 0) >= (switchCost.bandwidth || 0);
-      actions.push(
-        item(
-          "dc-mode",
-          toSecure ? "Rechenzentrum schließen" : "Rechenzentrum öffnen",
-          canSwitch,
-          canSwitch ? "" : "Kosten oder Phase fehlen.",
-          toSecure
-            ? "Geschlossen: sicherer, teurer Wechsel. Icon wird blau."
-            : "Offen: günstiger Wechsel, mehr Risiko. Icon wird orange.",
-          { variant: toSecure ? "secure" : "insecure", zoneId: zone.id },
-          costFx(switchCost).concat(toSecure ? [{ key: "security", amount: 1 }] : [{ key: "risk", amount: 2 }])
-        )
-      );
-    }
-    /* Straßenrand-Taxistand (Bank) später — Hook offen, nicht spielbar. */
     if (zone.type === "home") {
       actions.push(
         item(
@@ -300,6 +320,13 @@ window.Nexus = window.Nexus || {};
     } else if (up.production && up.production.resource) {
       upFx.push({ key: up.production.resource, amount: 1 });
     }
+    var tileId =
+      zone.tileId || (Nexus.tileIdFromZone ? Nexus.tileIdFromZone(zone) : null);
+    var upPts = previewUpgradePoints(state, player, tileId);
+    var metric = playerMetric(player);
+    if (upPts > 0 && metric) {
+      upFx.push({ key: metric, amount: upPts });
+    }
     var upBlock = {
       cannot_afford: "Zu teuer.",
       maxed: "Schon Stufe 2.",
@@ -307,19 +334,20 @@ window.Nexus = window.Nexus || {};
       not_owner: "Nur eigene Felder.",
       missing_zone: "Feld fehlt."
     };
-    actions.push(
-      item(
-        "upgrade",
-        "Ausbau",
-        !!up.allowed,
-        up.allowed ? "" : upBlock[up.reason] || "Geht gerade nicht.",
-        up.allowed
-          ? "Stufe " + (up.fromLevel || 0) + " → " + (up.toLevel || 1) + ". Mehr Ertrag am Gebäude."
-          : "Ausbau nur in der Bauphase, auf eigenen Feldern, bis Stufe 2.",
-        { zoneId: zone.id },
-        costFx(up.cost || {}).concat(upFx)
-      )
+    var upAction = item(
+      "upgrade",
+      "Ausbau",
+      !!up.allowed,
+      up.allowed ? "" : upBlock[up.reason] || "Geht gerade nicht.",
+      up.allowed
+        ? "Stufe " + (up.fromLevel || 0) + " → " + (up.toLevel || 1) + ". Mehr Ertrag am Gebäude."
+        : "Ausbau nur in der Bauphase, auf eigenen Feldern, bis Stufe 2.",
+      { zoneId: zone.id },
+      costFx(up.cost || {}).concat(upFx)
     );
+    upAction.pointsPreview = upPts;
+    upAction.ownMetric = upPts > 0;
+    actions.push(upAction);
     if (zone.type !== "home") {
       var down = Nexus.describeDemolish ? Nexus.describeDemolish(state, zone.id) : { allowed: false, reason: "" };
       actions.push(

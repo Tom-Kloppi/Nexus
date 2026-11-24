@@ -11,6 +11,9 @@ var files = [
   "data/events.js",
   "data/stadtakten.js",
   "data/cards.js",
+  "data/build-tiles.js",
+  "data/karma-events.js",
+  "data/contracts.js",
   "data/roles.js",
   "glossary.js",
   "dice.js",
@@ -21,6 +24,7 @@ var files = [
   "dialog.js",
   "field-actions.js",
   "roles.js",
+  "goals.js",
   "state.js"
 ];
 

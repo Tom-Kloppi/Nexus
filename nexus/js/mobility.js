@@ -111,10 +111,9 @@ window.Nexus = window.Nexus || {};
     return found;
   }
 
-  function hasSecureDc(state, playerId) {
-    return (state.zones || []).some(function (zone) {
-      return zone.ownerId === playerId && zone.type === "datacenter" && zone.variant === "secure";
-    });
+  /* DC-Sonderlogik entfernt — immer false. */
+  function hasSecureDc() {
+    return false;
   }
 
   /* No-Ops: Linien/Haltestellen/Depots entfernt. */

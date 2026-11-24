@@ -1140,14 +1140,24 @@ window.Nexus = window.Nexus || {};
     var uses = {
       residential: "--lu-res-top",
       "energy-solar": "--lu-solar-top",
+      "energy-wind": "--lu-solar-top",
       "energy-transformer": "--lu-trafo-top",
+      "energy-coal": "--lu-trafo-top",
       "energy-nuclear": "--lu-trafo-top",
       "datacenter-insecure": "--lu-dcopen-top",
       "datacenter-secure": "--lu-dcsafe-top",
+      server: "--lu-dcsafe-top",
+      admin: "--lu-dcopen-top",
       "commerce-factory": "--lu-traffic-top",
       "commerce-enterprise": "--lu-home-top",
+      "commerce-small": "--lu-home-top",
+      "commerce-large": "--lu-home-top",
+      "commerce-recycle": "--lu-farm-top",
       traffic: "--lu-traffic-top",
       "traffic-garage": "--lu-traffic-top",
+      taxi: "--lu-traffic-top",
+      yard: "--lu-traffic-top",
+      station: "--lu-traffic-top",
       workshop: "--lu-farm-top",
       home: "--lu-home-top",
       park: "--lu-park-top"
@@ -1766,9 +1776,163 @@ window.Nexus = window.Nexus || {};
     addBox(parent, mats.steel, 0.7, 0.28, 0.5, x, y, z, 0);
   }
 
+  /*
+   * Abgabe tileId → visual (Kenney remap / mesh stub). Keine Regeln.
+   * energy-wind      → mesh artWind (kein Turbine-GLB)
+   * energy-nuclear   → kenney energy-nuclear
+   * energy-coal      → kenney energy-transformer (Kohle/Halle)
+   * energy-solar     → kenney energy-solar
+   * commerce-factory → kenney commerce-factory
+   * commerce-small   → kenney commerce-enterprise (Büro/Laden)
+   * commerce-large   → kenney home (Skyline-Bulk)
+   * commerce-recycle → kenney workshop (Schrott/Recycling)
+   * data-residential → kenney residential
+   * data-server      → kenney datacenter-secure
+   * data-taxi        → kenney traffic-taxi
+   * data-admin       → kenney datacenter (Büro/Verwaltung)
+   * misc-yard        → kenney traffic-garage (Lager/Park)
+   * misc-station     → kenney traffic-taxi (Bahnhofshallen)
+   * misc-park        → kenney park
+   */
+  var TILE_PAD_KEYS = {
+    "energy-wind": "energy-wind",
+    "energy-nuclear": "energy-nuclear",
+    "energy-coal": "energy-coal",
+    "energy-solar": "energy-solar",
+    "commerce-factory": "commerce-factory",
+    "commerce-small": "commerce-small",
+    "commerce-large": "commerce-large",
+    "commerce-recycle": "commerce-recycle",
+    "data-residential": "residential",
+    "data-server": "server",
+    "data-taxi": "taxi",
+    "data-admin": "admin",
+    "misc-yard": "yard",
+    "misc-station": "station",
+    "misc-park": "park"
+  };
+
+  function boardTileId(zone) {
+    if (!zone) {
+      return null;
+    }
+    if (Nexus.tileIdFromZone) {
+      return Nexus.tileIdFromZone(zone);
+    }
+    if (zone.tileId) {
+      return zone.tileId;
+    }
+    return null;
+  }
+
+  /* Zone-Shape für KenneyBuildings.catalog / BoardKit — nur Optik. */
+  function kenneyAliasZone(zone) {
+    var tileId = boardTileId(zone);
+    if (tileId === "energy-wind") {
+      return null;
+    }
+    if (tileId === "energy-nuclear") {
+      return { type: "energy", variant: "nuclear" };
+    }
+    if (tileId === "energy-coal") {
+      return { type: "energy", variant: "transformer" };
+    }
+    if (tileId === "energy-solar") {
+      return { type: "energy", variant: "solar" };
+    }
+    if (tileId === "commerce-factory") {
+      return { type: "commerce", variant: "factory" };
+    }
+    if (tileId === "commerce-small") {
+      return { type: "commerce", variant: "enterprise" };
+    }
+    if (tileId === "commerce-large") {
+      return { type: "home" };
+    }
+    if (tileId === "commerce-recycle") {
+      return { type: "workshop" };
+    }
+    if (tileId === "data-residential") {
+      return { type: "residential" };
+    }
+    if (tileId === "data-server") {
+      return { type: "datacenter", variant: "secure" };
+    }
+    if (tileId === "data-taxi") {
+      return { type: "traffic", variant: "taxi", trafficMode: "taxi" };
+    }
+    if (tileId === "data-admin") {
+      return { type: "datacenter" };
+    }
+    if (tileId === "misc-yard") {
+      return { type: "traffic", variant: "garage", trafficMode: "garage" };
+    }
+    if (tileId === "misc-station") {
+      return { type: "traffic", variant: "taxi", trafficMode: "taxi" };
+    }
+    if (tileId === "misc-park") {
+      return { type: "park" };
+    }
+    /* Legacy / home / unbekannte Typen: unverändert an Kenney. */
+    return zone;
+  }
+
+  function dressKindForZone(zone) {
+    var tileId = boardTileId(zone);
+    if (
+      tileId === "data-server" ||
+      tileId === "data-admin" ||
+      zone.type === "server" ||
+      zone.type === "admin" ||
+      zone.type === "datacenter"
+    ) {
+      return "datacenter";
+    }
+    if (
+      tileId === "data-taxi" ||
+      tileId === "misc-yard" ||
+      tileId === "misc-station" ||
+      zone.type === "taxi" ||
+      zone.type === "yard" ||
+      zone.type === "station" ||
+      zone.type === "traffic"
+    ) {
+      return "traffic";
+    }
+    if (zone.type === "home") {
+      return "home";
+    }
+    if (zone.type === "residential" || tileId === "data-residential") {
+      return "residential";
+    }
+    if (zone.type === "energy" || (tileId && tileId.indexOf("energy-") === 0)) {
+      return "energy";
+    }
+    return zone.type || "empty";
+  }
+
   function landUseKey(zone) {
     if (!zone) {
       return "grass";
+    }
+    var tileId = boardTileId(zone);
+    if (tileId && TILE_PAD_KEYS[tileId]) {
+      return TILE_PAD_KEYS[tileId];
+    }
+    if (zone.type === "server") {
+      return "server";
+    }
+    if (zone.type === "taxi") {
+      return "taxi";
+    }
+    if (zone.type === "admin") {
+      return "admin";
+    }
+    if (zone.type === "yard") {
+      return "yard";
+    }
+    if (zone.type === "station") {
+      return "station";
     }
     if (zone.variant) {
       return zone.type + "-" + zone.variant;
@@ -1856,7 +2020,13 @@ window.Nexus = window.Nexus || {};
   }
 
   function isTaxiZone(zone) {
-    return !!(zone && zone.type === "traffic" && trafficKind(zone.q, zone.r, zone) === "taxi");
+    if (!zone) {
+      return false;
+    }
+    if (zone.type === "taxi" || boardTileId(zone) === "data-taxi") {
+      return true;
+    }
+    return zone.type === "traffic" && trafficKind(zone.q, zone.r, zone) === "taxi";
   }
 
   function desaturateGroup(group) {
@@ -2139,6 +2309,131 @@ window.Nexus = window.Nexus || {};
     addCyl(group, mats.concrete, 0.36, 0.48, 4.0 + level * 0.4, -1.2, TILE_H, -2.0, 10);
     addCyl(group, mats.tank || mats.steel, 0.7, 0.7, 1.2, 2.5, TILE_H, -1.6, 10);
     dressDevices(group, "energy", gizmos);
+  }
+
+  function artWind(group, level, gizmos) {
+    /* Stub: kein Kenney-Turbine-GLB — Mast + Rotor-Kreuz. */
+    var mastH = 5.4 + level * 0.9;
+    addCyl(group, mats.lot, 2.6, 2.6, 0.1, 0, TILE_H, 0, 12);
+    addCyl(group, mats.steel, 0.16, 0.22, mastH, 0, TILE_H, 0, 8);
+    addBox(group, mats.cream, 0.12, 2.5 + level * 0.2, 0.35, 0, TILE_H + mastH, 0, 0);
+    addBox(group, mats.cream, 2.5 + level * 0.2, 0.12, 0.35, 0, TILE_H + mastH, 0, 0);
+    if (level >= 1) {
+      addCyl(group, mats.steel, 0.12, 0.16, mastH * 0.72, -2.2, TILE_H, 1.4, 8);
+      addBox(group, mats.cream, 1.8, 0.1, 0.28, -2.2, TILE_H + mastH * 0.72, 1.4, 0.4);
+      addBox(group, mats.cream, 0.1, 1.8, 0.28, -2.2, TILE_H + mastH * 0.72, 1.4, 0.4);
+    }
+    dressDevices(group, "energy", gizmos);
+  }
+
+  function artCoal(group, level, gizmos) {
+    artTransformer(group, level, gizmos);
+  }
+
+  function artAdmin(group, level, gizmos, q, r) {
+    artDatacenter(group, level, gizmos, false, q, r);
+  }
+
+  function artServer(group, level, gizmos, q, r) {
+    artDatacenter(group, level, gizmos, true, q, r);
+  }
+
+  function artYard(group, level, gizmos) {
+    artGarage(group, level, gizmos);
+  }
+
+  function artStation(group, level, gizmos) {
+    artBus(group, level, gizmos);
+  }
+
+  function artRecycle(group, level) {
+    artWorkshop(group, level);
+  }
+
+  function artTileFallback(group, zone, level, gizmos, q, r) {
+    var tileId = boardTileId(zone);
+    if (tileId === "energy-wind" || (zone.type === "energy" && zone.variant === "wind")) {
+      artWind(group, level, gizmos);
+      return;
+    }
+    if (tileId === "energy-nuclear" || (zone.type === "energy" && zone.variant === "nuclear")) {
+      artNuclear(group, level, gizmos);
+      return;
+    }
+    if (
+      tileId === "energy-coal" ||
+      (zone.type === "energy" && (zone.variant === "coal" || zone.variant === "transformer"))
+    ) {
+      artCoal(group, level, gizmos);
+      return;
+    }
+    if (tileId === "energy-solar" || zone.type === "energy") {
+      artSolar(group, level, gizmos);
+      return;
+    }
+    if (tileId === "commerce-factory" || (zone.type === "commerce" && zone.variant === "factory")) {
+      artCommerce(group, level, false);
+      return;
+    }
+    if (tileId === "commerce-large" || (zone.type === "commerce" && (zone.variant === "large" || zone.variant === "enterprise"))) {
+      artCommerce(group, level, true);
+      return;
+    }
+    if (tileId === "commerce-recycle" || (zone.type === "commerce" && zone.variant === "recycle")) {
+      artRecycle(group, level);
+      return;
+    }
+    if (tileId === "commerce-small" || zone.type === "commerce") {
+      artCommerce(group, level, false);
+      return;
+    }
+    if (tileId === "data-residential" || zone.type === "residential") {
+      artResidential(group, level, gizmos, q, r);
+      return;
+    }
+    if (tileId === "data-server" || zone.type === "server") {
+      artServer(group, level, gizmos, q, r);
+      return;
+    }
+    if (tileId === "data-taxi" || zone.type === "taxi") {
+      artBus(group, level, gizmos);
+      return;
+    }
+    if (tileId === "data-admin" || zone.type === "admin") {
+      artAdmin(group, level, gizmos, q, r);
+      return;
+    }
+    if (tileId === "misc-yard" || zone.type === "yard") {
+      artYard(group, level, gizmos);
+      return;
+    }
+    if (tileId === "misc-station" || zone.type === "station") {
+      artStation(group, level, gizmos);
+      return;
+    }
+    if (tileId === "misc-park" || zone.type === "park") {
+      artParkZone(group);
+      return;
+    }
+    if (zone.type === "home") {
+      artHome(group, level, gizmos, q, r);
+      return;
+    }
+    if (zone.type === "datacenter") {
+      artDatacenter(group, level, gizmos, zone.variant === "secure", q, r);
+      return;
+    }
+    if (zone.type === "workshop") {
+      artWorkshop(group, level);
+      return;
+    }
+    if (zone.type === "traffic") {
+      if (trafficKind(q, r, zone) === "taxi") {
+        artBus(group, level, gizmos);
+      } else {
+        artGarage(group, level, gizmos);
+      }
+    }
   }
 
   function artCommerce(group, level, enterprise) {
@@ -6217,6 +6512,7 @@ window.Nexus = window.Nexus || {};
         z.id,
         z.type,
         z.variant || "",
+        z.tileId || "",
         z.ownerId,
         z.upgradeLevel || 0,
         z.lastDieId || "",
@@ -6326,30 +6622,35 @@ window.Nexus = window.Nexus || {};
           Nexus.KenneyBuildings.isReady() &&
           Nexus.KenneyBuildings.qualityAllows(qTier);
         var facingYaw = ownerFacingYaw(state, zone.ownerId);
+        var dressKind = dressKindForZone(zone);
+        var aliasZone = kenneyAliasZone(zone);
         var kenneyBuilt =
-          kenneyReady &&
-          Nexus.KenneyBuildings.build(group, {
-            zone: zone,
-            q: slot.q,
-            r: slot.r,
-            level: level,
-            TILE_H: TILE_H,
-            qualityTier: qTier,
-            shadows: !!(qualityParams() && qualityParams().shadows),
-            facingYaw: facingYaw
-          });
+          !!(
+            aliasZone &&
+            kenneyReady &&
+            Nexus.KenneyBuildings.build(group, {
+              zone: aliasZone,
+              q: slot.q,
+              r: slot.r,
+              level: level,
+              TILE_H: TILE_H,
+              qualityTier: qTier,
+              shadows: !!(qualityParams() && qualityParams().shadows),
+              facingYaw: facingYaw
+            })
+          );
         if (kenneyBuilt) {
-          dressDevices(group, zone.type === "home" ? "home" : zone.type, giz);
+          dressDevices(group, dressKind, giz);
         }
-        var tKind = zone.type === "traffic" ? trafficKind(slot.q, slot.r, zone) : null;
         /* Kenney deckt Parkplatz/Parkhaus ab — BoardKit nur als Fallback. */
         var kitBuilt =
           !kenneyBuilt &&
           !kenneyReady &&
+          !!aliasZone &&
           Nexus.BoardKit &&
           Nexus.BoardKit.build &&
           Nexus.BoardKit.build(group, {
-            zone: zone,
+            zone: aliasZone,
             q: slot.q,
             r: slot.r,
             level: level,
@@ -6359,35 +6660,11 @@ window.Nexus = window.Nexus || {};
             addCyl: addCyl,
             addSphere: addSphere,
             dressDevices: function () {
-              dressDevices(group, zone.type === "home" ? "home" : zone.type, giz);
+              dressDevices(group, dressKind, giz);
             }
           });
-        if (kitBuilt || kenneyBuilt) {
-          /* Kenney-Workshop bringt schon Mauern/Pylonen/Autoteile mit. */
-        } else if (zone.type === "home") {
-          artHome(group, level, giz, slot.q, slot.r);
-        } else if (zone.type === "residential") {
-          artResidential(group, level, giz, slot.q, slot.r);
-        } else if (zone.type === "energy" && zone.variant === "nuclear") {
-          artNuclear(group, level, giz);
-        } else if (zone.type === "energy" && zone.variant === "transformer") {
-          artTransformer(group, level, giz);
-        } else if (zone.type === "energy") {
-          artSolar(group, level, giz);
-        } else if (zone.type === "datacenter") {
-          artDatacenter(group, level, giz, zone.variant === "secure", slot.q, slot.r);
-        } else if (zone.type === "commerce") {
-          artCommerce(group, level, zone.variant === "enterprise");
-        } else if (zone.type === "park") {
-          artParkZone(group);
-        } else if (zone.type === "workshop") {
-          artWorkshop(group, level);
-        } else if (zone.type === "traffic") {
-          if (tKind === "taxi") {
-            artBus(group, level, giz);
-          } else {
-            artGarage(group, level, giz);
-          }
+        if (!kitBuilt && !kenneyBuilt) {
+          artTileFallback(group, zone, level, giz, slot.q, slot.r);
         }
         var ownerMatch = state.players.filter(function (p) {
           return p.id === zone.ownerId;
@@ -6397,13 +6674,13 @@ window.Nexus = window.Nexus || {};
           tintOwnedBuildings(group, owner.colorIndex || 0);
         }
         /* Kein Gras-Overlay auf Spielerfarbe — nur Bäume am Rand bei Park. */
-        if (zone.type === "park") {
-          dressTileProps(group, "park", slot.q, slot.r, 3);
-        } else if (zone.type === "home") {
-          dressTileProps(group, "home", slot.q, slot.r, 2);
-        } else {
-          dressTileProps(group, zone.type || "empty", slot.q, slot.r, 3);
-        }
+        var propKind =
+          zone.type === "park" || boardTileId(zone) === "misc-park"
+            ? "park"
+            : zone.type === "home"
+              ? "home"
+              : zone.type || "empty";
+        dressTileProps(group, propKind, slot.q, slot.r, propKind === "home" ? 2 : 3);
       } else {
         var green =
           Nexus.BoardProps && Nexus.BoardProps.greenPlan
@@ -7072,6 +7349,7 @@ window.Nexus = window.Nexus || {};
         z.id,
         z.type,
         z.variant || "",
+        z.tileId || "",
         z.ownerId,
         z.upgradeLevel || 0,
         z.trafficMode || "",
