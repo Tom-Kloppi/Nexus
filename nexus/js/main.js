@@ -2453,34 +2453,24 @@ document.getElementById("btn-end-round").addEventListener("click", function () {
     (next.zones || []).forEach(function (zone) {
       existing[zone.q + "," + zone.r] = true;
     });
-    var types = [
-      ["residential", null],
-      ["energy", "solar"],
-      ["energy", "transformer"],
-      ["energy", "nuclear"],
-      ["commerce", "factory"],
-      ["commerce", "enterprise"],
-      ["datacenter", "secure"],
-      ["datacenter", "insecure"],
-      ["traffic", null],
-      ["park", null],
-      ["workshop", null]
-    ];
+    var tileIds = Nexus.BUILD_TILE_IDS || [];
     var extra = (next.zones || []).slice();
     Nexus.boardSlots().forEach(function (slot, index) {
       if (existing[slot.key]) {
         return;
       }
-      var spec = types[index % types.length];
+      var tileId = tileIds[index % tileIds.length];
+      var def = (Nexus.BUILD_TILES && Nexus.BUILD_TILES[tileId]) || {};
       var owner = next.players[index % next.players.length];
       extra.push({
         id: "zone-" + slot.q + "-" + slot.r,
         q: slot.q,
         r: slot.r,
-        type: spec[0],
-        variant: spec[1],
+        type: def.type || "park",
+        variant: def.variant || null,
+        tileId: tileId,
         ownerId: owner.id,
-        upgradeLevel: index % 3,
+        upgradeLevel: index % 2,
         harvested: true,
         lastYield: null
       });
