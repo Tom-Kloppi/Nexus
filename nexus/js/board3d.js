@@ -7921,6 +7921,28 @@ window.Nexus = window.Nexus || {};
         renderer.render(scene, camera);
       }
     },
+    /* Nahaufnahme eines Hex: Pan auf Feldzentrum, optionale Distanz (Default eng). */
+    focusHex: function (q, r, distance) {
+      var p = axial(Number(q) || 0, Number(r) || 0);
+      cam.userAdjusted = true;
+      cam.panX = p.x;
+      cam.panZ = p.z;
+      cam.targetPanX = cam.panX;
+      cam.targetPanZ = cam.panZ;
+      cam.distance = clamp(
+        distance == null ? 46 : Number(distance),
+        CAM_DIST_MIN,
+        CAM_DIST_MAX
+      );
+      cam.targetDistance = cam.distance;
+      cam.polar = clamp(cam.polar, CAM_POLAR_MIN, CAM_POLAR_MAX);
+      cam.targetPolar = cam.polar;
+      applyCamera();
+      if (renderer && scene && camera) {
+        renderer.render(scene, camera);
+      }
+      return { q: q, r: r, distance: cam.distance, panX: cam.panX, panZ: cam.panZ };
+    },
     projectCause: projectCause,
     setPitch: function (value) {
       cam.pitchSlider = Math.max(0, Math.min(100, Number(value) || 58));
