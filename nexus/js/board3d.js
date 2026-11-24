@@ -63,7 +63,7 @@ window.Nexus = window.Nexus || {};
     pixelLook: false
   };
 
-  var qualityChoice = "auto";
+  var qualityChoice = "medium";
   var resolvedPreset = "medium";
   var qualityReady = false;
   var activeQuality = Object.assign({}, FALLBACK_QUALITY);
@@ -276,21 +276,24 @@ window.Nexus = window.Nexus || {};
   }
 
   function normalizeQuality(value) {
-    var legacy = { quality: "high", balance: "medium", performance: "low" };
+    if (Nexus.Quality && Nexus.Quality.clampTier) {
+      return Nexus.Quality.clampTier(value);
+    }
+    var legacy = {
+      auto: "medium",
+      minimal: "low",
+      ultra: "high",
+      quality: "high",
+      balance: "medium",
+      performance: "low"
+    };
     if (legacy[value]) {
       return legacy[value];
     }
-    if (
-      value === "auto" ||
-      value === "minimal" ||
-      value === "low" ||
-      value === "medium" ||
-      value === "high" ||
-      value === "ultra"
-    ) {
+    if (value === "low" || value === "medium" || value === "high") {
       return value;
     }
-    return "auto";
+    return "medium";
   }
 
   function probeGpu() {
@@ -345,11 +348,11 @@ window.Nexus = window.Nexus || {};
       !(function () {
         var search = window.location && window.location.search;
         var fromUrl = Nexus.Quality.parseUrl(search || "");
-        return fromUrl.tier && fromUrl.tier !== "auto";
+        return !!fromUrl.tier;
       })()
     ) {
-      Nexus.Quality.setManual("minimal");
-      Nexus.Quality.setCap("minimal");
+      Nexus.Quality.setManual("low");
+      Nexus.Quality.setCap("low");
     }
     return out;
   }
@@ -577,7 +580,7 @@ window.Nexus = window.Nexus || {};
       canvas: canvas,
       antialias: !!activeQuality.antialias,
       alpha: false,
-      powerPreference: resolvedPreset === "minimal" || resolvedPreset === "low" ? "low-power" : "high-performance"
+      powerPreference: resolvedPreset === "low" ? "low-power" : "high-performance"
     });
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.setClearColor(col("--sky-mid", isNight() ? "#12303a" : "#9bd6d4"), 1);
@@ -620,7 +623,7 @@ window.Nexus = window.Nexus || {};
     var prevAa = !!activeQuality.antialias;
     var prevCars = CAR_COUNT;
     if (Nexus.Quality) {
-      Nexus.Quality.setManual(nextChoice === "auto" ? "auto" : nextChoice);
+      Nexus.Quality.setManual(nextChoice);
     }
     var changed = !qualityReady || nextChoice !== qualityChoice;
     resolveQuality(nextChoice);
@@ -1216,13 +1219,10 @@ window.Nexus = window.Nexus || {};
       scene.fog = new THREE.Fog(new THREE.Color(fogCol), FOG_NEAR, FOG_FAR);
     }
     if (extras.sun) {
-      extras.sun.castShadow = !!(tuned && tuned.shadows);
-      if (tuned && tuned.shadows && extras.sun.shadow && extras.sun.shadow.mapSize) {
-        extras.sun.shadow.mapSize.set(tuned.shadowMap || 512, tuned.shadowMap || 512);
-      }
+      extras.sun.castShadow = false;
     }
     if (renderer && renderer.shadowMap) {
-      renderer.shadowMap.enabled = !!(tuned && tuned.shadows);
+      renderer.shadowMap.enabled = false;
     }
     if (renderer) {
       renderer.setClearColor(skyCol, 1);
@@ -2501,8 +2501,7 @@ window.Nexus = window.Nexus || {};
   }
 
   function kenneyTierNow() {
-    var live = (qualityParams() || {}).tier || resolvedPreset || "medium";
-    return qualityChoice && qualityChoice !== "auto" ? qualityChoice : live;
+    return qualityChoice || (qualityParams() || {}).tier || resolvedPreset || "medium";
   }
 
   function tryKenneyFiller(group, rand) {
@@ -6296,7 +6295,7 @@ window.Nexus = window.Nexus || {};
         }
         if (!root && geo.vehCar) {
           root = new THREE.Mesh(geo.vehCar, mats.vehicle || mats.car);
-          root.castShadow = shadowsOn;
+          root.castShadow = false;
         }
         if (!root) {
           continue;
@@ -6612,10 +6611,7 @@ window.Nexus = window.Nexus || {};
         padKey = landUseKey(zone);
         var level = (Nexus.zoneUpgradeLevel && Nexus.zoneUpgradeLevel(zone)) || zone.upgradeLevel || 0;
         var giz = gizmosFor(state, zone, player);
-        /* Menü-Stufe zählt für Kenney (nicht nur Live-Governor) — sonst bleibt Auto/Balance bei Boxen. */
-        var liveTier = (qualityParams() || {}).tier || resolvedPreset || "medium";
-        var qTier =
-          qualityChoice && qualityChoice !== "auto" ? qualityChoice : liveTier;
+        var qTier = qualityChoice || (qualityParams() || {}).tier || resolvedPreset || "medium";
         var kenneyReady =
           Nexus.KenneyBuildings &&
           Nexus.KenneyBuildings.isReady &&
@@ -7318,7 +7314,7 @@ window.Nexus = window.Nexus || {};
     return (
       (document.documentElement.getAttribute("data-theme") || "light") +
       "|" +
-      (qualityChoice || "auto") +
+      (qualityChoice || "medium") +
       "|" +
       activeBiome +
       "|" +

@@ -76,7 +76,7 @@ Nexus.TUTORIAL_STEPS = [
     scene: "setup",
     target: "#setup-screen .js-settings-btn",
     title: "Darstellung",
-    body: "Zahnrad: Tageslicht/Nachtstadt, UI-Größe, Board-Qualität und Biom. Einstellungen bleiben auf diesem Gerät gespeichert."
+    body: "Zahnrad: Tageslicht/Nachtstadt, UI-Größe, Grafik (Niedrig/Mittel/Hoch) und Biom. Einstellungen bleiben auf diesem Gerät gespeichert."
   },
   {
     id: "setup-theme",

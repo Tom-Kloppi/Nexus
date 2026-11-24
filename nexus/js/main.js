@@ -34,7 +34,7 @@ window.Nexus = window.Nexus || {};
     theme: localStorage.getItem("nexus-theme") || "light",
     uiScale: Number(localStorage.getItem("nexus-ui-scale") || "1"),
     camPitch: Number(localStorage.getItem("nexus-cam-pitch") || "58"),
-    boardQuality: localStorage.getItem("nexus-board-quality") || "auto",
+    boardQuality: localStorage.getItem("nexus-board-quality") || "medium",
     biome: localStorage.getItem("nexus-biome") || "grass"
   };
   if (prefs.uiScale < 0.8 || prefs.uiScale > 1.25 || Number.isNaN(prefs.uiScale)) {
@@ -45,20 +45,23 @@ window.Nexus = window.Nexus || {};
   }
   prefs.camPitch = Math.max(0, Math.min(100, prefs.camPitch));
   (function normalizeBoardQualityPref() {
-    var legacy = { quality: "high", balance: "medium", performance: "low" };
+    if (Nexus.Quality && Nexus.Quality.clampTier) {
+      prefs.boardQuality = Nexus.Quality.clampTier(prefs.boardQuality);
+      return;
+    }
+    var legacy = {
+      auto: "medium",
+      minimal: "low",
+      ultra: "high",
+      quality: "high",
+      balance: "medium",
+      performance: "low"
+    };
     if (legacy[prefs.boardQuality]) {
       prefs.boardQuality = legacy[prefs.boardQuality];
     }
-    var ok = {
-      auto: 1,
-      minimal: 1,
-      low: 1,
-      medium: 1,
-      high: 1,
-      ultra: 1
-    };
-    if (!ok[prefs.boardQuality]) {
-      prefs.boardQuality = "auto";
+    if (prefs.boardQuality !== "low" && prefs.boardQuality !== "medium" && prefs.boardQuality !== "high") {
+      prefs.boardQuality = "medium";
     }
   })();
   if (prefs.biome !== "grass" && prefs.biome !== "desert" && prefs.biome !== "water" && prefs.biome !== "random") {
@@ -98,10 +101,7 @@ window.Nexus = window.Nexus || {};
       JSON.stringify({
         tier: st.tier,
         cap: st.cap,
-        manual: st.manual,
-        fps: st.fpsTarget,
-        battery: st.battery,
-        toggles: st.toggles,
+        manual: st.manual || prefs.boardQuality,
         fingerprint: Nexus.Quality.fingerprint(gfxInfo())
       })
     );
@@ -109,43 +109,26 @@ window.Nexus = window.Nexus || {};
 
   if (Nexus.Quality) {
     var storedGfx = loadGfx() || {};
-    var legacyTier = { quality: "high", balance: "medium", performance: "low" };
-    if (!storedGfx.manual && prefs.boardQuality && prefs.boardQuality !== "auto") {
-      storedGfx.manual = legacyTier[prefs.boardQuality] || prefs.boardQuality;
-    }
+    storedGfx.manual = Nexus.Quality.clampTier(storedGfx.manual || prefs.boardQuality);
+    prefs.boardQuality = storedGfx.manual;
     if (localStorage.getItem("nexus-session-open") === "1") {
       storedGfx.crashed = true;
     }
     localStorage.setItem("nexus-session-open", "1");
     Nexus.Quality.boot(gfxInfo(), storedGfx, window.location.search);
+    prefs.boardQuality = Nexus.Quality.clampTier(Nexus.Quality.state().manual || Nexus.Quality.state().tier);
     document.documentElement.setAttribute("data-gfx", Nexus.Quality.state().tier);
     window.setTimeout(function () {
       localStorage.removeItem("nexus-session-open");
       saveGfx();
     }, 8000);
-    var calibFrames = [];
-    var calibLast = 0;
-    var calibStart = window.performance && performance.now ? performance.now() : Date.now();
-    var calib = function (now) {
-      if (calibLast) {
-        calibFrames.push(now - calibLast);
-      }
-      calibLast = now;
-      if (now - calibStart < 700) {
-        window.requestAnimationFrame(calib);
-        return;
-      }
-      var result = Nexus.Quality.calibrate(calibFrames, gfxInfo());
-      if (!Nexus.Quality.state().manual) {
-        Nexus.Quality.acceptCalibration(result);
-      }
-      saveGfx();
-      document.documentElement.setAttribute("data-gfx", Nexus.Quality.state().tier);
-      if (storedGfx.crashed && Nexus.pushToast) {
-        Nexus.pushToast("Grafik reduziert: die letzte Sitzung wurde unterbrochen.");
-      }
-    };
-    window.requestAnimationFrame(calib);
+    if (storedGfx.crashed) {
+      window.requestAnimationFrame(function () {
+        if (Nexus.pushToast) {
+          Nexus.pushToast("Grafik reduziert: die letzte Sitzung wurde unterbrochen.");
+        }
+      });
+    }
   }
 
   /* Klick auf einen gesperrten Knopf: wackeln und den Grund nennen, nicht schweigen */
@@ -1622,13 +1605,10 @@ document.getElementById("btn-end-round").addEventListener("click", function () {
   }
 
   function setBoardQuality(value) {
-    var legacy = { quality: "high", balance: "medium", performance: "low" };
-    if (legacy[value]) {
-      value = legacy[value];
-    }
-    var allowed = { auto: 1, minimal: 1, low: 1, medium: 1, high: 1, ultra: 1 };
-    if (!allowed[value]) {
-      value = "auto";
+    if (Nexus.Quality && Nexus.Quality.clampTier) {
+      value = Nexus.Quality.clampTier(value);
+    } else if (value !== "low" && value !== "medium" && value !== "high") {
+      value = "medium";
     }
     prefs.boardQuality = value;
     applyAppearance();

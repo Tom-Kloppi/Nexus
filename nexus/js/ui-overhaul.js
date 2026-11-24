@@ -1034,11 +1034,6 @@ window.Nexus = window.Nexus || {};
     } else if (devRunPanel) {
       devRunPanel.hidden = true;
     }
-    var note = document.querySelector(".js-gfx-note");
-    if (note && Nexus.Quality) {
-      var st = Nexus.Quality.state();
-      note.textContent = "Stufe " + (Nexus.Quality.LABELS[st.tier] || st.tier) + ", Grenze " + (Nexus.Quality.LABELS[st.cap] || st.cap);
-    }
     if (state.turnPhase !== lastPhase && state.turnPhase === "risk") {
       Nexus.Sfx.play("roll");
     }
@@ -1212,102 +1207,30 @@ window.Nexus = window.Nexus || {};
     }
     document.querySelectorAll(".js-board-quality").forEach(function (host) {
       host.innerHTML = "";
-      ["auto", "minimal", "low", "medium", "high", "ultra"].forEach(function (id, i) {
+      var current = localStorage.getItem("nexus-board-quality") || "medium";
+      if (Nexus.Quality && Nexus.Quality.clampTier) {
+        current = Nexus.Quality.clampTier(current);
+      }
+      ["low", "medium", "high"].forEach(function (id, i) {
         var label = Nexus.Quality ? Nexus.Quality.LABELS[id] : id;
         var button = el("button", "btn set-level");
         button.type = "button";
         button.style.setProperty("--lvl", String(i + 1));
         button.setAttribute("data-board-quality", id);
         button.setAttribute("aria-label", label);
-        button.setAttribute("aria-pressed", (localStorage.getItem("nexus-board-quality") || "auto") === id ? "true" : "false");
+        button.setAttribute("aria-pressed", current === id ? "true" : "false");
         var help = {
-          auto: "Misst das Gerät und bleibt unter der Kalibrierungsgrenze.",
-          minimal: "Wenig Verkehr, keine Kulisse, 30 FPS. Für schwache Grafik.",
-          low: "Kleine Stadt, kein Weichzeichnen.",
-          medium: "Alltag. Schatten aus, 60 FPS als Ziel.",
-          high: "Volle Props und Weichzeichnen.",
-          ultra: "Höchste Auflösung, optional Schatten. Kann ruckeln."
+          low: "30 FPS, weniger Verkehr und Kulisse. Für schwache Geräte.",
+          medium: "Alltag: 60 FPS-Ziel, Kenney-Gebäude, ohne Weichzeichnen.",
+          high: "Höhere Auflösung, Antialias, volle Props und Weichzeichnen."
         };
-        button.setAttribute("data-help-title", Nexus.Quality ? Nexus.Quality.LABELS[id] : id);
+        button.setAttribute("data-help-title", label);
         button.setAttribute("data-help", help[id]);
+        if (current === id) {
+          button.classList.add("is-selected");
+        }
         host.appendChild(button);
       });
-      var extra = el("div", "gfx-row");
-      [["30", "30 FPS"], ["60", "60 FPS"]].forEach(function (pair) {
-        var button = el("button", "btn", pair[1]);
-        button.type = "button";
-        button.setAttribute("data-help-title", pair[1]);
-        button.setAttribute("data-help", "Obergrenze für die Bildrate. 30 spart Akku und Wärme.");
-        button.setAttribute("data-gfx-fps", pair[0]);
-        var fpsNow = Nexus.Quality && Nexus.Quality.state ? String(Nexus.Quality.state().fpsTarget) : "60";
-        button.classList.toggle("is-selected", fpsNow === pair[0]);
-        button.addEventListener("click", function () {
-          if (Nexus.Quality) {
-            Nexus.Quality.setFps(Number(pair[0]));
-            window.localStorage.setItem("nexus-gfx-fps", pair[0]);
-            host.parentNode.querySelectorAll("[data-gfx-fps]").forEach(function (node) {
-              node.classList.toggle("is-selected", node.getAttribute("data-gfx-fps") === pair[0]);
-            });
-            if (api && api.refreshGfx) {
-              api.refreshGfx();
-            }
-          }
-        });
-        extra.appendChild(button);
-      });
-      var battery = el("button", "btn", "Akku sparen");
-      battery.type = "button";
-      battery.setAttribute("data-help-title", "Akku sparen");
-      battery.setAttribute("data-help", "Deckt die Stufe bei Niedrig und die Bildrate bei 30.");
-      if (Nexus.Quality && Nexus.Quality.state) {
-        battery.classList.toggle("is-selected", !!Nexus.Quality.state().battery);
-      }
-      battery.addEventListener("click", function () {
-        if (!Nexus.Quality) {
-          return;
-        }
-        var on = !Nexus.Quality.state().battery;
-        Nexus.Quality.setBattery(on);
-        battery.classList.toggle("is-selected", on);
-        if (api && api.refreshGfx) {
-          api.refreshGfx();
-        }
-      });
-      extra.appendChild(battery);
-      host.parentNode.appendChild(extra);
-      var toggles = el("div", "gfx-row");
-      [
-        ["shadows", "Schatten"],
-        ["fog", "Nebel"],
-        ["particles", "Partikel"],
-        ["traffic", "Verkehr"],
-        ["backdrop", "Weichzeichnen"]
-      ].forEach(function (pair) {
-        var button = el("button", "btn", pair[1]);
-        button.type = "button";
-        button.setAttribute("data-help-title", pair[1]);
-        button.setAttribute("data-help", "Ein Klick schaltet aus, nochmal stellt den Stufen-Standard wieder her.");
-        if (Nexus.Quality && Nexus.Quality.state) {
-          button.classList.toggle("is-selected", Nexus.Quality.state().toggles[pair[0]] === false);
-        }
-        button.addEventListener("click", function () {
-          if (!Nexus.Quality) {
-            return;
-          }
-          var current = Nexus.Quality.state().toggles[pair[0]];
-          var next = current === false ? null : false;
-          Nexus.Quality.setToggle(pair[0], next);
-          button.classList.toggle("is-selected", next === false);
-          if (api && api.refreshGfx) {
-            api.refreshGfx();
-          }
-        });
-        toggles.appendChild(button);
-      });
-      host.parentNode.appendChild(toggles);
-      var note = el("p", "gfx-note", "");
-      note.classList.add("js-gfx-note");
-      host.parentNode.appendChild(note);
     });
     document.getElementById("setup-difficulty").addEventListener("click", function (event) {
       var button = event.target.closest("[data-difficulty]");

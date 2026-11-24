@@ -43,10 +43,10 @@ Die Cloud-Umgebung hat kein verlässliches WebGL. Alles in dieser Liste ist am e
 Die Stadt wird während der Rollenansicht nicht aufgebaut. Der Balken „Stadt wird aufgebaut“ erscheint erst danach und darf den Klick auf „Verstanden“ nicht blockieren.
 
 - [ ] Sechs Rollen durchklicken, danach bleibt die Oberfläche bedienbar. Konsole ohne Warnung „Geometrien steigen“.
-- [ ] `?quality=minimal` startet sofort klein, auch wenn Auto zuletzt Hoch gespeichert hat.
-- [ ] `?quality=ultra&fps=30` erzwingt Ultra und 30 Bilder pro Sekunde.
+- [ ] `?quality=low` startet auf Niedrig, auch wenn zuvor Hoch gespeichert war. Legacy `?quality=minimal` mappt auf Niedrig.
+- [ ] `?quality=high` erzwingt Hoch (ohne Schatten).
 - [ ] `?debug=1` zeigt FPS, Stufe und den letzten Governor-Grund. „Perf-Bericht kopieren“ legt JSON in die Zwischenablage. Diese JSON hier einfügen.
-- [ ] Grafik-Menü: Auto, Minimal, Niedrig, Mittel, Hoch, Ultra, 30/60, Akku, Schalter für Schatten, Nebel, Partikel, Verkehr, Weichzeichnen. Hover erklärt die Kosten.
-- [ ] Nach einem harten Abbruch (Tab schließen, während `nexus-session-open` noch gesetzt ist) startet die nächste Sitzung zwei Stufen niedriger und nennt das in einem Toast.
+- [ ] Grafik-Menü: nur Niedrig / Mittel / Hoch. Hover erklärt die Kosten. Keine FPS-/Akku-/Schatten-Toggles.
+- [ ] Nach einem harten Abbruch (Tab schließen, während `nexus-session-open` noch gesetzt ist) startet die nächste Sitzung eine Stufe niedriger und nennt das in einem Toast.
 
 Chrome-Profil, wenn es noch ruckelt: DevTools → Leistung → Aufnahme starten, eine Rolle durchklicken und fünf Sekunden Stadt stehen lassen, Aufnahme stoppen, als `.json` speichern. Zusammen mit dem Perf-Bericht aus `?debug` schicken.

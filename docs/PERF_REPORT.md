@@ -51,43 +51,40 @@ Die alte Handleiste (`#hand-fan`) ist aus dem DOM, aus `render.js` und aus dem K
 
 Quelle: `nexus/js/quality.js`, Tabelle `TABLE`. Auszug:
 
-| | Minimal | Niedrig | Mittel | Hoch | Ultra |
-| --- | --- | --- | --- | --- | --- |
-| Pixel-Cap | 1 | 1 | 1,25 | 1,5 | 2 |
-| Render-Scale | 0,55 | 0,7 | 0,85 | 1 | 1 |
-| Antialias | aus | aus | aus | an | an |
-| Schatten | aus | aus | aus | aus | 1024, jedes 2. Frame |
-| Nebel | aus | an | an | an | an |
-| Wolken / Vögel / Windräder | 0 | 2 / 2 / 2 | 4 / 4 / 4 | 6 / 8 / 5 | 8 / 10 / 6 |
-| Props-Faktor | 0,2 | 0,4 | 0,7 | 1 | 1,15 |
-| Autos / Fußgänger | 4 / 0 | 8 / 3 | 12 / 6 | 16 / 10 | 22 / 14 |
-| Laternen-Glow | aus | aus | an | an | an |
-| Partikel, UI-Motion | aus | aus | an | an | an |
-| Backdrop-Blur | aus | aus | aus | an | an |
-| FPS-Cap | 30 | 30 | 60 | 60 | keine |
-| Render nur bei Bewegung | ja | ja | ja | ja | nein |
-| Scheibe | 8 ms | 8 ms | 10 ms | 12 ms | 12 ms |
+| | Niedrig | Mittel | Hoch |
+| --- | --- | --- | --- |
+| Pixel-Cap | 1 | 1,25 | 1,75 |
+| Render-Scale | 0,65 | 0,85 | 1 |
+| Antialias | aus | aus | an |
+| Schatten | aus | aus | aus |
+| Nebel | an | an | an |
+| Wolken / Vögel / Windräder | 2 / 2 / 2 | 4 / 4 / 4 | 6 / 8 / 5 |
+| Props-Faktor | 0,65 | 0,95 | 1,25 |
+| Autos | 12 | 22 | 36 |
+| Kenney-GLB | aus | an | an |
+| Partikel | aus | an | an |
+| Backdrop-Blur | aus | aus | an |
+| FPS-Cap | 30 | 60 | 60 |
+| Render nur bei Bewegung | ja | ja | ja |
+| Scheibe | 8 ms | 10 ms | 12 ms |
 
-Auto startet konservativ aus Kernen, Speicher, Pixeldichte, Mobilgerät und Spar-Daten. SwiftShader, llvmpipe und ähnliche Namen fallen auf Minimal, sobald die GPU-Sonde läuft. `?quality=` und `?fps=30` gewinnen gegen das Menü.
+Menü: nur die drei Presets. Legacy `auto`/`minimal`/`ultra` mappt auf Mittel/Niedrig/Hoch. Software-Renderer fällt auf Niedrig. `?quality=` gewinnt gegen das Menü.
 
 ## Governor
 
 `pushFrame` in `quality.js`. Ziel 16,7 ms oder 33,4 ms.
 
-- Ein Frame über 100 ms zählt als Spitze und senkt die Stufe nicht.
-- Zehn langsame Frames senken zuerst die Render-Scale in 0,1-Schritten bis 0,55.
-- Achtzehn weitere langsame Frames, frühestens 2,5 s nach dem letzten Stufenwechsel, senken die Stufe um eins.
-- Hoch nur nach 240 ruhigen Frames und 8 s Pause, nie über die Kalibrierungsgrenze, nie wenn die Stufe von Hand gewählt ist.
-- `tools/quality.test.js` prüft stabile Folge, Dauerlast, eine Spitze, Oszillation, Software-Renderer, Absturzwächter, URL und die Obergrenze.
+- Ein Frame über 100 ms zählt als Spitze und senkt die Scale nicht.
+- Zehn langsame Frames senken die Render-Scale in 0,1-Schritten bis 0,55.
+- Nach 240 ruhigen Frames und 8 s Pause steigt die Scale wieder; die Preset-Stufe bleibt fest.
+- `tools/quality.test.js` prüft stabile Folge, Dauerlast (nur Scale), Spitze, Oszillation, Software-Renderer, Absturzwächter und URL-Migration.
 
-Die Kalibrierung beim Start sind etwa 700 ms leere Frames, bevor die Stadt existiert. Das misst den Hauptthread im Leerlauf, nicht die volle Stadt. Die Grenze daraus ist die Decke für späteres Hochregeln.
-
-Absturzwächter: `localStorage` `nexus-session-open` wird beim Laden gesetzt und nach 8 s gelöscht. Steht er beim nächsten Start noch, startet das Spiel zwei Stufen tiefer und zeigt einen Toast.
+Absturzwächter: `localStorage` `nexus-session-open` wird beim Laden gesetzt und nach 8 s gelöscht. Steht er beim nächsten Start noch, startet das Spiel eine Stufe tiefer und zeigt einen Toast.
 
 ## Annahmen
 
 - Leere Framezeiten sind ein brauchbarer erster Anker, kein Ersatz für ein Profil der vollen Stadt.
-- Schatten bleiben unter Ultra aus. Gebackene Lichtpools der Laternen bleiben.
+- Schatten sind abgeschaltet. Gebackene Lichtpools der Laternen bleiben.
 - Instancing gilt für die Baukasten-Körper, nicht für Dächer und nicht für jedes Prop-Sprite.
 - Ein Stufenwechsel im Lauf tauscht die Autozahl und die Auflösung. Die Gebäudezahl zieht nach, wenn die Stadt ohnehin neu entsteht.
 
@@ -103,4 +100,4 @@ Headless Chrome hat in Overhaul 2 kein Bild geliefert. Diese Runde hat die Stadt
 
 ## Nächster Schritt
 
-Einmal `?debug=1` und `?quality=minimal` auf dem Laptop, Rollen durchklicken, den kopierten Perf-Bericht und bei Bedarf ein Chrome-Leistungsprofil schicken. Damit lässt sich die Kalibrierung an echte Framezeiten der vollen Stadt anpassen.
+Einmal `?debug=1` und `?quality=low` auf dem Laptop, Rollen durchklicken, den kopierten Perf-Bericht und bei Bedarf ein Chrome-Leistungsprofil schicken.

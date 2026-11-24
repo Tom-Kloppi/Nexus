@@ -27,10 +27,10 @@ function frames(ms, n) {
   return snap;
 }
 
-Q.boot({ cores: 8, memory: 16, dpr: 1, pixels: 1920 * 1080, renderer: "NVIDIA" }, null, "");
+Q.boot({ cores: 8, memory: 16, dpr: 1, pixels: 1920 * 1080, renderer: "NVIDIA" }, { manual: "high" }, "");
 Q.resetLog();
 var stable = frames(12, 300);
-assert(Q.state().tier === "high" || Q.state().tier === "ultra" || Q.state().tier === "medium", "stable tier drifted: " + Q.state().tier);
+assert(Q.state().tier === "high", "stable tier drifted: " + Q.state().tier);
 assert(stable.scale >= 0.9, "stable scale dropped " + stable.scale);
 
 Q.boot({ cores: 8, memory: 8, dpr: 1, pixels: 1e6, renderer: "NVIDIA" }, null, "");
@@ -38,7 +38,8 @@ Q.setManual("high");
 Q.resetLog();
 frames(40, 40);
 var loaded = Q.state();
-assert(loaded.scale < 1 || loaded.tier !== "high", "sustained load did not ease " + loaded.tier + " " + loaded.scale);
+assert(loaded.scale < 1, "sustained load did not ease scale " + loaded.scale);
+assert(loaded.tier === "high", "preset should stay high under load, got " + loaded.tier);
 
 Q.setManual("high");
 Q.resetLog();
@@ -59,26 +60,37 @@ for (i = 0; i < 80; i++) {
     prev = Q.state().tier;
   }
 }
-assert(flips <= 1, "oscillation flipped tier " + flips + " times");
+assert(flips === 0, "oscillation flipped tier " + flips + " times");
 
 Q.boot({ software: true, renderer: "Google SwiftShader" }, null, "");
-assert(Q.state().tier === "minimal", "software renderer not minimal: " + Q.state().tier);
+assert(Q.state().tier === "low", "software renderer not low: " + Q.state().tier);
 
-Q.boot({ cores: 8, memory: 16, dpr: 1, pixels: 1e6, renderer: "NVIDIA" }, { crashed: true, tier: "ultra", cap: "ultra", fingerprint: Q.fingerprint({ cores: 8, memory: 16, dpr: 1, w: 0, h: 0, renderer: "NVIDIA" }) }, "");
+Q.boot(
+  { cores: 8, memory: 16, dpr: 1, pixels: 1e6, renderer: "NVIDIA" },
+  {
+    crashed: true,
+    tier: "high",
+    cap: "high",
+    manual: "high",
+    fingerprint: Q.fingerprint({ cores: 8, memory: 16, dpr: 1, w: 0, h: 0, renderer: "NVIDIA" })
+  },
+  ""
+);
 assert(Q.ORDER.indexOf(Q.state().tier) <= Q.ORDER.indexOf("medium"), "crash guard stayed high: " + Q.state().tier);
 
-Q.boot({ cores: 4, memory: 8, dpr: 1, pixels: 1e6 }, null, "?quality=minimal&fps=30");
-assert(Q.state().tier === "minimal", "url tier ignored");
-assert(Q.snapshot().fpsCap === 30, "url fps ignored");
+Q.boot({ cores: 4, memory: 8, dpr: 1, pixels: 1e6 }, null, "?quality=minimal");
+assert(Q.state().tier === "low", "url minimal not mapped to low: " + Q.state().tier);
+assert(Q.snapshot().fpsCap === 30, "low preset fpsCap wrong");
+assert(Q.snapshot().shadows === false, "shadows should stay off");
 
-var cal = Q.calibrate([40, 42, 41, 39, 55, 38], { cores: 8, memory: 8, dpr: 1, pixels: 1e6 });
-assert(Q.ORDER.indexOf(cal.tier) < Q.ORDER.indexOf(Q.deviceTier({ cores: 8, memory: 8, dpr: 1, pixels: 1e6 })), "calibration did not lower a slow sample");
+assert(Q.clampTier("ultra") === "high", "ultra legacy map");
+assert(Q.clampTier("auto") === "medium", "auto legacy map");
 
 Q.setManual("low");
 Q.setCap("low");
 Q.resetLog();
 frames(8, 400);
-assert(Q.ORDER.indexOf(Q.state().tier) <= Q.ORDER.indexOf("low"), "rose above cap " + Q.state().tier);
+assert(Q.state().tier === "low", "manual low drifted to " + Q.state().tier);
 
 if (failed) {
   console.error(failed + " failed");

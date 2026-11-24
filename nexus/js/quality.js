@@ -1,52 +1,15 @@
 window.Nexus = window.Nexus || {};
 
-/* Qualitätsstufen, Kalibrierung, Governor. Kein DOM, kein Three. */
+/* Qualitätsstufen (Niedrig / Mittel / Hoch) und Scale-Governor. Kein DOM, kein Three. */
 (function (Nexus) {
-  var ORDER = ["minimal", "low", "medium", "high", "ultra"];
+  var ORDER = ["low", "medium", "high"];
 
   var TABLE = {
-    minimal: {
-      id: "minimal",
-      pixelRatioCap: 1,
-      renderScale: 0.55,
-      antialias: false,
-      shadows: false,
-      shadowMap: 0,
-      shadowEvery: 0,
-      fog: false,
-      clouds: 0,
-      birds: 0,
-      turbines: 0,
-      villages: 0,
-      horizon: 0,
-      props: 0.45,
-      cars: 8,
-      peds: 0,
-      buses: 2,
-      lamps: 8,
-      lights: 2,
-      trees: 10,
-      bins: 4,
-      benches: 2,
-      glow: false,
-      particles: false,
-      uiMotion: false,
-      backdrop: false,
-      lod: true,
-      fpsCap: 30,
-      demand: true,
-      chunkMs: 8,
-      decoKeep: 0.2,
-      vehicleStride: 2
-    },
     low: {
       id: "low",
       pixelRatioCap: 1,
-      renderScale: 0.7,
+      renderScale: 0.65,
       antialias: false,
-      shadows: false,
-      shadowMap: 0,
-      shadowEvery: 0,
       fog: true,
       clouds: 2,
       birds: 2,
@@ -54,7 +17,7 @@ window.Nexus = window.Nexus || {};
       villages: 1,
       horizon: 0.35,
       props: 0.65,
-      cars: 14,
+      cars: 12,
       peds: 3,
       buses: 4,
       lamps: 12,
@@ -78,9 +41,6 @@ window.Nexus = window.Nexus || {};
       pixelRatioCap: 1.25,
       renderScale: 0.85,
       antialias: false,
-      shadows: false,
-      shadowMap: 0,
-      shadowEvery: 0,
       fog: true,
       clouds: 4,
       birds: 4,
@@ -109,12 +69,9 @@ window.Nexus = window.Nexus || {};
     },
     high: {
       id: "high",
-      pixelRatioCap: 1.5,
+      pixelRatioCap: 1.75,
       renderScale: 1,
       antialias: true,
-      shadows: false,
-      shadowMap: 512,
-      shadowEvery: 4,
       fog: true,
       clouds: 6,
       birds: 8,
@@ -122,14 +79,14 @@ window.Nexus = window.Nexus || {};
       villages: 4,
       horizon: 1,
       props: 1.25,
-      cars: 32,
-      peds: 10,
+      cars: 36,
+      peds: 12,
       buses: 12,
-      lamps: 24,
-      lights: 12,
-      trees: 36,
-      bins: 16,
-      benches: 6,
+      lamps: 28,
+      lights: 14,
+      trees: 40,
+      bins: 18,
+      benches: 7,
       glow: true,
       particles: true,
       uiMotion: true,
@@ -140,74 +97,45 @@ window.Nexus = window.Nexus || {};
       chunkMs: 12,
       decoKeep: 1,
       vehicleStride: 1
-    },
-    ultra: {
-      id: "ultra",
-      pixelRatioCap: 2,
-      renderScale: 1,
-      antialias: true,
-      shadows: true,
-      shadowMap: 1024,
-      shadowEvery: 2,
-      fog: true,
-      clouds: 8,
-      birds: 10,
-      turbines: 6,
-      villages: 4,
-      horizon: 1,
-      props: 1.4,
-      cars: 40,
-      peds: 14,
-      buses: 12,
-      lamps: 32,
-      lights: 16,
-      trees: 48,
-      bins: 20,
-      benches: 8,
-      glow: true,
-      particles: true,
-      uiMotion: true,
-      backdrop: true,
-      lod: false,
-      fpsCap: 0,
-      demand: false,
-      chunkMs: 12,
-      decoKeep: 1,
-      vehicleStride: 1
     }
   };
 
   var LABELS = {
-    auto: "Auto",
-    minimal: "Minimal",
     low: "Niedrig",
     medium: "Mittel",
-    high: "Hoch",
-    ultra: "Ultra"
+    high: "Hoch"
+  };
+
+  var LEGACY = {
+    auto: "medium",
+    minimal: "low",
+    ultra: "high",
+    quality: "high",
+    balance: "medium",
+    performance: "low"
   };
 
   var manual = null;
   var tier = "medium";
   var cap = "medium";
   var scale = 1;
-  var fpsTarget = 60;
-  var battery = false;
-  var toggles = { shadows: null, fog: null, particles: null, traffic: null, backdrop: null };
   var log = [];
   var bad = 0;
   var good = 0;
   var calm = 0;
   var lastDropAt = 0;
-  var samples = [];
   var listenerCount = 0;
   var timerCount = 0;
 
   function indexOf(id) {
     var i = ORDER.indexOf(id);
-    return i < 0 ? 2 : i;
+    return i < 0 ? 1 : i;
   }
 
   function clampTier(id) {
+    if (LEGACY[id]) {
+      id = LEGACY[id];
+    }
     return ORDER.indexOf(id) < 0 ? "medium" : id;
   }
 
@@ -216,14 +144,14 @@ window.Nexus = window.Nexus || {};
   }
 
   function raise(id, steps, ceiling) {
-    var top = indexOf(ceiling || "ultra");
+    var top = indexOf(ceiling || "high");
     return ORDER[Math.min(top, indexOf(id) + (steps || 1))];
   }
 
   function deviceTier(info) {
     info = info || {};
     if (info.software) {
-      return "minimal";
+      return "low";
     }
     if (info.saveData) {
       return "low";
@@ -255,19 +183,13 @@ window.Nexus = window.Nexus || {};
     if (info.battery) {
       score -= 1;
     }
-    if (score >= 4) {
-      return "ultra";
-    }
-    if (score >= 2) {
+    if (score >= 3) {
       return "high";
     }
     if (score >= 1) {
       return "medium";
     }
-    if (score >= 0) {
-      return "low";
-    }
-    return "minimal";
+    return "low";
   }
 
   function percentile(sorted, p) {
@@ -317,12 +239,9 @@ window.Nexus = window.Nexus || {};
 
   function applyTier(next, reason) {
     next = clampTier(next);
-    var ceiling = cap || "ultra";
+    var ceiling = cap || "high";
     if (indexOf(next) > indexOf(ceiling)) {
       next = ceiling;
-    }
-    if (battery && indexOf(next) > indexOf("low")) {
-      next = "low";
     }
     if (next !== tier) {
       tier = next;
@@ -334,45 +253,7 @@ window.Nexus = window.Nexus || {};
   function snapshot() {
     var base = Object.assign({}, TABLE[tier] || TABLE.medium);
     base.renderScale = Math.max(0.45, Math.min(1, base.renderScale * scale));
-    if (fpsTarget === 30) {
-      base.fpsCap = 30;
-    } else if (fpsTarget === 60 && base.fpsCap === 0) {
-      base.fpsCap = 0;
-    } else if (fpsTarget === 60) {
-      base.fpsCap = Math.min(base.fpsCap || 60, 60);
-    }
-    if (toggles.shadows === false) {
-      base.shadows = false;
-    }
-    if (toggles.shadows === true && tier === "ultra") {
-      base.shadows = true;
-    }
-    if (toggles.fog === false) {
-      base.fog = false;
-    }
-    if (toggles.fog === true) {
-      base.fog = true;
-    }
-    if (toggles.particles === false) {
-      base.particles = false;
-      base.glow = false;
-    }
-    if (toggles.traffic === false) {
-      base.cars = 0;
-      base.peds = 0;
-      base.buses = 0;
-    }
-    if (toggles.backdrop === false) {
-      base.backdrop = false;
-    }
-    if (toggles.backdrop === true && indexOf(tier) >= indexOf("high")) {
-      base.backdrop = true;
-    }
-    if (battery) {
-      base.fpsCap = 30;
-      base.backdrop = false;
-      base.particles = false;
-    }
+    base.shadows = false;
     base.tier = tier;
     base.manual = manual;
     base.cap = cap;
@@ -382,7 +263,8 @@ window.Nexus = window.Nexus || {};
 
   function pushFrame(frameMs, now) {
     now = now || 0;
-    var target = fpsTarget === 30 || battery ? 33.4 : 16.7;
+    var base = TABLE[tier] || TABLE.medium;
+    var target = base.fpsCap === 30 ? 33.4 : 16.7;
     var spike = frameMs > 100;
     if (spike) {
       bad = Math.max(0, bad - 2);
@@ -401,25 +283,18 @@ window.Nexus = window.Nexus || {};
       bad = Math.max(0, bad - 1);
       good = 0;
     }
+    /* Preset bleibt fest — nur Render-Scale drosseln. */
     if (bad >= 10 && scale > 0.55) {
       scale = Math.max(0.55, Math.round((scale - 0.1) * 100) / 100);
       bad = 0;
-      note("scale-down", String(scale));
-    } else if (bad >= 18 && now - lastDropAt > 2500 && indexOf(tier) > 0) {
-      applyTier(drop(tier, 1), "tier-down");
       lastDropAt = now;
-      bad = 0;
-      good = 0;
+      note("scale-down", String(scale));
     }
     if (calm >= 240 && now - lastDropAt > 8000) {
       if (scale < 1) {
         scale = Math.min(1, Math.round((scale + 0.1) * 100) / 100);
         calm = 0;
         note("scale-up", String(scale));
-      } else if (manual === null && indexOf(tier) < indexOf(cap)) {
-        applyTier(raise(tier, 1, cap), "tier-up");
-        calm = 0;
-        lastDropAt = now;
       } else {
         calm = 200;
       }
@@ -430,10 +305,10 @@ window.Nexus = window.Nexus || {};
   function parseUrl(search) {
     var text = String(search || "");
     var quality = /(?:\?|&)quality=([a-z]+)/.exec(text);
-    var fps = /(?:\?|&)fps=(30|60)/.exec(text);
+    var raw = quality ? quality[1] : null;
     return {
-      tier: quality && (quality[1] === "auto" || ORDER.indexOf(quality[1]) >= 0) ? quality[1] : null,
-      fps: fps ? Number(fps[1]) : null
+      tier: raw ? clampTier(raw) : null,
+      raw: raw
     };
   }
 
@@ -445,37 +320,29 @@ window.Nexus = window.Nexus || {};
   function boot(info, stored, search) {
     var url = parseUrl(search);
     var crashed = stored && stored.crashed;
-    var remembered = stored && stored.tier;
+    var remembered = stored && stored.tier ? clampTier(stored.tier) : null;
     var sameDevice = stored && stored.fingerprint === fingerprint(info);
-    fpsTarget = url.fps || (stored && stored.fps) || 60;
-    battery = !!(stored && stored.battery);
-    toggles = { shadows: null, fog: null, particles: null, traffic: null, backdrop: null };
-    if (stored && stored.toggles) {
-      toggles = Object.assign(toggles, stored.toggles);
-    }
-    manual = stored && stored.manual ? stored.manual : null;
-    if (url.tier === "auto") {
-      manual = null;
-    }
-    if (info && info.software && !(url.tier && url.tier !== "auto")) {
-      manual = null;
-      tier = "minimal";
-      cap = "minimal";
+    manual = stored && stored.manual ? clampTier(stored.manual) : null;
+
+    if (info && info.software && !url.tier) {
+      manual = "low";
+      tier = "low";
+      cap = "low";
       scale = 1;
-      note("software", "minimal");
+      note("software", "low");
       return snapshot();
     }
-    if (url.tier && url.tier !== "auto") {
+    if (url.tier) {
       manual = url.tier;
       tier = url.tier;
-      cap = "ultra";
+      cap = url.tier;
       note("url", url.tier);
     } else if (manual) {
       tier = clampTier(manual);
-      cap = "ultra";
-    } else if (sameDevice && remembered && ORDER.indexOf(remembered) >= 0) {
+      cap = tier;
+    } else if (sameDevice && remembered) {
       tier = remembered;
-      cap = (stored && stored.cap) || remembered;
+      cap = clampTier((stored && stored.cap) || remembered);
       note("memory", tier);
     } else {
       var guess = deviceTier(info);
@@ -484,29 +351,20 @@ window.Nexus = window.Nexus || {};
       note("device", guess);
     }
     if (crashed && !url.tier) {
-      tier = drop(tier, 2);
-      cap = tier;
-      manual = null;
-      note("crash-guard", tier);
-    }
-    if (battery) {
       tier = drop(tier, 1);
-      if (indexOf(tier) > indexOf("low")) {
-        tier = "low";
+      cap = tier;
+      if (manual) {
+        manual = tier;
       }
+      note("crash-guard", tier);
     }
     scale = 1;
     return snapshot();
   }
 
   function setManual(id) {
-    if (id === "auto") {
-      manual = null;
-      note("auto", tier);
-      return snapshot();
-    }
     manual = clampTier(id);
-    cap = "ultra";
+    cap = manual;
     applyTier(manual, "manual");
     tier = manual;
     return snapshot();
@@ -520,30 +378,6 @@ window.Nexus = window.Nexus || {};
     return snapshot();
   }
 
-  function setFps(n) {
-    fpsTarget = Number(n) === 30 ? 30 : 60;
-    note("fps", String(fpsTarget));
-    return snapshot();
-  }
-
-  function setBattery(on) {
-    battery = !!on;
-    if (battery) {
-      applyTier(indexOf(tier) > indexOf("low") ? "low" : tier, "battery");
-    }
-    note("battery", battery ? "on" : "off");
-    return snapshot();
-  }
-
-  function setToggle(key, value) {
-    if (!Object.prototype.hasOwnProperty.call(toggles, key)) {
-      return snapshot();
-    }
-    toggles[key] = value;
-    note("toggle", key);
-    return snapshot();
-  }
-
   function acceptCalibration(result) {
     if (!result) {
       return snapshot();
@@ -551,9 +385,9 @@ window.Nexus = window.Nexus || {};
     if (manual) {
       return snapshot();
     }
-    cap = result.cap || result.tier;
+    cap = clampTier(result.cap || result.tier);
     applyTier(result.tier, "calibrate");
-    tier = ORDER.indexOf(result.tier) > indexOf(cap) ? cap : result.tier;
+    tier = ORDER.indexOf(result.tier) > indexOf(cap) ? cap : clampTier(result.tier);
     return snapshot();
   }
 
@@ -561,9 +395,11 @@ window.Nexus = window.Nexus || {};
     ORDER: ORDER,
     LABELS: LABELS,
     TABLE: TABLE,
+    LEGACY: LEGACY,
     params: function (id) {
       return Object.assign({}, TABLE[clampTier(id)]);
     },
+    clampTier: clampTier,
     deviceTier: deviceTier,
     summarize: summarize,
     calibrate: calibrate,
@@ -576,9 +412,6 @@ window.Nexus = window.Nexus || {};
     boot: boot,
     setManual: setManual,
     setCap: setCap,
-    setFps: setFps,
-    setBattery: setBattery,
-    setToggle: setToggle,
     acceptCalibration: acceptCalibration,
     log: function () {
       return log.slice();
@@ -602,7 +435,7 @@ window.Nexus = window.Nexus || {};
       return timerCount;
     },
     state: function () {
-      return { tier: tier, cap: cap, manual: manual, scale: scale, fpsTarget: fpsTarget, battery: battery, toggles: Object.assign({}, toggles) };
+      return { tier: tier, cap: cap, manual: manual, scale: scale };
     }
   };
 })(window.Nexus);

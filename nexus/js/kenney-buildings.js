@@ -234,7 +234,7 @@ window.Nexus = window.Nexus || {};
   var listeners = [];
 
   function qualityAllowsKenney(tier) {
-    return tier === "medium" || tier === "high" || tier === "ultra";
+    return tier === "medium" || tier === "high";
   }
 
   function visualLevel(level) {
@@ -495,16 +495,8 @@ window.Nexus = window.Nexus || {};
     return clone;
   }
 
-  function applyShadows(root, on) {
-    if (!on) {
-      return;
-    }
-    root.traverse(function (obj) {
-      if (obj.isMesh) {
-        obj.castShadow = true;
-        obj.receiveShadow = true;
-      }
-    });
+  function applyShadows() {
+    /* Schatten sind abgeschaltet — Absicht der 3 Grafik-Presets. */
   }
 
   function placeEntry(group, entry, tileH, shadows, facingYaw) {

@@ -4,6 +4,12 @@ Neueste Welle zuerst. Das ist die **Geschichte** des spielbaren Stands — nicht
 
 Neue spielbare Welle: hier einen Block anlegen (Datum, Branch, Warum, Regeln, Grafik). DESIGN nur ändern, wenn sich der Vertrag ändert.
 
+## Grafik-Presets Niedrig / Mittel / Hoch (2026-11-24)
+
+**Warum.** Das Grafik-Menü mit Auto/Minimal…Ultra plus Toggles war zu breit; Schatten brachten kaum Nutzen.
+
+**Grafik.** Drei feste Presets in den Einstellungen. Balance (FPS, Verkehr, Props, Kenney ab Mittel, Weichzeichnen nur Hoch) steckt in `quality.js`. Schatten entfernt. Governor drosselt nur noch die Render-Scale, nicht die Stufe.
+
 ## Stadtakte (2026-11-21)
 
 **Warum.** Innovationskarten waren flache Boosts; Hand und Markt brauchten Setting (Politik/Stadt) statt zweitem Geldbeutel.
